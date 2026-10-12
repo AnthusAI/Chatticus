@@ -1,0 +1,10 @@
+{
+	"statements": [
+		{
+			"Sid": "SnapshotObjects",
+			"Effect": "Allow",
+			"Action": ["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"],
+			"Resource": ["{{snapshotBucketArn}}/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/*"]
+		}
+	]
+}

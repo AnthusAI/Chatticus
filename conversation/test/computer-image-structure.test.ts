@@ -46,7 +46,7 @@ describe("computer image structure", () => {
 			for (const input of Object.keys(details.inputs)) {
 				const relative = input;
 				expect(copied.some((prefix) => relative.startsWith(prefix)), `${output} bundles ${relative}`).toBe(true);
-				expect(relative, `${output} bundles the starter`).not.toMatch(/host-starter|customer-stack|customer-template|owner-start-driver/);
+				expect(relative, `${output} bundles the starter`).not.toMatch(/host-starter|customer-stack|customer-template|owner-start-driver|owner-credential-broker|client-lambda/);
 			}
 		}
 	});

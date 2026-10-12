@@ -56,13 +56,42 @@ export function ownerSessionTags(scope: OwnerSessionScope): SessionTag[] {
 		computer: scope.computerId,
 		turn: scope.turnId,
 	};
-	return OWNER_SESSION_TAG_KEYS.map((key) => {
-		const value = values[key];
-		if (!SAFE_TAG_VALUE.test(value) || value.length > TAG_VALUE_MAXIMUM_CHARACTERS) {
-			throw new OwnerSessionTagError(
-				`The ${key} id ${JSON.stringify(value)} cannot be a session tag value (letters, digits, "_", ".", ":" and "-", at most ${TAG_VALUE_MAXIMUM_CHARACTERS} characters), so no owner credentials were minted.`,
-			);
-		}
-		return { Key: key, Value: value };
-	});
+	return OWNER_SESSION_TAG_KEYS.map((key) => safeTag(key, values[key]));
+}
+
+function safeTag(key: string, value: string): SessionTag {
+	if (!SAFE_TAG_VALUE.test(value) || value.length > TAG_VALUE_MAXIMUM_CHARACTERS) {
+		throw new OwnerSessionTagError(
+			`The ${key} id ${JSON.stringify(value)} cannot be a session tag value (letters, digits, "_", ".", ":" and "-", at most ${TAG_VALUE_MAXIMUM_CHARACTERS} characters), so no owner credentials were minted.`,
+		);
+	}
+	return { Key: key, Value: value };
+}
+
+/** The ids a computer supervisor's snapshot credentials are bound to: the organization and its one computer, nothing finer. */
+export type SupervisorSessionScope = {
+	readonly tenantId: string;
+	readonly computerId: string;
+};
+
+/**
+ * The session tag keys of the supervisor role, in the order they are sent. The role's static policy reads both as
+ * `${aws:PrincipalTag/<key>}` in its snapshot prefix; its trust policy refuses a session that lacks either or carries another key.
+ */
+export const SUPERVISOR_SESSION_TAG_KEYS = ["tenant", "computer"] as const;
+
+/**
+ * The session tags that confine the supervisor's credentials to the snapshot prefix of one computer of one organization.
+ * The same value rules as {@link ownerSessionTags} apply; nothing is dropped or rewritten.
+ *
+ * Phase 2a: the broker builds these for `purpose: supervisor`, and the starter calls this before it starts a task so an unsafe
+ * id stops the start early.
+ *
+ * @param scope The organization and the computer.
+ * @returns The two tags, in key order.
+ * @throws OwnerSessionTagError When an id cannot be a tag value.
+ */
+export function supervisorSessionTags(scope: SupervisorSessionScope): SessionTag[] {
+	const values: Record<(typeof SUPERVISOR_SESSION_TAG_KEYS)[number], string> = { tenant: scope.tenantId, computer: scope.computerId };
+	return SUPERVISOR_SESSION_TAG_KEYS.map((key) => safeTag(key, values[key]));
 }

@@ -14,6 +14,7 @@
  * reader of ECS task descriptions to find.
  */
 
+import { OWNER_CREDENTIAL_LIFETIME_SECONDS } from "@chatticus/host-protocol/supervisor";
 import { ownerSessionTags, type SessionTag } from "../gateway/session-tags.ts";
 import { mintSessionToken, type SessionTokenAudience } from "../gateway/session-token.ts";
 import { consoleLogEmitter, errorNameOf } from "../observability/log-line.ts";
@@ -23,9 +24,6 @@ import type { Turn } from "../domain/turns.ts";
 import type { EcsPort, ScopedAssumeRolePort } from "./aws-ports.ts";
 import { runFargateTask, type DeploymentEcsConfig, type StarterEnvironment } from "./host-starter.ts";
 import { OWNER_START_GENERATION_VARIABLE } from "./owner-environment.ts";
-
-/** How long the gateway token and the scoped credentials of one owner live, in seconds. */
-export const OWNER_CREDENTIAL_LIFETIME_SECONDS = 3600;
 
 /** Where the owner container finds its control plane and stores, and how the starter reaches ECS and STS. */
 export type OwnerStartConfig = {
