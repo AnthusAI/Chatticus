@@ -21,8 +21,24 @@ export class CountingSnapshotStore {
 		this.bucket = inner.bucket;
 	}
 
-	put(snapshotUri: string, pack: Buffer, manifest: SnapshotManifest): void {
-		return this.inner.put(snapshotUri, pack, manifest);
+	putPack(snapshotUri: string, chunks: AsyncIterable<Buffer>): Promise<void> {
+		return this.inner.putPack(snapshotUri, chunks);
+	}
+
+	putIndex(snapshotUri: string, packChecksum: string, serializedIndex: Buffer): void {
+		return this.inner.putIndex(snapshotUri, packChecksum, serializedIndex);
+	}
+
+	putManifest(snapshotUri: string, manifest: SnapshotManifest): void {
+		return this.inner.putManifest(snapshotUri, manifest);
+	}
+
+	getIndexBytes(snapshotUri: string, packChecksum: string): Buffer {
+		return this.inner.getIndexBytes(snapshotUri, packChecksum);
+	}
+
+	getPackRange(snapshotUri: string, offset: number, length: number): Buffer {
+		return this.inner.getPackRange(snapshotUri, offset, length);
 	}
 
 	async getPack(snapshotUri: string): Promise<Buffer> {

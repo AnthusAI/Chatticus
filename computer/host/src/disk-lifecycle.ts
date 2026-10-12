@@ -2,7 +2,10 @@ import { consoleLogEmitter, errorNameOf, type LogEmitter } from "../../../conver
 import { FilesystemSnapshotStore, type SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { S3SnapshotStore } from "../../../conversation/src/snapshot/s3.ts";
 import { ComputerHostDisk } from "../../../conversation/src/snapshot/host.ts";
-import { packChecksum, packLiveDisk } from "../../../conversation/src/snapshot/pack.ts";
+import { liveDiskDiffersFromIndex } from "../../../conversation/src/snapshot/change-detection.ts";
+import type { SnapshotIndex } from "../../../conversation/src/snapshot/index-format.ts";
+import { parseIndex } from "../../../conversation/src/snapshot/index-format.ts";
+import { packLiveDiskWithIndex } from "../../../conversation/src/snapshot/pack.ts";
 import { snapshotUri } from "../../../conversation/src/snapshot/uri.ts";
 import { liveRootFromEnvironment } from "./live-root.ts";
 import type { HostProtocolClient } from "./protocol-client.ts";
@@ -54,25 +57,46 @@ function storeOf(options: HostDiskOptions): SnapshotObjectStore | null {
 }
 
 /**
- * Return the checksum of the current host live-disk pack.
+ * Return the checksum of the current host live-disk pack. The whole pack is built in memory, so this is for tests and small
+ * tools; the publish path streams.
  *
  * @param liveRoot The host live-disk root.
  */
 export async function liveDiskPackChecksum(liveRoot: string): Promise<string> {
-	return packChecksum(await packLiveDisk(liveRoot));
+	return (await packLiveDiskWithIndex(liveRoot)).checksum;
 }
 
 /**
  * Return True when live host bytes differ from the last published pack.
  *
  * @param liveRoot The host live-disk root.
- * @param publishedChecksum The checksum the computer last published, or null when nothing was published.
+ * @param publishedIndex The index of the last published pack, or null when nothing indexed was published.
  */
-export async function hostDiskNeedsPublish(liveRoot: string, publishedChecksum: string | null): Promise<boolean> {
-	if (publishedChecksum === null) {
+export async function hostDiskNeedsPublish(liveRoot: string, publishedIndex: SnapshotIndex | null): Promise<boolean> {
+	if (publishedIndex === null) {
 		return true;
 	}
-	return (await liveDiskPackChecksum(liveRoot)) !== publishedChecksum;
+	return liveDiskDiffersFromIndex(liveRoot, publishedIndex);
+}
+
+async function publishedIndexOf(
+	store: SnapshotObjectStore,
+	tenantId: string,
+	computer: { computer_id: string; snapshot_checksum?: string | undefined },
+): Promise<SnapshotIndex | null> {
+	if (computer.snapshot_checksum === undefined) {
+		return null;
+	}
+	try {
+		const uri = snapshotUri(tenantId, computer.computer_id, { bucket: store.bucket });
+		const manifest = await Promise.resolve(store.getManifest(uri));
+		if (manifest.index_checksum === undefined) {
+			return null;
+		}
+		return parseIndex(await Promise.resolve(store.getIndexBytes(uri, manifest.checksum)));
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -135,14 +159,14 @@ export async function publishBeforeExit(plane: HostDiskPlane, options: HostDiskO
 	}
 	const computer = await plane.getComputer();
 	const root = options.liveRoot ?? liveRootFromEnvironment();
-	if (!(await hostDiskNeedsPublish(root, computer.snapshot_checksum ?? null))) {
+	if (!(await hostDiskNeedsPublish(root, await publishedIndexOf(resolvedStore, options.tenantId, computer)))) {
 		log("snapshot_skipped", { reason: "unchanged", generation: computer.snapshot_generation });
 		return false;
 	}
 	const disk = new ComputerHostDisk(root, resolvedStore);
 	let manifest;
 	try {
-		manifest = await disk.publish({ tenant_id: options.tenantId, computer_id: computer.computer_id, worker_id: options.workerId });
+		manifest = await disk.publish({ tenant_id: options.tenantId, computer_id: computer.computer_id, worker_id: options.workerId, log });
 	} catch (error) {
 		if (isNoSuchBucketError(error)) {
 			console.warn(

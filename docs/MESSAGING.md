@@ -315,6 +315,33 @@ would wait a second for; buffer what you are rendering live.
 | `POST /turns/{id}/chunks` | Worker appends coalesced output |
 | `POST /approvals/{id}` | Human decides a blocked action |
 
+### Computer files (read-only, from the published snapshot)
+
+Under `/orgs/{tenant_id}/computer/files`, user-authenticated and checked like the
+other organization routes: an enabled member of that organization, no other tenant.
+The Front Door reads the computer's published snapshot (the manifest, the index it
+names, and one ranged read of a file's gzip member) and writes nothing. Every
+response carries `X-Content-Type-Options: nosniff`. Errors are
+`{ "error": code, "message": text }`. Paths are API paths that must normalise under
+`/workspace` (at most 1024 characters, no NUL, no `..`); `/workspace/src/a.c` is the
+index entry `workspace/src/a.c`.
+
+| Request | Answer |
+| --- | --- |
+| `GET .../computer/files?path=/workspace[/dir]` | `200 { source: "snapshot", as_of, path, truncated, entries: [{ name, path, kind, size, mode, sha256, link_target }] }`. `as_of` is the manifest's `published_at`. Directories first, then by name, at most 2000 entries (`truncated: true` beyond). `kind` is `file`, `directory` or `symlink`; `size` and `sha256` are set for files only, `link_target` for symlinks only, `mode` is octal permission bits like `"644"` |
+| `GET .../computer/files/stat?path=` | `200 { source, as_of, entry }`; a symlink is shown as itself |
+| `GET .../computer/files/content?path=&offset=0&length=262144` | `200 { source, as_of, path, size, sha256, encoding: "utf8"\|"base64", binary, offset, length, content, truncated, masked }` with `ETag: "<sha256>"`. `sha256` is of the whole file; `length` is the bytes returned (a text read never ends mid-character, so continue from `offset + length`). `length` over 262144 is `413 range_too_large`. Binary (a NUL byte or invalid UTF-8 in the first 8 KiB) is base64. A secret-looking file (`.env`, `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `credentials`, `.netrc`, `.npmrc`, `*.p12`, `*.pfx`, anything under `.ssh/` or `.aws/`) is `masked: true` with `content: ""`; it is listed normally |
+
+Errors: `400 invalid_path` / `invalid_range`; `404 no_snapshot` (the computer has never
+published), `404 not_found`; `409 snapshot_not_indexed` (a snapshot made before
+indexes existed); `413 range_too_large`; `422 not_a_file` (content of a directory),
+`422 not_a_directory`, `422 too_many_symlinks`; `500 corrupt_snapshot` (the stored
+bytes do not match the indexed SHA-256; no content is returned and an error line
+`snapshot_member_corrupt` is logged); `503 snapshot_store_unavailable` (no snapshot
+bucket configured). A symlink is followed on a content read only inside the index,
+at most 8 hops, only to targets under `workspace/`. Authentication refusals keep
+the shape of the other organization routes (`403` with `detail`).
+
 ## Decided: worker bearer credentials
 
 Workers register at `POST /orgs/{tenant_id}/workers/register` and receive a

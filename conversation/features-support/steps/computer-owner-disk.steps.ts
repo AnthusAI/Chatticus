@@ -143,12 +143,16 @@ When("the owner {string} runs a turn while the snapshot downloads fail", async f
 	const inner = boundStoreOf(this);
 	const failing: SnapshotObjectStore = {
 		bucket: inner.bucket,
-		put: (...parts) => inner.put(...parts),
-		getManifest: (...parts) => inner.getManifest(...parts),
+		putPack: (uri, chunks) => inner.putPack(uri, chunks),
+		putIndex: (uri, checksum, bytes) => inner.putIndex(uri, checksum, bytes),
+		putManifest: (uri, manifest) => inner.putManifest(uri, manifest),
+		getManifest: (uri) => inner.getManifest(uri),
+		getIndexBytes: (uri, checksum) => inner.getIndexBytes(uri, checksum),
+		getPackRange: (uri, offset, length) => inner.getPackRange(uri, offset, length),
 		getPack: async () => {
 			throw new Error("the download failed");
 		},
-	} as SnapshotObjectStore;
+	};
 	await runOwnerOnDisk(
 		this,
 		ownerId,

@@ -43,6 +43,8 @@ import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { registerWorkerHandler } from "./routes/workers.ts";
 import { getComputerHandler, resumeTurnHandler } from "./routes/computers.ts";
+import { listComputerFilesHandler, readComputerFileContentHandler, statComputerFileHandler } from "./routes/computer-files.ts";
+import type { SnapshotFileService } from "../snapshot/files.ts";
 import {
 	hostActionResultHandler,
 	hostClaimActionHandler,
@@ -98,6 +100,8 @@ export interface AppDeps {
 	policy: PolicyStore;
 	/** The computer handoff: actions, start jobs and the spend pause, behind the resume and host action routes. */
 	computer: ComputerHandoffDependencies;
+	/** Reads the published computer snapshot behind the read-only file routes; absent or null answers those routes with 503. */
+	snapshotFiles?: SnapshotFileService | null;
 	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
 	budgetRollups: BudgetRollupReader;
 	/** The invoke keys CloudFront may present, read on every request from a source that caches; null turns the gate off. */
@@ -366,6 +370,17 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/turns/:turn_id/resume", audience: "user" }, (c) =>
 		resumeTurnHandler(c, computerRoutes),
+	);
+
+	const computerFileRoutes = { ...userRoutes, files: deps.snapshotFiles ?? null };
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files", audience: "user" }, (c) =>
+		listComputerFilesHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/stat", audience: "user" }, (c) =>
+		statComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/content", audience: "user" }, (c) =>
+		readComputerFileContentHandler(c, computerFileRoutes),
 	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };

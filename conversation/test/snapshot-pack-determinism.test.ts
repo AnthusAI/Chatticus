@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { hostDiskNeedsPublish, liveDiskPackChecksum } from "../../computer/host/src/disk-lifecycle.ts";
-import { packChecksum, packLiveDisk } from "../src/snapshot/pack.ts";
+import { packChecksum, packLiveDisk, packLiveDiskWithIndex } from "../src/snapshot/pack.ts";
 
 const roots: string[] = [];
 
@@ -58,14 +58,14 @@ describe("snapshot pack determinism", () => {
 	it("does not republish an unchanged disk", async () => {
 		const root = freshRoot();
 		writeTree(root, FILES);
-		const published = await liveDiskPackChecksum(root);
+		const published = (await packLiveDiskWithIndex(root)).index;
 		expect(await hostDiskNeedsPublish(root, published)).toBe(false);
 	});
 
 	it("does not republish after an mtime-only change", async () => {
 		const root = freshRoot();
 		writeTree(root, FILES);
-		const published = await liveDiskPackChecksum(root);
+		const published = (await packLiveDiskWithIndex(root)).index;
 		touchAll(root, 1_900_000_000);
 		expect(await hostDiskNeedsPublish(root, published)).toBe(false);
 	});
@@ -73,7 +73,7 @@ describe("snapshot pack determinism", () => {
 	it("republishes when a file content changes", async () => {
 		const root = freshRoot();
 		writeTree(root, FILES);
-		const published = await liveDiskPackChecksum(root);
+		const published = (await packLiveDiskWithIndex(root)).index;
 		writeFileSync(join(root, "workspace/a.txt"), "different");
 		expect(await hostDiskNeedsPublish(root, published)).toBe(true);
 	});
@@ -81,7 +81,7 @@ describe("snapshot pack determinism", () => {
 	it("republishes when a file is added", async () => {
 		const root = freshRoot();
 		writeTree(root, FILES);
-		const published = await liveDiskPackChecksum(root);
+		const published = (await packLiveDiskWithIndex(root)).index;
 		writeFileSync(join(root, "workspace/new.txt"), "new");
 		expect(await hostDiskNeedsPublish(root, published)).toBe(true);
 	});
@@ -89,7 +89,7 @@ describe("snapshot pack determinism", () => {
 	it("republishes when a file is removed", async () => {
 		const root = freshRoot();
 		writeTree(root, FILES);
-		const published = await liveDiskPackChecksum(root);
+		const published = (await packLiveDiskWithIndex(root)).index;
 		rmSync(join(root, "workspace/z.txt"));
 		expect(await hostDiskNeedsPublish(root, published)).toBe(true);
 	});
@@ -97,7 +97,7 @@ describe("snapshot pack determinism", () => {
 	it("republishes when a file is renamed", async () => {
 		const root = freshRoot();
 		writeTree(root, FILES);
-		const published = await liveDiskPackChecksum(root);
+		const published = (await packLiveDiskWithIndex(root)).index;
 		renameSync(join(root, "workspace/z.txt"), join(root, "workspace/y.txt"));
 		expect(await hostDiskNeedsPublish(root, published)).toBe(true);
 	});
