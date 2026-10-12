@@ -34,17 +34,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude-main"
       }
+    },
+    {
+      "id": "38f41589-21bb-48f7-883a-70bc3a5131c8",
+      "author": "home",
+      "text": "Live on development 2026-10-12: maximum-lifetime drain proven. One owner held up by a message about every 8 minutes served 7 turns, was told to drain at 3004 s (owner_draining reason=lifetime), stopped with reason=lifetime, and the next message started a fresh owner (generation 69) that served normally. Observation: the drained owner logged owner_stopping twice within 0.4 s (reason=lifetime, then reason=superseded); cosmetic, worth a look. All of idle stop, restore, crash recovery and lifetime drain are now proven live.",
+      "created_at": "2026-10-12T21:04:09.568040Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-12T17:49:36.913888Z",
-  "updated_at": "2026-10-12T19:59:36.735914Z",
+  "updated_at": "2026-10-12T21:04:09.568082Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Drain during deployment remains unproven; idle shutdown, snapshot recovery, and crash recovery work on development.",
-  "right_now_updated_at": "2026-10-12T19:59:38.256215Z",
+  "right_now_summary": "Idle shutdown, restore, crash recovery, and lifetime drain are proven live on development.",
+  "right_now_updated_at": "2026-10-12T21:04:11.099464Z",
   "custom": {}
 }
