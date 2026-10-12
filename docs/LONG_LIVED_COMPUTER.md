@@ -1,10 +1,14 @@
 # Long-lived computer, file protocol and preview
 
-> **Status:** PROPOSED. Nothing on this page is built. It is a design for the
-> step after [Pi session handoff](PI_SESSION_HANDOFF.md). Every statement about
-> today's system carries a `file:line` reference into `origin/develop` at the
-> time of writing; every statement about the proposal is labelled PROPOSED or
-> ASSUMPTION. Section 12 lists what could not be verified.
+> **Status:** DESIGN, partly built. This page was written before any phase landed. Phase 1
+> (snapshot index and the read-only Files view) and Phase 2a (the long-lived owner; contract in
+> [Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md)) are merged and live on development;
+> Phase 3 has a contract, [Live files protocol](LIVE_FILES_PROTOCOL.md), that settles where this page
+> is wrong or silent (section 2 of that page lists them). Sections 4.1 to 4.3 describe the system
+> **before** Phase 2a; every other statement about today's system carries a `file:line` reference into
+> `origin/develop` at the time it was written, and every statement about the proposal is labelled
+> PROPOSED or ASSUMPTION. Where a section below disagrees with a contract page, the contract wins.
+> Section 12 lists what could not be verified.
 
 Three diagrams go with this page. Open each file in a browser; they are
 standalone pages and need no server.
@@ -88,7 +92,7 @@ Each is a question, with my recommendation. Sections 6 to 8 give the options.
 | D5 | Turns on one computer at the same time? | One at a time first, two later after resizing to 1 vCPU and 2 GiB. A waiting turn shows "waiting for the computer" (the existing waiting state). |
 | D6 | Does a running dev server keep the computer awake? | No, by itself. An open preview tab does (its keepalive counts as activity). A sleeping computer shows "Wake". |
 | D7 | Snapshot format: change to per-file gzip members plus an index, with default exclusions (`node_modules`, build output, caches)? | Yes to both. Without exclusions a dev workspace will not fit the 512 MiB owner. Cost: the agent reinstalls dependencies after a cold start. |
-| D8 | Who may read and write files through the web app? | Every enabled organization member may read and write. Secret-looking files are masked and need an explicit "reveal" that is audited. Deleting and moving files wait for a later phase and need the owner role. |
+| D8 | Who may read and write files through the web app? | Every enabled organization member may read and write. Secret-looking files are masked and need an explicit "reveal" that is audited. Delete, rename and new folders are in Phase 3 (owner decision, 2026-10-12): any enabled member may delete a file or an empty folder, rename, and create folders, each audited; only the owner role deletes a non-empty folder (Live files protocol L51). This replaces "wait for a later phase and need the owner role". |
 | D9 | How does a person edit a file? | Directly, with an optimistic hash check and an audit record. Not as a hidden chat message to the bot. A separate "Ask Pi to change this" button sends a normal chat message. |
 | D10 | **Rule decision.** May a load balancer exist only for the preview path? | No. About 16 dollars a month per environment (about 49 dollars for three) of idle floor to buy WebSocket pass-through, against a typical computer cost of about 1 dollar a month. Use the relay. |
 | D11 | **Rule decision.** May the preview carry a WebSocket for hot reload? | No. Live reload by page refresh. Revisit only if D10 is answered yes. |
@@ -117,7 +121,10 @@ things follow that the person has now told us they dislike:
 
 ## 4. What exists today
 
-Verified in the code. Paths are relative to the repository root.
+Verified in the code **at the time of writing, before Phase 2a**: subsections 4.1 to 4.3 describe the
+one-turn owner that Phase 2a replaced with the supervisor (see
+[Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md) for today's behavior). Subsections 4.4 to 4.7 still
+hold except that the snapshot has a per-file index since Phase 1. Paths are relative to the repository root.
 
 ### 4.1 The owner serves exactly one turn
 
@@ -288,8 +295,9 @@ and on-demand read price, ASSUMPTION: prices not re-verified in this session; se
 Section 12).
 
 **Adaptive cadence (PROPOSED).** 1 s for 60 s after any activity, 3 s until 5
-minutes after, 10 s beyond. 0.5 s while a preview or a file view is open (the
-server returns `next_poll_ms`). The 10 second floor equals today's heartbeat
+minutes after, 10 s beyond. A preview is meant to use 0.5 s (the server returns
+`next_poll_ms`); the file panel uses **1 s** (Phase 3 contract, decision L7), because the
+revised poll cost makes 0.5 s as expensive as the computer itself. The 10 second floor equals today's heartbeat
 interval, so idle polling adds no calls: the poll replaces the heartbeat
 (`heartbeat.ts:23`).
 
@@ -595,18 +603,24 @@ often did a second turn start without a new owner (`owner_serving_turn` where
 
 | Computer state | Source | Freshness |
 | --- | --- | --- |
-| Off | The published snapshot, via the v2 index | As of `published_at` (shown in the response and the UI) |
+| Off | The published snapshot, via the v2 index, **with the person's pending edits (the edit overlay) merged over it** | As of `published_at` plus the overlay (shown in the response and the UI) |
 | On | The live disk, through the owner | Current |
 
-The browser sees one REST API and a `source` field. The Front Door decides: if the
-computer record says a healthy owner is live, use the owner; otherwise use the
-snapshot. If a live request times out, fall back to the snapshot and say so
-(`source: "snapshot"`, `stale: true`).
+The browser sees one REST API and a `source` field. The Front Door decides with one
+predicate (Phase 3 contract, L2): a live owner by `liveOwnerOf`, protocol version 2 or more, a
+polled state that can serve (`idle`, `serving`, `publishing`, `draining`), no approved stop and no
+pending hydrate; otherwise the snapshot. `liveOwnerOf` alone is not enough: it is true for an owner that
+is booting, hydrating or stopping. If a live request times out, fall back to the snapshot and say so
+(`source: "snapshot"`, `stale: true`, `fallback_reason`); a live answer that says a file does not exist is
+never replaced by the snapshot.
 
 ### 7.2 API shape
 
 Under `/orgs/{tenant_id}/computer/files`, user-authenticated like the other
-organization routes (`conversation/src/http/user-principal.ts`).
+organization routes (`conversation/src/http/user-principal.ts`). Phase 1 shipped the three `GET`
+routes (list, stat, content) with a `{ error, message }` error body; `files/recent` is Phase 5; the exact
+`PUT`, reveal and watch routes, their schemas and error codes are in the
+[Live files protocol](LIVE_FILES_PROTOCOL.md), sections 5 and 6.
 
 | Request | Meaning |
 | --- | --- |
@@ -653,24 +667,28 @@ only inside the index, at most 8 hops, only to targets under `workspace/`
 
 ### 7.5 On: reading and writing through the owner (Phase 3)
 
-A request becomes a short-lived item `T#computer#fileops` (TTL 120 seconds) with an
-operation id. The Front Door route writes it, then waits up to 8 seconds,
-checking the table every 250 ms, for the result item. The owner picks the request
-up in its next poll (the open file panel keeps it in the 0.5 second mode) and runs
-it through the **same helper started through the shell launcher** that the file
-tools use (`owner-file-helper.ts`). New helper operations: `list` (readdir plus
-`lstat`, capped), ranged `read`, and `write` with a precondition. The result goes
-back with `POST /host/owner/fileops/{opId}/result` (up to 256 KiB inline; larger
-reads are ranged). The owner process itself never opens a path the model or the
-person named, which is what closed finding 1.
+A request becomes an item in the partition `{tenant}#computer#fileops` with an operation id and a
+status (`pending`, `delivered`, `done`, `abandoned`). The Front Door writes it in one transaction with a guard
+on the computer record (the owner is live and no stop is approved), then waits up to 8 seconds, checking the
+table every 250 ms, for the result. The owner receives it in its next poll (`file_requests` in the poll response; the
+open file panel, through a watch ping, keeps the poll at a 1 second pace) and runs it through the **same helper
+started through the shell launcher** that the file tools use (`owner-file-helper.ts`), which gains `list`, a ranged `read` and
+an atomic `write` with a precondition. The result goes back with `POST /host/owner/file-results` (a fixed route with the
+operation id in the body, because the owner routes are matched by exact suffix). The owner process itself never opens a path
+the model or the person named, which is what closed finding 1. Corrections to this paragraph as first written: a timeout
+does not mean a write did not happen (delivery is a state, a late result is still recorded); items are deleted by the code that
+reads them because DynamoDB TTL can take up to 48 hours, so `expires_at` is only a backstop; the supervisor's sweep of
+uid-2000 processes must not kill an operation in flight; and an owner that is hydrating or stopping, or older than protocol
+version 2, is not asked at all. Full contract: [Live files protocol](LIVE_FILES_PROTOCOL.md).
 
 **Edit conflicts.** The UI sends the hash it last saw. The helper compares the
 file's current hash with `If-Match` and writes through a temporary file and an
 atomic rename in the same directory, so a reader never sees half a file. A window
 of milliseconds remains between the comparison and the rename in which the bot
-could write the same file; the response returns the new hash and the UI shows a
-conflict banner if the next read differs (ASSUMPTION: acceptable, and rare, since
-Pi's own `edit` tool replaces exact text and fails when the text moved). While a
+could write the same file. The contract narrows it: the helper compares the hash twice, and after the
+rename re-hashes the file it replaced through the descriptor it holds; an in-place concurrent write in that window
+is kept beside the file and reported (`kept_as`). A concurrent write by rename in the same few microseconds is the
+stated residue. While a
 running turn has touched the path in the last minute (from its tool events) the
 UI warns "Pi changed this file a moment ago".
 
@@ -693,16 +711,29 @@ to change this" button.
   workplace (D8). The existing `resolveUserPrincipal` path enforces membership
   and a paused or disabled organization. Delete and move, when added, need the
   owner role.
-- **Secrets in files.** Files whose names look like secrets (`.env*`, `*.pem`,
-  `id_*`, `.aws/credentials`, `.git-credentials`, `.npmrc`) are listed but their
+- **Secrets in files.** Files whose names look like secrets are listed but their
   content is masked; a "reveal" call returns it and writes an audit record. This is
-  best effort: the bot reads everything, and content can hide in any file.
+  best effort: the bot reads everything, and content can hide in any file. The list is
+  one constant shared by the snapshot service, the helper and the Front Door (Phase 1's
+  list plus `.git-credentials`; the first draft of this section named a shorter list, and
+  Phase 1 shipped no reveal); the helper decides on the **resolved** path, so a link named
+  `config.txt` to `.env` is masked.
 - **Size and type.** Caps above; binary content returned as base64 only on explicit
   request.
 - **Rate.** A per-user limit on file operations per minute so the poll channel
   cannot be flooded.
 - **Stale reads.** The snapshot answer says `as_of`; the UI never presents it as
   current.
+
+### 7.5a Editing while the computer is off (owner decision, 2026-10-12)
+
+The computer is needed only to run things, never to view or edit files. The design above assumed an owner for every edit; that is replaced. While no owner can serve a file
+request, an edit goes into an **overlay** in the snapshot bucket under the computer's prefix (`overlay/index.json` and one content-addressed blob per edited file), written only by the
+Front Door with conditional puts so `If-Match` works against the effective hash (overlay over snapshot). Reads merge it over the snapshot index. The next owner extracts the snapshot,
+**seals** the overlay (closing it to member writes, so a request cannot slip between the owner's read and its apply), applies the entries through the unprivileged file helper before any turn
+runs, and has them cleared only after a publish that holds them is recorded. A change on both sides is a conflict that is shown and kept, never applied over. Viewing and editing never start a
+computer, and an open panel does not keep one awake. **Delete, rename and new folders** are overlay operations too: a tombstone, a move that keeps the content hash (no copy), an empty directory, each judged against the effective hash, applied at hydrate in the order mkdir, directory moves, file moves, puts, deletes. Customer-account computers run in the customer's AWS account through the older host-worker path with the customer-owned bucket, where the Front Door has no write grant and nothing applies an overlay, so they read the snapshot only (a later-phase ticket makes them editable). Full contract, races and IAM:
+[Live files protocol](LIVE_FILES_PROTOCOL.md), sections 3 (O1 to O7, L30 to L66), 5.2, 5.5, 7.7, 7.8 and 12.8.
 
 ## 8. Preview (PROPOSED)
 
@@ -905,7 +936,8 @@ seconds instead of about 30, and files and previews that can exist at all.
 | --- | --- |
 | Poll, idle (10 s) | 0.00027 USD/h, 3 percent of the task |
 | Poll, busy (1 s) | 0.0027 USD/h |
-| Poll, preview or file panel open (0.5 s) | 0.0054 USD/h |
+| Poll, preview open (0.5 s) | 0.0054 USD/h by this page's arithmetic; about 0.014 USD/h by the revised poll cost (C13 of the owner supervisor contract: a conditional write per poll) |
+| Poll, file panel open (1 s) | about 0.007 USD/h by the revised poll cost (Phase 3 contract, L7) |
 | Preview bytes | about 0.0013 USD per 2 MB through the table; about 0.00001 per object through S3 above 32 KB |
 | Watchdog | 32 messages in 8 hours, negligible |
 | Preview load balancer, if D10 were yes | 16.4 USD per month per environment |
@@ -991,16 +1023,28 @@ events, and need the larger task.
 
 ### Phase 3: live file view and edit
 
-- **Scope.** File-request items and result route, helper `list`, ranged `read` and
-  conditional `write`, `PUT` content, audit records, conflict UI, fast poll mode
-  while the panel is open.
-- **Gherkin.** `features/computer_file_live.feature`: a live read reflects an
-  unpublished change; a write with a stale hash is refused; an edit lands in the
-  audit log; a planted symlink is contained; a timeout falls back to the snapshot
-  with `stale`; the owner cannot read the audit family.
-- **Live proof.** Edit a file in the web app while a turn is idle; ask the bot to
-  read it back; edit it from both sides at once and see the conflict.
-- **Depends on.** Phase 2a.
+- **Contract.** [Live files protocol](LIVE_FILES_PROTOCOL.md) is the exact interface and settles the
+  places where this page is wrong or silent (its section 2, 34 items): the choice of live or snapshot by one predicate
+  (not `liveOwnerOf` alone), the watch ping that sets the 1 second pace, delivery states so a timed-out write
+  never runs later, deletion of request items by the reader (TTL is a backstop only), a fixed result route,
+  the stop veto and the sweep interplay, the dirty flag and quiet publish after an edit, the shared secret-name list and reveal,
+  the atomic helper write with a post-check, rate and size limits, audit written before the owner is asked, and, since the owner's
+  decision that files are viewed and edited with the computer off, the **edit overlay** (section 7.5a above).
+- **Scope.** The three `GET` routes answer from the owner when it is live and from the snapshot with the overlay merged otherwise; `PUT` with `If-Match` or `If-None-Match`
+  goes to the owner when it can serve and into the overlay otherwise; `DELETE`, `POST` move and `POST` directories likewise; `POST` reveal, watch and overlay discard, `GET` pending changes; request items and the result route; the overlay store, its seal and clear
+  routes; helper `list`, ranged `read`, conditional atomic `write`; the supervisor's seal, apply and clear at hydrate; audit written by the Front Door in key families neither owner role can reach; conflict
+  UI, edit mode, source indicator and the `Pi changed this a moment ago` notice; fast poll (1 second) while the panel is open. Infrastructure: the Front Door may write the overlay prefix and the supervisor role is
+  explicitly denied writes there.
+- **Gherkin.** `features/computer_file_live.feature` (draft, tagged `@server`, `@supervisor`, `@web`, `@end-to-end`): among them a live read reflects an unpublished change; a write with a stale hash is refused 409;
+  an edit lands in the audit log; a planted symlink is contained; a timeout falls back to the snapshot with `stale`; the owner cannot read the audit family; a masked secret file and an audited reveal; a non-member is
+  refused; a `.git` write is refused; the size cap; a concurrent edit conflicts; the fast poll returns to normal after the panel closes; an edit made while the computer is off is visible in the next read, applied on the
+  next hydrate and seen by the bot, refused when its hash is stale, in conflict when the snapshot moved under it, kept across a crash, and cannot be written by an owner role. The requirement to scenario table is section 13 of the contract.
+- **Parts.** F0 (schemas, constants, file rules, overlay schemas), B (infrastructure and policy, including a 30 day expiry of non-current bucket versions), A1 (file requests on the server), A3 (the overlay core), A2 (member routes), A4 (delete, rename and new folder routes), C (helper and file runner), C2 (the overlay at hydrate),
+  W (web), E (end to end and live proof). Section 15 of the contract has files, dependencies and deploy order.
+- **Live proof.** Edit a file in the web app while a turn is idle; ask the bot to read it back; edit it from both sides at once and see the conflict; edit a file with the computer off, then start it and see the bot read the edit;
+  kill the owner after the apply and before the publish and see the edit survive; see the audit records; see the pace return to normal after the panel closes (contract section 17).
+- **Depends on.** Phase 2a (merged and live). Needs Phase 1's index for the saved copy.
+- **Open questions.** Two choices of the contract await confirmation (section 14): a rename never replaces an existing path, and a pending folder rename or recursive delete is exclusive.
 
 ### Phase 4: background processes and preview
 
@@ -1034,7 +1078,7 @@ out-of-memory.
 - A user-editable snapshot include or exclude file.
 - Automatic restart of crashed dev servers.
 - Channel notices when a person edits a file.
-- Delete, move, upload and download of large files.
+- Upload and download of large files, an overwriting rename, creating links (delete, rename and new folders are in Phase 3).
 - Multi-viewer previews with per-user access; a session has one creator.
 - Per-organization idle timeouts.
 - Direct dispatch to a warm owner (Phase 5 optimization only).
@@ -1055,7 +1099,7 @@ out-of-memory.
 | 6 | **Credential broker** is a new privileged component | One function, no other secrets, fixed role ARNs, tag allow-list from `ownerSessionTags` |
 | 7 | **Dev-server compatibility** (host checks, absolute URLs, failing WebSocket clients) | Host rewrite, `Location` rewrite, per-framework start recipes, a test matrix |
 | 8 | **Snapshot v2 migration** touches every existing computer | One re-index run on development; the reader refuses an unindexed snapshot after |
-| 9 | **User edit and bot write race** | Hash precondition, atomic rename, UI warning from tool events |
+| 9 | **User edit and bot write race** | Hash precondition, atomic rename with a post-check, UI warning from tool events and a `stat` probe (Phase 3 contract, 10.6 and L16) |
 | 10 | **Review findings not yet fixed** (gateway has no per-call ceiling; invoke key in the distribution configuration) | Out of scope here; unchanged by this design; spend exposure grows with uptime but remains bounded by the monthly ceiling |
 
 **Riskiest assumption.** That a poll-based relay gives a page-load time a person
@@ -1169,3 +1213,5 @@ receipts the command writes next to the output.
 - [Messages and the cloud API](MESSAGING.md): the front door and the stream.
 - [TypeScript control plane](TYPESCRIPT_CONTROL_PLANE.md), section 4: the computer.
 - [AWS authentication](AWS_AUTH.md): origin protection and key rules.
+- [Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md): the Phase 2a contract.
+- [Live files protocol](LIVE_FILES_PROTOCOL.md): the Phase 3 contract.
