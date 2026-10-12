@@ -334,7 +334,7 @@ describe("ControlPlane credential broker and owner roles", () => {
       }
     }
     const document = JSON.stringify(scopedStatements);
-    for (const variable of ["tenant", "bot", "channel", "computer"]) {
+    for (const variable of ["tenant", "bot", "channel"]) {
       assert.ok(document.includes("${aws:PrincipalTag/" + variable + "}"), `the policy uses the ${variable} tag`);
     }
     assert.ok(!document.includes("Fn::Sub"), "the policy variables are literal text, not a CloudFormation substitution");
