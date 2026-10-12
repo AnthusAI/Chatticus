@@ -1,0 +1,210 @@
+{
+ "schema_version": 1,
+ "diagram_type": "sequence",
+ "meta": {
+  "title": "Proposed: a turn delivered to a live owner, then idle shutdown",
+  "subtitle": "Status: PROPOSED. Every call is made by the owner; nothing reaches into it.",
+  "output": "docs/diagrams/long-lived-computer/turn-to-live-owner.html",
+  "viewBox": [
+   1080,
+   682
+  ],
+  "column_fit": "spread",
+  "quality_profile": "showcase"
+ },
+ "participants": [
+  {
+   "id": "browser",
+   "type": "external",
+   "label": "Browser",
+   "sublabel": "the person"
+  },
+  {
+   "id": "fd",
+   "type": "backend",
+   "label": "Front Door",
+   "sublabel": "routes, broker call"
+  },
+  {
+   "id": "exec",
+   "type": "backend",
+   "label": "TurnExecutor",
+   "sublabel": "Lambda"
+  },
+  {
+   "id": "ddb",
+   "type": "database",
+   "label": "DynamoDB",
+   "sublabel": "turns, ledger"
+  },
+  {
+   "id": "owner",
+   "type": "backend",
+   "label": "Owner",
+   "sublabel": "supervisor"
+  },
+  {
+   "id": "s3",
+   "type": "database",
+   "label": "S3",
+   "sublabel": "snapshot"
+  }
+ ],
+ "segments": [
+  {
+   "from": 160,
+   "to": 240,
+   "label": "Turn arrives"
+  },
+  {
+   "from": 240,
+   "to": 408,
+   "label": "Serve"
+  },
+  {
+   "from": 408,
+   "to": 548,
+   "label": "Idle and stop"
+  }
+ ],
+ "messages": [
+  {
+   "id": "m1",
+   "from": "browser",
+   "to": "fd",
+   "y": 170,
+   "label": "send message",
+   "variant": "emphasis"
+  },
+  {
+   "id": "m2",
+   "from": "fd",
+   "to": "exec",
+   "y": 198,
+   "label": "enqueue turn (SQS)",
+   "variant": "dashed"
+  },
+  {
+   "id": "m3",
+   "from": "exec",
+   "to": "ddb",
+   "y": 226,
+   "label": "park on computer action",
+   "variant": "default"
+  },
+  {
+   "id": "m4",
+   "from": "owner",
+   "to": "fd",
+   "y": 254,
+   "label": "poll (3 s after activity)",
+   "variant": "emphasis"
+  },
+  {
+   "id": "m5",
+   "from": "fd",
+   "to": "ddb",
+   "y": 282,
+   "label": "parked turns for this computer?",
+   "variant": "default"
+  },
+  {
+   "id": "m6",
+   "from": "fd",
+   "to": "owner",
+   "y": 310,
+   "label": "dispatch: turn, bot, channel, keys",
+   "variant": "return"
+  },
+  {
+   "id": "m7",
+   "from": "owner",
+   "to": "ddb",
+   "y": 338,
+   "label": "takeOverTurn: claim and fence",
+   "variant": "default"
+  },
+  {
+   "id": "m8",
+   "from": "owner",
+   "to": "fd",
+   "y": 366,
+   "label": "model calls through gateway",
+   "variant": "emphasis"
+  },
+  {
+   "id": "m9",
+   "from": "owner",
+   "to": "s3",
+   "y": 394,
+   "label": "quiet publish, 30 s after last write",
+   "variant": "dashed"
+  },
+  {
+   "id": "m10",
+   "from": "owner",
+   "to": "fd",
+   "y": 422,
+   "label": "stop-request after idle timeout",
+   "variant": "security"
+  },
+  {
+   "id": "m11",
+   "from": "fd",
+   "to": "owner",
+   "y": 450,
+   "label": "approved: no open work",
+   "variant": "return"
+  },
+  {
+   "id": "m12",
+   "from": "owner",
+   "to": "s3",
+   "y": 478,
+   "label": "publish if dirty",
+   "variant": "dashed"
+  },
+  {
+   "id": "m13",
+   "from": "owner",
+   "to": "fd",
+   "y": 506,
+   "label": "stopped report with generation",
+   "variant": "security"
+  },
+  {
+   "id": "m14",
+   "from": "fd",
+   "to": "ddb",
+   "y": 534,
+   "label": "release lease, start parked turns",
+   "variant": "default"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "emerald",
+   "title": "No socket",
+   "items": [
+    "The owner asks; the control plane answers",
+    "A turn parked behind a live owner is found by the poll, not a start job"
+   ]
+  },
+  {
+   "dot": "rose",
+   "title": "Keys",
+   "items": [
+    "Per-turn keys reach one bot and channel and expire in 1 h",
+    "Renewed on request, never past the 8 h cap"
+   ]
+  },
+  {
+   "dot": "orange",
+   "title": "No lost wake-up",
+   "items": [
+    "Stop is refused if work is pending",
+    "A stopped report still starts the next owner for parked turns"
+   ]
+  }
+ ]
+}
