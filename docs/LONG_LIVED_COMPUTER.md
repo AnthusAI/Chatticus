@@ -92,7 +92,7 @@ Each is a question, with my recommendation. Sections 6 to 8 give the options.
 | D5 | Turns on one computer at the same time? | One at a time first, two later after resizing to 1 vCPU and 2 GiB. A waiting turn shows "waiting for the computer" (the existing waiting state). |
 | D6 | Does a running dev server keep the computer awake? | No, by itself. An open preview tab does (its keepalive counts as activity). A sleeping computer shows "Wake". |
 | D7 | Snapshot format: change to per-file gzip members plus an index, with default exclusions (`node_modules`, build output, caches)? | Yes to both. Without exclusions a dev workspace will not fit the 512 MiB owner. Cost: the agent reinstalls dependencies after a cold start. |
-| D8 | Who may read and write files through the web app? | Every enabled organization member may read and write. Secret-looking files are masked and need an explicit "reveal" that is audited. Deleting and moving files wait for a later phase and need the owner role. |
+| D8 | Who may read and write files through the web app? | Every enabled organization member may read and write. Secret-looking files are masked and need an explicit "reveal" that is audited. Delete, rename and new folders are in Phase 3 (owner decision, 2026-10-12): any enabled member may delete a file or an empty folder, rename, and create folders, each audited; only the owner role deletes a non-empty folder (Live files protocol L51). This replaces "wait for a later phase and need the owner role". |
 | D9 | How does a person edit a file? | Directly, with an optimistic hash check and an audit record. Not as a hidden chat message to the bot. A separate "Ask Pi to change this" button sends a normal chat message. |
 | D10 | **Rule decision.** May a load balancer exist only for the preview path? | No. About 16 dollars a month per environment (about 49 dollars for three) of idle floor to buy WebSocket pass-through, against a typical computer cost of about 1 dollar a month. Use the relay. |
 | D11 | **Rule decision.** May the preview carry a WebSocket for hot reload? | No. Live reload by page refresh. Revisit only if D10 is answered yes. |
@@ -732,8 +732,8 @@ request, an edit goes into an **overlay** in the snapshot bucket under the compu
 Front Door with conditional puts so `If-Match` works against the effective hash (overlay over snapshot). Reads merge it over the snapshot index. The next owner extracts the snapshot,
 **seals** the overlay (closing it to member writes, so a request cannot slip between the owner's read and its apply), applies the entries through the unprivileged file helper before any turn
 runs, and has them cleared only after a publish that holds them is recorded. A change on both sides is a conflict that is shown and kept, never applied over. Viewing and editing never start a
-computer, and an open panel does not keep one awake. Customer-account computers have no supervisor to apply an overlay, so they read the snapshot only. Full contract, races and IAM:
-[Live files protocol](LIVE_FILES_PROTOCOL.md), sections 3 (O1 to O4, L30 to L47), 5.5, 7.7 and 12.8.
+computer, and an open panel does not keep one awake. **Delete, rename and new folders** are overlay operations too: a tombstone, a move that keeps the content hash (no copy), an empty directory, each judged against the effective hash, applied at hydrate in the order mkdir, directory moves, file moves, puts, deletes. Customer-account computers run in the customer's AWS account through the older host-worker path with the customer-owned bucket, where the Front Door has no write grant and nothing applies an overlay, so they read the snapshot only (a later-phase ticket makes them editable). Full contract, races and IAM:
+[Live files protocol](LIVE_FILES_PROTOCOL.md), sections 3 (O1 to O7, L30 to L66), 5.2, 5.5, 7.7, 7.8 and 12.8.
 
 ## 8. Preview (PROPOSED)
 
@@ -1031,7 +1031,7 @@ events, and need the larger task.
   the atomic helper write with a post-check, rate and size limits, audit written before the owner is asked, and, since the owner's
   decision that files are viewed and edited with the computer off, the **edit overlay** (section 7.5a above).
 - **Scope.** The three `GET` routes answer from the owner when it is live and from the snapshot with the overlay merged otherwise; `PUT` with `If-Match` or `If-None-Match`
-  goes to the owner when it can serve and into the overlay otherwise; `POST` reveal, watch and overlay discard; request items and the result route; the overlay store, its seal and clear
+  goes to the owner when it can serve and into the overlay otherwise; `DELETE`, `POST` move and `POST` directories likewise; `POST` reveal, watch and overlay discard, `GET` pending changes; request items and the result route; the overlay store, its seal and clear
   routes; helper `list`, ranged `read`, conditional atomic `write`; the supervisor's seal, apply and clear at hydrate; audit written by the Front Door in key families neither owner role can reach; conflict
   UI, edit mode, source indicator and the `Pi changed this a moment ago` notice; fast poll (1 second) while the panel is open. Infrastructure: the Front Door may write the overlay prefix and the supervisor role is
   explicitly denied writes there.
@@ -1039,13 +1039,12 @@ events, and need the larger task.
   an edit lands in the audit log; a planted symlink is contained; a timeout falls back to the snapshot with `stale`; the owner cannot read the audit family; a masked secret file and an audited reveal; a non-member is
   refused; a `.git` write is refused; the size cap; a concurrent edit conflicts; the fast poll returns to normal after the panel closes; an edit made while the computer is off is visible in the next read, applied on the
   next hydrate and seen by the bot, refused when its hash is stale, in conflict when the snapshot moved under it, kept across a crash, and cannot be written by an owner role. The requirement to scenario table is section 13 of the contract.
-- **Parts.** F0 (schemas, constants, file rules, overlay schemas), B (infrastructure and policy), A1 (file requests on the server), A3 (the overlay core), A2 (member routes), C (helper and file runner), C2 (the overlay at hydrate),
+- **Parts.** F0 (schemas, constants, file rules, overlay schemas), B (infrastructure and policy, including a 30 day expiry of non-current bucket versions), A1 (file requests on the server), A3 (the overlay core), A2 (member routes), A4 (delete, rename and new folder routes), C (helper and file runner), C2 (the overlay at hydrate),
   W (web), E (end to end and live proof). Section 15 of the contract has files, dependencies and deploy order.
 - **Live proof.** Edit a file in the web app while a turn is idle; ask the bot to read it back; edit it from both sides at once and see the conflict; edit a file with the computer off, then start it and see the bot read the edit;
   kill the owner after the apply and before the publish and see the edit survive; see the audit records; see the pace return to normal after the panel closes (contract section 17).
 - **Depends on.** Phase 2a (merged and live). Needs Phase 1's index for the saved copy.
-- **Open questions.** Seven product questions remain in section 14 of the contract (overlay caps, deletes while off, expiring non-current bucket versions, customer-account computers, the short wait while an owner seals,
-  who may discard, the local-host role).
+- **Open questions.** Two choices of the contract await confirmation (section 14): a rename never replaces an existing path, and a pending folder rename or recursive delete is exclusive.
 
 ### Phase 4: background processes and preview
 
@@ -1079,7 +1078,7 @@ out-of-memory.
 - A user-editable snapshot include or exclude file.
 - Automatic restart of crashed dev servers.
 - Channel notices when a person edits a file.
-- Delete, move, upload and download of large files (and, in the overlay, tombstones and new folders).
+- Upload and download of large files, an overwriting rename, creating links (delete, rename and new folders are in Phase 3).
 - Multi-viewer previews with per-user access; a session has one creator.
 - Per-organization idle timeouts.
 - Direct dispatch to a warm owner (Phase 5 optimization only).

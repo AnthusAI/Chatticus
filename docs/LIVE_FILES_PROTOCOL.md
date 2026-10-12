@@ -20,6 +20,11 @@
 > 1 second. That replaces the first revision's refusal of a write while the computer is off with an
 > **edit overlay** in the snapshot bucket (sections 3 O1 to O4 and L30 to L47, 5.5, 7.7, 9.4, 11.7,
 > 12.8, 19). Everything else in this page stands unless a section says otherwise.
+>
+> **Revision 3 (owner decisions).** Delete, rename and new folders are required in Phase 3, **including while the computer is off**. The overlay therefore records four kinds
+> of operation (put, delete, mkdir, move), and the owner applies them at hydrate in a defined order (section 7.8; decisions L48 to L66; schemas 5.2 and 5.5; helper operations 8.1).
+> Also settled: non-current bucket versions expire after 30 days (part B, section 12.8), customer-account computers stay read-only for stated reasons (L46) with a later-phase ticket,
+> any enabled member may discard a pending change, and `LocalWorkerRole` is left as it is.
 
 ## 1. What Phase 3 is
 
@@ -66,10 +71,10 @@ prefix, and the supervisor role gets an explicit deny of writes to that prefix (
 | Reserved | Phase | Rule until then |
 | --- | --- | --- |
 | `GET .../files/recent` and watcher-based change events | 5 | The panel reacts to the turn's tool events and to a cheap `stat` probe (section 10). |
-| Delete, move, rename, upload, download of large files, creating directories | 5 | The helper has no such operation and the overlay has no tombstones. Creating a file needs an existing parent directory. |
+| Overwriting rename (rename onto an existing path), upload, download of large files, symlink creation, permission changes | later | Delete, rename and new folders are in Phase 3 (7.8); a rename never replaces an existing path and a link cannot be created. |
 | Writing a binary file or a file over 256 KiB | later | Writes are UTF-8 text up to 256 KiB. |
 | Waking a stopped computer from the Files panel | never (owner decision O2) | Viewing and editing never start a computer. |
-| Customer-account computers | later (design 10.2) | They have a host worker and no supervisor, so nothing would apply an overlay: reads come from the snapshot only and an edit is refused with 409 `edit_unsupported` (L46). |
+| Customer-account computers | later phase (Kanbus ticket) | Read-only, for the reasons in L46: their host runs in the customer's AWS account through the older host-worker path and the customer-owned bucket, the Front Door has no write grant there and no owner applies an overlay. An edit is refused with 409 `edit_unsupported`. |
 | Previews, background processes | 4 | |
 | Reading the audit log from the web app | decided (O4) | Operators read the table. |
 
@@ -112,7 +117,7 @@ silent or contradicted by `origin/develop`. Each one is settled by a decision in
 | W29 | Hydrate is a single step. | `hydrateOnBoot` returns early with no snapshot (`reason: no_snapshot`) and skips extraction when the local cache checksum matches (`ComputerHostDisk.hydrate`, `cacheMatches`). An overlay applied only after extraction would be skipped on a computer that never published, and on a cache hit. | L42 |
 | W30 | Publish makes a new snapshot. | `publishChangedDisk` calls `publishComputerSnapshot` after the upload; a crash between leaves the new pack and the old record. The overlay must be cleared only after a publish **recorded** by the control plane, and a clear can be lost, so applying must be idempotent. | L36 |
 | W31 | Snapshot answers are complete. | The pack excludes `node_modules`, `.next`, `dist`, `build`, `target`, `.venv`, `__pycache__`, `.cache` at any depth and files over 50 MiB (`snapshot/exclusions.ts`): an overlay edit under such a directory would be applied and then silently dropped by the next publish. | L40 |
-| W32 | The snapshot bucket is just storage. | It is versioned with no expiry of non-current versions (`infra/lib/snapshot-stack.ts:19-29`): an overlay blob deleted after it was applied (possibly a `.env`) stays recoverable as a non-current version. | 12.8, Q-O3 |
+| W32 | The snapshot bucket is just storage. | It is versioned with no expiry of non-current versions (`infra/lib/snapshot-stack.ts:19-29`): an overlay blob deleted after it was applied (possibly a `.env`) stays recoverable as a non-current version. | 12.8, L63 |
 | W33 | The file routes serve any computer. | `snapshotFiles` is one `SnapshotFileService` over the Anthus bucket (`lambdas/front-door-composition.ts:216`); customer-account computers use a bucket in the customer's account and a host worker that never applies an overlay. | L46 |
 | W34 | A computer with nothing published answers `no_snapshot`. | With an overlay, a computer that has an edit but no snapshot must list `/workspace` as empty plus the edit; `serve()` returns 404 `no_snapshot` first (`http/routes/computer-files.ts`). | 7.7.2 |
 
@@ -125,6 +130,9 @@ silent or contradicted by `origin/develop`. Each one is settled by a decision in
 | O1 | The computer is needed only to run things, never to view or edit files. A person reads and edits files while it is off. No refusal with 409. | The edit overlay (L30 to L47, 7.7). The first revision's question 1 is closed; `computer_not_live` is gone. |
 | O2 | An open Files panel does not keep the computer awake and does not start it. Only genuine file operations that go through a live owner count as activity. | L12 restated; the watch ping on a computer that is off answers `off` and starts nothing; overlay edits touch no computer record and are not activity. |
 | O3 | The interactive pace is 1 second. | L7 confirmed. |
+| O5 | Delete, rename and new folders are required in Phase 3, also while the computer is off. Rename and delete take `If-Match` of the effective hash; creating a directory is idempotent. Overlay caps stay at 100 entries, 8 MiB, 256 KiB (O5). | 7.8, L48 to L66 |
+| O6 | Non-current bucket versions expire after 30 days; explained plainly in 12.8; the rule is in part B. | 12.8, part B |
+| O7 | A few seconds of 503 while an owner seals or stops is accepted. Any enabled member may discard a pending change, audited. `LocalWorkerRole` is left as it is (operator-trusted local-host role that already has read and write on the whole bucket). | L33, 7.7.3, 12.8 |
 | O4 | Accepted as recommended: audit read by operators only; every enabled member may reveal secrets, every reveal audited; 8 MiB live read limit; hashes, not text, in the audit; no channel notice when a person edits; no client IP in the audit; loss of an unpublished **live** edit on a crash is accepted and shown as "not yet in the saved copy". Customer-account computers read the snapshot only; the overlay is not cheap there (L46) so they cannot be edited. | Closes the first revision's questions 2 to 11; section 14 lists what is still open. |
 
 The numbers are this page's own (L1, L2, ...). D8, D9 and D14 of the design are unchanged and
@@ -169,17 +177,36 @@ a hash check and an audit record, audit retention is 90 days.
 | L34 | **The owner seals, then applies the sealed set, before it reports idle.** In `hydrate()`, after extraction: seal (Front Door compare-and-swap, returns the entries), apply each entry through the file helper, report. No turn is dispatched while the supervisor is hydrating (`considerDispatch` ignores a dispatch unless the state is `idle`), so no turn runs before the apply ends. The apply has a budget of 30 seconds; past it, or on an unreadable blob or index, the supervisor treats it as a hydrate failure (exit 8) rather than let the agent run on a disk missing edits the person saw. The agent waits for nothing else. | Readiness per capability: the only wait is the owner's own file application. |
 | L35 | **Applying uses the helper, as uid 2000, with the precondition.** Each entry is a helper `write` with `if_match base_sha256` (or `if_none_match` for a create) and `refuseGitSegments`. `ok` means applied. `precondition_failed` whose `current_sha256` equals the entry's `sha256` means already applied (covered). Any other current hash is a **conflict**: the entry is not applied and is reported (L39). Root never opens a workspace path. | The same containment as every other file operation (12.2). |
 | L36 | **An entry is cleared only after a publish that began after it was applied, and the control plane has recorded.** The supervisor keeps the set it applied; when a publish starts it captures the set, and after `publishComputerSnapshot` succeeds it posts `cleared` for exactly that set. A lost post is retried every `OVERLAY_CLEAR_RETRY_SECONDS` and before the stopped report. If after the apply the disk equals the published index (nothing to publish), the set is cleared at once. After applying, the next publish check is scheduled `OVERLAY_EARLY_PUBLISH_SECONDS` (5) after the supervisor becomes idle instead of 600; while a child runs the publish still waits (C14) and the entries stay. | W30. Until the clear, a crash loses nothing: the overlay still holds every edit. |
-| L37 | **The supervisor never writes or deletes overlay objects; the Front Door performs the clear.** The supervisor reports `cleared` (path, revision, sha256) at `POST /host/owner/overlay-applied`; the Front Door removes exactly the entries that still match, while the seal is valid, **and only if a publish is on record**: the computer's `snapshotGeneration` is greater than the seal's, or the snapshot index already holds the entry's hash for the path. The route checks it; it does not trust the owner's word. The supervisor role gets an explicit **deny** of `PutObject`, `DeleteObject` and `DeleteObjectVersion` on the overlay prefix. | IAM cannot say "delete only applied entries"; a route can. One writer, no standing delete right on a long-lived credential. |
+| L37 | **The supervisor never writes or deletes overlay objects; the Front Door performs the clear.** The supervisor reports `cleared` (path and revision) at `POST /host/owner/overlay-applied`; the Front Door removes exactly the entries that still match, while the seal is valid, **and only if a publish is on record**: the computer's `snapshotGeneration` is greater than the seal's, or the snapshot index already shows the entry's result (a put's hash, a deleted path gone, a directory present, a move's target holding the kept hash with its source gone: 7.8.5). The route checks it; it does not trust the owner's word. The supervisor role gets an explicit **deny** of `PutObject`, `DeleteObject` and `DeleteObjectVersion` on the overlay prefix. | IAM cannot say "delete only applied entries"; a route can. One writer, no standing delete right on a long-lived credential. |
 | L38 | **The seal ends with the owner.** The stopped report unseals (best effort, one compare-and-swap). A seal whose owner is no longer the live owner is stale, and the next overlay write, seal or discard replaces it. Entries are never lost by an unseal. | Crash and lease takeover (7.7.6). |
 | L39 | **A conflict is never resolved silently.** A conflict exists when a path has an entry and the snapshot hash is neither the entry's `base_sha256` nor its `sha256` (derived at every read), or when the owner found a third hash on the disk while applying (stored: `conflict` on the entry). The effective content is the snapshot's (theirs); the person's text stays readable as `variant=mine`; the owner never applies an entry with a conflict. Resolution is explicit: a `PUT` with `If-Match` of theirs replaces the entry (the person overwrote on purpose; new `base_sha256` is theirs), or `POST .../files/overlay/discard`. | The owner's rule: refuse and surface, never overwrite. |
 | L40 | **The overlay accepts only what the next publish will keep.** Refused: a path with a segment in `PACK_EXCLUDED_DIRECTORY_NAMES` (422 `not_in_saved_copy`), a path whose snapshot entry is a symlink or directory or one of whose ancestors is a symlink (403 `path_refused` / 422 `not_a_file`), a `.git` segment, a parent directory that is absent from the snapshot index (404 `parent_missing`; `/workspace` always exists), anything over the size caps. No directory is created. | W31. |
-| L41 | **Caps:** 100 entries, 8 MiB of content in total, 256 KiB per file, an index of at most 256 KiB. Beyond them 409 `overlay_full`. | Bounds the apply time (L34) and the Lambda memory. |
+| L41 | **Caps:** 100 entries of **any kind** (put, delete, mkdir, move), 8 MiB of blob content in total (only puts carry a blob), 256 KiB per file, an index of at most 256 KiB; a directory delete or rename covers at most 5000 descendants (413 `too_many_entries`). Beyond the first three 409 `overlay_full`. | Bounds the apply time (L34) and the Lambda memory. A delete, move or mkdir carries no blob and costs no content bytes. |
 | L42 | **The apply runs after every hydrate** whether or not the cache matched, and also when there is no snapshot (an empty workspace). It is independent of extraction. | W29. |
 | L43 | **Every snapshot answer merges the overlay** (list, stat, content, reveal), including the stale fallbacks of a running computer. A computer with no snapshot answers an empty `/workspace` plus the overlay. Masking by name applies to overlay content. A live answer ignores the overlay. | W34. |
 | L44 | **Audit for the overlay** uses the same record (section 7.1) with `source: "overlay"`; operations `write`, `create`, `discard`, and `overlay_apply` (written by the Front Door when the owner reports a clear or a conflict; `user_id` is the entry's `edited_by`, plus `owner_id`). Intent first, fail closed, as L21. | D14. |
 | L45 | **An overlay edit changes no computer record**, queues no request, sets no flag and starts nothing. | O2. |
-| L46 | **Customer-account computers have no overlay.** Their snapshot bucket is in the customer's account and their host worker has no supervisor to apply it. Reads are the snapshot; an edit is 409 `edit_unsupported`. Making it cheap would mean teaching the host worker to apply, which is a separate decision (Q-O4). | W33, O4. |
+| L46 | **Customer-account computers are read-only, for these reasons.** They run in the customer's own AWS account, through the older host-worker path (`customer-computers-stack.ts`, the `FargateHost` of that stack), with the customer-owned bucket `chatticus-snapshots-{OrganizationId}` (`docs/COMPUTER_SNAPSHOTS.md`). The Front Door's write grant (part B) covers only the Anthus snapshot bucket, so it cannot write an overlay there, and no owner applies one: that path has a host worker, not a supervisor, so nothing seals, applies or clears. Reads are unchanged (the snapshot). An edit, delete, rename or new folder is 409 `edit_unsupported`. A Kanbus ticket (later phase) covers making them editable. | W33, O4. |
 | L47 | **A running owner of protocol 1 blocks edits** with 409 `owner_too_old` for the rest of its life (at most 50 minutes): it would never apply an overlay, and its publish would produce false conflicts. Reads are served as before from the snapshot with the overlay merged. | The version gate of L3 applied to writes. |
+| L48 | **The overlay records four operations.** `put` (create or replace a file; has a blob), `delete` (a file, a symlink, an empty directory, or a whole directory with `recursive`), `mkdir` and `move` (a file, a symlink or a whole directory). Each is one entry with a `revision`; one path has at most one entry. A move is **one entry**, not a copy: it keeps the content hash of the file it moves (`sha256`, or the `tree_sha256` of a directory) and carries no blob, so a 40 MiB file can be renamed while the computer is off. | Delete as a tombstone and rename as delete plus create with a rename record, as the owner asked, without ever copying content through a Lambda. |
+| L49 | **Effective hash of any path:** a file, the SHA-256 of its content; a symlink, the SHA-256 of `symlink`, a NUL byte and its target; a directory, its **tree hash**: SHA-256 over one line for every descendant in the effective view, sorted by relative path bytes, `kind NUL relative-path NUL value LF`, where value is the size of a file, the target of a symlink, `0` for a directory (an empty directory hashes the empty input). The tree hash is the directory's `ETag` on `stat`. The same definition is computed from the snapshot index merged with the overlay and by the file helper from `lstat`, so every source agrees. | A directory has no content; an `If-Match` for delete and rename still has to mean "the thing I saw". Sizes, not content, keep it cheap on the live disk. |
+| L50 | **Delete and rename need `If-Match` of the effective hash (a missing one is 428); creating a directory is idempotent** (`mkdir` of a directory that exists is 200 `created: false`; of a file, 409 `already_exists`). A delete or rename of a path that does not exist is 404 `not_found`. | O5. |
+| L51 | **Who may (supersedes the owner-role rule of design 7.6 and D8 for delete and move).** Any enabled member may delete or rename a file or a symlink, rename a directory, create a directory, and delete an **empty** directory, each audited. Only the organization **owner role** (`Principal.role === "owner"`) may delete a **non-empty** directory (`recursive`), 403 `owner_role_required` otherwise. | Delete and move now matter to every member, as editing does, and the shared workplace already lets any member tell a bot to do the same; the audit is the safeguard. Only the irreversible bulk delete keeps the original restraint. |
+| L52 | **A rename never replaces an existing path.** `to` must be absent in the effective view (409 `already_exists`), its parent must exist (404 `parent_missing`), it must not lie inside `from` (422 `invalid_move`), and neither path may be the workspace root. Overwrite is not offered; the person deletes first. | Removes a class of silent data loss; Q-P1 asks if it is wanted later. |
+| L53 | **A pending directory rename or recursive delete is exclusive.** While an entry that moves or deletes a directory exists, any other change at, under, or onto its source or target path is 409 `path_busy` (the person waits for the next owner to apply it or discards the change). A directory move or recursive delete is likewise refused while an overlay entry already exists at or under its source or target (`path_busy`). | Avoids composing path translations and collapsing trees; one entry describes the whole subtree and the apply is a single rename or removal. |
+| L54 | **Entries collapse when they undo each other.** Deleting a pending create (a `put` with no base and no `from`) removes it. Deleting a `put` that replaced a snapshot file becomes a `delete` with the snapshot hash as base. Renaming a pending create changes its path. Renaming a snapshot file back to its own path removes the move. Deleting the target of a move becomes a delete of its source. A `put` onto a path with a `delete` becomes a `put` whose base is the snapshot hash. Table in 7.8.4. | Keeps the entry count and the apply minimal and makes undo natural. |
+| L55 | **Reads merge all four.** A deleted path (and everything under a deleted directory) is absent from lists, stat and content; a mkdir or move target is a directory or file with `overlay: "pending"`; the content of a moved file is read from the snapshot pack at its source path. Rules in 7.8.3. | |
+| L56 | **Apply order at hydrate is fixed:** 1 mkdir (shallowest first), 2 directory moves (shallowest first), 3 file and symlink moves, 4 puts, 5 deletes of files and symlinks, 6 deletes of directories (deepest first; a recursive delete is one removal). Each step uses the file helper with its precondition, as uid 2000. The outcome of each operation is applied, already applied, or a conflict (table in 7.8.5). | Parents exist before children are created, moves happen before puts at their targets, and deletes come last so what moved out of a directory is gone before the directory is. |
+| L57 | **Collisions are conflicts, never overwrites.** A move onto an existing path, a mkdir where a file exists, a delete of a file whose hash is no longer the one seen, a non-recursive delete of a directory that is not empty, a recursive delete whose tree hash differs: the operation is not applied, the entry stays flagged (`conflict.reason`) and is shown with both states. | The owner's rule. |
+| L58 | **Already applied is detected, not assumed.** A delete whose path is gone, a mkdir whose directory exists, a move whose source is gone and whose target holds the moved hash (or tree hash), a put whose disk hash equals the entry: covered, cleared with the rest after a recorded publish. | Idempotence across a lost clear (R5). |
+| L59 | **Path containment is unchanged and applies to every path an operation names.** Parents are resolved and must stay inside the workspace; the final component is never followed (a delete or rename acts on the link itself); a path with an ancestor symlink in the snapshot index is `path_refused`; `.git` as a segment of the path, the source or the target is `path_refused` (a recursive delete may contain a `.git` directory below the named one); excluded directory names are `not_in_saved_copy` for the overlay; the workspace root cannot be deleted or renamed. | L23, L40. |
+| L60 | **The live path uses four new helper operations under the same containment:** `mkdir`, `unlink` (a file, a symlink or an empty directory), `rmtree` (recursive, tree-hash precondition, 5000 entries, one device, never following a link) and `rename` (exclusive target). Request kinds `delete`, `move`, `mkdir` are delivered like `write` (7.4) with the same states, audit, dirty flag and delivery rules. | Section 8.1. |
+| L61 | **Audit:** operations `delete` (`recursive`, `removed`), `move` (`to_path`) and `mkdir`, with `source` `live` or `overlay`, `sha256_before` or `tree_sha256_before` from the `If-Match`, intent first and fail closed, finalized by the Front Door (overlay) or the result route (live), and `overlay_apply` records when the owner applies or flags them. | L44. |
+| L62 | **Rate and size.** Delete, move and mkdir count in the write class (30 a minute). A request body is small (paths only). A tree-hash computation reads the snapshot index (cached) and the overlay once; more than 5000 descendants is 413 `too_many_entries`. | L22. |
+| L63 | **Non-current bucket versions expire after 30 days** (part B, `snapshot-stack.ts`). Explained in 12.8: versioning keeps every overwritten object; today every publish overwrites the whole pack, so old versions are whole-workspace snapshots, not per-file history, and are never expired; keeping them is a storage cost and a recovery window, not a product feature. | O6, W32. |
+| L64 | **A pending change can be listed and discarded by any enabled member.** `GET .../files/overlay` lists the entries (path, operation, `from`, who, when, state, revision); `POST .../files/overlay/discard` takes `{ path, revision }`, works for every operation, and is audited. Discarding a move or a delete restores what the snapshot has. | O7. |
+| L65 | **The seal and the stale-seal rules cover all four operations** (L33, L38): a delete, rename or mkdir is a member write like a put and goes to the owner when it can serve, 503 while it seals or stops, the overlay otherwise. | |
+| L66 | **A conflicted entry of any kind is resolved only explicitly:** a fresh operation with `If-Match` of the effective (theirs) hash replaces it, or the change is discarded. | L39. |
 
 ## 4. Constants
 
@@ -225,6 +252,8 @@ from the environment.
 | `OVERLAY_CLEAR_RETRY_SECONDS` | 10 | supervisor (L36) |
 | `OVERLAY_EARLY_PUBLISH_SECONDS` | 5 | supervisor (L36) |
 | `OVERLAY_INDEX_OBJECT`, `overlayBlobObject(sha256)` | `overlay/index.json`, `overlay/blobs/{sha256}` | all |
+| `LIVE_FILE_TREE_MAX_ENTRIES` | 5000 | directory delete, rename and tree hash (L49, L62) |
+| `LIVE_FILE_MKDIR_MODE` | `0775` (through the umask 002 of the launcher) | helper `mkdir` |
 
 Not changed: `DEFAULT_HEARTBEAT_TIMEOUT_SECONDS` = 30, `OWNER_POLL_*` tiers,
 `OWNER_IDLE_TIMEOUT_SECONDS`, `OWNER_POLL_SILENCE_FENCE_SECONDS`. The 8 second wait fits
@@ -306,6 +335,7 @@ export const LIVE_FILE_CONTENT_MAX_BYTES = 262144;
 export const LIVE_FILE_READ_MAX_FILE_BYTES = 8388608;
 export const LIVE_FILE_LISTING_MAX_ENTRIES = 2000;
 export const LIVE_FILE_LISTING_SCAN_MAX_NAMES = 20000;
+export const LIVE_FILE_TREE_MAX_ENTRIES = 5000;
 export const LIVE_FILE_STDOUT_MAX_BYTES = 1048576;
 export const LIVE_FILE_RATE_WINDOW_SECONDS = 60;
 export const LIVE_FILE_READ_RATE = 240;
@@ -346,8 +376,10 @@ export const liveFileEntrySchema = z
 		sha256: sha256Hex.nullable(),
 		link_target: z.string().max(4096).nullable(),
 		modified_at: timestamp.nullable(),
-		/** "pending": an overlay edit is in effect; "conflict": the person's edit conflicts with a newer snapshot (the entry shows theirs). */
+		/** "pending": an overlay change is in effect; "conflict": the person's change conflicts with a newer snapshot (the entry shows theirs). */
 		overlay: z.enum(["none", "pending", "conflict"]),
+		/** Only on the stat of a directory: its tree hash (L49), the ETag of a delete or rename. */
+		tree_sha256: sha256Hex.nullable(),
 	})
 	.strict();
 
@@ -355,6 +387,12 @@ export const liveFileEntrySchema = z
 export const liveFileWritePreconditionSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("if_match"), sha256: sha256Hex }).strict(),
 	z.object({ type: z.literal("if_none_match") }).strict(),
+]);
+
+/** What a delete or a move must find: the content hash of a file or symlink, or the tree hash of a directory (L49). */
+export const liveFileRemovePreconditionSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("if_match"), sha256: sha256Hex }).strict(),
+	z.object({ type: z.literal("if_match_tree"), tree_sha256: sha256Hex }).strict(),
 ]);
 
 const requestBase = {
@@ -370,7 +408,7 @@ const requestBase = {
  */
 export const ownerFileRequestSchema = z.discriminatedUnion("kind", [
 	z.object({ ...requestBase, kind: z.literal("list"), max_entries: z.number().int().min(1).max(LIVE_FILE_LISTING_MAX_ENTRIES) }),
-	z.object({ ...requestBase, kind: z.literal("stat") }),
+	z.object({ ...requestBase, kind: z.literal("stat"), tree: z.boolean().default(false) }),
 	z.object({
 		...requestBase,
 		kind: z.literal("read"),
@@ -379,6 +417,9 @@ export const ownerFileRequestSchema = z.discriminatedUnion("kind", [
 		mask: z.boolean(),
 	}),
 	z.object({ ...requestBase, kind: z.literal("write"), content: liveFileTextSchema, precondition: liveFileWritePreconditionSchema }),
+	z.object({ ...requestBase, kind: z.literal("delete"), recursive: z.boolean(), precondition: liveFileRemovePreconditionSchema }),
+	z.object({ ...requestBase, kind: z.literal("move"), to: livePathSchema, precondition: liveFileRemovePreconditionSchema }),
+	z.object({ ...requestBase, kind: z.literal("mkdir") }),
 ]);
 
 /** Why an owner could not carry out a request. */
@@ -400,6 +441,9 @@ export const LIVE_FILE_OWNER_ERROR_CODES = [
 	"helper_failed",
 	"helper_timeout",
 	"io_error",
+	"directory_not_empty",
+	"invalid_move",
+	"too_many_entries",
 ] as const;
 export const liveFileOwnerErrorCodeSchema = z.enum(LIVE_FILE_OWNER_ERROR_CODES);
 
@@ -446,9 +490,34 @@ const writeResult = z
 	})
 	.strict();
 
+const deleteResult = z
+	.object({
+		kind: z.literal("delete"),
+		resolved_path: livePathSchema,
+		directory: z.boolean(),
+		removed: z.number().int().nonnegative().max(LIVE_FILE_TREE_MAX_ENTRIES),
+		sha256_before: sha256Hex.nullable(),
+		tree_sha256_before: sha256Hex.nullable(),
+		kept_as: livePathSchema.optional(),
+	})
+	.strict();
+
+const moveResult = z
+	.object({
+		kind: z.literal("move"),
+		from: livePathSchema,
+		to: livePathSchema,
+		directory: z.boolean(),
+		sha256: sha256Hex.nullable(),
+		tree_sha256: sha256Hex.nullable(),
+	})
+	.strict();
+
+const mkdirResult = z.object({ kind: z.literal("mkdir"), resolved_path: livePathSchema, created: z.boolean() }).strict();
+
 /** The owner's answer to one request: the result, or the code of the error that stopped it. */
 export const liveFileOutcomeSchema = z.discriminatedUnion("status", [
-	z.object({ status: z.literal("ok"), result: z.discriminatedUnion("kind", [listResult, statResult, readResult, writeResult]) }).strict(),
+	z.object({ status: z.literal("ok"), result: z.discriminatedUnion("kind", [listResult, statResult, readResult, writeResult, deleteResult, moveResult, mkdirResult]) }).strict(),
 	z
 		.object({
 			status: z.literal("error"),
@@ -540,8 +609,44 @@ export const liveFileRevealBodySchema = z
 	})
 	.strict();
 
-/** POST /orgs/{tenant}/computer/files/overlay/discard: drop the person's own pending overlay edit (sha256 is the entry's). */
-export const liveFileDiscardBodySchema = z.object({ path: livePathSchema, sha256: sha256Hex }).strict();
+/** POST /orgs/{tenant}/computer/files/overlay/discard: drop one pending overlay change of any kind (the revision is the entry's). */
+export const liveFileDiscardBodySchema = z.object({ path: livePathSchema, revision: z.number().int().positive() }).strict();
+
+/** POST /orgs/{tenant}/computer/files/move: rename a file, a symlink or a directory; header If-Match of the effective hash of `from` (L49). */
+export const liveFileMoveBodySchema = z.object({ from: livePathSchema, to: livePathSchema }).strict();
+
+/** POST /orgs/{tenant}/computer/files/directories: create a directory; idempotent. */
+export const liveFileMkdirBodySchema = z.object({ path: livePathSchema }).strict();
+
+/** DELETE /orgs/{tenant}/computer/files?path=&recursive=  with If-Match of the effective hash (L49). */
+export const liveFileDeleteResponseSchema = z.object({
+	source: z.enum(["live", "overlay"]),
+	as_of: timestamp,
+	path: livePathSchema,
+	directory: z.boolean(),
+	removed: z.number().int().nonnegative(),
+	kept_as: livePathSchema.nullable(),
+	backed_up: z.boolean(),
+});
+
+export const liveFileMoveResponseSchema = z.object({
+	source: z.enum(["live", "overlay"]),
+	as_of: timestamp,
+	from: livePathSchema,
+	to: livePathSchema,
+	directory: z.boolean(),
+	sha256: sha256Hex.nullable(),
+	tree_sha256: sha256Hex.nullable(),
+	backed_up: z.boolean(),
+});
+
+export const liveFileMkdirResponseSchema = z.object({
+	source: z.enum(["live", "overlay"]),
+	as_of: timestamp,
+	path: livePathSchema,
+	created: z.boolean(),
+	backed_up: z.boolean(),
+});
 
 /** POST /orgs/{tenant}/computer/files/watch: the Files panel is open (true) or closed (false). */
 export const liveFileWatchBodySchema = z.object({ open: z.boolean() }).strict();
@@ -627,23 +732,67 @@ const identifier = z.string().min(1).max(256);
 const timestamp = z.iso.datetime();
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 
-/** A conflict found by the owner while applying: the disk held a third version. Derived conflicts (the snapshot moved) are not stored. */
-export const overlayConflictSchema = z.object({ disk_sha256: sha256Hex.nullable(), found_at: timestamp }).strict();
-
-/** One edited file. The content is the blob named by `sha256`. */
-export const overlayEntrySchema = z
+/** A conflict: the disk held something else than the change expected. Derived conflicts (the snapshot moved) are not stored. */
+export const overlayConflictSchema = z
 	.object({
-		path: livePathSchema,
-		sha256: sha256Hex,
-		size: z.number().int().nonnegative().max(262144),
-		mode: z.string().regex(/^[0-7]{3,4}$/),
-		base_sha256: sha256Hex.nullable(),
-		edited_by: identifier,
-		edited_at: timestamp,
-		revision: z.number().int().positive(),
-		conflict: overlayConflictSchema.nullable(),
+		reason: z.enum(["changed", "collision", "not_empty", "kind_mismatch"]),
+		disk_sha256: sha256Hex.nullable(),
+		found_at: timestamp,
 	})
 	.strict();
+
+const entryBase = {
+	path: livePathSchema,
+	edited_by: identifier,
+	edited_at: timestamp,
+	revision: z.number().int().positive(),
+	conflict: overlayConflictSchema.nullable(),
+};
+const mode = z.string().regex(/^[0-7]{3,4}$/);
+
+/** One pending change. One path has at most one entry. The content of a `put` is the blob named by `sha256`; the other kinds carry no blob. */
+export const overlayEntrySchema = z.discriminatedUnion("op", [
+	z
+		.object({
+			...entryBase,
+			op: z.literal("put"),
+			sha256: sha256Hex,
+			size: z.number().int().nonnegative().max(262144),
+			mode,
+			base_sha256: sha256Hex.nullable(),
+			/** The file this put was renamed from (hidden, and deleted at apply with `from_sha256`); null for a plain create or replace. */
+			from: livePathSchema.nullable(),
+			from_sha256: sha256Hex.nullable(),
+		})
+		.strict(),
+	z
+		.object({
+			...entryBase,
+			op: z.literal("delete"),
+			directory: z.boolean(),
+			recursive: z.boolean(),
+			/** The effective hash seen: a file's content hash or a symlink's hash (L49); null for a directory. */
+			base_sha256: sha256Hex.nullable(),
+			/** The tree hash seen, for a directory. */
+			tree_sha256: sha256Hex.nullable(),
+		})
+		.strict(),
+	z.object({ ...entryBase, op: z.literal("mkdir"), mode }).strict(),
+	z
+		.object({
+			...entryBase,
+			op: z.literal("move"),
+			from: livePathSchema,
+			directory: z.boolean(),
+			/** The kept content hash of a moved file or symlink; null for a directory. */
+			sha256: sha256Hex.nullable(),
+			/** The tree hash of a moved directory. */
+			tree_sha256: sha256Hex.nullable(),
+			size: z.number().int().nonnegative(),
+			mode,
+		})
+		.strict(),
+]);
 
 /** Who may write the index: nobody but the Front Door; and not at all while a valid seal exists. */
 export const overlaySealSchema = z
@@ -659,13 +808,23 @@ export const overlayIndexSchema = z
 	})
 	.strict()
 	.refine((index) => new Set(index.entries.map((entry) => entry.path)).size === index.entries.length, { message: "paths are unique" })
-	.refine((index) => index.entries.reduce((total, entry) => total + entry.size, 0) <= OVERLAY_MAX_TOTAL_BYTES, { message: "content over 8 MiB" });
+	.refine(
+		(index) => {
+			const sources = index.entries.flatMap((entry) => (("from" in entry && entry.from !== null) ? [entry.from] : []));
+			return new Set(sources).size === sources.length && sources.every((source) => !index.entries.some((entry) => entry.path === source));
+		},
+		{ message: "a source path is moved once and is not also an entry" },
+	)
+	.refine(
+		(index) => index.entries.reduce((total, entry) => total + (entry.op === "put" ? entry.size : 0), 0) <= OVERLAY_MAX_TOTAL_BYTES,
+		{ message: "content over 8 MiB" },
+	);
 
 /** POST /orgs/{tenant}/host/owner/overlay-seal: after extraction, close the overlay to member writes and get the entries to apply. */
 export const ownerOverlaySealRequestSchema = z.object({ owner_id: identifier, generation: z.number().int().positive() }).strict();
 export const ownerOverlaySealResponseSchema = z.object({ entries: z.array(overlayEntrySchema).max(OVERLAY_MAX_ENTRIES) });
 
-const entryReference = z.object({ path: livePathSchema, revision: z.number().int().positive(), sha256: sha256Hex }).strict();
+const entryReference = z.object({ path: livePathSchema, revision: z.number().int().positive() }).strict();
 
 /**
  * POST /orgs/{tenant}/host/owner/overlay-applied: after a publish that began after the apply, clear exactly these entries;
@@ -685,8 +844,8 @@ export type OverlayIndex = z.infer<typeof overlayIndexSchema>;
 export type OverlayEntry = z.infer<typeof overlayEntrySchema>;
 ```
 
-A schema test proves: a 101st entry fails, duplicate paths fail, 8 MiB plus one byte fails, an entry with a path
-outside `/workspace` fails, `cleared` and `conflicts` default to empty, and an index with a seal parses.
+A schema test proves: a 101st entry fails, duplicate paths fail, a source path moved twice or also an entry fails, 8 MiB of put content plus one byte fails (deletes, moves and
+mkdirs add none), an entry with a path outside `/workspace` fails, each of the four kinds parses, `cleared` and `conflicts` default to empty, and an index with a seal parses.
 
 ## 6. Routes
 
@@ -720,7 +879,11 @@ add `Vary: Authorization`. A refusal of the principal is the Phase 1 `{ "detail"
 | `PUT /content?path=` | `liveFileWriteBodySchema`; header `If-Match: "<effective sha256>"` **or** `If-None-Match: *` | `liveFileWriteResponseSchema`, header `ETag` | 7.3: to the owner when it is live, otherwise into the overlay (7.7.3) |
 | `POST /reveal` | `liveFileRevealBodySchema` | `liveFileContentResponseSchema` with `masked: false, revealed: true`; `Cache-Control: no-store` | audited; both sources |
 | `POST /watch` | `liveFileWatchBodySchema` | `liveFileWatchResponseSchema` | 7.5; starts nothing |
-| `POST /overlay/discard` | `liveFileDiscardBodySchema` | `{ "discarded": true }` | 7.7.3; audited; only while the overlay is writable |
+| `DELETE ?path=&recursive=` | header `If-Match: "<effective hash>"` (L49) | `liveFileDeleteResponseSchema` | 7.8; a non-empty directory needs `recursive=true` and the owner role |
+| `POST /move` | `liveFileMoveBodySchema`; header `If-Match: "<effective hash of from>"` | `liveFileMoveResponseSchema` | 7.8; never replaces an existing path |
+| `POST /directories` | `liveFileMkdirBodySchema` | `liveFileMkdirResponseSchema` | idempotent |
+| `GET /overlay` | none | `{ "entries": [overlay entries] }` (5.5) | the pending changes, for the panel |
+| `POST /overlay/discard` | `liveFileDiscardBodySchema` (`{ path, revision }`) | `{ "discarded": true }` | any enabled member; audited; works for every operation; only while the overlay is writable |
 
 Header rules for `PUT`: exactly one of the two preconditions (both or neither: 428
 `precondition_required`); `If-Match` takes one strong quoted 64 hex digit value (`"abc..."`;
@@ -749,7 +912,12 @@ The body is `{ "error": code, "message": text }` plus `current_sha256`, `retry_a
 | `computer_stopping` | 503 | the owner is stopping; carries `retry_after_ms` (5000) |
 | `owner_too_old` | 409 | a running owner of protocol 1 would never apply an overlay (L47) |
 | `edit_unsupported` | 409 | a customer-account computer (L46) |
-| `overlay_full` | 409 | 100 entries or 8 MiB (L41) |
+| `overlay_full` | 409 | 100 entries of any kind or 8 MiB of content (L41) |
+| `path_busy` | 409 | an earlier pending directory rename or recursive delete covers this path, or this change would (L53) |
+| `directory_not_empty` | 409 | a delete of a directory that has children, without `recursive` |
+| `owner_role_required` | 403 | a recursive delete by a member who is not the organization owner (L51) |
+| `invalid_move` | 422 | a rename into the path's own subtree, or of the workspace root |
+| `too_many_entries` | 413 | a directory operation over 5000 descendants (L62) |
 | `not_in_saved_copy` | 422 | the path is under a directory the snapshot never keeps (L40) |
 | `snapshot_not_indexed` | 409 | existing |
 | `content_too_large` | 413 | body over 256 KiB, refused before the owner is asked |
@@ -812,7 +980,8 @@ sort key `at#{epoch milliseconds, 13 digits}#{operation_id}`.
 | Attribute | Type | Meaning |
 | --- | --- | --- |
 | `tenant_id`, `computer_id`, `user_id`, `operation_id` | S | `user_id` from the principal |
-| `operation` | S | `write` (replace), `create`, `reveal`, `discard`, `overlay_apply` |
+| `operation` | S | `write` (replace), `create`, `reveal`, `discard`, `overlay_apply`, `delete`, `move`, `mkdir` |
+| `to_path`, `recursive`, `removed`, `tree_sha256_before` | S, BOOL, N, S | for `move`, `delete` and the directory preconditions (7.8.8) |
 | `path` | S | the normalised path the person named |
 | `resolved_path` | S | as reported by the owner, absent until the result arrives |
 | `source` | S | `live`, `snapshot` (a reveal from the snapshot) or `overlay` (an edit or discard of a pending edit; a reveal of an overlay file) |
@@ -977,6 +1146,8 @@ overlay names a path in an S3 key: blobs are addressed by hash, so no member-cho
 
 #### 7.7.2 The effective view
 
+This subsection describes `put` entries; the effective view with `delete`, `mkdir` and `move` entries is 7.8.3, and the effective hash of a symlink or a directory is 7.8.2.
+
 Inputs: the snapshot index (an empty one holding only the directory `/workspace` when nothing was published) and the overlay
 index (a conditional `GET` with the cached `ETag`; an absent object is an empty overlay). For each path with an entry `E`, and `s` the
 snapshot hash of the path (absent is a value):
@@ -1030,9 +1201,9 @@ In the supervisor's `hydrate()` (section 9.4), in this order and before the supe
    `sealed = { owner_id, generation, sealed_at, snapshot_generation }` (the computer record's `snapshotGeneration` at that moment) by compare-and-swap (creating it with `If-None-Match: *` if absent). A seal already held by this owner
    and generation is returned as is (a retry). A seal of anyone else is stale by construction (this owner is the live owner) and is replaced. A lost
    swap re-reads: a member edit that won the swap is in the set. The response carries every entry.
-3. Apply, in path order, every entry without a stored `conflict`: read its blob from S3, check the bytes hash to `entry.sha256`, and call the file helper
+3. Apply every entry without a stored `conflict` in the order and with the rules of 7.8.5 (mkdir, directory moves, file moves, puts, deletes of files, deletes of directories). For a `put`: read its blob from S3, check the bytes hash to `entry.sha256`, and call the file helper
    `write` with `if_match base_sha256` (`if_none_match` when `base_sha256` is null) and `refuseGitSegments`. `ok`: applied. `precondition_failed` whose
-   `current_sha256` equals `entry.sha256`: already applied. Any other outcome of `precondition_failed` or `already_exists`: **conflict**. A blob that cannot
+   `current_sha256` equals `entry.sha256`: already applied. Any other outcome of `precondition_failed` or `already_exists`: **conflict**. The other operations use the helper operations of 8.1 and the outcomes of 7.8.5. A blob that cannot
    be read or does not hash, or a helper failure other than those, fails the hydrate (L34).
 4. If there are conflicts, `POST overlay-applied { conflicts }`. The Front Door stores `conflict: { disk_sha256, found_at }` on each entry whose `revision`
    still matches, and writes an `overlay_apply` audit record with outcome `conflict`. Failing this post is logged and retried; it does not fail the hydrate.
@@ -1082,6 +1253,128 @@ The seal ends with the owner: the stopped report unseals (one swap). A seal left
 #### 7.7.7 Size and cost
 
 Caps in L41. Cost in section 19.
+
+### 7.8 Delete, rename and new folders (revision 3)
+
+#### 7.8.1 Routes, roles, preconditions
+
+Routes are in 6.2. Principal and rate rules are those of a write (7.3 steps 1 to 3, class `write`); the route decision is 7.3 step 4 (live path or overlay path) for every one of them.
+
+**Who may (L51).** The original design (7.6, D8) said "Delete and move, when added, need the owner role". That no longer stands for the common case: delete, rename and new folders now matter to every member,
+who can already change a file and can already tell a bot to delete anything. Recommendation, adopted in the contract: **any enabled member** may delete a file or a symlink, rename a file, a symlink or a directory, create a
+directory, and delete an *empty* directory, each audited with who, what and the hash seen; **only the organization owner role** may delete a *non-empty* directory (`recursive=true`), the one bulk, hard-to-undo action.
+A member who tries gets 403 `owner_role_required` and nothing is audited as attempted (it is logged). Renaming a non-empty directory is not destructive and is open to members.
+
+**Preconditions (L49, L50).** `DELETE` and `move` require `If-Match` of the effective hash of the path as the person last saw it; the `ETag` of `stat` and of `content` is that hash (a directory's is its tree hash). A missing
+header is 428; a different hash is 409 `precondition_failed` with `current_sha256` (the tree hash for a directory). `POST /directories` takes no precondition: it is idempotent.
+
+#### 7.8.2 The effective hash
+
+File: SHA-256 of the content. Symlink: SHA-256 of `symlink`, a NUL byte, then the target. Directory (the **tree hash**): SHA-256 over, for every descendant of the directory in the effective view sorted by
+relative path (bytes), the line `kind NUL relative-path NUL value LF`, with `kind` one of `file`, `symlink`, `dir`, and `value` the size of a file, the target of a symlink, or `0`. The tree hash of an empty directory is the hash of
+nothing. The Front Door computes it from the merged snapshot index and overlay; the helper computes the same from `lstat` and `readlink` (no file is read). A directory with more than 5000 descendants is 413 `too_many_entries` for a
+delete, a rename and a tree hash.
+
+#### 7.8.3 Reads: how the four operations merge
+
+Added to the rules of 7.7.2. `s` is the snapshot's state of a path.
+
+| Entry at P | Effective view | Derived state (against the snapshot) |
+| --- | --- | --- |
+| `delete` of a file or symlink | P and its hash are absent: not listed, stat and content 404 `not_found` | `s` has P with the entry's `base_sha256`: pending. `s` has P with another hash: **conflict** (shown as the snapshot's file, `overlay: "conflict"`). `s` has no P: applied |
+| `delete` of a directory (empty, or `recursive`) | P and everything below it are absent | `s` has the directory and its tree hash equals the entry's `tree_sha256` (recursive) or it has no children (non-recursive): pending. Otherwise conflict. `s` has no P: applied |
+| `mkdir` | P is a directory, `overlay: "pending"`, with the children the snapshot has under it (none if it does not exist there) | `s` has a directory at P: applied. `s` has a file or symlink at P: conflict |
+| `move` of a file or symlink from F | P is the file with the kept hash, size and mode; its content is read from the snapshot pack at F's member; F is absent | `s` has F with the kept `sha256` and no P: pending. `s` has P with the kept hash and no F: applied. Anything else: conflict (F changed, or P exists) |
+| `move` of a directory from D | P lists what the snapshot lists under D (paths re-rooted: P/x is the snapshot's D/x); D is absent | `s` has D with the kept `tree_sha256` and no P: pending. `s` has P with that tree hash and no D: applied. Anything else: conflict |
+| `put` with `from` F | P is the file of the blob; F is absent | as a `put` (7.7.2), and F in `s` must still have `from_sha256` |
+
+* **List.** The children of a directory are the snapshot's children, minus every path hidden by a `delete` or by the source of a `move` or `put` with `from`, plus the entries whose parent is the directory (puts, mkdirs, move targets).
+  A hidden directory hides its subtree. Order and the 2000 cap are unchanged.
+* **Stat, content, reveal.** A path under a moved directory is translated to the snapshot path before lookup (the exclusivity of L53 means no other entry is below it). A moved file's content is a ranged read of the snapshot member of its source,
+  verified against the kept hash.
+* **Pending changes.** `GET .../files/overlay` returns the entries so the panel can mark them and offer a discard.
+
+#### 7.8.4 Recording a change (the write algebra)
+
+Steps 1 to 5 of 7.7.3 apply to every operation (path rules L40 and L59, judge the precondition against the effective hash, caps, audit intent first, fail closed), then the blob step only for a `put`, then the swap
+of 7.7.3 steps 7 and 8 with the new set of entries, then the audit finalization. The new set is computed from the entry at the path and the operation:
+
+| Request | State of the path | New set of entries |
+| --- | --- | --- |
+| `put` (create) | absent; no `delete` | add `put`, `base_sha256` null |
+| `put` | a `delete` of a file at P | replace by a `put` whose `base_sha256` is the snapshot hash |
+| `put` (replace) | pending `put`, snapshot file, or move target | as 7.7.3 step 7; a move target becomes a `put` with `from` and `from_sha256` (its source stays hidden) |
+| `delete` a file or symlink | snapshot file or symlink | add `delete`, `base_sha256` = its effective hash |
+| | pending `put`, no base, no `from` | remove the entry |
+| | pending `put` with a base | replace by a `delete` with that base |
+| | pending `put` with `from` F | replace by a `delete` of F with `from_sha256` as base |
+| | target of a `move` from F | replace by a `delete` of F with the kept hash as base |
+| | a conflicted entry | replace by a `delete` with the snapshot (theirs) hash as base (the person chose) |
+| `delete` a directory | empty in the effective view | add `delete { directory, recursive: false }`; a pending `mkdir` there is removed instead |
+| | not empty, `recursive`, owner role, tree hash | add `delete { directory, recursive: true, tree_sha256 }` and **drop every entry below it**; a dropped move target or put with `from` becomes a `delete` of its source |
+| | not empty, not `recursive` | 409 `directory_not_empty` |
+| `move` a file or symlink F to T | snapshot file | add `move { path: T, from: F }` with the kept hash, size, mode |
+| | pending create | the entry's path becomes T |
+| | pending `put` with a base | replace by a `put` at T (same blob) with `from: F`, `from_sha256` the base, `base_sha256` null |
+| | a `put` with `from` G, or a `move` from G | the entry's path becomes T, keeping `from` G; if T equals G the entry is removed |
+| `move` a directory D to E | snapshot directory, no entry at or under D or E | add `move { directory, path: E, from: D, tree_sha256 }` |
+| | any entry at or under D or E | 409 `path_busy` |
+| `mkdir` | absent, parent exists | add `mkdir` |
+| | a directory (snapshot, mkdir, or move target) | 200 `created: false`, nothing written, no audit record |
+| | a file or symlink | 409 `already_exists` |
+| any | a path under a directory with a pending `move` or recursive `delete` | 409 `path_busy` |
+
+A request that names a missing parent is 404 `parent_missing`; a target that exists is 409 `already_exists`; a source that does not exist is 404 `not_found`.
+
+#### 7.8.5 Applying at hydrate: order and collisions
+
+The supervisor applies the sealed set (7.7.4 step 3) in this order, each operation through the file helper with its precondition (8.1), as uid 2000, containment and `refuseGitSegments` included:
+
+1. **mkdir**, shallowest path first.
+2. **Directory moves**, shallowest source first. Exclusivity (L53) means they do not interact.
+3. **Moves of files and symlinks.**
+4. **Puts** (creates and replaces), in path order. A `put` with `from` is a create at its path; its source is removed in step 5.
+5. **Deletes of files and symlinks**, including the sources of puts with `from`.
+6. **Deletes of directories**, deepest first. A recursive delete is one tree removal.
+
+| Operation | Applied | Already applied | Conflict (not applied, flagged with `reason`) |
+| --- | --- | --- | --- |
+| `mkdir` | the directory is created | a directory exists | a file or symlink exists (`kind_mismatch`); the parent is missing (`collision`) |
+| `move` file | `from` has the kept hash and `to` does not exist: renamed | `from` is gone and `to` has the kept hash | `to` exists (`collision`); `from` has another hash or is gone with `to` absent (`changed`) |
+| `move` directory | `from` has the kept tree hash and `to` does not exist: renamed | `from` is gone and `to` has the kept tree hash | `to` exists (`collision`); the tree hash differs (`changed`) |
+| `put` | as 7.7.4 step 3 | the disk equals the entry | the disk holds a third hash (`changed`), or the path is a directory (`kind_mismatch`) |
+| `delete` file or symlink | the effective hash equals `base_sha256`: removed | the path is gone | another hash (`changed`) |
+| `delete` empty directory | removed | the directory is gone | it has children (`not_empty`) |
+| `delete` recursive | the tree hash equals `tree_sha256`: removed | the directory is gone | the tree hash differs (`changed`) |
+
+* **Rename onto an existing path**: always a conflict (`collision`), never an overwrite; the request side already refuses it (L52).
+* **Non-empty directory delete**: only the recursive entry removes children; a non-recursive one whose directory gained children meanwhile is a conflict (`not_empty`).
+* **Rename of a directory**: one `rename(2)` of the whole tree after `mkdir(target)`; it fails whole if anything about the target changed.
+* A conflict is reported with `POST overlay-applied { conflicts }`, the entry is kept and flagged (`conflict.reason`), and the operations that depended on it (a put inside a directory whose mkdir conflicted) report `collision` for the parent that is missing. Nothing is retried in the hydrate.
+* **Clear** (7.7.4 step 7) after a recorded publish, for every applied or already-applied entry, using the rule of L37; for a non-put entry the Front Door additionally accepts the clear when the snapshot index already shows the result (path gone for a delete, directory present for a mkdir,
+  target with the kept hash and source gone for a move).
+
+#### 7.8.6 The live path
+
+When the owner can serve (7.3 step 4.2) the operation is a file request of kind `delete`, `move` or `mkdir` (5.2) with the same preconditions, queued in the same transaction, delivered by the same poll, answered by the same result route, with the same audit
+(intent first, finalized by the result route), the same `markComputerDiskDirty`, the same abandon and `outcome_unknown` rules, and `backed_up: false`. The Front Door has already checked the owner role for a recursive delete and the path rules; the helper checks
+containment and `.git` again. A `directory_not_empty`, `invalid_move`, `too_many_entries`, `already_exists` or `precondition_failed` from the helper maps to the member codes of 6.3.
+
+#### 7.8.7 Containment, links, `.git`
+
+Every path in a request (`path`, `from`, `to`) is validated lexically by the Front Door (`livePathProblem`, no `..`, under `/workspace`) and again by the helper after resolving the parent directory. The final component is never followed: deleting or renaming a symlink acts on the link. An ancestor
+that is a symlink is `path_refused` in the overlay (the snapshot index shows it) and is resolved-and-contained in the helper (a link that leads out of the workspace is refused as for any file operation). A `.git` segment in `path`, `from` or `to`, lexical or resolved, is
+`path_refused`; a recursive delete of a directory that contains a `.git` directory below the named one is allowed (it removes, it does not inject). The workspace root and the home of the browser profile cannot be deleted or renamed. Excluded directory names (L40) are refused by the
+overlay as `not_in_saved_copy` and are allowed on the live path. A recursive removal never crosses a mount (`st_dev` is checked) and never follows a link.
+
+#### 7.8.8 Audit
+
+Records of section 7.1 with `operation` `delete`, `move` or `mkdir`; `path` is the source, `to_path` the target of a move; `recursive` and `removed` (the count) for a delete; `sha256_before` or `tree_sha256_before` from the `If-Match`; `source` `live` or `overlay`; no content.
+Refusals (a `.git` path, `owner_role_required` after authentication, a failed precondition) are audited as for a write; the idempotent `mkdir` of an existing directory is not. The owner's `overlay_apply` records name the operation and the outcome (`ok`, `already`, `conflict` with its reason).
+
+#### 7.8.9 Size and cost
+
+Caps in L41 and L62. A delete, a move and a mkdir are index-only: no blob, no content bytes. Cost in section 19.
 
 ## 8. The file helper
 
@@ -1161,6 +1454,23 @@ the result is the same as a shell redirect landing a moment after a save.
 The Pi tools' `write` (`UnprivilegedExecutionEnv.writeFile`) calls this operation with `contentBase64`, `createParents: true`,
 no precondition and no `refuseGitSegments`: it now writes atomically (a reader never sees half a file). The existing
 scenarios of `computer_owner_file_isolation.feature` stay green and are the proof that the link rules did not move.
+
+### 8.1 Helper operations for delete, rename and new folders (revision 3)
+
+`OwnerFileOperation` gains `mkdir`, `unlink`, `rmtree` and `rename`; the request gains `to` (rename), `recursive`, and the preconditions `sha256` or `treeSha256`. All of them: resolve the parent directory of each path they name
+(`finalLocationOf`) and assert it inside `allowedRoots`; never follow the final component; refuse a resolved `.git` segment when `refuseGitSegments`; answer with the codes of `LIVE_FILE_OWNER_ERROR_CODES`.
+
+* **`mkdir`**: the parent must exist (`parent_missing`); `mkdir` with mode `0775` through the launcher's umask; `EEXIST` on a directory is `ok` with `created: false`, on anything else `already_exists`.
+* **`unlink`**: `lstat` the final component. A file: open `O_RDONLY | O_NONBLOCK`, `fstat` regular, hash, compare with the precondition (`precondition_failed` with `currentSha256`), `unlink`, then re-hash through the held descriptor; if it differs
+  from the expected hash (an in-place writer in the window), write those bytes to `<name>.chatticus-deleted-<8 hex>` beside it and answer ok with `keptAs`. A symlink: compare the symlink hash (L49), `unlink`. A directory: `rmdir`; `directory_not_empty` if it has children.
+* **`rmtree`**: only with `recursive` and a `treeSha256`. Walk with `lstat` (never following a link, staying on the starting device, at most 5000 entries, else `too_many_entries`), compute the tree hash, compare (`precondition_failed` with the current tree hash),
+  then remove depth first with `unlink` and `rmdir`. A tree that contains a `.git` directory below the named path is removed (L59).
+* **`rename`**: `lstat` the source without following; compare the precondition (the content or symlink hash, or the tree hash of a directory); the target's parent must exist and the target must not (`already_exists`); the target must not lie inside the source (`invalid_move`);
+  same device. A file or symlink: `link(source, target)` (it fails if the target exists) then `unlink(source)`; the inode is the same, so an in-place writer in the window loses nothing. A directory: `mkdir(target)` exclusively, then `rename(source, target)`, which replaces only the empty
+  directory just made; `ENOTEMPTY` or `EEXIST` removes the made directory and answers `already_exists`.
+* **`stat`** with `tree: true` on a directory returns `treeSha256` (and `too_many_entries` past 5000).
+
+Pi's own file tools do not use these operations. The supervisor's file runner (9.1) maps request kinds `delete`, `move` and `mkdir` to them and passes `refuseGitSegments: true`.
 
 ## 9. The supervisor (container)
 
@@ -1571,7 +1881,7 @@ The supervisor role (`conversation/src/gateway/supervisor-role-policy.json`, rea
 ```
 
 An explicit deny wins over the allow whatever else is attached. The supervisor therefore **reads** the overlay and can neither write nor delete in it; it never holds a delete right at all. The
-"delete only applied entries" of the brief is done by the Front Door at `overlay-applied`, which can check what IAM cannot: that the entry still matches by path, revision and hash, that the seal
+"delete only applied entries" of the brief is done by the Front Door at `overlay-applied`, which can check what IAM cannot: that the entry still matches by path and revision, that the seal
 is valid, and that a publish is on record (L37). `features-support/iam-policy-evaluator.ts` (type `Effect: "Allow"` only today) learns `Deny` with the rule that a matching deny overrides any allow;
 `infra/lib/owner-role-policy.ts` passes `Effect` through. The per-turn role has no snapshot statement; the scenario proves it against `overlay/index.json` and a blob key.
 
@@ -1592,12 +1902,22 @@ no file operation is delivered before the supervisor leaves `hydrating`. A blob 
 30 seconds with the failure meaning "the owner does not start" rather than "the agent runs without the edits" (a person who keeps an overlay unreadable can only hurt their own organization's computer, and
 the control plane's start lease and probes behave as for any hydrate failure).
 
-**Secrets.** Overlay content is stored as plaintext objects under the bucket's managed encryption (`S3_MANAGED`, `enforceSSL`), deleted when cleared. The bucket is **versioned with no expiry of
-non-current versions** (`infra/lib/snapshot-stack.ts`), so a deleted blob (an edited `.env`) remains recoverable by an administrator until someone adds a non-current-version expiry; that
-is open question Q-O3. Masking by name applies to overlay content; a reveal is audited (source `overlay`); the audit never holds content.
+**Secrets.** Overlay content is stored as plaintext objects under the bucket's managed encryption (`S3_MANAGED`, `enforceSSL`), deleted when cleared. Masking by name applies to overlay content; a reveal is audited (source `overlay`);
+the audit never holds content.
 
-**The other writer to the prefix.** `LocalWorkerRole` (`snapshot-stack.ts`, `grantReadWrite` on the bucket) can write any object, overlay included; it is the role local hosts assume and is
-an operator-level credential, outside the owner roles this section is about. Not changed here (Q-O7).
+**Why a lifecycle rule on non-current versions (L63), in plain words.** The snapshot bucket has *versioning* on (`infra/lib/snapshot-stack.ts`). Versioning means S3 keeps every object that is overwritten or deleted, as a hidden older
+*version*, and keeps it until someone deletes it explicitly. Today every publish overwrites the single pack `snapshot.tar.gz` (and `manifest.json`), so each older version is a **complete copy of the whole workspace as it was at that
+publish**; it is not a per-file history and the product never reads it. Nothing expires them, so they only accumulate: a storage cost that grows with every publish, and an administrator's recovery window (the way back from a bad publish).
+The overlay adds small deleted blobs to the same pile, and an edited `.env` that was cleared would stay recoverable there. Neither a product feature nor a promise. The rule, in part B: **expire non-current versions 30 days after they stop being current**
+(`noncurrentVersionExpiration: Duration.days(30)` on the bucket). Effects: storage stops growing without bound; an administrator can still restore a version for 30 days; after that a deleted overlay secret is gone. It does not touch the current pack, the
+current manifest or live overlay objects.
+
+**Customer-account computers (L46).** Exactly why they are read-only: they run in the customer's own AWS account through the older host-worker path, with the customer-owned bucket `chatticus-snapshots-{OrganizationId}`. The Front Door's overlay write grant
+(`WriteComputerEditOverlay`) names only the Anthus snapshot bucket, so it cannot write there, and the host that would apply an overlay is a host worker with no supervisor: nothing seals, applies or clears. Making them editable needs three things the later-phase ticket
+carries: a cross-account write grant for the Front Door through the existing customer role, the same overlay protocol in the host worker, and the lifecycle rule in the customer's stack.
+
+**The other writer to the prefix.** `LocalWorkerRole` (`snapshot-stack.ts`, `grantReadWrite` on the whole bucket) can write any object, overlay objects included. By the owner's decision (O7) it is left as it is: it is the role the operator's local hosts assume,
+it already has read and write on the whole bucket, and it is operator-trusted, outside the owner roles this section is about. It is noted here so that nobody reads the explicit deny on the supervisor role as a bucket-wide guarantee.
 
 **Audit.** Every overlay edit and discard has a record before any object is written (L44); every owner-reported clear and conflict has an `overlay_apply` record. No owner role reads the audit.
 
@@ -1672,8 +1992,20 @@ Scenario names are those of `features/computer_file_live.feature`. Tags: `@serve
 | LF-62 | An overlay the owner cannot apply safely fails the hydrate or becomes a conflict, never a silent skip or an escape | L34, L35 | An overlay that cannot be read fails the hydrate; An overlay blob that does not hash to its entry fails the hydrate; The overlay is applied through the file helper and cannot reach outside the workspace | supervisor |
 | LF-63 | The panel edits while the computer is off, marks waiting files, shows overlay conflicts and retries while the computer starts | 10 | A member edits a file while the computer is off; The panel marks a file that is waiting for the computer; A conflict made while the computer was off shows both versions; An edit made while the computer is starting is tried again | web |
 | LF-64 | An edit made while off reaches the bot, empties the overlay after the publish, and survives a crash | 7.7.4, 7.7.5 | An edit made while the computer is off is applied on the next hydrate and the bot sees it; The overlay is empty after the publish that holds the edit; The overlay survives a crash of the owner before it publishes | end-to-end |
+| LF-65 | Delete, rename and new folders work while the computer is off, with the effective-hash precondition; the next read shows them | L48 to L50, 7.8.3 | A file deleted while the computer is off is gone from the next read and from the listing; A file renamed while the computer is off keeps its content and is read from the saved pack; A folder created while the computer is off is listed and creating it again is harmless; A delete with a stale hash is refused; A rename without a precondition is refused | server |
+| LF-66 | A rename never replaces an existing path; a folder cannot be moved into itself; the root is protected | L52 | A rename onto an existing path is refused; A folder cannot be renamed into its own subtree; The workspace root cannot be deleted or renamed | server |
+| LF-67 | Any member deletes files and renames; only the owner role deletes a non-empty folder | L51 | A member deletes a file and an empty folder; Only the owner role deletes a folder that is not empty; A member renames a folder that is not empty | server |
+| LF-68 | A pending folder rename or recursive delete is exclusive | L53 | A change under a folder that is waiting to be renamed is refused until it is applied | server |
+| LF-69 | Pending changes collapse when they undo each other, and can be listed and discarded | L54, L64 | Deleting a file that was created while the computer was off leaves nothing to apply; Renaming a file back to its own path leaves nothing to apply; Pending changes of every kind are listed and any member can discard one | server |
+| LF-70 | Containment, links, `.git`, excluded folders and caps hold for the new operations | L59, L41 | A delete, rename or new folder under .git is refused; A link in the saved copy is deleted as a link and its target is untouched; A delete or rename under a folder the saved copy never keeps is refused while the computer is off; The overlay counts every kind of change toward its 100 | server |
+| LF-71 | The live path does delete, rename and mkdir through the owner with audit and dirty flag | L60, L61 | A running computer deletes, renames and creates folders through the owner | server |
+| LF-72 | The audit records delete, move and mkdir with the hashes seen | L61 | A delete, a rename and a new folder are audited | server |
+| LF-73 | The owner applies the four operations in the fixed order and treats collisions as conflicts | L56, L57, L58 | The owner applies new folders, renames, edits and deletes in that order; The owner does not rename onto an existing path; The owner does not delete a file that changed since it was seen; The owner does not delete a folder that gained children; The owner treats a delete whose file is already gone as applied; The owner renames a whole folder in one step | supervisor |
+| LF-74 | The helper's delete, rename and mkdir stay inside the workspace and never follow links | L59, L60 | The helper deletes a link and not its target; The helper refuses a rename that would leave the workspace; The helper removes a folder tree only when its tree hash is the one seen; The helper renames without replacing | supervisor |
+| LF-75 | The panel offers delete, rename and new folder, marks and lists pending changes, and asks before a recursive delete | 10 | A member deletes a file while the computer is off; A member renames a file and sees it at once; A member creates a folder; The panel asks before deleting a folder that is not empty and offers it only to the owner role; The panel lists the changes waiting for the computer and discards one | web |
+| LF-76 | Deleting and renaming while off reach the bot at the next start, and survive a crash | L56 | A file deleted and a file renamed while the computer is off are seen that way by the bot | end-to-end |
 
-**Unit tests (vitest), the exception of `AGENTS.md`:** the overlay merge (`overlay-merge`: applied, pending and conflict states, list ordering and cap), the overlay index schema, the swap loop with a fake store that fails the condition, the seal and clear rules as pure functions of (index, computer record, request); `live-file-rules` (`livePathProblem`, `normalizeLivePath`,
+**Unit tests (vitest), the exception of `AGENTS.md`:** the overlay merge (`overlay-merge`: applied, pending and conflict states for the four operations, list ordering and cap, the tree hash and the symlink hash, path translation under a moved directory), the write algebra of 7.8.4 as a pure function of (entries, request) with a table-driven test of every row, the apply order of 7.8.5, the overlay index schema, the swap loop with a fake store that fails the condition, the seal and clear rules as pure functions of (index, computer record, request); `live-file-rules` (`livePathProblem`, `normalizeLivePath`,
 `livePathHasGitSegment`, `looksLikeSecretFile`, `looksBinary`, `trimToCharacterBoundary`); the schemas of section 5.2 (including the item
 size test of L20 and the unknown-field rules); `ownerFilePanelPace`; the expected-pickup arithmetic of L27; the helper's atomic write with an injected hook between the second
 comparison and the rename (the post-check keeps the replaced bytes; the temporary file is removed on every failure; the create is exclusive); the runner's queue
@@ -1683,19 +2015,10 @@ function or a codec.
 
 ## 14. Open questions for the owner
 
-The first revision's eleven questions are closed by the owner's answers (section 3.0, O1 to O4). These remain; none is decided for you.
+The owner's answers close the earlier questions (section 3.0, O1 to O7). Two choices were made in revision 3 where the brief was silent; they are written down for confirmation, and nothing else is open.
 
-- **Q-O1. The overlay caps.** 100 edited files, 8 MiB in all, 256 KiB each (L41). They bound the apply time and the Lambda memory. Is that enough room for what people will edit while the computer is off?
-- **Q-O2. Delete, rename and new folders while off.** Out of Phase 3: they need tombstones and directory entries in the overlay and a rule for the order of the apply. Confirm they wait.
-- **Q-O3. Expiring non-current versions in the snapshot bucket.** It is versioned with no expiry (W32), so a cleared overlay blob (an edited `.env`) stays recoverable by an administrator, and so does every old pack and
-  manifest. Recommendation: a lifecycle rule that expires non-current versions after 30 days (one CDK line in `snapshot-stack.ts`, part B). It also removes the ability to roll a snapshot back after 30 days. Approve?
-- **Q-O4. Customer-account computers.** They read the snapshot and cannot be edited (L46) because nothing there can apply an overlay. Making them editable means teaching the customer host worker to seal, apply and clear
-  (the same protocol, a larger change in a different component). Wanted?
-- **Q-O5. A few seconds of 503 while an owner starts or stops.** An edit made after the owner sealed the overlay and before it serves (and during a stop) is refused with a retry time; the panel keeps the text and retries by
-  itself. The alternative is queueing that edit for the owner, which adds a second queue. Recommendation: accept the short wait.
-- **Q-O6. Who may discard a pending edit.** Recommendation: any enabled member, audited, because the workplace is shared. The alternative is only the person who made it or an organization owner.
-- **Q-O7. `LocalWorkerRole`.** The snapshot stack's role for local hosts can write any object in the bucket, the overlay included. It is an operator-level credential outside the owner roles. Recommendation: leave it and
-  scope it later with the local-host work. Confirm.
+- **Q-P1. A rename never replaces an existing path** (L52). The alternative is an explicit overwrite. Recommendation: keep it refused; the person deletes first. It removes a way to lose a file silently, and the overlay and the helper both rely on an exclusive target.
+- **Q-P2. A pending folder rename or recursive delete is exclusive** (L53): other changes at or under it wait (409 `path_busy`) until the next owner applies it or the person discards it. The alternative is composing path translations across several renames. Recommendation: keep exclusive; it keeps the apply a single rename.
 
 ## 15. Work assignment
 
@@ -1712,10 +2035,12 @@ section 5.3 in `host-protocol/src/supervisor.ts` (including `overlay_not_sealed`
 
 ### B. Infrastructure and policy (independent; deploy before A2 or C2 reach development)
 
+(Revision 3: the lifecycle rule is part of this part, not optional: `noncurrentVersionExpiration` of 30 days on the snapshot bucket in `infra/lib/snapshot-stack.ts` with a test in `infra/test`, explained in 12.8. The Front Door statement `WriteComputerEditOverlay` also covers the deletes the clear performs.)
+
 Files: `infra/lib/control-plane-stack.ts` (statement `WriteComputerEditOverlay`, 12.8), `conversation/src/gateway/supervisor-role-policy.json` (the deny statement),
 `infra/lib/owner-role-policy.ts` (pass `Effect` through), `conversation/features-support/iam-policy-evaluator.ts` (learn `Deny`), `features/owner_role_policy.feature` and
-`computer_owner_policy_coverage.feature` (the overlay rows), `infra/test/computer-owner-stack.test.ts` (assertions: Front Door can write only `overlay/*`, supervisor role has the deny and no delete), and, if approved,
-`infra/lib/snapshot-stack.ts` (non-current version expiry, Q-O3). Scenarios: LF-59. Acceptance: `cd infra && npm test`; `cd conversation && npm run test:features`. `cdk deploy` of the ThinTurn stack is by CI on `develop`.
+`computer_owner_policy_coverage.feature` (the overlay rows), `infra/test/computer-owner-stack.test.ts` (assertions: Front Door can write only `overlay/*`, supervisor role has the deny and no delete), and
+`infra/lib/snapshot-stack.ts` (expire non-current versions after 30 days, L63; a CDK assertion in `infra/test`). Scenarios: LF-59. Acceptance: `cd infra && npm test`; `cd conversation && npm run test:features`. `cdk deploy` of the ThinTurn stack is by CI on `develop`.
 
 ### A1. Server: store, domain, owner routes for file requests (needs F0)
 
@@ -1733,12 +2058,18 @@ The overlay (seal, clear, unseal in the stopped report) belongs to A3. A1 and A3
 
 ### A3. Server: the overlay core and its owner routes (needs F0; independent of A1)
 
+(Revision 3: the core covers all four operations. The write algebra of 7.8.4 as a pure function with a table-driven test, the merge of 7.8.3 including path translation under a moved directory, the tree hash and symlink hash of 7.8.2, the conflict derivation per operation, the clear shortcut of 7.8.5, and the `GET .../files/overlay` and discard-by-revision handlers.)
+
 Files: `conversation/src/snapshot/overlay-store.ts` (new: the port with conditional get, put-if-absent and put-if-match; the S3 implementation with `IfMatch` and `IfNoneMatch`, the filesystem implementation with the same semantics for scenarios; first
 task: prove S3 conditional writes against moto 5.2.3 and note the result, L31), `snapshot/overlay-merge.ts` (new: the pure merge of 7.7.2 over `LoadedIndex`), `snapshot/store.ts` (the interface extension),
 `domain/edit-overlay.ts` (new: write with the swap loop, discard, seal, clear with the publish-on-record check, conflict marking, stale-seal rule, audit records), `http/owner-host-auth.ts` (`OWNER_COMPUTER_ROUTES`: `overlay-seal`,
 `overlay-applied`), `http/owner-supervisor.ts` (two handlers), `http/app.ts` (declare), `http/routes/computer-file-overlay.ts` (new: `POST /overlay/discard`), `domain/computers.ts` and the stopped-report handler in `http/host.ts` (unseal). Tests:
 `test/overlay-merge.test.ts`, `test/overlay-store.contract.test.ts`, `test/edit-overlay-domain.test.ts`. Steps: `features-support/steps/edit-overlay.steps.ts` (setup steps write through the domain function so A3 does not need A2). Scenarios: LF-53 to LF-56 and the
 store-level halves of LF-57. Acceptance: those green; the overlay contract test passes for both stores.
+
+### A4. Server: delete, rename and new folder routes (needs F0, A2 for the shared handlers and A3; revision 3)
+
+Files: `conversation/src/http/routes/computer-file-operations.ts` (new: `DELETE /files`, `POST /files/move`, `POST /files/directories`, `GET /files/overlay`), `http/app.ts` (declare), `domain/live-files.ts` (the request kinds `delete`, `move`, `mkdir` through the same queue, wait, audit and abandon code as `write`), `domain/edit-overlay.ts` use (the overlay path), the role check (`Principal.role === "owner"` for `recursive`; 403 `owner_role_required`), the 428/409/413/422 mapping of 6.3, rate class `write`, audit operations `delete`, `move`, `mkdir` (7.8.8). Steps: `features-support/steps/computer-file-operations.steps.ts`. Scenarios: LF-65 to LF-72. Acceptance: those green; every earlier scenario unchanged.
 
 ### A2. Server: member routes (needs A1 and A3)
 
@@ -1752,6 +2083,8 @@ Revision 2 adds the overlay integration: `http/routes/computer-files.ts` routes 
 
 ### C. Container: helper and the supervisor's file runner (needs F0)
 
+(Revision 3 adds to this part: the helper operations of 8.1 (`mkdir`, `unlink`, `rmtree`, `rename`, `stat` with `tree`), the runner's mapping of request kinds `delete`, `move`, `mkdir`, and the tree hash and symlink hash in `host-protocol/src/live-file-rules.ts` shared with the Front Door. Scenarios: LF-74.)
+
 Files: `conversation/src/pi/owner-file-helper.ts` (section 8), `conversation/src/pi/unprivileged-execution-env.ts` (Pi `write` through the same operation),
 `conversation/src/pi/shell-environment.ts` (new, extracted), `computer/host/src/live-file-operations.ts` (new), `computer/host/src/live-file-helper-launcher.ts` (new),
 `computer/host/src/supervisor.ts`, `supervisor-ports.ts`, `supervisor-main.ts`, `protocol-client.ts`, `unprivileged-process-sweeper.ts` only if the mutex needs a hook, `owner-main.ts` (a
@@ -1764,6 +2097,8 @@ image builds; `test_owner_container.sh` passes (it needs Docker; an owner of the
 
 ### C2. Container: the overlay at hydrate (needs F0 and C; the control plane side is faked)
 
+(Revision 3: the applier implements the order and the outcome table of 7.8.5 for all four operations, with the detection of "already applied" through the helper's `stat` (tree hash) and `read` (hash). Scenarios: LF-73.)
+
 Files: `computer/host/src/overlay-applier.ts` (new, 9.4), `host-disk-lifecycle.ts`, `supervisor.ts` (applied set, early publish check, capture-and-clear, retry), `supervisor-ports.ts`, `protocol-client.ts` (`sealOverlay`, `postOverlayApplied`), `supervisor-main.ts`
 (wire the applier and the launcher), `computer/test_owner_container.sh` (an overlay entry applied by a real container), `conversation/test/computer-image-structure.test.ts` (the bundle still imports no Pi). Tests: `test/overlay-applier.test.ts` with a fake launcher, plane and S3.
 Steps: `features-support/steps/overlay-supervisor.steps.ts`, fakes in `features-support/fakes/`. Scenarios: LF-57 (supervisor), LF-60 to LF-62. Acceptance: those green; `computer_owner_supervisor.feature` unchanged and green; the image builds.
@@ -1774,23 +2109,25 @@ Files: section 10. New `web/lib/computer-files-edit.ts`; changes to `computer-fi
 fixtures; vitest beside each; the `@web` steps in the web harness (`features-support/web-harness-runner.ts`, `steps/web-*.steps.ts`), which has no file-panel steps today and must learn a fake running
 computer. Scenarios: LF-40 to LF-45. Acceptance: those green, `npm test` in `web/` green, a manual pass at 375 pixels width, and `docs/BRAND_GUIDELINES.md` followed.
 
+Revision 3 adds: delete, rename and new folder controls (any member; the recursive delete of a non-empty folder only for the owner role, behind a confirmation that names the folder and the count), pending-change marks and a `Pending changes` list with discard, tree-hash `ETag` of a folder from `stat`, wording for `path_busy`, `directory_not_empty`, `owner_role_required`, `invalid_move`, `too_many_entries`. Scenarios: LF-75.
+
 Revision 2 adds: edit while the computer is off (`source: "overlay"`), the `Edited, waiting for the computer` mark, the overlay conflict banner, the retry on `computer_starting` and `computer_stopping`, the new error wording, `backed_up` messages (section 10). Scenarios: LF-40 to LF-45 and LF-63.
 
-### E. End to end and live proof (needs A2 and C2)
+### E. End to end and live proof (needs A2, A4 and C2)
 
-The `@end-to-end` scenarios (LF-46, LF-64) in one steps file, the live proof (section 17), and the milestone sub-agent for Kanbus and README.
+The `@end-to-end` scenarios (LF-46, LF-64, LF-76) in one steps file, the live proof (section 17), and the milestone sub-agent for Kanbus and README.
 
 ### Order and dependencies
 
 1. This contract (with the feature draft and the design document edits) merges.
 2. F0 merges. B is independent and can merge at any time before the server parts deploy.
-3. After F0: A1, A3, C and W start in parallel. A2 needs A1 and A3. C2 needs C.
-4. E needs A2 and C2 (and so B, A1, A3, C).
+3. After F0: A1, A3, C and W start in parallel. A2 needs A1 and A3. A4 needs A2 and A3. C2 needs C.
+4. E needs A2, A4 and C2 (and so B, A1, A3, C).
 
 ### Deploy order (development; no compatibility path)
 
-1. B (the Front Door may write the overlay; the supervisor role is denied) before anything writes an overlay object.
-2. A1, A3 and A2: the routes exist; every running owner is protocol 1, so file requests are answered from the snapshot with `owner_too_old`, **edits go to the overlay when the computer is off, and are refused 409 `owner_too_old` while such an owner runs**.
+1. B (the Front Door may write the overlay; the supervisor role is denied; the 30 day expiry of non-current versions) before anything writes an overlay object.
+2. A1, A3, A2 and A4: the routes exist; every running owner is protocol 1, so file requests are answered from the snapshot with `owner_too_old`, **edits go to the overlay when the computer is off, and are refused 409 `owner_too_old` while such an owner runs**.
 3. C and C2 (one image): the next owner started is protocol 2, seals, applies, serves file requests. An overlay entry written before it exists is applied by it.
 4. W when A2 is deployed.
 5. The live proof (section 17).
@@ -1802,7 +2139,8 @@ signature, poll with file requests), `conversation/test/route-audience.test.ts` 
 `features/computer_snapshot_index.feature` and `computer-snapshot-files.steps.ts` (new response fields), `features/owner_role_policy.feature` and
 `computer_owner_policy_coverage.feature` (the two key families are denied to both roles), `features/computer_owner_file_isolation.feature` (stays green; the Pi `write` is atomic),
 `conversation/test/owner-file-helper.test.ts`, `conversation/test/computer-image-structure.test.ts`, `computer/test_owner_container.sh`,
-`web/lib/computer-files*.test.ts`, `web/lib/touched-files.test.ts`, `web/lib/computer-files-fixtures.ts`. Revision 2 adds: `features/owner_role_policy.feature` and `computer_owner_policy_coverage.feature` (overlay rows, the deny), `features-support/iam-policy-evaluator.ts` (`Deny`), `infra/test/computer-owner-stack.test.ts`,
+`web/lib/computer-files*.test.ts`, `web/lib/touched-files.test.ts`, `web/lib/computer-files-fixtures.ts`. Revision 3 adds: `conversation/test/overlay-merge.test.ts` (four operations), `owner-file-helper.test.ts` (8.1), `computer-image-structure.test.ts` (no change in imports), `infra/test` (the lifecycle rule), `web/lib/computer-files*.test.ts` (new controls and pending list).
+Revision 2 adds: `features/owner_role_policy.feature` and `computer_owner_policy_coverage.feature` (overlay rows, the deny), `features-support/iam-policy-evaluator.ts` (`Deny`), `infra/test/computer-owner-stack.test.ts`,
 `conversation/test/snapshot-files*.test.ts` and `features/computer_snapshot_index.feature` (the overlay merged into snapshot answers, the empty-snapshot case), `computer/host/src/host-disk-lifecycle.ts` tests, `computer/test_owner_container.sh`.
 The list is the author's reading of the code; the implementer finds the rest by running the gates.
 
@@ -1818,6 +2156,8 @@ The list is the author's reading of the code; the implementer finds the rest by 
 6a. Ask the bot to read that file. The log shows `owner_started`, `workspace_hydrated`, `overlay_sealed`, `overlay_applied` before `owner_dispatch_received`; the bot answers with the edited text. About 5 seconds after the supervisor is idle, `snapshot_published` and `overlay_cleared remaining=0`; `overlay/index.json` is empty and unsealed after the stop.
 6b. Edit a second file while the computer is off, start it, and `aws ecs stop-task` it right after `overlay_applied` and before `snapshot_published`: the panel still shows the edit (snapshot plus overlay), and the next owner applies it.
 6c. Make the snapshot move under an edit (publish a different content for the same file from another path, for example by a bot turn on a copy) and see the conflict banner; resolve it with `Use theirs`.
+6d. With the computer off: delete a file, rename a file, rename a folder that is not empty, create a folder, as a member; try to delete a non-empty folder as a member (403) and as the owner role (accepted, with the confirmation). Start the computer by sending a message: the log shows `overlay_applied` with the operations in the order mkdir, move, put, delete; the bot lists the workspace and sees the deleted, renamed and created paths; after the publish the overlay is empty.
+6e. Rename a file onto an existing name (409), delete a file after another path changed it (409), and see a conflict for a rename whose source the snapshot changed.
 7. Check on the CloudFront path: `If-Match` arrives, `ETag` returns, the `PUT` body of 256 KiB passes.
 8. Prove S3 conditional writes on the real bucket (the `If-Match` and `If-None-Match` of the overlay index) and that the supervisor credentials are denied a `PutObject` to `overlay/` (`aws s3api put-object` with them). Measure on a running 512 MiB owner: memory with two helpers reading 8 MiB files during a quiet publish (risk R1).
 
@@ -1841,9 +2181,11 @@ cheap; the membership cache bound of 30 seconds; DynamoDB `TransactWriteItems` o
 | R9 | **Two sources of truth for masking** (helper and Front Door) | one predicate in `live-file-rules.ts`; the Front Door applies it again (L25) |
 | R10 | **S3 conditional writes** are the foundation of the overlay (L31) and moto 5.2.3 may not honor both | A3 proves it first; the filesystem store has the same semantics for scenarios; the real bucket is checked in the live proof; the fallback is a DynamoDB index with the blobs still in S3 |
 | R11 | **A false conflict** after two lost clears in a row | the retry every 10 seconds and before the stopped report; the conflict is surfaced with both versions, never overwritten |
-| R12 | **Deleted secrets recoverable** from non-current versions | Q-O3 |
+| R12 | **Deleted secrets recoverable** from non-current versions | the 30 day expiry (L63) bounds it |
 | R13 | **The apply fails the hydrate** for a bad overlay, so the computer does not start | the budget is 30 seconds; a conflict is not a failure; only unreadable or tampered blobs fail it; the Front Door is the only writer and validates every blob it writes |
-| R14 | **A 503 window** while an owner seals or stops | 2 to 5 seconds, automatic retry in the panel, text kept (Q-O5) |
+| R14 | **A 503 window** while an owner seals or stops | 2 to 5 seconds, automatic retry in the panel, text kept (accepted, O7) |
+| R16 | **Tree hashes cost** on large directories and use sizes, not content | 5000-descendant cap; a delete confirms the folder the person saw by its listing; files inside cannot be edited while an exclusive rename or delete is pending (L53) |
+| R17 | **A pending exclusive change blocks further edits** below it until applied | 409 `path_busy` with the reason; discard releases it; Q-P2 |
 | R15 | **Overlay edits are in the saved copy only as the next read sees it** until a publish folds them in; a crash before the publish leaves them in the overlay | by design (L36); that is why the overlay survives a crash |
 
 ## 19. Cost
@@ -1854,8 +2196,11 @@ write units, Lambda ARM 0.0000133 USD per GB-second.
 | Item | Cost |
 | --- | --- |
 | An edit made while the computer is off | one `GET` of the index, one `PUT` of the blob, one `PUT` of the index, two audit writes, about 100 ms of a 512 MB Lambda: **about 0.000013 USD**. A thousand edits: about 1.3 cents |
+| A delete, a rename or a new folder made while the computer is off | one `GET` and one `PUT` of the index, two audit writes, a little Lambda time (a tree hash reads the cached snapshot index): **about 0.000008 USD**; no blob, no content bytes, so the 8 MiB content cap is not used by them |
+| Applying them at the next start | up to 100 helper operations on the task, no extra request except the clear; a recursive delete or a folder rename is one operation however large the folder (at most 5000 descendants): **no new cost line** |
+| Caps | 100 entries of any kind, 8 MiB of blob content, 256 KiB per file, 256 KiB of index, 5000 descendants per directory operation (L41, L62) |
 | A read while the computer is off | the existing reads plus one conditional `GET` of the overlay index: **0.0000004 USD** |
-| Storage | at most 8 MiB per computer: 0.0002 USD a month at the cap, plus non-current versions until Q-O3 is decided |
+| Storage | at most 8 MiB per computer: 0.0002 USD a month at the cap, plus non-current versions for at most 30 days (L63) |
 | An owner start | the seal (one `GET`, one `PUT`), up to 100 blob `GET`s, the clear (one `GET`, one `PUT`, deletes are free), audit writes: **about 0.00001 USD typical, 0.0001 worst case** |
 | A computer to apply it | none beyond the start the person's next message causes anyway. **Editing while off costs S3 requests only (O1)**; no Fargate time is spent for an edit and no task is started |
 | The watch ping when off | two table reads per 15 seconds while the tab is visible: about 0.0000003 USD each |

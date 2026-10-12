@@ -23,6 +23,11 @@ Feature: Members view and edit the files on the running computer
   that holds the edits is recorded. Viewing and editing never start a computer; an open panel does not keep one awake.
   The schemas of the overlay are in host-protocol/src/edit-overlay.ts.
 
+  Deleting, renaming and creating folders work the same way, also while the computer is off: the overlay records a
+  tombstone, a move that keeps the content hash (no copy of the file), or an empty directory, each judged against the
+  effective hash. At hydrate the owner applies new folders, then renames, then edits, then deletes. Any member may delete
+  a file or an empty folder and rename; only the organization owner role deletes a folder that is not empty.
+
   Background:
     Given an empty control plane
     And tenant "anthus" user "ryan" has computer "household-computer"
@@ -661,6 +666,286 @@ Feature: Members view and edit the files on the running computer
     Then the overlay blob was put with "If-None-Match: *"
     And the overlay index was put with a condition on the entity tag it had read
 
+  # ---------------------------------------------------------------- delete, rename and new folders
+
+  @server
+  Scenario: A file deleted while the computer is off is gone from the next read and from the listing
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk holds workspace file "b.txt" containing "b"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "a"
+    Then the file response status is 200
+    And the file response says "source" is "overlay"
+    And the file response says "backed_up" is "true"
+    When a member reads the computer file "/workspace/a.txt"
+    Then the file response status is 404
+    And the file response error is "not_found"
+    When a member lists the computer files at "/workspace"
+    Then the listing shows these entries in order:
+      | name  | kind |
+      | b.txt | file |
+    And the saved snapshot pack was not changed
+    And no computer start job is queued
+
+  @server
+  Scenario: A file renamed while the computer is off keeps its content and is read from the saved pack
+    Given the computer disk holds workspace file "old.txt" containing "same bytes"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" renames the computer file "/workspace/old.txt" to "/workspace/new.txt" if it still has the hash of "same bytes"
+    Then the file response status is 200
+    And the overlay holds a move from "/workspace/old.txt" to "/workspace/new.txt" with the hash of "same bytes" and no blob
+    When a member reads the computer file "/workspace/new.txt"
+    Then the content response holds "same bytes"
+    And the content response has the SHA-256 of "same bytes" and the same ETag
+    When a member reads the computer file "/workspace/old.txt"
+    Then the file response status is 404
+    And the file response says nothing about a copy of the file in the overlay
+
+  @server
+  Scenario: A folder created while the computer is off is listed and creating it again is harmless
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" creates the computer folder "/workspace/docs"
+    Then the file response status is 200
+    And the file response says "created" is "true"
+    When a member lists the computer files at "/workspace"
+    Then the listing shows these entries in order:
+      | name  | kind      |
+      | docs  | directory |
+      | a.txt | file      |
+    When member "mia" creates the computer folder "/workspace/docs"
+    Then the file response status is 200
+    And the file response says "created" is "false"
+    And the overlay holds one entry
+    And the audit log has one record with operation "mkdir"
+
+  @server
+  Scenario: A delete with a stale hash is refused
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "an older a"
+    Then the file response status is 409
+    And the file response error is "precondition_failed"
+    And the file response says "current_sha256" is the hash of "a"
+    And the overlay holds no entry for "/workspace/a.txt"
+
+  @server
+  Scenario: A rename without a precondition is refused
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" renames the computer file "/workspace/a.txt" to "/workspace/b.txt" and sends no precondition
+    Then the file response status is 428
+    And the file response error is "precondition_required"
+
+  @server
+  Scenario: A rename onto an existing path is refused
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk holds workspace file "b.txt" containing "b"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" renames the computer file "/workspace/a.txt" to "/workspace/b.txt" if it still has the hash of "a"
+    Then the file response status is 409
+    And the file response error is "already_exists"
+    And the overlay holds no entry
+
+  @server
+  Scenario: A folder cannot be renamed into its own subtree
+    Given the computer disk holds workspace file "src/a.txt" containing "a"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" renames the computer folder "/workspace/src" to "/workspace/src/inner" if it still has the tree hash it was shown
+    Then the file response status is 422
+    And the file response error is "invalid_move"
+
+  @server
+  Scenario Outline: The workspace root cannot be deleted or renamed
+    Given the computer disk is published
+    And no owner is running
+    When member "ryan" <action> the computer folder "/workspace"
+    Then the file response status is 403
+    And the file response error is "path_refused"
+
+    Examples:
+      | action        |
+      | deletes       |
+      | renames       |
+
+  @server
+  Scenario: A member deletes a file and an empty folder
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk holds an empty folder "empty"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "a"
+    And member "mia" deletes the computer folder "/workspace/empty" if it still has the tree hash it was shown
+    Then both file responses have status 200
+    And the audit log has two records for member "mia" with operation "delete"
+
+  @server
+  Scenario: Only the owner role deletes a folder that is not empty
+    Given the computer disk holds workspace file "old/a.txt" containing "a"
+    And the computer disk holds workspace file "old/b.txt" containing "b"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" deletes the computer folder "/workspace/old" recursively if it still has the tree hash it was shown
+    Then the file response status is 403
+    And the file response error is "owner_role_required"
+    When member "mia" deletes the computer folder "/workspace/old" without recursion
+    Then the file response status is 409
+    And the file response error is "directory_not_empty"
+    When the organization owner "ryan" deletes the computer folder "/workspace/old" recursively if it still has the tree hash it was shown
+    Then the file response status is 200
+    And the overlay holds one delete of the folder "/workspace/old" with its tree hash
+    When a member lists the computer files at "/workspace"
+    Then the listing is empty
+
+  @server
+  Scenario: A member renames a folder that is not empty
+    Given the computer disk holds workspace file "old/a.txt" containing "a"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" renames the computer folder "/workspace/old" to "/workspace/new" if it still has the tree hash it was shown
+    Then the file response status is 200
+    When a member reads the computer file "/workspace/new/a.txt"
+    Then the content response holds "a"
+    When a member lists the computer files at "/workspace/old"
+    Then the file response status is 404
+
+  @server
+  Scenario: A change under a folder that is waiting to be renamed is refused until it is applied
+    Given the computer disk holds workspace file "old/a.txt" containing "a"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" renamed the folder "/workspace/old" to "/workspace/new" while the computer was off
+    When member "ryan" replaces the computer file "/workspace/new/a.txt" with "b" if it still has the hash of "a"
+    Then the file response status is 409
+    And the file response error is "path_busy"
+    When member "ryan" creates the computer file "/workspace/old/c.txt" with "c"
+    Then the file response status is 409
+    And the file response error is "path_busy"
+
+  @server
+  Scenario: Deleting a file that was created while the computer was off leaves nothing to apply
+    Given the computer disk is published
+    And no owner is running
+    And member "mia" created "/workspace/draft.md" with "draft" while the computer was off
+    When member "mia" deletes the computer file "/workspace/draft.md" if it still has the hash of "draft"
+    Then the file response status is 200
+    And the overlay holds no entry
+
+  @server
+  Scenario: Renaming a file back to its own path leaves nothing to apply
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" renamed "/workspace/a.txt" to "/workspace/b.txt" while the computer was off
+    When member "mia" renames the computer file "/workspace/b.txt" to "/workspace/a.txt" if it still has the hash of "a"
+    Then the file response status is 200
+    And the overlay holds no entry
+
+  @server
+  Scenario: Pending changes of every kind are listed and any member can discard one
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk holds workspace file "b.txt" containing "b"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" deleted "/workspace/a.txt" and renamed "/workspace/b.txt" to "/workspace/c.txt" and created the folder "/workspace/docs" while the computer was off
+    When a member lists the pending changes
+    Then the pending changes are a delete of "/workspace/a.txt", a move from "/workspace/b.txt" to "/workspace/c.txt" and a mkdir of "/workspace/docs"
+    When member "ryan" discards the pending change of "/workspace/a.txt"
+    Then the file response status is 200
+    And a member reads the computer file "/workspace/a.txt" and gets "a"
+    And the audit log has a record for member "ryan" with operation "discard"
+
+  @server
+  Scenario Outline: A delete, rename or new folder under .git is refused
+    Given the computer disk holds workspace file "notes.md" containing "x"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" <action> "/workspace/.git/hooks"
+    Then the file response status is 403
+    And the file response error is "path_refused"
+    And the overlay holds no entry
+
+    Examples:
+      | action                  |
+      | creates the folder      |
+      | deletes the path        |
+      | renames the path from   |
+      | renames the path to     |
+
+  @server
+  Scenario: A link in the saved copy is deleted as a link and its target is untouched
+    Given the computer disk holds workspace file "real.txt" containing "one"
+    And the computer disk holds a symbolic link "alias.txt" to "real.txt"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" deletes the computer file "/workspace/alias.txt" if it still has the symlink hash it was shown
+    Then the file response status is 200
+    When a member reads the computer file "/workspace/real.txt"
+    Then the content response holds "one"
+    When a member reads the computer file "/workspace/alias.txt"
+    Then the file response status is 404
+
+  @server
+  Scenario: A delete or rename under a folder the saved copy never keeps is refused while the computer is off
+    Given the computer disk holds workspace file "app/package.json" containing "{}"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" deletes the computer folder "/workspace/app/node_modules" without recursion
+    Then the file response status is 422
+    And the file response error is "not_in_saved_copy"
+
+  @server
+  Scenario: The overlay counts every kind of change toward its 100
+    Given the computer disk is published
+    And no owner is running
+    And member "mia" has created 99 folders and 1 file while the computer is off
+    When member "mia" creates the computer folder "/workspace/one-too-many"
+    Then the file response status is 409
+    And the file response error is "overlay_full"
+
+  @server
+  Scenario: A running computer deletes, renames and creates folders through the owner
+    Given a live owner is polling for the household computer
+    And the live disk of the owner holds workspace file "a.txt" containing "a"
+    And the live disk of the owner holds workspace file "b.txt" containing "b"
+    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "a"
+    And the owner polls and answers the file request it is given
+    Then the file response status is 200
+    And the file response says "source" is "live"
+    And the file response says "backed_up" is "false"
+    When member "mia" renames the computer file "/workspace/b.txt" to "/workspace/c.txt" if it still has the hash of "b"
+    And the owner polls and answers the file request it is given
+    Then the file response status is 200
+    When member "mia" creates the computer folder "/workspace/docs"
+    And the owner polls and answers the file request it is given
+    Then the file response status is 200
+    And the live disk of the owner has "c.txt" and "docs" and not "a.txt" or "b.txt"
+    And the computer record says the disk is dirty
+    And the overlay holds no entry
+
+  @server
+  Scenario: A delete, a rename and a new folder are audited
+    Given the computer disk holds workspace file "a.txt" containing "a"
+    And the computer disk holds workspace file "b.txt" containing "b"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "a"
+    And member "mia" renames the computer file "/workspace/b.txt" to "/workspace/c.txt" if it still has the hash of "b"
+    And member "mia" creates the computer folder "/workspace/docs"
+    Then the audit log has these records for member "mia":
+      | operation | path                | to_path             | outcome | source  | sha256_before        |
+      | delete    | /workspace/a.txt    |                     | ok      | overlay | the hash of "a"      |
+      | move      | /workspace/b.txt    | /workspace/c.txt    | ok      | overlay | the hash of "b"      |
+      | mkdir     | /workspace/docs     |                     | ok      | overlay |                      |
+    And the audit records hold no file content
+
   # ---------------------------------------------------------------- audit
 
   @server
@@ -1150,6 +1435,93 @@ Feature: Members view and edit the files on the running computer
     Then the outside file is unchanged
     And the supervisor reported a conflict for "/workspace/leak"
 
+  @supervisor
+  Scenario: The owner applies new folders, renames, edits and deletes in that order
+    Given the saved snapshot holds workspace file "old/a.txt" containing "a" and "gone.txt" containing "g" and "edit.txt" containing "e1" and "mv.txt" containing "m"
+    And the overlay holds a mkdir of "/workspace/docs"
+    And the overlay holds a move of the folder "/workspace/old" to "/workspace/new"
+    And the overlay holds a move of "/workspace/mv.txt" to "/workspace/docs/mv.txt"
+    And the overlay holds "e2" for "/workspace/edit.txt" with base hash of "e1"
+    And the overlay holds a delete of "/workspace/gone.txt" with base hash of "g"
+    When the supervisor starts and hydrates
+    Then the helper was asked for these operations in order: mkdir, rename, rename, write, unlink
+    And the workspace has "new/a.txt", "docs/mv.txt" and "edit.txt" containing "e2" and has not "old", "mv.txt" or "gone.txt"
+    And no turn was served before the last operation ended
+
+  @supervisor
+  Scenario: The owner does not rename onto an existing path
+    Given the saved snapshot holds workspace file "a.txt" containing "a" and "b.txt" containing "other"
+    And the overlay holds a move of "/workspace/a.txt" to "/workspace/b.txt" with the hash of "a"
+    When the supervisor starts and hydrates
+    Then the workspace file "b.txt" contains "other" and the workspace file "a.txt" contains "a"
+    And the supervisor reported a conflict for "/workspace/b.txt" with reason "collision"
+
+  @supervisor
+  Scenario: The owner does not delete a file that changed since it was seen
+    Given the saved snapshot holds workspace file "a.txt" containing "a changed by the host"
+    And the overlay holds a delete of "/workspace/a.txt" with base hash of "a"
+    When the supervisor starts and hydrates
+    Then the workspace file "a.txt" contains "a changed by the host"
+    And the supervisor reported a conflict for "/workspace/a.txt" with reason "changed"
+
+  @supervisor
+  Scenario: The owner does not delete a folder that gained children
+    Given the saved snapshot holds an empty folder "docs" that holds "late.txt" containing "x"
+    And the overlay holds a delete of the empty folder "/workspace/docs"
+    When the supervisor starts and hydrates
+    Then the workspace file "docs/late.txt" contains "x"
+    And the supervisor reported a conflict for "/workspace/docs" with reason "not_empty"
+
+  @supervisor
+  Scenario: The owner treats a delete whose file is already gone as applied
+    Given the saved snapshot holds no file "a.txt"
+    And the overlay holds a delete of "/workspace/a.txt" with base hash of "a"
+    When the supervisor starts and hydrates
+    Then the supervisor reported no conflict
+    And the supervisor asked to clear "/workspace/a.txt" at once
+
+  @supervisor
+  Scenario: The owner renames a whole folder in one step
+    Given the saved snapshot holds 300 files in the folder "big"
+    And the overlay holds a move of the folder "/workspace/big" to "/workspace/large" with the tree hash it was shown
+    When the supervisor starts and hydrates
+    Then the helper was asked for exactly one rename
+    And the workspace has 300 files in "large" and no folder "big"
+
+  @supervisor
+  Scenario: The helper deletes a link and not its target
+    Given the workspace holds a file "real.txt" containing "one"
+    And the workspace has a symbolic link "alias.txt" to "real.txt"
+    When the supervisor is given a delete request for "/workspace/alias.txt" with the symlink hash
+    Then the result is ok
+    And the workspace file "real.txt" contains "one"
+    And "alias.txt" does not exist
+
+  @supervisor
+  Scenario: The helper refuses a rename that would leave the workspace
+    Given the workspace holds a file "a.txt" containing "a"
+    And the workspace has a symbolic link "out" to a folder outside the workspace
+    When the supervisor is given a move request from "/workspace/a.txt" to "/workspace/out/a.txt" with the hash of "a"
+    Then the result is the error "outside_workspace"
+    And the workspace file "a.txt" contains "a"
+
+  @supervisor
+  Scenario: The helper removes a folder tree only when its tree hash is the one seen
+    Given the workspace holds files "tree/a.txt" and "tree/sub/b.txt"
+    When the supervisor is given a recursive delete request for "/workspace/tree" with another tree hash
+    Then the result is the error "precondition_failed" with the current tree hash
+    And the workspace still holds "tree/sub/b.txt"
+    When the supervisor is given a recursive delete request for "/workspace/tree" with the current tree hash
+    Then the result is ok with 4 entries removed
+    And "tree" does not exist
+
+  @supervisor
+  Scenario: The helper renames without replacing
+    Given the workspace holds files "a.txt" containing "a" and "b.txt" containing "b"
+    When the supervisor is given a move request from "/workspace/a.txt" to "/workspace/b.txt" with the hash of "a"
+    Then the result is the error "already_exists"
+    And the workspace file "b.txt" contains "b"
+
   # ---------------------------------------------------------------- the web app
 
   @web
@@ -1281,6 +1653,47 @@ Feature: Members view and edit the files on the running computer
     And the panel tries to save again after 2 seconds
     And the member's text is still in the editor
 
+  @web
+  Scenario: A member deletes a file while the computer is off
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" in "Anthus Labs"
+    And the saved copy holds workspace file "notes.md" containing "x"
+    When the member chooses Delete on "/workspace/notes.md" and confirms
+    Then the panel shows "Deleted. This will be applied when the computer starts"
+    And the listing no longer shows "notes.md"
+    And no computer was started
+
+  @web
+  Scenario: A member renames a file and sees it at once
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" in "Anthus Labs"
+    And the saved copy holds workspace file "old.md" containing "x"
+    When the member chooses Rename on "/workspace/old.md" and types "new.md"
+    Then the listing shows "new.md" marked "Renamed, waiting for the computer" and not "old.md"
+
+  @web
+  Scenario: A member creates a folder
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" in "Anthus Labs"
+    When the member chooses New folder and types "docs"
+    Then the listing shows the folder "docs" marked "New, waiting for the computer"
+
+  @web
+  Scenario: The panel asks before deleting a folder that is not empty and offers it only to the owner role
+    Given the enabled workspace web SPA with the computer off for "mia@example.com" who is a member in "Anthus Labs"
+    And the saved copy holds a folder "old" with 3 files
+    Then the folder "old" offers no recursive delete
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" who is the organization owner in "Anthus Labs"
+    When the member chooses Delete on the folder "/workspace/old"
+    Then the panel asks "Delete old and the 3 files in it?"
+    And the folder is deleted only after the member confirms
+
+  @web
+  Scenario: The panel lists the changes waiting for the computer and discards one
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" in "Anthus Labs"
+    And pending changes: a delete of "/workspace/a.txt" and a new folder "/workspace/docs"
+    When the member opens Pending changes
+    Then the panel lists "Deleted a.txt" and "New folder docs"
+    When the member discards "Deleted a.txt"
+    Then the listing shows "a.txt" again
+
   # ---------------------------------------------------------------- the whole path
 
   @end-to-end
@@ -1373,3 +1786,22 @@ Feature: Members view and edit the files on the running computer
     When a new supervisor is started and hydrates
     Then the file "notes.md" on the live disk contains "second draft"
 
+  @end-to-end
+  Scenario: A file deleted and a file renamed while the computer is off are seen that way by the bot
+    Given the model is scripted to call "run_terminal" with:
+      """
+      {"command": "ls /workspace"}
+      """
+    And the model is scripted to answer "Listed."
+    And the computer disk holds workspace file "gone.txt" containing "g"
+    And the computer disk holds workspace file "old.txt" containing "o"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" deleted "/workspace/gone.txt" and renamed "/workspace/old.txt" to "/workspace/new.txt" while the computer was off
+    When bot "Researcher" is asked "list the workspace"
+    And bot "Researcher" works its turn until it waits for the computer
+    And a supervisor is started for the household computer
+    And the supervisor polls until it is served
+    Then the model saw "new.txt" in its next request
+    And the model's next request does not contain "gone.txt"
+    And the model's next request does not contain "old.txt"
