@@ -18,11 +18,8 @@ import { ThinTurnStack } from "../lib/thin-turn-stack";
 const ECS_CONTEXT: Record<string, string> = {
   computerHostStart: "ecs",
   computerEcsCluster: "computers-cluster",
-  computerEcsTaskDefinition: "arn:aws:ecs:us-east-1:111111111111:task-definition/computer:7",
   computerEcsSubnets: "subnet-aaa,subnet-bbb",
   computerEcsSecurityGroups: "sg-111",
-  computerEcsExecutionRoleArn: "arn:aws:iam::111111111111:role/computer-execution",
-  computerEcsTaskRoleArn: "arn:aws:iam::111111111111:role/computer-task",
   computerEcrRepositoryUri: "111111111111.dkr.ecr.us-east-1.amazonaws.com/computer",
 };
 
@@ -181,7 +178,7 @@ describe("ControlPlaneStack", () => {
     assert.ok(!statements.includes("ecs:RunTask"));
   });
 
-  it("wires the starter to ECS host start with RunTask, PassRole and the ECS environment", () => {
+  it("wires the starter to the ECS network and cluster, with no legacy task definition to run", () => {
     const ecs = synthControlPlane("development", ECS_CONTEXT);
     const variables = functionByDescription(ecs, "ComputerStartJobs consumer").Environment.Variables;
     assert.equal(variables.CHATTICUS_HOST_STARTER, "ecs");
@@ -189,38 +186,16 @@ describe("ControlPlaneStack", () => {
     assert.equal(variables.CHATTICUS_ECS_SUBNETS, "subnet-aaa,subnet-bbb");
     assert.equal(variables.CHATTICUS_ECS_SECURITY_GROUPS, "sg-111");
     assert.equal(variables.CHATTICUS_ECS_CONTAINER_NAME, "computer");
-    ecs.hasResourceProperties("AWS::IAM::Policy", {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: "ecs:RunTask",
-            Resource: "arn:aws:ecs:us-east-1:111111111111:task-definition/computer:*",
-            Condition: {
-              ArnEquals: { "ecs:cluster": "arn:aws:ecs:us-east-1:111111111111:cluster/computers-cluster" },
-            },
-          }),
-          Match.objectLike({
-            Action: "iam:PassRole",
-            Resource: [
-              "arn:aws:iam::111111111111:role/computer-execution",
-              "arn:aws:iam::111111111111:role/computer-task",
-            ],
-          }),
-        ]),
-      },
-    });
+    assert.equal(variables.CHATTICUS_ECS_TASK_DEFINITION, undefined);
+    assert.equal(variables.CHATTICUS_ECS_HOST_COMMAND, undefined);
+    const text = JSON.stringify(ecs.toJSON().Resources);
+    assert.ok(!text.includes("ecs:RunTask"), "the legacy host task definition is no longer runnable");
+    assert.ok(!text.includes("iam:PassRole"), "the legacy host roles are no longer passable");
+    assert.ok(text.includes("ecs:TagResource"));
     for (const fragment of ["TurnRuns consumer", "TurnProbes consumer"]) {
       const other = functionByDescription(ecs, fragment).Environment.Variables;
       assert.equal(other.CHATTICUS_HOST_STARTER, undefined);
     }
-  });
-
-  it("grants the imported host task role no table or queue access", () => {
-    const ecs = synthControlPlane("development", ECS_CONTEXT);
-    const grantedToHostRole = Object.values(ecs.findResources("AWS::IAM::Policy")).filter(
-      (policy) => JSON.stringify(policy.Properties.Roles ?? []).includes("computer-task"),
-    );
-    assert.equal(grantedToHostRole.length, 0);
   });
 
   it("never wires ECS host start outside development", () => {

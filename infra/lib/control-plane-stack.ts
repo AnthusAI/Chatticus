@@ -71,6 +71,10 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly modelGatewaySigningKeySecret?: secretsmanager.Secret;
   /** Development only, and only once ChatticusComputers has the owner task: the assumable ceiling for one Pi session owner. */
   readonly computerOwnerScopedRole?: iam.Role;
+  /** Development only, with the scoped role: the assumable ceiling for the supervisor of the organization computer. */
+  readonly computerSupervisorRole?: iam.Role;
+  /** Development only, with the scoped role: the only principal that assumes the two owner roles; the Front Door invokes it. */
+  readonly ownerCredentialBrokerFunction?: lambdaNodejs.NodejsFunction;
 
   constructor(scope: Construct, id: string, props: ControlPlaneStackProps) {
     super(scope, id, props);
@@ -340,6 +344,30 @@ export class ControlPlaneStack extends cdk.Stack {
       }),
     );
     this.computerStarterFunction = computerStarterFunction;
+    if (isDevelopment) {
+      const modelGatewaySigningKeySecret = new secretsmanager.Secret(
+        this,
+        "ModelGatewaySigningKey",
+        {
+          description:
+            "Signs the short-lived per-turn tokens the model gateway accepts. Read by the FrontDoor, the ComputerStarter and the OwnerCredentialBroker only.",
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+          generateSecretString: {
+            passwordLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
+            excludePunctuation: true,
+          },
+        },
+      );
+      modelGatewaySigningKeySecret.grantRead(frontDoorFunction);
+      modelGatewaySigningKeySecret.grantRead(computerStarterFunction);
+      for (const target of [frontDoorFunction, computerStarterFunction]) {
+        target.addEnvironment(
+          "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN",
+          modelGatewaySigningKeySecret.secretArn,
+        );
+      }
+      this.modelGatewaySigningKeySecret = modelGatewaySigningKeySecret;
+    }
     const computerHostStart = computerHostStartEcsConfig(this, environmentName);
     if (computerHostStart !== undefined) {
       wireComputerStarterEcsRunTask(
@@ -349,12 +377,39 @@ export class ControlPlaneStack extends cdk.Stack {
       );
       const computerOwnerStart = computerOwnerStartConfig(this, environmentName);
       if (computerOwnerStart !== undefined) {
-        this.computerOwnerScopedRole = wireComputerStarterOwnerRunTask(
+        const signingKeySecret = this.modelGatewaySigningKeySecret;
+        if (signingKeySecret === undefined) {
+          throw new Error("The owner credential broker needs the model gateway signing key, which exists in development only.");
+        }
+        const credentialBrokerFunction = nodeFunction(
+          "OwnerCredentialBroker",
+          "owner-credential-broker.ts",
+          256,
+          15,
+          "Owner credential broker: the only principal that assumes the supervisor and per-turn roles and signs the owner tokens.",
+          { CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: signingKeySecret.secretArn },
+        );
+        credentialBrokerFunction.addToRolePolicy(
+          new iam.PolicyStatement({
+            actions: ["secretsmanager:GetSecretValue"],
+            resources: [signingKeySecret.secretArn],
+          }),
+        );
+        const ownerRoles = wireComputerStarterOwnerRunTask(
           computerStarterFunction,
           cdk.Stack.of(this),
           computerHostStart,
           computerOwnerStart,
           { messagingTable, conversationsTable, piSessionsBucket },
+          credentialBrokerFunction,
+        );
+        this.computerOwnerScopedRole = ownerRoles.scopedRole;
+        this.computerSupervisorRole = ownerRoles.supervisorRole;
+        this.ownerCredentialBrokerFunction = credentialBrokerFunction;
+        credentialBrokerFunction.grantInvoke(frontDoorFunction);
+        frontDoorFunction.addEnvironment(
+          "CHATTICUS_OWNER_CREDENTIAL_BROKER_FUNCTION_NAME",
+          credentialBrokerFunction.functionName,
         );
         const snapshotBucketArn = `arn:aws:s3:::${computerOwnerStart.snapshotBucketName}`;
         frontDoorFunction.addToRolePolicy(
@@ -376,30 +431,6 @@ export class ControlPlaneStack extends cdk.Stack {
       }
     }
 
-    if (isDevelopment) {
-      const modelGatewaySigningKeySecret = new secretsmanager.Secret(
-        this,
-        "ModelGatewaySigningKey",
-        {
-          description:
-            "Signs the short-lived per-turn tokens the model gateway accepts. Read by the FrontDoor and the ComputerStarter only.",
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-          generateSecretString: {
-            passwordLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
-            excludePunctuation: true,
-          },
-        },
-      );
-      modelGatewaySigningKeySecret.grantRead(frontDoorFunction);
-      modelGatewaySigningKeySecret.grantRead(computerStarterFunction);
-      for (const target of [frontDoorFunction, computerStarterFunction]) {
-        target.addEnvironment(
-          "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN",
-          modelGatewaySigningKeySecret.secretArn,
-        );
-      }
-      this.modelGatewaySigningKeySecret = modelGatewaySigningKeySecret;
-    }
 
     new cdk.CfnOutput(this, "ControlPlaneFunctionUrl", {
       value: this.frontDoorFunctionUrl.url,
