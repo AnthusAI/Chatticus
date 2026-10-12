@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "planner"
       }
+    },
+    {
+      "id": "a939c09f-d864-4f80-ad0b-6dffa0eff48b",
+      "author": "home",
+      "text": "Contract revision 2 (PR 519, same branch): the owner decided that the computer is needed only to run things. Files are viewed and edited while it is off, through an edit overlay in the snapshot bucket (written only by the Front Door with conditional S3 puts; sealed, applied and cleared by the next owner). An open panel never starts or holds a computer; pace 1 s. New sub-tasks: B chatticus-dfe04 (infrastructure and policy), A3 chatticus-d8849 (overlay core), C2 chatticus-c769b (apply at hydrate). Changed: F0 (overlay schemas), A2 (overlay routing and merge), W (edit while off), E (overlay end to end). Dependencies: A3 after F0; A2 after A1 and A3; C2 after C and F0; E after A2 and C2. Remaining owner questions are Q-O1 to Q-O7 in section 14 of docs/LIVE_FILES_PROTOCOL.md.",
+      "created_at": "2026-10-12T22:01:52.164943Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "planner"
+      }
     }
   ],
   "created_at": "2026-10-12T13:18:59.699384Z",
-  "updated_at": "2026-10-12T21:42:15.702613Z",
+  "updated_at": "2026-10-12T22:01:52.164973Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The contract is drafted, while teams build the live file editor, routes, helpers, and tests.",
-  "right_now_updated_at": "2026-10-12T21:42:17.814064Z",
+  "right_now_summary": "The team is building the live-file edit system, with its contract set and work split across dependent tasks.",
+  "right_now_updated_at": "2026-10-12T22:02:13.677299Z",
   "custom": {}
 }

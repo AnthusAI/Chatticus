@@ -1,7 +1,7 @@
 {
   "id": "chatticus-4c646b8c-3575-4550-9bf0-4cbeeac061f1",
   "title": "Live files W: web edit mode, conflict banner, source indicators and watch ping",
-  "description": "Contract: docs/LIVE_FILES_PROTOCOL.md sections 5.2 (shapes), 6.3 (errors), 10 (the whole of it), 11.5, 11.6, 15 (W). Read docs/BRAND_GUIDELINES.md before touching a background, region or border. Gherkin first (features/computer_file_live.feature, tag @web); pure logic in vitest.\n\nOwns these scenarios: every @web scenario (LF-40 to LF-45).\n\nFiles (web/):\n- lib/computer-files.ts: source \"snapshot\" | \"live\"; stale, fallback_reason, retry_after_ms; content gains revealed, editable, modified_at; entries gain modified_at; error wording for computer_not_live, owner_warming, owner_timeout, outcome_unknown, precondition_failed, already_exists, file_too_large, content_too_large, rate_limited, path_refused; source line texts of 10.1.\n- lib/computer-files-api.ts: writeComputerFile (PUT, If-Match / If-None-Match), revealComputerFile, watchComputerFiles (open true/false, keepalive on close), statComputerFile.\n- lib/computer-files-edit.ts (new): the pure editor state machine of 10.4 (viewing, editing, saving, saved, conflict, warning), dirty tracking, Pi-changed detection from a tool-card change within 60 s or a stat probe difference (size, modified_at).\n- lib/touched-files.ts: TouchedFile gains lastCallId so a second write to the same path counts as a change.\n- components/workspace/ComputerFilesPanel.tsx and ComputerFilesView.tsx: source line replacing SavedCopyNote, watch ping every 15 s while the tab is visible and one close ping on hide/unmount, automatic retry after retry_after_ms (three times), Edit button only when editable, text area, Save, New file, discard prompt, conflict banner (Overwrite with mine, Use theirs, Copy mine), Pi-changed notice, Reveal with confirmation and Hide, 5 s stat probe while editing, 44 px targets, aria-live source line, role=\"alert\" banner, phone layout stacked.\n- lib/computer-files-fixtures.ts and the vitest files beside each module (computer-files*.test.ts, touched-files.test.ts, computer-files-edit.test.ts).\n- features-support/web-harness-runner.ts and a steps file (steps/web-computer-files.steps.ts) so the @web scenarios run against a fake running computer; this harness has no file-panel steps today.\n\nAcceptance: cd web && npm test green; cd conversation && npm run test:features green with the @web scenarios in features/cucumber-features.txt; manual pass at 375 px width; nothing is stored in localStorage or the URL; a revealed secret is cleared on Hide, navigation, tab switch and unmount.\n\nDependencies: F0 for the shapes (the web app mirrors them in its own types; it does not import host-protocol). Develops against fixtures; integrates after A2 is deployed. Absent `editable` means no editor, so it is safe to merge before A2.\n\nRules: no emojis, no line comments. Do not read or write project/.",
+  "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 2) sections 5.2 (shapes), 6.3 (errors), 10 (the whole of it), 11.5, 11.6, 15 (W). Read docs/BRAND_GUIDELINES.md before touching a background, region or border. Gherkin first (features/computer_file_live.feature, tag @web); pure logic in vitest.\n\nOwns these scenarios: every @web scenario (LF-40 to LF-45 and LF-63).\n\nFiles (web/):\n- lib/computer-files.ts: source \"snapshot\" | \"live\"; stale, fallback_reason, retry_after_ms; content gains revealed, editable, modified_at; entries gain modified_at; error wording for computer_not_live, owner_warming, owner_timeout, outcome_unknown, precondition_failed, already_exists, file_too_large, content_too_large, rate_limited, path_refused; source line texts of 10.1.\n- lib/computer-files-api.ts: writeComputerFile (PUT, If-Match / If-None-Match), revealComputerFile, watchComputerFiles (open true/false, keepalive on close), statComputerFile.\n- lib/computer-files-edit.ts (new): the pure editor state machine of 10.4 (viewing, editing, saving, saved, conflict, warning), dirty tracking, Pi-changed detection from a tool-card change within 60 s or a stat probe difference (size, modified_at).\n- lib/touched-files.ts: TouchedFile gains lastCallId so a second write to the same path counts as a change.\n- components/workspace/ComputerFilesPanel.tsx and ComputerFilesView.tsx: source line replacing SavedCopyNote, watch ping every 15 s while the tab is visible and one close ping on hide/unmount, automatic retry after retry_after_ms (three times), Edit button only when editable, text area, Save, New file, discard prompt, conflict banner (Overwrite with mine, Use theirs, Copy mine), Pi-changed notice, Reveal with confirmation and Hide, 5 s stat probe while editing, 44 px targets, aria-live source line, role=\"alert\" banner, phone layout stacked.\n- lib/computer-files-fixtures.ts and the vitest files beside each module (computer-files*.test.ts, touched-files.test.ts, computer-files-edit.test.ts).\n- features-support/web-harness-runner.ts and a steps file (steps/web-computer-files.steps.ts) so the @web scenarios run against a fake running computer; this harness has no file-panel steps today.\n\nAcceptance: cd web && npm test green; cd conversation && npm run test:features green with the @web scenarios in features/cucumber-features.txt; manual pass at 375 px width; nothing is stored in localStorage or the URL; a revealed secret is cleared on Hide, navigation, tab switch and unmount.\n\nDependencies: F0 for the shapes (the web app mirrors them in its own types; it does not import host-protocol). Develops against fixtures; integrates after A2 is deployed. Absent `editable` means no editor, so it is safe to merge before A2.\n\nRules: no emojis, no line comments. Do not read or write project/.\n\nREVISION 2 (edit while the computer is off):\n- The editor is offered on a snapshot answer when the response says editable (source snapshot, computer off). A 200 with source \"overlay\" shows \"Saved. Your change will be applied when the computer starts\" and no \"not yet in the saved copy\" line; a 200 with source \"live\" shows \"Saved on the computer\" and the line \"Not yet in the saved copy\" (backed_up false).\n- Listing rows and the open file with overlay \"pending\" show \"Edited, waiting for the computer\".\n- overlay \"conflict\": the banner \"Your edit conflicts with a newer version of this file\" with theirs (the response) beside mine (GET content?variant=mine); buttons Overwrite with mine (PUT with If-Match of theirs), Use theirs (POST /computer/files/overlay/discard after the discard prompt), Copy mine.\n- Errors keep the draft: computer_starting and computer_stopping retried automatically after retry_after_ms (three times, then Retry), owner_too_old, overlay_full, not_in_saved_copy, edit_unsupported (wording in section 10.4).\n- Viewing or editing never starts a computer and the watch ping on a computer that is off answers state \"off\".\n- New fixtures and vitest for the overlay states.",
   "type": "sub-task",
   "status": "open",
   "priority": 2,
@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f08b2c7a-1c93-4efb-9f86-64ddae85237c",
+      "author": "home",
+      "text": "Description revised for contract revision 2 (edit overlay); see docs/LIVE_FILES_PROTOCOL.md and PR 519.",
+      "created_at": "2026-10-12T22:02:05.784346Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "planner"
+      }
+    }
+  ],
   "created_at": "2026-10-12T21:41:16.778049Z",
-  "updated_at": "2026-10-12T21:41:52.814615Z",
+  "updated_at": "2026-10-12T22:02:05.784380Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "The web live-files editor and its tests are being built against fixtures.",
-  "right_now_updated_at": "2026-10-12T21:41:54.317646Z",
+  "right_now_summary": "The web file editor is being updated with conflict handling, offline edits, source indicators, and watch pings.",
+  "right_now_updated_at": "2026-10-12T22:02:06.827613Z",
   "custom": {}
 }
