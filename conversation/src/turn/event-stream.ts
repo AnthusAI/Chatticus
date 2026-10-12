@@ -63,7 +63,8 @@ export class TurnEventWriter {
 	}
 }
 
-const textOf = (content: unknown): string => {
+/** The plain text of a Pi message content. */
+export const textOf = (content: unknown): string => {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
 	return content.map((part) => (part?.type === "text" && typeof part.text === "string" ? part.text : "")).join("");
@@ -74,7 +75,8 @@ const thinkingOf = (content: unknown): string => {
 	return content.map((part) => (part?.type === "thinking" && typeof part.thinking === "string" ? part.thinking : "")).join("");
 };
 
-const toolCallsOf = (content: unknown): Array<{ id: string; name: string; arguments: Record<string, unknown> }> => {
+/** The tool call parts of a Pi assistant message content. */
+export const toolCallsOf = (content: unknown): Array<{ id: string; name: string; arguments: Record<string, unknown> }> => {
 	if (!Array.isArray(content)) return [];
 	const calls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
 	for (const part of content) {

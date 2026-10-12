@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { assertIntegrationTestUserId } from "../../auth/integration-test.ts";
 import { listMessages, type Message, type MessageDependencies, postMessage } from "../../domain/messages.ts";
+import type { ToolActivityItem } from "../../pi/message-activity.ts";
 import type { ActorKind } from "../../domain/channels.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
 
@@ -20,6 +21,8 @@ export interface MessagePayload {
 	body: string;
 	addressed_to_bot_id: string | null;
 	created_at: string;
+	/** The tool calls of the turn a bot message ends; omitted when the turn used no tool. */
+	activity?: ToolActivityItem[];
 }
 
 /** Render a message for the HTTP API. */
@@ -34,6 +37,7 @@ export function messagePayload(message: Message): MessagePayload {
 		body: message.body,
 		addressed_to_bot_id: message.addressedToBotId,
 		created_at: message.createdAt.toISOString(),
+		...(message.activity === undefined ? {} : { activity: message.activity }),
 	};
 }
 

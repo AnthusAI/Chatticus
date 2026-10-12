@@ -16,6 +16,19 @@ type ListingOutcome = { status: number; messages: Array<Record<string, unknown>>
 
 const outcomes = new WeakMap<ChatticusWorld, ListingOutcome>();
 
+/**
+ * The messages the last "opens the message list" step received.
+ *
+ * @param world The scenario world.
+ * @returns The listed messages as the HTTP API rendered them.
+ */
+export function listedMessagesOf(world: ChatticusWorld): Array<Record<string, any>> {
+	const outcome = outcomes.get(world);
+	assert.ok(outcome && "status" in outcome, `The message list did not answer: ${JSON.stringify(outcome)}`);
+	assert.equal(outcome.status, 200);
+	return outcome.messages;
+}
+
 function openChannelOf(world: ChatticusWorld): { channelId: string; tenantId: string } {
 	assert.ok(world.lastChannel, "No channel has been opened");
 	return world.lastChannel;
