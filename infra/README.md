@@ -73,12 +73,6 @@ v1 AWS computers are **Fargate**. The stack defines the owner task definition an
 the cluster network; it runs nothing. The ComputerStarter runs the owner task on
 demand. Optional stop/start EC2 is not this stack.
 
-A smoke publish from Fargate into S3:
-
-```bash
-sh computer/test_fargate.sh
-```
-
 ## DNS (one-time)
 
 Deploy the shared DNS stack first:

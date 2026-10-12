@@ -139,3 +139,4 @@ features/invoke_key_rotation.feature
 features/rich_turn_events.feature
 features/supervisor_role_policy.feature
 features/owner_credential_broker.feature
+features/computer_owner_long_lived.feature

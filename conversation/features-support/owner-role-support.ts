@@ -43,7 +43,6 @@ export function ownerRoleFor(scope: OwnerSessionScope, stores: OwnerRoleStores =
 	return {
 		statements: ownerRolePolicyStatements({
 			piSessionsBucketArn: `arn:aws:s3:::${stores.piSessionsBucket}`,
-			snapshotBucketArn: `arn:aws:s3:::${stores.snapshotBucket}`,
 			conversationsTableArn: tableArnOf(stores.conversationsTable),
 			messagingTableArn: tableArnOf(stores.messagingTable),
 		}),

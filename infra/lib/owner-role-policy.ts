@@ -33,7 +33,6 @@ export const SUPERVISOR_ROLE_POLICY_FILE = path.join(
 /** The ARNs of the stores the statements refer to. */
 export interface OwnerRolePolicyResources {
   readonly piSessionsBucketArn: string;
-  readonly snapshotBucketArn: string;
   readonly conversationsTableArn: string;
   readonly messagingTableArn: string;
 }
@@ -62,7 +61,6 @@ export function ownerRolePolicyStatements(
 ): iam.PolicyStatement[] {
   return statementsFromFile(OWNER_ROLE_POLICY_FILE, {
     piSessionsBucketArn: resources.piSessionsBucketArn,
-    snapshotBucketArn: resources.snapshotBucketArn,
     conversationsTableArn: resources.conversationsTableArn,
     messagingTableArn: resources.messagingTableArn,
   });

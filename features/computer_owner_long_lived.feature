@@ -60,15 +60,15 @@ Feature: The organization computer stays on between turns and switches itself of
       """
       {"command": "sleep 1", "cwd": "/workspace"}
       """
-    And the model is scripted to answer "Done waiting."
     And the model is scripted to call "write_workspace" with:
       """
       {"path": "/workspace/second.md", "content": "two"}
       """
+    And the model is scripted to answer "Done waiting."
     And the model is scripted to answer "Second saved."
     And a supervisor is running for the household computer
-    And the member allows the turn tools "run_terminal" under "/workspace"
     When bot "Researcher" is asked "wait a second"
+    And the member allows the turn tools "run_terminal" under "/workspace"
     And bot "Researcher" works its turn until it waits for the computer
     And the supervisor polls and its child is held mid-turn
     And bot "Analyst" is asked "save the second file"
@@ -88,7 +88,7 @@ Feature: The organization computer stays on between turns and switches itself of
       {"path": "/workspace/late.md", "content": "late"}
       """
     And a recording host start driver
-    And the clock has moved 3000 seconds past the owner's bootstrap
+    And the owner was bootstrapped 3000 seconds ago
     When bot "Researcher" is asked "save a late file"
     And bot "Researcher" works its turn until it waits for the computer
     And a start job for the turn is delivered to the starter
@@ -109,13 +109,14 @@ Feature: The organization computer stays on between turns and switches itself of
       """
     And the model is scripted to answer "I could not confirm that the command finished."
     And a supervisor is running for the household computer
-    And the member allows the turn tools "run_terminal" under "/workspace"
     When bot "Researcher" is asked "append a line to the run log"
+    And the member allows the turn tools "run_terminal" under "/workspace"
     And bot "Researcher" works its turn until it waits for the computer
     And the supervisor polls and its child is killed after its tool ran
     Then the supervisor logged "owner_child_exited" with clean "false"
     And the supervisor is still polling
     When the clock moves past the turn lease
+    And the supervisor polls
     And the turn probe runs
     Then a run job is queued for the turn
     When a Lambda-style owner works the turn until it ends

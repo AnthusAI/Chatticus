@@ -12,7 +12,6 @@ export type PolicyStatement = {
 /** The ARNs the shared policy file leaves as placeholders, because they are known only when the stores exist. */
 export type OwnerRolePolicyResources = {
 	readonly piSessionsBucketArn: string;
-	readonly snapshotBucketArn: string;
 	readonly conversationsTableArn: string;
 	readonly messagingTableArn: string;
 };
@@ -30,7 +29,6 @@ export const OWNER_ROLE_POLICY_FILE = new URL("../src/gateway/owner-role-policy.
 export function ownerRolePolicyStatements(resources: OwnerRolePolicyResources): PolicyStatement[] {
 	const text = readFileSync(OWNER_ROLE_POLICY_FILE, "utf8")
 		.replaceAll("{{piSessionsBucketArn}}", resources.piSessionsBucketArn)
-		.replaceAll("{{snapshotBucketArn}}", resources.snapshotBucketArn)
 		.replaceAll("{{conversationsTableArn}}", resources.conversationsTableArn)
 		.replaceAll("{{messagingTableArn}}", resources.messagingTableArn);
 	return (JSON.parse(text) as { statements: PolicyStatement[] }).statements;

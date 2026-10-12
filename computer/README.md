@@ -20,13 +20,6 @@ Two hosts on one machine, sharing a snapshot store (not a live disk):
 sh computer/test_relocate.sh
 ```
 
-Run a computer on AWS Fargate (ARM64), hydrate its snapshot locally, then
-scale the service back to 0:
-
-```bash
-sh computer/test_fargate.sh
-```
-
 Prove the container owner program and its unprivileged shell in a real container
 (needs Docker, no AWS). It builds the image, starts the owner, runs commands the
 way the owner runs a model-chosen command, and checks that they run as the shell

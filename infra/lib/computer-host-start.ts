@@ -370,7 +370,6 @@ export function wireComputerStarterOwnerRunTask(
   );
   for (const statement of ownerRolePolicyStatements({
     piSessionsBucketArn: storage.piSessionsBucket.bucketArn,
-    snapshotBucketArn: snapshotBucket.bucketArn,
     conversationsTableArn: storage.conversationsTable.tableArn,
     messagingTableArn: storage.messagingTable.tableArn,
   })) {
