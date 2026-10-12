@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "board-agent"
       }
+    },
+    {
+      "id": "cbc0ab39-0c53-4417-bebd-6017200cb19b",
+      "author": "home",
+      "text": "Live on development 2026-10-12: (1) idle stop after 15 min fires reason=idle and the task exits by itself; (2) a turn that changed a file, then idle stop with snapshot generation 29 published, then a new owner restored it and read the file back; (3) crash: owner task stopped 20 s into a 90 s command, a new owner claimed the turn about 30 s later and the turn completed with the right answer. Remaining unproven: drain on deploy.",
+      "created_at": "2026-10-12T19:59:36.735308Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-12T17:49:36.913888Z",
-  "updated_at": "2026-10-12T17:50:13.267081Z",
+  "updated_at": "2026-10-12T19:59:36.735914Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The team is testing idle shutdown, crash recovery, and draining on development with logs captured.",
-  "right_now_updated_at": "2026-10-12T17:50:14.813138Z",
+  "right_now_summary": "Drain during deployment remains unproven; idle shutdown, snapshot recovery, and crash recovery work on development.",
+  "right_now_updated_at": "2026-10-12T19:59:38.256215Z",
   "custom": {}
 }
