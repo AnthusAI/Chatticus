@@ -54,7 +54,12 @@ export const ThinkingBlock: FC<{ text: string }> = ({ text }) => (
   </details>
 );
 
-const STATUS_TEXT = { running: "Running", ok: "Done", failed: "Failed" } as const;
+const STATUS_TEXT = {
+  running: "Running",
+  ok: "Done",
+  failed: "Failed",
+  unrecorded: "No result recorded",
+} as const;
 
 const ToolCardDetails: FC<{ card: ToolCardModel }> = ({ card }) => {
   const shown = presentToolArguments(card.kind, card.arguments);
@@ -117,6 +122,16 @@ const ToolCardDetails: FC<{ card: ToolCardModel }> = ({ card }) => {
 
 export const ToolCard: FC<{ card: ToolCardModel }> = ({ card }) => {
   const duration = formatToolDuration(card.durationMs);
+  if (card.kind === "more") {
+    return (
+      <li data-testid="tool-card" data-status="more">
+        <p className="rounded-2xl bg-surface px-3 py-2 text-xs text-surface-foreground/65">
+          <span className="font-semibold text-surface-foreground">{card.label}</span>
+          {card.summary ? <span>{` ${card.summary}`}</span> : null}
+        </p>
+      </li>
+    );
+  }
   return (
     <li data-testid="tool-card" data-status={card.status}>
       <details

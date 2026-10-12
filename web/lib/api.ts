@@ -31,6 +31,22 @@ export type PostMessageResponse = {
   turn_id: string | null;
 };
 
+/** One recorded tool call on a committed bot message, in call order. */
+export type ToolActivityItem = {
+  call_id: string;
+  /** A last item with tool "more" summarises calls omitted by the server. */
+  tool: string;
+  summary: string;
+  arguments: Record<string, unknown>;
+  arguments_truncated: boolean;
+  /** Null when no result was recorded for the call. */
+  ok: boolean | null;
+  result_summary: string | null;
+  output: string | null;
+  output_truncated: boolean;
+  duration_ms: number | null;
+};
+
 export type Message = {
   message_id: string;
   channel_id: string;
@@ -41,6 +57,8 @@ export type Message = {
   body: string;
   addressed_to_bot_id: string | null;
   created_at: string;
+  /** Tool calls behind a bot reply. Absent when an older server answers. */
+  activity?: ToolActivityItem[];
 };
 
 export type Turn = {

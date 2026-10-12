@@ -11,6 +11,7 @@ import { AlertTriangle, Clock3, RotateCcw, Send } from "lucide-react";
 import { createContext, useContext, type FC, type ReactNode } from "react";
 
 import { Button } from "../ui/button";
+import { MarkdownText } from "./MarkdownText";
 import { TurnActivityBody, WorkingIndicator } from "./TurnActivityView";
 import { EMPTY_TURN_ACTIVITY, type TurnActivity } from "@/lib/turn-activity";
 import { SLOW_TURN_TEXT } from "@/lib/assistant-ui-bridge";
@@ -20,6 +21,8 @@ import { cn } from "@/lib/utils";
 const ChatticusTextPart: TextMessagePartComponent = ({ text }) => (
   <p className="whitespace-pre-wrap">{text}</p>
 );
+
+const ChatticusMarkdownTextPart: TextMessagePartComponent = ({ text }) => <MarkdownText text={text} />;
 
 const ChatticusUserMessage: FC = () => {
   const createdAt = useAuiState(
@@ -108,7 +111,7 @@ const ChatticusAssistantMessage: FC = () => {
     <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant">
       <article className="max-w-[86%] rounded-3xl bg-surface-raised px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
         {authorBotName ? <p className="mb-1 text-xs font-bold">{authorBotName}</p> : null}
-        {isStreaming ? <TurnActivityBody activity={activity} /> : null}
+        <TurnActivityBody activity={activity} />
         {showWorkingIndicator ? (
           <>
             <WorkingIndicator phaseText={activity.phaseText} />
@@ -122,7 +125,7 @@ const ChatticusAssistantMessage: FC = () => {
             <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
           </p>
         ) : (
-          <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
+          <MessagePrimitive.Parts components={{ Text: ChatticusMarkdownTextPart }} />
         )}
         {!isStreaming && createdAt ? (
           <time className="mt-1 block font-mono text-[0.58rem] text-surface-foreground/40">

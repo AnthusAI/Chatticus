@@ -1,8 +1,8 @@
 import type { TurnEvent } from "./api";
 
-export type ToolCardStatus = "running" | "ok" | "failed";
+export type ToolCardStatus = "running" | "ok" | "failed" | "unrecorded";
 
-export type ToolCardKind = "command" | "write" | "edit" | "generic";
+export type ToolCardKind = "command" | "write" | "edit" | "generic" | "more";
 
 export type ToolCardModel = {
   callId: string;
@@ -56,6 +56,7 @@ const TOOL_LABELS: ReadonlyArray<readonly [ReadonlySet<string>, string, ToolCard
   [new Set(["write_workspace"]), "Write file", "write"],
   [new Set(["edit_workspace"]), "Edit file", "edit"],
   [new Set(["browse"]), "Browse", "generic"],
+  [new Set(["more"]), "More tool calls", "more"],
 ];
 
 /** Plain label and card kind for a tool name; unknown tools keep their own name. */

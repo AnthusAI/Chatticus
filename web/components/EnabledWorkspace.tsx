@@ -79,6 +79,8 @@ import {
   voiceKeyterms,
 } from "../lib/voice-control";
 import { createVoiceLineDelivery } from "../lib/voice-line-delivery";
+import type { RetainedTurnActivity } from "../lib/committed-activity";
+import { reduceTurnActivity } from "../lib/turn-activity";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
@@ -147,6 +149,8 @@ export function EnabledWorkspace({
   const [turn, setTurn] = useState<Turn | null>(null);
   const [turnStatus, setTurnStatus] = useState<TurnUiStatus>(null);
   const [turnEvents, setTurnEvents] = useState<TurnEvent[]>([]);
+  const turnEventsRef = useRef<TurnEvent[]>([]);
+  const [retainedActivity, setRetainedActivity] = useState<RetainedTurnActivity | null>(null);
   const [progress, setProgress] = useState("");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [latestEndedTurn, setLatestEndedTurn] = useState<Turn | null>(null);
@@ -291,6 +295,7 @@ export function EnabledWorkspace({
         if (retryCount === 0) {
           setTurnStatus("active");
           setTurnEvents([]);
+          turnEventsRef.current = [];
         }
         setStreamError(null);
         if (retryCount === 0) {
@@ -311,6 +316,7 @@ export function EnabledWorkspace({
               }
               retryCount = 0;
               window.sessionStorage.setItem(storageKey, String(event.seq));
+              turnEventsRef.current = [...turnEventsRef.current, event];
               setTurnEvents((current) => [...current, event]);
               if (event.kind === "turn.waiting") {
                 setTurn((current) =>
@@ -343,6 +349,16 @@ export function EnabledWorkspace({
                     }));
                     setTasks(result.refreshedTasks);
                     setComputer(result.refreshedComputer);
+                    const endedReply =
+                      event.kind === "turn.completed"
+                        ? replyForEndedTurn(activeTurn, result.committed)
+                        : null;
+                    if (endedReply) {
+                      setRetainedActivity({
+                        messageId: endedReply.message_id,
+                        activity: reduceTurnActivity(turnEventsRef.current),
+                      });
+                    }
                   }
                   if (shouldClearTurnBubbleAfterTerminal(event.kind)) {
                     clearStoredTurnProgress(storageKey, progressStorageKey);
@@ -879,6 +895,7 @@ export function EnabledWorkspace({
             failedTurn={failedTurn}
             turnIsSlow={turnIsSlow}
             turnEvents={turnEvents}
+            retainedActivity={retainedActivity}
             onRetryFailedTurn={handleRetryFailedTurn}
             threadProps={{
               composerPlaceholder: `Message ${selectedItem.label}`,
