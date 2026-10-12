@@ -5,7 +5,10 @@ import {
 	OWNER_CHILD_ENVIRONMENT_NAMES,
 	OWNER_CHILD_FORBIDDEN_ENVIRONMENT_NAMES,
 	OWNER_ERROR_STATUS,
+	OWNER_FILE_REQUESTS_PROTOCOL_VERSION,
 	OWNER_MAX_LIFETIME_SECONDS,
+	OWNER_POLL_INTERACTIVE_MILLISECONDS,
+	OWNER_PROTOCOL_VERSION,
 	OWNER_POLL_SILENCE_FENCE_SECONDS,
 	OWNER_WATCHDOG_KILL_SECONDS,
 	OWNER_WATCHDOG_TERMINATE_SECONDS,
@@ -164,6 +167,25 @@ describe("owner poll response", () => {
 		expect(ownerPollResponseSchema.safeParse({ dispatches: [], drain: false, next_poll_ms: 60001 }).success).toBe(false);
 	});
 
+	it("defaults file_requests to empty when the answer has none", () => {
+		const parsed = ownerPollResponseSchema.parse({ dispatches: [], drain: false, next_poll_ms: 1000 });
+		expect(parsed.file_requests).toEqual([]);
+	});
+
+	it("carries up to four file requests, also while draining, and refuses a fifth or a malformed one", () => {
+		const request = { operation_id: "op-1", path: "/workspace/a.txt", expires_in_ms: 8000, kind: "stat" };
+		const base = { dispatches: [], drain: false, next_poll_ms: 1000 };
+		expect(ownerPollResponseSchema.parse({ ...base, file_requests: [request, request, request, request] }).file_requests).toHaveLength(4);
+		expect(ownerPollResponseSchema.safeParse({ ...base, file_requests: [request, request, request, request, request] }).success).toBe(false);
+		expect(ownerPollResponseSchema.safeParse({ ...base, file_requests: [{ ...request, path: "/etc/passwd" }] }).success).toBe(false);
+		expect(ownerPollResponseSchema.safeParse({ ...base, file_requests: [{ ...request, kind: "chmod" }] }).success).toBe(false);
+		expect(ownerPollResponseSchema.safeParse({ dispatches: [], drain: true, drain_reason: "lifetime", next_poll_ms: 5000, file_requests: [request] }).success).toBe(true);
+	});
+
+	it("accepts a field a newer server adds to the answer", () => {
+		expect(ownerPollResponseSchema.safeParse({ dispatches: [], drain: false, next_poll_ms: 1000, future_field: 1 }).success).toBe(true);
+	});
+
 	it("carries no host token in a dispatch", () => {
 		const parsed = ownerPollResponseSchema.parse({ dispatches: [{ ...dispatch, host_token: "sample-host-token" }], drain: false, next_poll_ms: 1000 });
 		expect(Object.keys(parsed.dispatches[0] as object)).not.toContain("host_token");
@@ -187,7 +209,7 @@ describe("owner stop request", () => {
 
 	it("answers approved or vetoed with a known reason", () => {
 		expect(ownerStopResponseSchema.safeParse({ approved: true }).success).toBe(true);
-		for (const reason of ["work_pending", "dispatch_pending", "turn_active", "not_draining"]) {
+		for (const reason of ["work_pending", "dispatch_pending", "turn_active", "not_draining", "file_operation_pending"]) {
 			expect(ownerStopResponseSchema.safeParse({ approved: false, reason }).success).toBe(true);
 		}
 		expect(ownerStopResponseSchema.safeParse({ approved: false }).success).toBe(false);
@@ -205,6 +227,20 @@ describe("owner errors", () => {
 		expect(OWNER_ERROR_STATUS.bootstrap_already_used).toBe(409);
 		expect(OWNER_ERROR_STATUS.invalid_request).toBe(422);
 		expect(OWNER_ERROR_STATUS.credentials_unavailable).toBe(503);
+		expect(OWNER_ERROR_STATUS.operation_closed).toBe(409);
+		expect(OWNER_ERROR_STATUS.overlay_not_sealed).toBe(409);
+	});
+
+	it("reads a refusal body with each new file and overlay code", () => {
+		for (const code of ["operation_closed", "overlay_not_sealed"]) {
+			expect(ownerErrorSchema.safeParse({ detail: "x", code }).success).toBe(true);
+		}
+	});
+
+	it("fixes the file request protocol version and the interactive pace without changing the protocol version", () => {
+		expect(OWNER_FILE_REQUESTS_PROTOCOL_VERSION).toBe(2);
+		expect(OWNER_POLL_INTERACTIVE_MILLISECONDS).toBe(1000);
+		expect(OWNER_PROTOCOL_VERSION).toBe(1);
 	});
 
 	it("reads a refusal body and refuses one without a code", () => {

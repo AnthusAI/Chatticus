@@ -1,7 +1,14 @@
 import { z } from "zod";
+import { LIVE_FILE_MAX_REQUESTS_PER_POLL, ownerFileRequestSchema } from "./live-files.ts";
 
 /** The version of the owner supervisor protocol this package describes. The supervisor sends it with every bootstrap and poll. */
 export const OWNER_PROTOCOL_VERSION = 1;
+
+/** The first protocol version whose owner understands file_requests in the poll response. */
+export const OWNER_FILE_REQUESTS_PROTOCOL_VERSION = 2;
+
+/** Milliseconds between polls while a Files panel is open, in the states that can serve a file request. */
+export const OWNER_POLL_INTERACTIVE_MILLISECONDS = 1000;
 
 /** The lowest protocol version the control plane serves. An owner below it is told to drain (reserved: the drain on version skew lands in Phase 2b). */
 export const OWNER_MINIMUM_PROTOCOL_VERSION = 1;
@@ -152,6 +159,8 @@ export const ownerErrorCodeSchema = z.enum([
 	"bootstrap_already_used",
 	"invalid_request",
 	"credentials_unavailable",
+	"operation_closed",
+	"overlay_not_sealed",
 ]);
 
 /** The status of each owner error code. */
@@ -166,6 +175,8 @@ export const OWNER_ERROR_STATUS: Readonly<Record<z.infer<typeof ownerErrorCodeSc
 	bootstrap_already_used: 409,
 	invalid_request: 422,
 	credentials_unavailable: 503,
+	operation_closed: 409,
+	overlay_not_sealed: 409,
 };
 
 /** The body of every refusal of an owner route. */
@@ -255,6 +266,7 @@ export const ownerDispatchSchema = z.object({
 export const ownerPollResponseSchema = z
 	.object({
 		dispatches: z.array(ownerDispatchSchema).max(1),
+		file_requests: z.array(ownerFileRequestSchema).max(LIVE_FILE_MAX_REQUESTS_PER_POLL).default([]),
 		drain: z.boolean(),
 		drain_reason: z.string().min(1).optional(),
 		next_poll_ms: z.number().int().min(250).max(60000),
@@ -280,7 +292,7 @@ export const ownerStopRequestSchema = z
 	.strict();
 
 /** Why the control plane vetoed a stop. */
-export const ownerStopVetoReasonSchema = z.enum(["work_pending", "dispatch_pending", "turn_active", "not_draining"]);
+export const ownerStopVetoReasonSchema = z.enum(["work_pending", "dispatch_pending", "turn_active", "not_draining", "file_operation_pending"]);
 
 /** The answer of the stop request: approved, or vetoed with the reason. A veto is a 200, not an error. */
 export const ownerStopResponseSchema = z.discriminatedUnion("approved", [

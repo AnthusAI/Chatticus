@@ -74,7 +74,7 @@ class DiskScenarioPlane implements SupervisorPlane {
 			this.dispatched = true;
 			return { ...dispatchPollAnswer({ turnId: this.turn.turnId, botId: this.turn.botId ?? "bot-1" }, runtimeSupervisorClock), next_poll_ms: 250 };
 		}
-		return { dispatches: [], drain: true, drain_reason: "lifetime", next_poll_ms: 250 };
+		return { dispatches: [], file_requests: [], drain: true, drain_reason: "lifetime", next_poll_ms: 250 };
 	}
 
 	async stopRequest(_request: OwnerStopRequest): Promise<OwnerStopResponse> {

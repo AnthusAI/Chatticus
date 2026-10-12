@@ -240,6 +240,7 @@ export async function pollOwner(deps: OwnerSupervisorDependencies, identity: Own
 	const idleSeconds = computer.idleSinceAt === undefined ? 0 : secondsBetween(now, computer.idleSinceAt);
 	return {
 		dispatches,
+		file_requests: [],
 		drain,
 		...(drain ? { drain_reason: "lifetime" } : {}),
 		next_poll_ms: ownerPollCadence(request.state, idleSeconds),

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
+import { livePathProblem, looksBinary, looksLikeSecretFile, normalizeLivePath, trimToCharacterBoundary } from "@chatticus/host-protocol/live-file-rules";
 import zlib from "node:zlib";
 import { WORKSPACE_DIRNAME } from "../browser-profiles.ts";
 import { formatLogLine } from "../observability/log-line.ts";
@@ -17,11 +18,16 @@ export const MAX_CONTENT_RANGE_BYTES = 262144;
 /** The most symbolic links one read follows. */
 export const MAX_SYMLINK_HOPS = 8;
 
-const MAX_PATH_CHARACTERS = 1024;
+const INVALID_PATH_MESSAGES = {
+	empty: "A path is required.",
+	too_long: "The path is longer than 1024 characters.",
+	nul: "The path holds a NUL character.",
+	not_absolute: "The path must be absolute.",
+	dot_dot: "The path must not contain '..'.",
+	outside_workspace: "The path must be under /workspace.",
+} as const;
 
 const TAR_BLOCK_BYTES = 512;
-
-const BINARY_SNIFF_BYTES = 8192;
 
 const INDEX_CACHE_ENTRIES = 4;
 
@@ -111,59 +117,10 @@ export interface FileContent {
  * @throws SnapshotFileError With code `invalid_path`.
  */
 export function indexPathOf(raw: string | undefined): string {
-	if (raw === undefined || raw === "") throw new SnapshotFileError("invalid_path", "A path is required.");
-	if (raw.length > MAX_PATH_CHARACTERS) throw new SnapshotFileError("invalid_path", "The path is longer than 1024 characters.");
-	if (raw.includes("\u0000")) throw new SnapshotFileError("invalid_path", "The path holds a NUL character.");
-	if (!raw.startsWith("/")) throw new SnapshotFileError("invalid_path", "The path must be absolute.");
-	if (raw.split("/").includes("..")) throw new SnapshotFileError("invalid_path", "The path must not contain '..'.");
-	const normalized = posix.normalize(raw).replace(/\/+$/, "");
-	if (normalized !== `/${WORKSPACE_DIRNAME}` && !normalized.startsWith(`/${WORKSPACE_DIRNAME}/`)) {
-		throw new SnapshotFileError("invalid_path", "The path must be under /workspace.");
-	}
-	return normalized.slice(1);
-}
-
-const SECRET_NAME_PATTERNS: readonly RegExp[] = [
-	/^\.env$/,
-	/^\.env\..+$/,
-	/\.pem$/,
-	/\.key$/,
-	/^id_rsa/,
-	/^id_ed25519/,
-	/^credentials$/,
-	/^\.netrc$/,
-	/^\.npmrc$/,
-	/\.p12$/,
-	/\.pfx$/,
-];
-
-const SECRET_DIRECTORY_NAMES: ReadonlySet<string> = new Set([".ssh", ".aws"]);
-
-/**
- * Whether a file looks like it holds a secret: a well-known credential file name, or any file under `.ssh` or `.aws`.
- * Such a file is listed like any other but its content is never returned.
- *
- * @param indexPath The index path of the file.
- */
-export function looksLikeSecretFile(indexPath: string): boolean {
-	const segments = indexPath.toLowerCase().split("/");
-	const name = segments.at(-1) ?? "";
-	if (segments.slice(0, -1).some((segment) => SECRET_DIRECTORY_NAMES.has(segment))) return true;
-	return SECRET_NAME_PATTERNS.some((pattern) => pattern.test(name));
-}
-
-/**
- * Whether the start of a file is binary: it holds a NUL byte or is not valid UTF-8 within its first 8 KiB.
- */
-export function looksBinary(bytes: Buffer): boolean {
-	const head = bytes.subarray(0, BINARY_SNIFF_BYTES);
-	if (head.includes(0)) return true;
-	try {
-		new TextDecoder("utf-8", { fatal: true }).decode(head, { stream: bytes.length > BINARY_SNIFF_BYTES });
-		return false;
-	} catch {
-		return true;
-	}
+	if (raw === undefined) throw new SnapshotFileError("invalid_path", "A path is required.");
+	const problem = livePathProblem(raw);
+	if (problem !== null) throw new SnapshotFileError("invalid_path", INVALID_PATH_MESSAGES[problem]);
+	return normalizeLivePath(raw).slice(1);
 }
 
 /** A snapshot's entries, looked up by path and by directory. */
@@ -234,18 +191,6 @@ export function clearIndexCache(): void {
 function paddedSizeOf(size: number): number {
 	const remainder = size % TAR_BLOCK_BYTES;
 	return remainder === 0 ? size : size + TAR_BLOCK_BYTES - remainder;
-}
-
-function trimToCharacterBoundary(bytes: Buffer): Buffer {
-	let end = bytes.length;
-	for (let back = 1; back <= 3 && back <= bytes.length; back += 1) {
-		const byte = bytes[bytes.length - back]!;
-		if ((byte & 0xc0) === 0x80) continue;
-		const expected = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc0 ? 2 : 1;
-		if (expected > back) end = bytes.length - back;
-		break;
-	}
-	return bytes.subarray(0, end);
 }
 
 /**
