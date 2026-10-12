@@ -143,15 +143,15 @@ export async function hydrateOnBoot(plane: HostDiskPlane, options: HostDiskOptio
 }
 
 /**
- * Pack and upload a dirty host disk, then persist snapshot metadata.
+ * Whether the live disk differs from the last published pack. When it does not, or when no store is configured, the reason
+ * is logged as `snapshot_skipped` and the answer is false.
  *
  * @param plane The Front Door.
  * @param options The organization, the worker, the live root and the store.
- * @returns True when a pack was published.
+ * @returns True when a publish is due.
  */
-export async function publishBeforeExit(plane: HostDiskPlane, options: HostDiskOptions): Promise<boolean> {
+export async function diskChangedSincePublish(plane: HostDiskPlane, options: HostDiskOptions): Promise<boolean> {
 	const log = logOf(options);
-	const startedAt = Date.now();
 	const resolvedStore = storeOf(options);
 	if (resolvedStore === null) {
 		log("snapshot_skipped", { reason: "no_store" });
@@ -163,6 +163,41 @@ export async function publishBeforeExit(plane: HostDiskPlane, options: HostDiskO
 		log("snapshot_skipped", { reason: "unchanged", generation: computer.snapshot_generation });
 		return false;
 	}
+	return true;
+}
+
+/**
+ * Pack and upload a dirty host disk, then persist snapshot metadata.
+ *
+ * @param plane The Front Door.
+ * @param options The organization, the worker, the live root and the store.
+ * @returns True when a pack was published.
+ */
+export async function publishBeforeExit(plane: HostDiskPlane, options: HostDiskOptions): Promise<boolean> {
+	if (!(await diskChangedSincePublish(plane, options))) {
+		return false;
+	}
+	return publishChangedDisk(plane, options);
+}
+
+/**
+ * Pack and upload the host disk without checking whether it changed, then persist snapshot metadata. Callers have just
+ * asked {@link diskChangedSincePublish}.
+ *
+ * @param plane The Front Door.
+ * @param options The organization, the worker, the live root and the store.
+ * @returns True when a pack was published; false when the store disappeared (missing bucket).
+ */
+export async function publishChangedDisk(plane: HostDiskPlane, options: HostDiskOptions): Promise<boolean> {
+	const log = logOf(options);
+	const startedAt = Date.now();
+	const resolvedStore = storeOf(options);
+	if (resolvedStore === null) {
+		log("snapshot_skipped", { reason: "no_store" });
+		return false;
+	}
+	const computer = await plane.getComputer();
+	const root = options.liveRoot ?? liveRootFromEnvironment();
 	const disk = new ComputerHostDisk(root, resolvedStore);
 	let manifest;
 	try {

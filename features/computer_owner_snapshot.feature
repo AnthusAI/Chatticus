@@ -1,14 +1,17 @@
 Feature: The container owner keeps the computer's disk
   As the operator of an organization computer
-  I want the container owner to restore the computer's workspace before the turn and save it afterwards
+  I want the container's supervisor to restore the computer's workspace before the turn and save it afterwards
   So that the bot works on the same files the host worker would have served, and the computer is recorded as stopped when the owner is gone
 
-  The owner reuses the host worker's disk lifecycle. It marks the computer
-  running, hydrates the workspace from the computer's published snapshot,
-  runs the turn, publishes the disk when it is dirty and marks the computer
-  stopped. The disk is persisted once, whether the turn ends, crashes, or the
-  container is told to stop first. An owner that could not restore the disk
-  publishes nothing, because an empty disk would replace the saved one.
+  The supervisor, not the per-turn child, reuses the host worker's disk
+  lifecycle. It marks the computer running, hydrates the workspace from the
+  computer's published snapshot, runs each turn in a child, publishes the disk
+  when it is dirty and marks the computer stopped when it stops. The disk is
+  persisted once at the stop, whether the child ends, crashes, or the container
+  is told to stop first. A supervisor that could not restore the disk publishes
+  nothing, because an empty disk would replace the saved one. These scenarios
+  run the real supervisor with the real clock over the production Front Door,
+  with the child's work run in the scenario's process.
 
   Background:
     Given an empty control plane
@@ -90,7 +93,7 @@ Feature: The container owner keeps the computer's disk
     Then the computer was running while the owner's turn ran
     And the organization's computer is stopped
 
-  Scenario: A turn that crashes still saves the disk and stops the computer
+  Scenario: A child that crashes leaves its files saved when the owner stops
     When the owner "owner-1" runs a turn that writes "partial.md" containing "half done" and then crashes
     Then the owner's run failed with "the turn crashed"
     And the organization's computer is stopped
@@ -108,5 +111,6 @@ Feature: The container owner keeps the computer's disk
   Scenario: An owner that could not restore the disk publishes nothing and runs no turn
     Given worker "garage-mac-1" has published computer "household-computer" with workspace file "notes.md" containing "first draft"
     When the owner "owner-1" runs a turn while the snapshot downloads fail
-    Then the owner's run failed with "the download failed"
+    Then the owner stopped with exit code 8
+    And the owner ran no turn
     And the disk was published 0 times

@@ -1,11 +1,11 @@
 import { computerForOrganization } from "../src/domain/computers.ts";
 import { getTurn } from "../src/domain/turns.ts";
-import { ownerSessionTags, type OwnerSessionScope } from "../src/gateway/session-tags.ts";
+import { ownerSessionTags, supervisorSessionTags, type OwnerSessionScope } from "../src/gateway/session-tags.ts";
 import type { S3SnapshotStore } from "../src/snapshot/s3.ts";
 import { tableArnOf } from "./aws-request-recorder.ts";
 import { computerOwnerScenarioOf } from "./computer-owner.ts";
 import { STORY_TENANT } from "./computer-scenario.ts";
-import { ownerRolePolicyStatements, type PolicyStatement, type SessionTagValues } from "./iam-policy-evaluator.ts";
+import { ownerRolePolicyStatements, supervisorRolePolicyStatements, type PolicyStatement, type SessionTagValues } from "./iam-policy-evaluator.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -43,11 +43,23 @@ export function ownerRoleFor(scope: OwnerSessionScope, stores: OwnerRoleStores =
 	return {
 		statements: ownerRolePolicyStatements({
 			piSessionsBucketArn: `arn:aws:s3:::${stores.piSessionsBucket}`,
-			snapshotBucketArn: `arn:aws:s3:::${stores.snapshotBucket}`,
 			conversationsTableArn: tableArnOf(stores.conversationsTable),
 			messagingTableArn: tableArnOf(stores.messagingTable),
 		}),
 		tags: Object.fromEntries(ownerSessionTags(scope).map((tag) => [tag.Key, tag.Value])),
+	};
+}
+
+/**
+ * The supervisor role of the scenario's computer, built the way the broker builds it: the tags from `supervisorSessionTags`
+ * and the statements from the policy file the CDK stack deploys, over the scenario's snapshot bucket.
+ */
+export async function supervisorRoleOfScenario(world: ChatticusWorld): Promise<OwnerRole> {
+	const computer = await computerForOrganization(STORY_TENANT, { store: world.messagingStore() });
+	const snapshotBucket = (world.snapshotStore as S3SnapshotStore | null)?.bucket ?? "owner-snapshots-unbound";
+	return {
+		statements: supervisorRolePolicyStatements({ snapshotBucketArn: `arn:aws:s3:::${snapshotBucket}` }),
+		tags: Object.fromEntries(supervisorSessionTags({ tenantId: STORY_TENANT, computerId: computer.computerId }).map((tag) => [tag.Key, tag.Value])),
 	};
 }
 

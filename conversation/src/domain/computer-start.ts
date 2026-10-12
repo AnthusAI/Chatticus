@@ -19,7 +19,7 @@ import {
 } from "../http/errors.ts";
 import { consoleLogEmitter } from "../observability/log-line.ts";
 import { answerComputerActionOnOwnAccount, type ActionDependencies, expireLostComputerActions } from "./actions.ts";
-import { type HostStartClaim, type HostStartDependencies, requestComputerHostStart } from "./computers.ts";
+import { type HostStartClaim, type HostStartDependencies, liveOwnerOfOrganization, requestComputerHostStart } from "./computers.ts";
 import { failStaleTurn, type TurnDependencies } from "./turns.ts";
 import type { TurnJob } from "./workers.ts";
 
@@ -62,6 +62,7 @@ export type ComputerStarterDependencies = HostStartDependencies &
 export type ComputerStartOutcome =
 	| { readonly kind: "started"; readonly hostStartGeneration: number }
 	| { readonly kind: "already_started"; readonly hostStartGeneration: number }
+	| { readonly kind: "already_serving"; readonly hostStartGeneration: number; readonly ownerId: string }
 	| { readonly kind: "refused"; readonly reason: string };
 
 /** What a person reads on a turn whose organization has no computer set up. */
@@ -98,12 +99,20 @@ export async function handleComputerStartJob(
 	for (const settled of await expireLostComputerActions(deps, job.tenantId)) {
 		if (settled.status === "done") await deps.resumeTurn(settled.tenantId, settled.turnId, settled.actionId);
 	}
+	const liveOwner = await liveOwnerOfOrganization(job.tenantId, deps);
+	if (liveOwner !== null) {
+		consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId })("computer_start_already_serving", {
+			owner_id: liveOwner.ownerId,
+			generation: liveOwner.computer.hostStartGeneration,
+		});
+		return { kind: "already_serving", hostStartGeneration: liveOwner.computer.hostStartGeneration, ownerId: liveOwner.ownerId };
+	}
 	let claim: HostStartClaim;
 	try {
 		claim = await requestComputerHostStart(deps, job.tenantId, job.userId);
 	} catch (error) {
 		if (!(error instanceof OrganizationSpendCeilingExceededError)) throw error;
-		await denyOpenActionsOfTurn(deps, job, error.message);
+		await denyOpenActionsOfTurn(deps, job.tenantId, job.turnId, error.message);
 		return { kind: "refused", reason: error.message };
 	}
 	if (!(await deps.store.markHostStartDispatched(job.tenantId, claim.hostStartGeneration))) {
@@ -129,10 +138,24 @@ export async function handleComputerStartJob(
 	return { kind: "started", hostStartGeneration: claim.hostStartGeneration };
 }
 
-async function denyOpenActionsOfTurn(deps: ComputerStarterDependencies, job: ComputerStartJob, reason: string): Promise<void> {
-	for (const action of await deps.actions.listForTurn(job.tenantId, job.turnId)) {
+/**
+ * Answer every open action of a turn as denied for `reason` and resume the turn for each, so a turn the spend ceiling
+ * stopped ends visibly instead of waiting out its limit. Used by the starter and by the poll of a live owner.
+ *
+ * @param deps Action store, clock and how to resume a turn.
+ * @param tenantId Organization.
+ * @param turnId The turn whose open actions are denied.
+ * @param reason The refusal a member can read.
+ */
+export async function denyOpenActionsOfTurn(
+	deps: Pick<ComputerStarterDependencies, "actions" | "clock" | "resumeTurn">,
+	tenantId: string,
+	turnId: string,
+	reason: string,
+): Promise<void> {
+	for (const action of await deps.actions.listForTurn(tenantId, turnId)) {
 		if (action.status === "done") continue;
 		const answered = await answerComputerActionOnOwnAccount(deps, action, { result: deniedActionResult(reason), isError: true });
-		if (answered !== null) await deps.resumeTurn(job.tenantId, job.turnId, action.actionId);
+		if (answered !== null) await deps.resumeTurn(tenantId, turnId, action.actionId);
 	}
 }

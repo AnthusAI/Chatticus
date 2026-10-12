@@ -10,17 +10,10 @@ import { DynamoMessagingStore } from "../../../conversation/src/store/dynamo-mes
 import { DynamoTurnControlStore } from "../../../conversation/src/store/turn-store.ts";
 import { DEFAULT_TURN_MODEL } from "../../../conversation/src/turn/openai-models.ts";
 import { NO_OP_RUN_VISIBILITY, NO_OP_TURN_PROBES, NO_OP_TURN_RUNS } from "../../../conversation/src/turn/in-process-queues.ts";
-import type { ExecutorDeps } from "../../../conversation/src/turn/types.ts";
+import type { ExecutorDeps, TurnExecutionJob } from "../../../conversation/src/turn/types.ts";
 import type { LogEmitter } from "../../../conversation/src/observability/log-line.ts";
+import { requiredPositiveIntegerSetting, requiredSetting } from "./owner-configuration.ts";
 import { createGatewayModels, type ModelGatewayConfig } from "./owner-models.ts";
-
-/** A required setting of the container owner is missing. */
-export class OwnerConfigurationError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "OwnerConfigurationError";
-	}
-}
 
 /** Where the container owner finds the session store and the model gateway. All of it is injected by the start of the computer. */
 export type OwnerStoresConfig = {
@@ -30,12 +23,6 @@ export type OwnerStoresConfig = {
 	/** The budget environment the spend ceiling reads. */
 	readonly environment: string;
 	readonly gateway: ModelGatewayConfig;
-};
-
-const requiredSetting = (environment: NodeJS.ProcessEnv, name: string): string => {
-	const value = (environment[name] ?? "").trim();
-	if (value === "") throw new OwnerConfigurationError(`The environment variable ${name} is required.`);
-	return value;
 };
 
 /**
@@ -101,30 +88,46 @@ export function createContainerOwnerDeps(config: OwnerStoresConfig, log?: LogEmi
 	};
 }
 
-/** Who the container owner is on the Front Door: the organization and member of the start, the owner id, and the Front Door itself. */
+/** Who the per-turn container owner is: the organization and member of the dispatch, the owner id it claims under, and the host start generation of its supervisor. It holds no Front Door address and no host token. */
 export type OwnerIdentityConfig = {
 	readonly tenantId: string;
 	readonly userId: string;
 	/** The id the start generated; the gateway token is bound to it, and the owner claims the turn under it. */
 	readonly ownerId: string;
-	readonly frontDoorUrl: string;
-	/** The token the starter signed for the host routes of this one owner; it replaces the deployment's invoke key, which the owner never holds. */
-	readonly hostToken: string;
+	readonly generation: number;
 };
 
 /**
- * Read the owner's identity from the environment the computer was started with.
+ * Read the per-turn owner's identity from the environment its supervisor built for it.
  *
  * @param environment The process environment.
- * @returns The typed identity, with no trailing slash on the Front Door address.
- * @throws OwnerConfigurationError If a required variable is missing.
+ * @returns The typed identity.
+ * @throws OwnerConfigurationError If a required variable is missing or the generation is not a positive integer.
  */
 export function ownerIdentityFromEnvironment(environment: NodeJS.ProcessEnv = process.env): OwnerIdentityConfig {
 	return {
 		tenantId: requiredSetting(environment, "CHATTICUS_TENANT_ID"),
 		userId: requiredSetting(environment, "CHATTICUS_USER_ID"),
 		ownerId: requiredSetting(environment, "CHATTICUS_OWNER_ID"),
-		frontDoorUrl: requiredSetting(environment, "CHATTICUS_FRONT_DOOR_URL").replace(/\/+$/, ""),
-		hostToken: requiredSetting(environment, "CHATTICUS_OWNER_HOST_TOKEN"),
+		generation: requiredPositiveIntegerSetting(environment, "CHATTICUS_OWNER_START_GENERATION"),
 	};
 }
+
+/**
+ * Read the turn the supervisor dispatched to this owner from the environment it built.
+ *
+ * @param environment The process environment.
+ * @returns The takeover job and the dispatch id that delivered it.
+ * @throws OwnerConfigurationError If a required variable is missing.
+ */
+export function ownerTurnJobFromEnvironment(environment: NodeJS.ProcessEnv = process.env): { readonly job: TurnExecutionJob; readonly dispatchId: string } {
+	return {
+		job: {
+			tenantId: requiredSetting(environment, "CHATTICUS_TENANT_ID"),
+			turnId: requiredSetting(environment, "CHATTICUS_TAKEOVER_TURN_ID"),
+			botId: requiredSetting(environment, "CHATTICUS_TAKEOVER_BOT_ID"),
+		},
+		dispatchId: requiredSetting(environment, "CHATTICUS_DISPATCH_ID"),
+	};
+}
+

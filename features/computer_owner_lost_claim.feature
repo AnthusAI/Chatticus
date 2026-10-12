@@ -1,15 +1,15 @@
-Feature: An owner that loses the turn leaves the computer alone
+Feature: An owner that loses the turn leaves the turn alone
   As the operator of an organization computer
-  I want an owner whose claim on the turn loses to leave the computer record and its snapshot untouched
-  So that a second owner started by a slow boot never stops the computer under the owner that won or publishes a stale disk over its work
+  I want an owner whose claim on the turn loses to change nothing about the turn
+  So that two owners reaching for one turn never run its tools twice
 
-  Two owners can run for one turn when a start takes longer than the host
-  start lease: the probe publishes another start job, the starter claims a new
-  generation and launches another owner. The turn claim lets exactly one of
-  them run. The one that loses has hydrated its own copy of the disk, which
-  is the published snapshot and nothing the winner has written, so it must not
-  publish that copy and must not mark the computer stopped while the winner is
-  still running on it.
+  Two owners can reach for one turn when a start takes longer than the host
+  start lease: the probe publishes another start job and the starter launches
+  another owner. The turn claim lets exactly one of them run. The one that loses
+  asks the model nothing and runs no tool. A supervisor that has been replaced is
+  kept from stopping the computer or publishing over the newer owner's disk by the
+  control plane, which refuses its routes for the generation it no longer holds
+  (features/computer_owner_long_lived.feature); the claim race is about the turn.
 
   Background:
     Given an empty control plane
@@ -34,8 +34,6 @@ Feature: An owner that loses the turn leaves the computer alone
     And computer owner "winner" takes over the turn and is held after its tool ran
     And the owner "loser" runs the parked turn on its computer disk
     Then the owner's turn ended "lost"
-    And the organization's computer is running
-    And the disk was published 0 times
     And the turn has one computer action and it is not done
     And the model was asked 1 time
     When held computer owner "winner" is released

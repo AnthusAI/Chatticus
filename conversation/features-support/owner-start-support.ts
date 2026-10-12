@@ -5,7 +5,7 @@ import type { Organization } from "../src/domain/organizations.ts";
 import { composeComputerStarterDependencies, type ComputerStarterAwsClients } from "../src/lambdas/computer-starter.ts";
 import type { ComputerStarterDependencies } from "../src/domain/computer-start.ts";
 import { FakeCloudFormation, FakeEcr } from "./fakes/fake-customer-aws.ts";
-import { FakeAssumeRole, FakeEcs, FakeStsAssumeRole } from "./fakes/fake-ecs.ts";
+import { FakeAssumeRole, FakeEcs } from "./fakes/fake-ecs.ts";
 import { SCENARIO_GATEWAY_SIGNING_KEY } from "./model-gateway-support.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -25,7 +25,6 @@ export type OwnerStartScenario = {
 	readonly ecs: FakeEcs;
 	/** The ECS of a customer account, reached under the assumed cross-account role. */
 	readonly customerEcs: FakeEcs;
-	readonly sts: FakeStsAssumeRole;
 	composed: ComputerStarterDependencies | null;
 	composeError: Error | null;
 	readonly logs: string[];
@@ -59,7 +58,6 @@ export function ownerStartOf(world: ChatticusWorld): OwnerStartScenario {
 			},
 			ecs: new FakeEcs(),
 			customerEcs: new FakeEcs(),
-			sts: new FakeStsAssumeRole(),
 			composed: null,
 			composeError: null,
 			logs: [],
@@ -75,8 +73,7 @@ export function ownerRuntimeSettings(): Record<string, string> {
 	return {
 		CHATTICUS_OWNER_TASK_DEFINITION: "owner-computer:3",
 		CHATTICUS_OWNER_CONTAINER_NAME: "owner",
-		CHATTICUS_OWNER_COMMAND: "node /opt/chatticus/host/owner.mjs",
-		CHATTICUS_OWNER_SCOPED_ROLE_ARN: "arn:aws:iam::123456789012:role/owner-scoped",
+		CHATTICUS_OWNER_COMMAND: "node /opt/chatticus/host/supervisor.mjs",
 		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: OWNER_START_SIGNING_SECRET_ARN,
 		CHATTICUS_CONVERSATIONS_TABLE: "conversations-table",
 		CHATTICUS_PI_SESSIONS_BUCKET: "pi-sessions-bucket",
@@ -134,7 +131,7 @@ export async function composeStarter(world: ChatticusWorld): Promise<ComputerSta
 					ecrClientFactory: () => new FakeEcr(),
 					assumeRole: scenario.crossAccount.port,
 				},
-				{ ecs: scenario.ecs, assumeRole: scenario.sts.port, clock: world.clock },
+				{ ecs: scenario.ecs, clock: world.clock },
 			),
 		);
 	} catch (error) {

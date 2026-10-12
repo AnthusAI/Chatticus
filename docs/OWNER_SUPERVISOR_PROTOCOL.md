@@ -736,7 +736,7 @@ the STS ones.
   any other status is fatal. Exit 6.
 - **Boot failure.** If hydration throws, log `snapshot_skipped reason=boot_failed`, publish nothing, report nothing,
   exit 8 (`owner.ts:315-318` behavior). The heartbeat lapses and the control plane settles the computer.
-- **After a dispatch arrives.** Dedupe by `dispatch_id` and by `turn_id`: a dispatch for a turn already served or being
+- **After a dispatch arrives.** Dedupe by `dispatch_id` only: the server gives every new offer a new id, so a turn that parks twice is served twice, and a dispatch id already served or being
   served is ignored. If a publish is running, report `publishing` (the server offers nothing then), so a dispatch arrives
   only in `idle`. Fork the child, report `serving` with `active_turns` on the next poll, which is immediate.
 - **Child exit.** Kill all uid-2000 processes (C16; read `/proc/*/status`, no package that the image lacks), log
@@ -913,7 +913,10 @@ that nothing the supervisor bundles matches `owner-start-driver` or the starter 
 ## 13. Traceability
 
 Scenario names are those of `features/computer_owner_long_lived.feature`. Tags: `@server` (A), `@broker` (B),
-`@supervisor` (C), `@end-to-end` (the integration, written last).
+`@supervisor` (C), `@end-to-end` (the integration, written last). The `@supervisor` scenarios are written and live in
+`features/computer_owner_supervisor.feature` (steps in `owner-supervisor-process.steps.ts` and `owner-watchdog.steps.ts`);
+they replaced the draft's `@supervisor` entries, with a few more (bootstrap window, disk that cannot be restored, stale poll,
+credential expiry, stopped report retries) and the wording of time as "seconds go by".
 
 | Scenario | Routes, states and sections | Tag |
 | --- | --- | --- |

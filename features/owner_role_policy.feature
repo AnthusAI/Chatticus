@@ -1,10 +1,10 @@
 Feature: The computer owner role reaches one conversation session and nothing else
   As the operator of an organization computer
-  I want the credentials a container owner receives to reach one conversation session, one computer and a short list of
+  I want the credentials a turn child receives to reach one conversation session and a short list of
   key families of its organization
   So that an owner whose credentials leak cannot rewrite the organization, the roster or any other conversation
 
-  The starter assumes ComputerOwnerScopedRole with five session tags: tenant,
+  The credential broker assumes ComputerOwnerScopedRole for each dispatched turn with five session tags: tenant,
   bot, channel, computer and turn. The role carries one static permission
   policy, the file the CDK stack deploys, written with policy variables such as
   the tenant tag. These scenarios take the statements of that file, substitute
@@ -140,7 +140,7 @@ Feature: The computer owner role reaches one conversation session and nothing el
       | dynamodb:DeleteTable          | messaging     |
       | dynamodb:ExportTableToPointInTime | messaging |
 
-  Scenario Outline: The owner reaches the objects of its own session and computer in the buckets
+  Scenario Outline: The owner reaches the objects of its own session in the sessions bucket
     When the owner requests "<action>" on the object "<key>" of bucket "<bucket>"
     Then the owner role allows the request
 
@@ -149,10 +149,8 @@ Feature: The computer owner role reaches one conversation session and nothing el
       | s3:GetObject    | pi-sessions | conversations/anthus%23bot-1%23channel-1/commits/1.json |
       | s3:PutObject    | pi-sessions | conversations/anthus%23bot-1%23channel-1/commits/1.json |
       | s3:DeleteObject | pi-sessions | conversations/anthus%23bot-1%23channel-1/commits/1.json |
-      | s3:GetObject    | snapshots   | tenants/anthus/computers/computer-1/manifest.json    |
-      | s3:PutObject    | snapshots   | tenants/anthus/computers/computer-1/snapshot.tar.gz  |
 
-  Scenario Outline: The owner cannot reach the objects of another tenant, computer, bot or channel
+  Scenario Outline: The owner cannot reach the snapshot of any computer, nor the objects of another tenant, bot or channel
     When the owner requests "<action>" on the object "<key>" of bucket "<bucket>"
     Then the owner role denies the request
 
@@ -163,6 +161,8 @@ Feature: The computer owner role reaches one conversation session and nothing el
       | s3:DeleteObject | pi-sessions | conversations/other%23bot-1%23channel-1/commits/1.json   |
       | s3:GetObject    | pi-sessions | conversations/anthus%23bot-1%23channel-10/commits/1.json |
       | s3:GetObject    | pi-sessions | other/anthus%23bot-1%23channel-1/commits/1.json          |
+      | s3:GetObject    | snapshots   | tenants/anthus/computers/computer-1/manifest.json        |
+      | s3:PutObject    | snapshots   | tenants/anthus/computers/computer-1/snapshot.tar.gz      |
       | s3:GetObject    | snapshots   | tenants/other/computers/computer-1/manifest.json         |
       | s3:GetObject    | snapshots   | tenants/anthus/computers/computer-2/manifest.json        |
       | s3:PutObject    | snapshots   | tenants/anthus/computers/computer-10/manifest.json       |

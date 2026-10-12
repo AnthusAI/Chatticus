@@ -4,7 +4,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
-import { defaultEcsClient, defaultScopedAssumeRole } from "../computer/aws-clients.ts";
+import { defaultEcsClient } from "../computer/aws-clients.ts";
 import {
 	hostStarterFromEnvironment,
 	hostStartDriverFor,
@@ -63,7 +63,7 @@ let cachedDependenciesComposedAtMilliseconds = 0;
  * @param processEnvironment The environment variables; defaults to the process environment.
  * @param clients The AWS clients; defaults to real ones.
  * @param hostStarterOptions What replaces the real ECS and STS clients in the host starter, for tests.
- * @param ownerPorts What replaces the real ECS, scoped STS, ids and clock of the owner start, for tests.
+ * @param ownerPorts What replaces the real ECS, ids and clock of the owner start, for tests.
  * @throws Error If a required environment variable is missing (the owner settings included, whenever the ECS starter is
  * selected), or the invoke key or signing key secret cannot be read or is empty.
  */
@@ -71,7 +71,7 @@ export async function composeComputerStarterDependencies(
 	processEnvironment: Record<string, string | undefined> = process.env,
 	clients: ComputerStarterAwsClients = defaultComputerStarterAwsClients(),
 	hostStarterOptions: EnvironmentHostStarterOptions = {},
-	ownerPorts: Partial<Pick<OwnerStartPorts, "ecs" | "assumeRole" | "newOwnerId" | "clock" | "registerOwnerWorker">> = {},
+	ownerPorts: Partial<Pick<OwnerStartPorts, "ecs" | "newOwnerId" | "clock" | "registerOwnerWorker">> = {},
 ): Promise<ComputerStarterDependencies> {
 	const requiredEnvironment = (name: string): string => {
 		const value = processEnvironment[name];
@@ -113,11 +113,8 @@ export async function composeComputerStarterDependencies(
 	if (isEcsHostStarterSelected(processEnvironment)) {
 		const signingKey = await readSecretValue(clients.secrets, requiredEnvironment("CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN"));
 		const config = ownerStartConfigFromEnvironment(processEnvironment, { signingKey });
-		const turns = new DynamoTurnControlStore(client, tableName);
 		const ownerDriver = new OwnerStartDriver(config, {
 			ecs: ownerPorts.ecs ?? defaultEcsClient(null),
-			assumeRole: ownerPorts.assumeRole ?? defaultScopedAssumeRole,
-			getTurn: (tenantId, turnId) => turns.getTurn(tenantId, turnId),
 			clock: ownerPorts.clock ?? clock,
 			newOwnerId: ownerPorts.newOwnerId ?? (() => `owner-${randomUUID()}`),
 			registerOwnerWorker:

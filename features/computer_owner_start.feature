@@ -1,36 +1,37 @@
-Feature: The starter launches the computer as a container owner
+Feature: The starter launches the computer as a supervisor that holds one bootstrap token and no role
   As the operator of an organization computer
-  I want the starter to launch the computer as an owner that holds only a gateway token and scoped credentials
-  So that the bot's session runs next to the workspace while the container never holds the model key or broad storage access
+  I want the starter to launch the computer as an owner that holds nothing but a short-lived bootstrap token
+  So that the container asks the control plane for its credentials, and neither the model key nor any storage access sits in a task description
 
-  A computer homed in the deployment account always starts as the owner: the
-  container takes the parked turn over and runs its Pi session itself. A
-  computer homed in a customer account starts as the host worker that serves
-  computer actions over HTTP and never gets an owner. Every owner start
-  generates a fresh owner id. The id is bound
-  into the model gateway token, passed to the container as the worker id of
-  its claim on the turn, and used to name the scoped storage credentials the
-  starter obtains from STS by assuming a role with session tags that name this
-  organization, bot, channel, computer and turn. The role's static policy reads
-  those tags, so the credentials reach only this conversation and computer.
-  The vendor key never leaves the control plane.
+  A computer homed in the deployment account always starts as a supervisor: the
+  container exchanges its bootstrap token once for a supervisor token and
+  supervisor credentials, then asks the control plane for work and runs each
+  turn in a child process. A computer homed in a customer account starts as the
+  host worker that serves computer actions over HTTP and never gets an owner.
+  Every owner start generates a fresh owner id and binds one token to it: the
+  bootstrap token, which names the organization, the computer, the owner id and
+  the claimed host start generation, lives five minutes and works once. The
+  starter assumes no role, mints no gateway token and no host token, and puts no
+  AWS credential in the task: the credential broker issues the supervisor's
+  credentials at the exchange and each turn's credentials at dispatch. The
+  vendor key never leaves the control plane.
 
   Background:
     Given an empty control plane
     And a turn parked on the workspace with its start job queued
     And the organization is homed in the deployment account
 
-  Scenario: A computer in the deployment account starts as the owner and runs the owner task with its command and the turn's identity
+  Scenario: A computer in the deployment account starts as the supervisor and runs the supervisor task with its command and the computer's identity
     Given the starter has the owner settings
     When the starter handles the start job
     Then the start ended "started"
     And the starter ran exactly 1 ECS task
     And the task ran task definition "owner-computer:3" in cluster "computers"
-    And the task overrode container "owner" with the command "node /opt/chatticus/host/owner.mjs"
-    And the container environment names the turn, the bot and the member of the start job
+    And the task overrode container "owner" with the command "node /opt/chatticus/host/supervisor.mjs"
+    And the container environment names the organization, the computer and the member of the start job
     And the container environment holds a fresh owner id
 
-  Scenario: The owner finds its stores, its gateway and the Front Door in its environment
+  Scenario: The supervisor finds its stores, its gateway and the Front Door in its environment
     Given the starter has the owner settings
     When the starter handles the start job
     Then the container environment holds:
@@ -43,53 +44,41 @@ Feature: The starter launches the computer as a container owner
       | AWS_REGION                     | us-east-1                                            |
     And the container environment holds the table of the messaging store
     And the container environment holds no invoke key and no copy of the invoke key's value
-    And the container environment holds nothing secret except the two tokens and the scoped credentials
 
-  Scenario: The gateway token is bound to the owner id the container receives
+  Scenario: The starter holds no role and puts one secret in the task
     Given the starter has the owner settings
     When the starter handles the start job
-    Then the gateway token binds the turn, the bot and the owner id of the container for 3600 seconds
+    Then the starter assumed no role
+    And the container environment names no turn, no bot, no gateway token, no host token and no AWS credential
+    And the container environment holds exactly one secret: a bootstrap token valid for 300 seconds
+    And the bootstrap token names the organization, the computer, the new owner id and the claimed generation
+    And the starter registered the owner as a worker of the household computer
 
-  Scenario: The host token is bound to the owner id and the start generation, and is not the gateway token
+  Scenario: The bootstrap token opens the bootstrap route and nothing else
     Given the starter has the owner settings
     When the starter handles the start job
-    Then the host token binds the turn, the bot, the owner id and the start generation of the container for 3600 seconds
-    And the host token is not valid as a gateway token and the gateway token is not valid as a host token
+    Then the bootstrap token is not valid as a supervisor token or as a gateway token
 
-  Scenario: The starter, not the container, registers the owner as a worker of the organization
-    Given the starter has the owner settings
-    When the starter handles the start job
-    Then the starter registered the owner of the container as a worker of the organization
-
-  Scenario: The scoped credentials come from STS with session tags for this conversation and computer and no session policy
-    Given the starter has the owner settings
-    When the starter handles the start job
-    Then STS was asked exactly 1 time to assume the role "arn:aws:iam::123456789012:role/owner-scoped"
-    And the session name is derived from the owner id and the session lasts 3600 seconds
-    And the session tags are the organization, bot, channel, computer and turn of the start
-    And the assume-role call carries no session policy
-    And the container environment holds the scoped credentials STS returned
-
-  Scenario Outline: An identifier that cannot be a session tag value stops the start before any credentials are minted
+  Scenario Outline: An identifier that cannot be a session tag value stops the start before a task runs
     Given the starter has the owner settings
     And the computer of the organization has the identifier "<computer>"
     When the starter handles the start job
     Then the start was refused mentioning "<tag>"
-    And STS was not asked to assume a scoped role
     And the starter ran exactly 0 ECS tasks
+    And the organization has no worker registered by the starter
 
     Examples:
       | computer     | tag      |
       | computer*one | computer |
       | computer#one | computer |
       | computer%23x | computer |
+      | has space    | computer |
 
-  Scenario: Every start generation gets its own owner id and tokens
+  Scenario: Every start generation gets its own owner id and bootstrap token
     Given the starter has the owner settings
     When the starter handles the start job
     And the host start lease expires and the starter handles the start job
-    Then the second task has a different owner id and different tokens from the first
-    And STS was asked exactly 2 times to assume the role "arn:aws:iam::123456789012:role/owner-scoped"
+    Then the second task has a different owner id and a different bootstrap token from the first
 
   Scenario: One start generation starts one owner however many jobs arrive
     Given the starter has the owner settings
@@ -97,36 +86,11 @@ Feature: The starter launches the computer as a container owner
     And the starter handles the start job again
     Then the start ended "already_started"
     And the starter ran exactly 1 ECS task
-    And STS was asked exactly 1 time to assume the role "arn:aws:iam::123456789012:role/owner-scoped"
 
-  Scenario: No log of the starter carries a token, a credential or a key
+  Scenario: No log of the starter carries a token, a key or a credential
     Given the starter has the owner settings
     When the starter handles the start job
-    Then the starter logged none of the two tokens, the scoped credentials, the invoke key and the signing key
-
-  Scenario: The container that takes the turn over under its owner id is served by the gateway with its token
-    Given the starter has the owner settings
-    And the vendor answers "Good morning." using 120 input tokens and 30 output tokens
-    When the starter handles the start job
-    And the container takes over the turn with its task environment and is held after its tool ran
-    And the container asks the model gateway for an answer with the token of its start
-    Then the gateway answers with status 200
-    And the owner that took the turn over claimed it under the owner id of the start
-    When held computer owner "started" is released
-    Then the takeover of "started" ended "done"
-
-  Scenario: The container runs its whole turn through the Front Door holding only its own tokens
-    Given the starter has the owner settings
-    And the front door requires the invoke key "deployment-invoke-key"
-    When the starter handles the start job
-    And the container runs its parked turn on its computer disk through the Front Door with only its task environment
-    Then the container's run on its computer disk ended "done"
-    And the computer published its snapshot and is stopped and its start lease of generation 1 has ended
-
-  Scenario: The starter refuses to start without the role the owner credentials come from
-    Given the starter has the owner settings without the setting "CHATTICUS_OWNER_SCOPED_ROLE_ARN"
-    When the starter is composed
-    Then the starter was refused at composition mentioning "CHATTICUS_OWNER_SCOPED_ROLE_ARN"
+    Then the starter logged none of the bootstrap token, the invoke key and the signing key
 
   Scenario: A starter that launches computers refuses to start without any owner settings
     Given the organization is homed in the deployment account
@@ -142,7 +106,7 @@ Feature: The starter launches the computer as a container owner
     And the customer account ran exactly 1 ECS task
     And the customer task overrode container "computer" with the command "node /opt/chatticus/host/host-worker.mjs"
     And the starter ran exactly 0 ECS tasks
-    And STS was not asked to assume a scoped role
+    And the organization has no worker registered by the starter
 
   Scenario: A computer in a customer's account without a cross-account role is refused and never gets an owner
     Given the organization is homed in the account "210987654321" with no cross-account role
@@ -152,7 +116,6 @@ Feature: The starter launches the computer as a container owner
     And the parked turn failed telling the person the organization has no computer set up yet
     And the start job is not retried
     And the starter ran exactly 0 ECS tasks
-    And STS was not asked to assume a scoped role
     And no cross-account role was assumed
 
   Scenario: An organization with no AWS home fails the parked turn at once and the start job is never retried

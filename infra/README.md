@@ -10,7 +10,7 @@ operations.
 | Stack | Resources |
 | --- | --- |
 | `ChatticusSnapshots` | S3 bucket for computer packs; IAM role local hosts may assume |
-| `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 host task definition and service (count 0 by default; the own-account host is removed in a later infra PR), and the Pi owner task definition `ChatticusComputerOwner` with a deliberately empty task role |
+| `ChatticusComputers` | VPC, ECR, ECS cluster, the cluster network (subnets and security group, exported as outputs), and the owner task definition `ChatticusComputerOwner` (Fargate ARM64, 256 CPU, 512 MiB, init process, 90 second stop timeout) with a deliberately empty task role. There is no always-defined service; the starter runs the task on demand |
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
 | `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production) |
 | `ChatticusAccountDeploy` | In a dedicated environment account only: the GitHub OIDC provider and that account's single deploy role. Not deployed in the legacy account |
@@ -69,15 +69,9 @@ The snapshot bucket name is a CDK output. Hosts set
 `CHATTICUS_SNAPSHOT_BUCKET` to that value. URIs look like
 `s3://{SnapshotBucketName}/tenants/{tenant}/computers/{computer}/snapshot`.
 
-v1 AWS computers are **Fargate**. Run one host with
-`npx cdk deploy ChatticusComputers -c computerCount=1`. Scale back with
-`-c computerCount=0`. Optional stop/start EC2 is not this stack.
-
-A smoke publish from Fargate into S3:
-
-```bash
-sh computer/test_fargate.sh
-```
+v1 AWS computers are **Fargate**. The stack defines the owner task definition and
+the cluster network; it runs nothing. The ComputerStarter runs the owner task on
+demand. Optional stop/start EC2 is not this stack.
 
 ## DNS (one-time)
 
@@ -146,16 +140,21 @@ GitHub environment from the matching stack output.
 | **Deploy Auth (production)** | `deploy-auth-production.yml` | `deploy-chatticus-auth-production.sh` | `ChatticusAuthProduction` |
 
 For computers in Anthus's own accounts the ComputerStarter runs the owner task
-(`ChatticusComputerOwner`, `node /opt/chatticus/host/owner.mjs`): it mints a
-model gateway token (the signing key is a secret in the ControlPlane stack) and
-assumes `ComputerOwnerScopedRole` with session tags that its static policy reads. This is wired in
-development only; staging and production do not run it yet. See
-[Pi session handoff](../docs/PI_SESSION_HANDOFF.md). The host-start context
-below remains for customer-account computers and the host task definition that
-still exists.
+(`ChatticusComputerOwner`, `node /opt/chatticus/host/supervisor.mjs`). The starter
+signs one bootstrap token (the signing key is a secret in the ControlPlane stack),
+puts it in the task, and assumes no role. The supervisor in the container exchanges
+the token at the Front Door, which asks the `OwnerCredentialBroker` Lambda for
+credentials. The broker is the only principal that assumes `ComputerSupervisorRole`
+(session tags `tenant`, `computer`; the snapshot objects of one computer) and
+`ComputerOwnerScopedRole` (five session tags; one conversation), and only the Front
+Door may invoke it. This is wired in development only; staging and production do
+not run it yet. See [Owner supervisor protocol](../docs/OWNER_SUPERVISOR_PROTOCOL.md)
+and [Pi session handoff](../docs/PI_SESSION_HANDOFF.md). The host-start context
+below (cluster, subnets, security group) is read from the `ChatticusComputers`
+outputs `ComputerClusterName`, `ComputerSubnetIds` and `ComputerSecurityGroupId`.
 
 ThinTurn deploy scripts optionally apply ECS host-start context
-(`computerHostStart=ecs`, `computerHostCommand=host-worker`) when
+(`computerHostStart=ecs`) when
 `ChatticusComputers` outputs exist in the same account; missing computers
 outputs are ignored (deploy proceeds without ECS context). Workflows never
 deploy `ChatticusComputers`, snapshots, DNS, or budgets. Web workflows deploy
@@ -271,8 +270,7 @@ Deploy **one** stack at a time. `cdk deploy --all` and `npm run deploy`
 are forbidden (`npm run deploy` exits nonzero). Do not destroy
 `ChatticusSnapshots` or `ChatticusComputers`.
 
-A Fargate service exists at count 0 until you deploy
-`-c computerCount=1` after pushing `ComputerRepositoryUri:dev`.
+Push the computer image to `ComputerRepositoryUri:dev` before the first owner start.
 Publishing a snapshot does not require a running task.
 
 ## Budgets (account-level AWS meter)

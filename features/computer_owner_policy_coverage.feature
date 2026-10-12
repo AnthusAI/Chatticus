@@ -3,10 +3,10 @@ Feature: The owner role policy covers every request the computer owner makes
   I want the scoped credentials of a computer owner to allow exactly the requests a turn needs
   So that a live run never ends in a denial that only one run at a time could reveal
 
-  The container owner runs with credentials of a role whose static policy reads
-  the session tags the starter sets. These scenarios run the real owner against
-  the real stores with a recording around the DynamoDB and S3 clients, then ask
-  the role's policy, the file the stack deploys, with the tags of the turn's
+  The turn child runs with credentials of a role whose static policy reads
+  the session tags the broker sets, and the supervisor with credentials of a second role that reaches only the snapshot of its computer. These scenarios run the real owner against
+  the real stores with a recording around the DynamoDB and S3 clients, the snapshot requests of the supervisor recorded apart from the rest, then ask
+  each role's policy, the file the stack deploys, with the tags of the turn's
   session substituted, whether it allows each recorded request: its action, its
   table or bucket, and its partition key or object key. A request the policy would deny
   fails the scenario and is listed with its key. Each scenario covers one way a
@@ -39,7 +39,9 @@ Feature: The owner role policy covers every request the computer owner makes
     Then the owner's turn ended "done"
     And the computer owners made a "dynamodb:Query" request on a key starting "MB#"
     And the computer owners made a "dynamodb:GetItem" request on a key starting "PI#"
-    And the computer owners made a "s3:GetObject" request on a key starting "tenants/"
+    And the supervisor made a "s3:GetObject" request on a key starting "tenants/"
+    And every snapshot request the supervisor made is allowed by the supervisor role policy
+    And the computer owners made no request on the snapshot bucket
     And every request the computer owners made is allowed by the owner role policy
 
   Scenario: An owner whose turn fails stays inside its policy
@@ -48,6 +50,7 @@ Feature: The owner role policy covers every request the computer owner makes
     And the owner "owner-1" runs the parked turn on its computer disk
     Then the owner's turn ended "failed"
     And every request the computer owners made is allowed by the owner role policy
+    And every snapshot request the supervisor made is allowed by the supervisor role policy
 
   Scenario: An owner that recovers a turn from a vanished owner stays inside its policy
     Given the model is scripted to call "run_terminal" with:

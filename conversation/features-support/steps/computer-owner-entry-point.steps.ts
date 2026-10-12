@@ -2,11 +2,8 @@ import assert from "node:assert/strict";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Given, Then, When } from "@cucumber/cucumber";
-import {
-	type OwnerEntryPointOutcome,
-	type OwnerJobSource,
-	runOwnerEntryPoint,
-} from "../../../computer/host/src/owner.ts";
+import { runOwnerEntryPoint } from "../../../computer/host/src/owner.ts";
+import type { TurnTakeoverOutcome } from "../../src/turn/computer-owner.ts";
 import { getTurn } from "../../src/domain/turns.ts";
 import type { TurnExecutionJob } from "../../src/turn/types.ts";
 import { activeTurnJob, computerOwnerDepsFor, computerOwnerScenarioOf } from "../computer-owner.ts";
@@ -19,7 +16,7 @@ type EntryPointScenario = {
 	job: TurnExecutionJob | null;
 	shellLauncherPath: string | null;
 	launcherLog: string | null;
-	outcome: OwnerEntryPointOutcome | null;
+	outcome: TurnTakeoverOutcome | null;
 	refusal: string | null;
 };
 
@@ -46,18 +43,13 @@ const passThroughLauncher = (world: ChatticusWorld): string => {
 	return path;
 };
 
-async function runEntryPoint(world: ChatticusWorld): Promise<OwnerEntryPointOutcome> {
+async function runEntryPoint(world: ChatticusWorld): Promise<TurnTakeoverOutcome> {
 	const scenario = entryPointScenarioOf(world);
-	const source: OwnerJobSource = {
-		async claim() {
-			const job = scenario.job;
-			scenario.job = null;
-			return job;
-		},
-	};
-	return runOwnerEntryPoint(source, await computerOwnerDepsFor(world), {
+	assert.ok(scenario.job, "No takeover job names a turn in this scenario.");
+	return runOwnerEntryPoint(scenario.job, await computerOwnerDepsFor(world), {
 		workspaceRoot: computerOwnerScenarioOf(world).workspace,
 		shellLauncherPath: scenario.shellLauncherPath ?? passThroughLauncher(world),
+		workerId: "owner-1",
 	});
 }
 
@@ -82,10 +74,6 @@ When("a takeover job names the turn", function (this: ChatticusWorld) {
 When("a takeover job names a turn that does not exist", function (this: ChatticusWorld) {
 	const bot = this.botsByName?.get(STORY_BOT);
 	entryPointScenarioOf(this).job = { tenantId: STORY_TENANT, turnId: "no-such-turn", botId: bot?.botId ?? "no-such-bot" };
-});
-
-When("no takeover job is waiting", function (this: ChatticusWorld) {
-	entryPointScenarioOf(this).job = null;
 });
 
 When("the computer entry point runs", async function (this: ChatticusWorld) {

@@ -112,4 +112,57 @@ export interface MessagingStore {
 	markHostStartDispatched(tenantId: string, generation: number): Promise<boolean>;
 	/** Undo `markHostStartDispatched` for a generation whose driver call failed, so the next start may try again. */
 	releaseHostStartDispatch(tenantId: string, generation: number): Promise<void>;
+	/**
+	 * Record the owner of a generation as the live owner, once. The condition is that the computer is still on the host
+	 * start generation the bootstrap token names and no owner has used that generation or a later one. It clears the idle
+	 * mark, the stop approval and every dispatch field, and never clears the last owner generation.
+	 *
+	 * @returns The computer after the change, or null when the generation moved or its bootstrap token was already used.
+	 */
+	consumeOwnerBootstrap(tenantId: string, bootstrap: OwnerBootstrapRecord): Promise<Computer | null>;
+	/**
+	 * Record one poll of an owner on its worker item: the heartbeat, the sequence and the state, only while the stored
+	 * sequence is not newer than `sequence`. An equal sequence is a retry and proceeds.
+	 *
+	 * @returns false when a newer poll was already recorded (a delayed duplicate of an older poll), or the worker is missing.
+	 */
+	recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date }): Promise<boolean>;
+	/**
+	 * Change what the computer record says about the live owner, only while `ownerId` is still the owner: the protocol
+	 * version it reported, and when it became idle (a date sets the mark, null removes it).
+	 *
+	 * @returns false when `ownerId` is not the live owner.
+	 */
+	updateOwnerPresence(tenantId: string, ownerId: string, change: { protocolVersion?: number; idleSinceAt?: Date | null }): Promise<boolean>;
+	/**
+	 * Store one dispatch for the live owner, only while the owner has no approved stop and the stored dispatch id is still
+	 * `expectedDispatchId` (null: none is stored). An offer and a stop approval on the same record cannot both succeed.
+	 *
+	 * @returns false when the owner changed, a stop was approved, or another poll replaced the dispatch first.
+	 */
+	offerOwnerDispatch(tenantId: string, ownerId: string, expectedDispatchId: string | null, dispatch: OwnerDispatchRecord): Promise<boolean>;
+	/**
+	 * Approve the stop of the live owner, only while the stored dispatch id is still `expectedDispatchId` (null: none is
+	 * stored), so a dispatch offered after the stop was judged defeats the approval.
+	 *
+	 * @returns false when the owner changed or the dispatch moved.
+	 */
+	approveOwnerStop(tenantId: string, ownerId: string, expectedDispatchId: string | null, approvedAt: Date): Promise<boolean>;
 }
+
+/** What the bootstrap exchange records about the owner. */
+export type OwnerBootstrapRecord = {
+	readonly ownerId: string;
+	readonly generation: number;
+	readonly protocolVersion: number;
+	readonly startedAt: Date;
+};
+
+/** The dispatch the control plane offers to the owner, as the computer record stores it. */
+export type OwnerDispatchRecord = {
+	readonly dispatchId: string;
+	readonly turnId: string;
+	readonly actionId: string;
+	readonly attempt: number;
+	readonly leaseExpiresAt: Date;
+};

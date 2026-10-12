@@ -10,6 +10,7 @@ await build({
 	entryPoints: {
 		"host-worker": resolve(hostDirectory, "src", "main.ts"),
 		owner: resolve(hostDirectory, "src", "owner-main.ts"),
+		supervisor: resolve(hostDirectory, "src", "supervisor-main.ts"),
 		snapshot: resolve(repositoryRoot, "conversation", "bin", "snapshot.ts"),
 		"file-helper": resolve(repositoryRoot, "conversation", "src", "pi", "owner-file-helper-main.ts"),
 	},

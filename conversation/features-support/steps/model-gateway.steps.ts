@@ -3,7 +3,7 @@ import { Given, Then, When } from "@cucumber/cucumber";
 import { createGatewayModels } from "../../../computer/host/src/owner-models.ts";
 import { getVendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
 import { relinquishTurn } from "../../src/domain/turns.ts";
-import { mintSessionToken, type SessionTokenClaims } from "../../src/gateway/session-token.ts";
+import { mintComputerOwnerToken, mintSessionToken, type SessionTokenClaims } from "../../src/gateway/session-token.ts";
 import { consoleLogEmitter } from "../../src/observability/log-line.ts";
 import { ledgerDependenciesFor } from "../executor-harness.ts";
 import { httpBaseUrl } from "../front-door.ts";
@@ -101,8 +101,8 @@ Given("the container holds a session token for its turn signed with another key"
 	remember(this, mintFor(this, {}, 300, "a-different-signing-key-0123456789abcdef"));
 });
 
-Given("the container holds a session token minted for the host routes", function (this: ChatticusWorld) {
-	remember(this, mintFor(this, { audience: "owner-host" }, 300));
+Given("the container holds a session token minted for the supervisor routes", function (this: ChatticusWorld) {
+	remember(this, mintComputerOwnerToken(SCENARIO_GATEWAY_SIGNING_KEY, { audience: "computer-owner", tenantId: turnOf(this).tenantId, computerId: "computer-1", ownerId: turnOf(this).ownerId, startGeneration: 1, issuedAtSeconds: nowSeconds(this), expiresAtSeconds: nowSeconds(this) + 300 }));
 });
 
 Given("the container holds a session token for a turn that does not exist", function (this: ChatticusWorld) {

@@ -1,39 +1,35 @@
 /**
- * Start the organization's computer as a container owner: a Fargate task that runs the Pi session of the parked turn
- * itself, next to the workspace, instead of serving host actions over HTTP.
+ * Start the organization's computer as a long-lived container owner: a Fargate task that runs the supervisor program,
+ * which exchanges one bootstrap token for its credentials, asks the control plane for work, and runs each dispatched turn
+ * in a child process.
  *
- * Each start generates a fresh owner id and binds four things to it: the model gateway token, the host token, the claim of
- * the turn the container makes (the container passes the id as the worker id of its claim), and the scoped storage
- * credentials. The container holds the two tokens and credentials whose session tags bind the role's static policy to this organization,
- * computer and conversation, and never the model vendor's key and never the deployment's invoke key.
- *
- * The two tokens are the same claims signed for two audiences, so neither can be replayed on the other's surface. The
- * starter, not the container, registers the owner as a worker of its organization, because registration is what the invoke
- * key used to buy and the container no longer holds it. The only secrets in the task overrides are therefore the two
- * tokens and the scoped credentials, all of which expire one hour after the start; nothing of longer life is left for a
- * reader of ECS task descriptions to find.
+ * Each start generates a fresh owner id and binds one token to it: the bootstrap token, which names the organization, the
+ * computer, the owner id and the claimed host start generation, lives five minutes and works once. The starter assumes no
+ * role and mints no gateway token and no host token; the credential broker issues the supervisor's credentials at the
+ * bootstrap exchange and each turn's credentials at dispatch. The starter, not the container, registers the owner as a
+ * worker of its organization, because the worker item is the liveness record of the owner and the container holds no key
+ * that could register it. The only secret in the task overrides is therefore the bootstrap token, and a reader of ECS task
+ * descriptions who races for it can only take an exchange that the real owner will then see refused.
  */
 
-import { OWNER_CREDENTIAL_LIFETIME_SECONDS } from "@chatticus/host-protocol/supervisor";
-import { ownerSessionTags, type SessionTag } from "../gateway/session-tags.ts";
-import { mintSessionToken, type SessionTokenAudience } from "../gateway/session-token.ts";
+import { OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS } from "@chatticus/host-protocol/supervisor";
+import { supervisorSessionTags } from "../gateway/session-tags.ts";
+import { mintOwnerBootstrapToken } from "../gateway/session-token.ts";
 import { consoleLogEmitter, errorNameOf } from "../observability/log-line.ts";
 import type { ComputerStartJob, HostStartDriver } from "../domain/computer-start.ts";
 import type { HostStartClaim } from "../domain/computers.ts";
-import type { Turn } from "../domain/turns.ts";
-import type { EcsPort, ScopedAssumeRolePort } from "./aws-ports.ts";
+import type { EcsPort } from "./aws-ports.ts";
 import { runFargateTask, type DeploymentEcsConfig, type StarterEnvironment } from "./host-starter.ts";
 import { OWNER_START_GENERATION_VARIABLE } from "./owner-environment.ts";
 
-/** Where the owner container finds its control plane and stores, and how the starter reaches ECS and STS. */
+/** Where the owner container finds its control plane and stores, and how the starter reaches ECS. */
 export type OwnerStartConfig = {
 	readonly ecs: DeploymentEcsConfig;
-	/** The task definition that runs the owner program, in place of the host worker's. */
+	/** The task definition that runs the supervisor program, in place of the host worker's. */
 	readonly ownerTaskDefinition: string;
 	readonly containerName: string;
 	readonly command: readonly string[];
-	/** The role whose static policy the session tags resolve. */
-	readonly scopedRoleArn: string;
+	/** The secret the bootstrap token is signed with. */
 	readonly signingKey: string;
 	readonly frontDoorUrl: string;
 	readonly messagingTable: string;
@@ -50,11 +46,9 @@ export type OwnerStartConfig = {
 /** What the owner start calls out to. */
 export type OwnerStartPorts = {
 	readonly ecs: EcsPort;
-	readonly assumeRole: ScopedAssumeRolePort;
-	readonly getTurn: (tenantId: string, turnId: string) => Promise<Turn | null>;
 	readonly clock: { now(): Date };
 	readonly newOwnerId: () => string;
-	/** Register the owner as a worker of the organization's computer, so its heartbeat and snapshot reports have a record to land on. */
+	/** Register the owner as a worker of the organization's computer, so its poll has a liveness record to land on. */
 	readonly registerOwnerWorker: (registration: { tenantId: string; ownerId: string; computerId: string }) => Promise<void>;
 };
 
@@ -103,7 +97,6 @@ export function ownerStartConfigFromEnvironment(
 		command: required(environment, "CHATTICUS_OWNER_COMMAND")
 			.split(/\s+/)
 			.filter((part) => part !== ""),
-		scopedRoleArn: required(environment, "CHATTICUS_OWNER_SCOPED_ROLE_ARN"),
 		signingKey: secrets.signingKey,
 		frontDoorUrl: required(environment, "CHATTICUS_FRONT_DOOR_URL").replace(/\/+$/, ""),
 		messagingTable: required(environment, "CHATTICUS_MESSAGING_TABLE"),
@@ -117,7 +110,7 @@ export function ownerStartConfigFromEnvironment(
 	};
 }
 
-/** Starts one owner container for a parked turn: owner id, gateway token, scoped credentials, then the ECS task. */
+/** Starts one supervisor container for a computer: owner id, bootstrap token, worker registration, then the ECS task. */
 export class OwnerStartDriver implements HostStartDriver {
 	private readonly config: OwnerStartConfig;
 	private readonly ports: OwnerStartPorts;
@@ -129,54 +122,26 @@ export class OwnerStartDriver implements HostStartDriver {
 
 	async start(claim: HostStartClaim, job: ComputerStartJob): Promise<void> {
 		const { config, ports } = this;
-		const turn = await ports.getTurn(job.tenantId, job.turnId);
-		if (turn === null || turn.botId !== job.botId) {
-			consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId })("owner_start_refused", { reason: "turn_not_found" });
-			throw new Error(`Turn ${JSON.stringify(job.turnId)} of bot ${JSON.stringify(job.botId)} does not exist, so no owner was started.`);
-		}
 		const ownerId = ports.newOwnerId();
 		const log = consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId, owner_id: ownerId });
-		const expiresAtSeconds = Math.floor(ports.clock.now().getTime() / 1000) + OWNER_CREDENTIAL_LIFETIME_SECONDS;
-		const mintFor = (audience: SessionTokenAudience): string =>
-			mintSessionToken(config.signingKey, {
-				audience,
-				tenantId: job.tenantId,
-				botId: job.botId,
-				turnId: job.turnId,
-				ownerId,
-				startGeneration: claim.hostStartGeneration,
-				expiresAtSeconds,
-			});
-		const gatewayToken = mintFor("model-gateway");
-		const hostToken = mintFor("owner-host");
-		log("owner_token_minted", { lifetime_seconds: OWNER_CREDENTIAL_LIFETIME_SECONDS, expires_at_seconds: expiresAtSeconds });
-		let tags: SessionTag[];
 		try {
-			tags = ownerSessionTags({
-				tenantId: job.tenantId,
-				botId: job.botId,
-				channelId: turn.channelId,
-				computerId: claim.computerId,
-				turnId: job.turnId,
-			});
+			supervisorSessionTags({ tenantId: job.tenantId, computerId: claim.computerId });
 		} catch (error) {
 			log("owner_start_refused", { reason: "unsafe_session_tag", error_name: errorNameOf(error) });
 			throw error;
 		}
-		const sessionName = ownerId.slice(0, 64);
-		let assumed: Awaited<ReturnType<OwnerStartPorts["assumeRole"]>>;
-		try {
-			assumed = await ports.assumeRole({
-				RoleArn: config.scopedRoleArn,
-				RoleSessionName: sessionName,
-				Tags: tags,
-				DurationSeconds: OWNER_CREDENTIAL_LIFETIME_SECONDS,
-			});
-		} catch (error) {
-			log("scoped_credentials_failed", { session_name: sessionName, error_name: errorNameOf(error) });
-			throw error;
-		}
-		log("scoped_credentials_assumed", { session_name: sessionName, expires_at: assumed.Credentials.Expiration.toISOString() });
+		const issuedAtSeconds = Math.floor(ports.clock.now().getTime() / 1000);
+		const expiresAtSeconds = issuedAtSeconds + OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS;
+		const bootstrapToken = mintOwnerBootstrapToken(config.signingKey, {
+			audience: "owner-bootstrap",
+			tenantId: job.tenantId,
+			computerId: claim.computerId,
+			ownerId,
+			startGeneration: claim.hostStartGeneration,
+			issuedAtSeconds,
+			expiresAtSeconds,
+		});
+		log("owner_token_minted", { lifetime_seconds: OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS, expires_at_seconds: expiresAtSeconds });
 		try {
 			await ports.registerOwnerWorker({ tenantId: job.tenantId, ownerId, computerId: claim.computerId });
 		} catch (error) {
@@ -186,14 +151,12 @@ export class OwnerStartDriver implements HostStartDriver {
 		const environment = [
 			{ name: "CHATTICUS_TENANT_ID", value: job.tenantId },
 			{ name: "CHATTICUS_USER_ID", value: claim.userId },
-			{ name: "CHATTICUS_TAKEOVER_TURN_ID", value: job.turnId },
-			{ name: "CHATTICUS_TAKEOVER_BOT_ID", value: job.botId },
+			{ name: "CHATTICUS_COMPUTER_ID", value: claim.computerId },
 			{ name: "CHATTICUS_OWNER_ID", value: ownerId },
 			{ name: OWNER_START_GENERATION_VARIABLE, value: String(claim.hostStartGeneration) },
-			{ name: "CHATTICUS_MODEL_GATEWAY_URL", value: `${config.frontDoorUrl}/orgs/${job.tenantId}/model-gateway/v1` },
-			{ name: "CHATTICUS_MODEL_GATEWAY_TOKEN", value: gatewayToken },
-			{ name: "CHATTICUS_OWNER_HOST_TOKEN", value: hostToken },
+			{ name: "CHATTICUS_OWNER_BOOTSTRAP_TOKEN", value: bootstrapToken },
 			{ name: "CHATTICUS_FRONT_DOOR_URL", value: config.frontDoorUrl },
+			{ name: "CHATTICUS_MODEL_GATEWAY_URL", value: `${config.frontDoorUrl}/orgs/${job.tenantId}/model-gateway/v1` },
 			{ name: "CHATTICUS_MESSAGING_TABLE", value: config.messagingTable },
 			{ name: "CHATTICUS_CONVERSATIONS_TABLE", value: config.conversationsTable },
 			{ name: "CHATTICUS_PI_SESSIONS_BUCKET", value: config.piSessionsBucket },
@@ -201,9 +164,6 @@ export class OwnerStartDriver implements HostStartDriver {
 			{ name: "CHATTICUS_ENVIRONMENT", value: config.environment },
 			{ name: "AWS_REGION", value: config.region },
 			{ name: "AWS_DEFAULT_REGION", value: config.region },
-			{ name: "AWS_ACCESS_KEY_ID", value: assumed.Credentials.AccessKeyId },
-			{ name: "AWS_SECRET_ACCESS_KEY", value: assumed.Credentials.SecretAccessKey },
-			{ name: "AWS_SESSION_TOKEN", value: assumed.Credentials.SessionToken },
 		];
 		let taskArn: string | null;
 		try {

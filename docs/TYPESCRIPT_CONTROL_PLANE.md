@@ -603,7 +603,7 @@ development only; staging and production do not run it yet. See
 |---|---|
 | Container base | `node:22-bookworm-slim` plus `git ca-certificates`: files, git and a shell, no display and no browser (the browser is an optional capability a larger image adds back; see the readiness rule below). Same image runs on Fargate, EC2 and local Docker. No Python in the image. |
 | Host worker | Serves customer-account computers. A bundled Node program, `node /opt/chatticus/host/host-worker.mjs`, from `computer/host/` (new workspace package). Replaces `python -m chatticus.computer_host_worker`; `CHATTICUS_ECS_HOST_COMMAND` changes with it. |
-| Snapshots | `python -m chatticus.snapshot pack|hydrate` becomes `node /opt/chatticus/host/snapshot.mjs pack|hydrate` (entrypoint smoke, `test_fargate.sh`, `test_relocate.sh`). Pack, store, S3 adapter, host cache and URI rules ported from `python/src/chatticus/snapshot/`. The host talks to S3 directly, as today. |
+| Snapshots | `python -m chatticus.snapshot pack|hydrate` becomes `node /opt/chatticus/host/snapshot.mjs pack|hydrate` (entrypoint smoke, `test_relocate.sh`). Pack, store, S3 adapter, host cache and URI rules ported from `python/src/chatticus/snapshot/`. The host talks to S3 directly, as today. |
 | Executors | Workspace files, terminal (`/bin/sh`), Chromium (kept in the repo, absent from the default image); browser profiles; workspace path mapping: ported 1:1. |
 | Image push scripts | Unchanged. |
 
@@ -1049,7 +1049,7 @@ Python source is over about 600 lines is split by file as shown.
 | 32 | Customer account provisioning and self-setup | `computer/provisioning.ts`, `computer/customer-stack.ts`, `computer/customer-image.ts`, `snapshot/customer-bucket.ts`, `POST .../self-setup/cross-account-role`; template asset moved to `infra/` | `cross_account_provisioning`, `customer_computer_image`, `customer_cross_account_role_api`, `customer_snapshot_bucket`, `web_organization_signup` | 9, 28 | M (`cross_account_provisioning.py`, `customer_computers_*.py`, `customer_computer_image.py`, `customer_snapshot_bucket.py`) |
 | 33 | Host worker: executors | `computer/host/src/executors/{workspace,terminal}.ts`, `workspace-paths.ts`, `host-action-executor.ts` | `computer_host_workspace_executor`, `agent_terminal` | 28, 30 | M (`workspace_action_executor.py`, `terminal_action_executor.py`, `workspace_paths.py`, `host_action_executor.py`) |
 | 34 | Host worker: Chromium, boot, loop, disk lifecycle | `executors/chromium.ts`, `browser-profiles.ts`, `boot.ts`, `main.ts`, `protocol-client.ts`, `disk-lifecycle.ts` | `chromium_host_executor`, `computer_host_readiness`, `computer_host_disk_lifecycle`, `computer_host_workspace_recycle`, `unsupported_browser_action` | 33 | M (`chromium_action_executor.py`, `browser_profiles.py`, `computer_host_boot.py`, `computer_host_worker.py`, `computer_host_disk_lifecycle.py`) |
-| 35 | Container image | `computer/Dockerfile` (Node base, bundled host and snapshot programs), `entrypoint.sh`, compose, `test_fargate.sh`, `test_relocate.sh` | live Fargate smoke on development | 34 | N |
+| 35 | Container image | `computer/Dockerfile` (Node base, bundled host and snapshot programs), `entrypoint.sh`, compose, `test_relocate.sh` | live Fargate smoke on development | 34 | N |
 
 ### Phase 5: infra, migration, flip
 

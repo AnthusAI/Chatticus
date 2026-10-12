@@ -5,8 +5,7 @@ with AWS credentials and the messaging table name can bootstrap the first
 enabled organization before route enforcement lands in Kanbus **7b4616**.
 
 Enable and seed are **status-only**: they never call `ensure_computer` and
-never start Fargate. Deploy with `computerCount=0`. Never run
-`cdk deploy --all`.
+never start a computer. Never run `cdk deploy --all`.
 
 ## Prerequisites
 
@@ -171,4 +170,3 @@ HTTP API are two callers of one control-plane implementation.
 - Do not use `enable` to unsuspend; it accepts `pending` only.
 - Use `reinstate` to move a suspended organization back to `enabled`.
 - Do not run `cdk deploy --all`.
-- Do not set `computerCount` above zero for this workflow.

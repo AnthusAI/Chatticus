@@ -2,6 +2,12 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import {
+	OWNER_WATCHDOG_CHECK_SECONDS,
+	OWNER_WATCHDOG_KILL_SECONDS,
+	OWNER_WATCHDOG_STALE_SECONDS,
+	OWNER_WATCHDOG_TERMINATE_SECONDS,
+} from "@chatticus/host-protocol/supervisor";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -23,11 +29,12 @@ describe("computer image structure", () => {
 		expect(bundleConfig).toContain('".js": ".mjs"');
 	});
 
-	it("bundles the owner and the host worker from files the image copies, without the starter or the infra assets", async () => {
+	it("bundles the supervisor, the owner and the host worker from files the image copies, without the starter or the infra assets", async () => {
 		const result = await build({
 			entryPoints: {
 				"host-worker": resolve(repositoryRoot, "computer", "host", "src", "main.ts"),
 				owner: resolve(repositoryRoot, "computer", "host", "src", "owner-main.ts"),
+				supervisor: resolve(repositoryRoot, "computer", "host", "src", "supervisor-main.ts"),
 				snapshot: resolve(repositoryRoot, "conversation", "bin", "snapshot.ts"),
 				"file-helper": resolve(repositoryRoot, "conversation", "src", "pi", "owner-file-helper-main.ts"),
 			},
@@ -49,6 +56,29 @@ describe("computer image structure", () => {
 				expect(relative, `${output} bundles the starter`).not.toMatch(/host-starter|customer-stack|customer-template|owner-start-driver|owner-credential-broker|client-lambda/);
 			}
 		}
+		const supervisor = Object.entries(result.metafile.outputs).find(([output]) => output.endsWith("supervisor.js"));
+		expect(supervisor, "the build produced no supervisor bundle").toBeDefined();
+		for (const input of Object.keys(supervisor![1].inputs)) {
+			expect(input, "the supervisor bundles Pi, the turn executor, the owner stores or an AWS client it has no use for").not.toMatch(
+				/node_modules\/@earendil-works\/|conversation\/src\/pi\/|conversation\/src\/turn\/|computer\/host\/src\/owner-deps|node_modules\/@aws-sdk\/client-(dynamodb|sts|lambda|secrets-manager|sqs|ecs)\//,
+			);
+		}
+	});
+
+	it("starts the supervisor from its own bundle and ships the watchdog as a separate program", () => {
+		expect(bundleConfig).toContain("supervisor:");
+		expect(dockerfile).toContain("COPY computer/chatticus-watchdog /usr/local/bin/chatticus-watchdog");
+		expect(dockerfile).toMatch(/chmod 755[^\n]*\/usr\/local\/bin\/chatticus-watchdog/);
+	});
+
+	it("gives the watchdog the deadlines the protocol names and keeps it a POSIX shell script that holds no secret", () => {
+		const watchdog = readFileSync(resolve(repositoryRoot, "computer", "chatticus-watchdog"), "utf-8");
+		expect(watchdog.startsWith("#!/bin/sh\n")).toBe(true);
+		expect(watchdog).toContain(`terminate_after=${OWNER_WATCHDOG_TERMINATE_SECONDS}`);
+		expect(watchdog).toContain(`kill_after=${OWNER_WATCHDOG_KILL_SECONDS}`);
+		expect(watchdog).toContain(`stale_after=${OWNER_WATCHDOG_STALE_SECONDS}`);
+		expect(watchdog).toContain(`:-${OWNER_WATCHDOG_CHECK_SECONDS}}`);
+		expect(watchdog).not.toMatch(/CHATTICUS_(OWNER_BOOTSTRAP_TOKEN|SUPERVISOR_TOKEN|INVOKE_KEY)|AWS_/);
 	});
 
 	it("installs git, certificates and a C toolchain and no display or browser packages", () => {

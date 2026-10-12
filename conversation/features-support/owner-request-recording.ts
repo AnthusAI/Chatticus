@@ -12,6 +12,7 @@ import { testS3Client } from "./pi-storage.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 const recordings = new WeakMap<ChatticusWorld, RecordedAwsRequest[]>();
+const supervisorRecordings = new WeakMap<ChatticusWorld, RecordedAwsRequest[]>();
 
 /** Start recording the requests of the computer owners of the scenario; owners started afterwards use recording clients. */
 export function startRecordingOwnerRequests(world: ChatticusWorld): RecordedAwsRequest[] {
@@ -25,6 +26,9 @@ export function startRecordingOwnerRequests(world: ChatticusWorld): RecordedAwsR
 
 /** The requests the scenario's computer owners made so far, in order; empty when the scenario does not record. */
 export const recordedOwnerRequestsOf = (world: ChatticusWorld): readonly RecordedAwsRequest[] => recordings.get(world) ?? [];
+
+/** The requests the scenario's owner supervisors made, in order: hydrates and publishes, judged against the supervisor role apart from the per-turn owners'. */
+export const recordedSupervisorRequestsOf = (world: ChatticusWorld): readonly RecordedAwsRequest[] => supervisorRecordings.get(world) ?? [];
 
 /** Whether the scenario records its computer owners' requests. */
 export const isRecordingOwnerRequests = (world: ChatticusWorld): boolean => recordings.has(world);
@@ -59,8 +63,16 @@ export function withRecordedOwnerRequests(world: ChatticusWorld, deps: ExecutorD
 	};
 }
 
-/** The snapshot store an owner hydrates from and publishes to: over a recording client when the scenario records. */
-export function snapshotStoreForOwner(world: ChatticusWorld, store: SnapshotObjectStore): SnapshotObjectStore {
+/**
+ * The snapshot store an owner supervisor hydrates from and publishes to: over a recording client when the scenario records
+ * its owners' requests, noted in the supervisor's own list so they are judged against the supervisor's role.
+ */
+export function snapshotStoreForSupervisor(world: ChatticusWorld, store: SnapshotObjectStore): SnapshotObjectStore {
 	if (!isRecordingOwnerRequests(world) || !(store instanceof S3SnapshotStore)) return store;
-	return new S3SnapshotStore(store.bucket, recordingS3Client(testS3Client(), startRecordingOwnerRequests(world)));
+	let sink = supervisorRecordings.get(world);
+	if (sink === undefined) {
+		sink = [];
+		supervisorRecordings.set(world, sink);
+	}
+	return new S3SnapshotStore(store.bucket, recordingS3Client(testS3Client(), sink));
 }

@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 /**
  * The intended audience for a route: who is permitted to call it.
  */
-export type RouteAudience = "public" | "user" | "operator" | "worker" | "integration" | "model-gateway";
+export type RouteAudience = "public" | "user" | "operator" | "worker" | "integration" | "model-gateway" | "computer-owner" | "owner-bootstrap";
 
 /**
  * Metadata about a registered route: method, path, and intended audience.

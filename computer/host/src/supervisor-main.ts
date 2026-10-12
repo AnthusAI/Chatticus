@@ -1,0 +1,135 @@
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { S3Client } from "@aws-sdk/client-s3";
+import { consoleLogEmitter } from "../../../conversation/src/observability/log-line.ts";
+import { S3SnapshotStore } from "../../../conversation/src/snapshot/s3.ts";
+import { HostDiskLifecycle } from "./host-disk-lifecycle.ts";
+import { OwnerConfigurationError } from "./owner-configuration.ts";
+import { ProcessChildSpawner } from "./process-child-spawner.ts";
+import { OwnerSupervisorClient } from "./protocol-client.ts";
+import { OwnerSupervisor } from "./supervisor.ts";
+import { supervisorConfigurationFromEnvironment } from "./supervisor-configuration.ts";
+import { runtimeSupervisorClock, SUPERVISOR_EXIT_CONFIGURATION } from "./supervisor-ports.ts";
+import { procProcessTable, ShellUserProcessSweeper } from "./unprivileged-process-sweeper.ts";
+import { shareWorkspaceWithShell } from "./workspace-sharing.ts";
+
+/** The directory the supervisor and its watchdog share. It belongs to root and no one else can enter it. */
+export const SUPERVISOR_RUNTIME_DIRECTORY = "/run/chatticus";
+
+/** The file the supervisor touches while its event loop turns; the watchdog kills a supervisor that lets it go stale. */
+export const SUPERVISOR_LIVENESS_FILE = `${SUPERVISOR_RUNTIME_DIRECTORY}/supervisor.alive`;
+
+/** Where the image installs the watchdog. */
+export const WATCHDOG_PROGRAM_PATH = "/usr/local/bin/chatticus-watchdog";
+
+const LIVENESS_TOUCH_INTERVAL_MILLISECONDS = 15_000;
+const CONTROL_PLANE_REQUEST_TIMEOUT_MILLISECONDS = 10_000;
+const DEFAULT_PATH = "/usr/local/bin:/usr/bin:/bin";
+
+function touchLivenessFile(): void {
+	const now = new Date();
+	try {
+		writeFileSync(SUPERVISOR_LIVENESS_FILE, `${now.toISOString()}\n`, { mode: 0o600 });
+	} catch {
+		return;
+	}
+}
+
+/**
+ * The share of the container's memory in use, from the cgroup the container runs in.
+ *
+ * @returns A whole percent, or undefined when the cgroup files are unreadable or the container has no limit.
+ */
+export function containerMemoryUsedPercent(): number | undefined {
+	try {
+		const used = Number.parseInt(readFileSync("/sys/fs/cgroup/memory.current", "utf8").trim(), 10);
+		const limit = Number.parseInt(readFileSync("/sys/fs/cgroup/memory.max", "utf8").trim(), 10);
+		if (!Number.isFinite(used) || !Number.isFinite(limit) || limit <= 0) return undefined;
+		return Math.min(100, Math.round((used / limit) * 100));
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Entry point of the owner supervisor, the program the container runs. It reads its task environment (and removes the
+ * bootstrap token from it), starts the watchdog as a separate process, and runs the supervisor until it stops itself.
+ *
+ * @param environment The process environment; the bootstrap token is deleted from it.
+ * @returns The process exit code: 0 stopped in good order, 4 fenced, 5 no longer the owner, 6 bootstrap failed, 7 wrong settings, 8 the disk could not be restored, 143 stopped by SIGTERM.
+ */
+export async function supervisorMain(environment: NodeJS.ProcessEnv = process.env): Promise<number> {
+	let configuration;
+	try {
+		configuration = supervisorConfigurationFromEnvironment(environment);
+	} catch (error) {
+		console.error(`owner_configuration_invalid ${error instanceof OwnerConfigurationError ? error.message : "unreadable settings"}`);
+		return SUPERVISOR_EXIT_CONFIGURATION;
+	}
+	if (!existsSync(WATCHDOG_PROGRAM_PATH)) {
+		console.error("owner_watchdog_unavailable");
+		return SUPERVISOR_EXIT_CONFIGURATION;
+	}
+	mkdirSync(SUPERVISOR_RUNTIME_DIRECTORY, { recursive: true, mode: 0o700 });
+	chmodSync(SUPERVISOR_RUNTIME_DIRECTORY, 0o700);
+	touchLivenessFile();
+	const liveness = setInterval(touchLivenessFile, LIVENESS_TOUCH_INTERVAL_MILLISECONDS);
+	spawn(WATCHDOG_PROGRAM_PATH, [String(process.pid), SUPERVISOR_LIVENESS_FILE], {
+		env: { PATH: environment["PATH"] ?? DEFAULT_PATH },
+		detached: true,
+		stdio: ["ignore", "inherit", "inherit"],
+	}).unref();
+	const log = consoleLogEmitter({ tenant_id: configuration.tenantId, owner_id: configuration.ownerId });
+	const plane = new OwnerSupervisorClient({
+		baseUrl: configuration.frontDoorUrl,
+		tenantId: configuration.tenantId,
+		userId: configuration.userId,
+		bootstrapToken: configuration.bootstrapToken,
+		requestTimeoutMilliseconds: CONTROL_PLANE_REQUEST_TIMEOUT_MILLISECONDS,
+	});
+	const supervisor = new OwnerSupervisor({
+		identity: { tenantId: configuration.tenantId, ownerId: configuration.ownerId, generation: configuration.generation },
+		environment,
+		plane,
+		openDisk: (credentials) =>
+			new HostDiskLifecycle(plane, {
+				tenantId: configuration.tenantId,
+				ownerId: configuration.ownerId,
+				liveRoot: configuration.liveRoot,
+				store: new S3SnapshotStore(
+					configuration.snapshotBucket,
+					new S3Client({
+						credentials: {
+							accessKeyId: credentials.access_key_id,
+							secretAccessKey: credentials.secret_access_key,
+							sessionToken: credentials.session_token,
+							expiration: new Date(credentials.expires_at),
+						},
+					}),
+				),
+				log,
+				afterHydrate: () => shareWorkspaceWithShell(configuration.workspaceRoot),
+			}),
+		spawner: new ProcessChildSpawner({
+			command: process.execPath,
+			bundlePath: join(dirname(fileURLToPath(import.meta.url)), "owner.mjs"),
+			cwd: configuration.workspaceRoot,
+		}),
+		sweeper: new ShellUserProcessSweeper(procProcessTable()),
+		clock: runtimeSupervisorClock,
+		log,
+		memoryUsedPercent: containerMemoryUsedPercent,
+	});
+	process.once("SIGTERM", () => supervisor.requestTermination());
+	try {
+		return await supervisor.run();
+	} finally {
+		clearInterval(liveness);
+	}
+}
+
+if (import.meta.main) {
+	process.exit(await supervisorMain());
+}

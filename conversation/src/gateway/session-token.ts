@@ -9,15 +9,15 @@ import {
 } from "@chatticus/host-protocol/supervisor";
 
 /**
- * What a token may be presented to. The starter mints one token per audience for each owner, so the token that reaches
- * the model gateway cannot be replayed on the host routes and the host token cannot be replayed on the gateway: a stolen
- * token is useful for one surface only, and each surface checks the audience itself.
+ * What a per-turn token may be presented to. The credential broker signs one for each dispatched turn, for the model
+ * gateway; the supervisor protocol tokens (bootstrap and supervisor) carry their own claims below, so a token minted for
+ * one surface is useless on another: each surface checks the audience itself.
  */
-export type SessionTokenAudience = "model-gateway" | "owner-host";
+export type SessionTokenAudience = "model-gateway";
 
-const AUDIENCES: ReadonlySet<string> = new Set<SessionTokenAudience>(["model-gateway", "owner-host"]);
+const AUDIENCES: ReadonlySet<string> = new Set<SessionTokenAudience>(["model-gateway"]);
 
-/** What a session token says about the one turn attempt it was minted for. */
+/** What a model gateway token says about the one turn it was minted for. */
 export type SessionTokenClaims = {
 	/** The only surface that accepts this token. */
 	readonly audience: SessionTokenAudience;
@@ -26,7 +26,7 @@ export type SessionTokenClaims = {
 	readonly turnId: string;
 	/** The owner the start generated and the claimed attempt records; another owner taking over makes this token useless. */
 	readonly ownerId: string;
-	/** The host start generation the starter launched this owner for; the owner's stopped report may release only this generation's lease. */
+	/** The host start generation of the owner the token was issued to. */
 	readonly startGeneration: number;
 	/** Expiry in seconds since the Unix epoch. */
 	readonly expiresAtSeconds: number;
@@ -68,6 +68,16 @@ export function mintSessionToken(signingKey: string, claims: SessionTokenClaims)
 	requireStrongKey(signingKey);
 	const signedPart = `${TOKEN_VERSION}${SEPARATOR}${base64Url(JSON.stringify(claims))}`;
 	return `${signedPart}${SEPARATOR}${base64Url(signatureOf(signingKey, signedPart))}`;
+}
+
+function presentedAudienceOf(encoded: string): string | null {
+	try {
+		const parsed: unknown = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+		const audience = typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>).audience : undefined;
+		return typeof audience === "string" ? audience : null;
+	} catch {
+		return null;
+	}
 }
 
 function claimsFrom(encoded: string): SessionTokenClaims | null {
@@ -115,6 +125,9 @@ export function verifySessionToken(signingKey: string, token: string, now: Date,
 	if (presented.length !== expected.length || !timingSafeEqual(presented, expected)) {
 		return { valid: false, reason: "signature" };
 	}
+	if (presentedAudienceOf(encodedClaims) !== audience && KNOWN_AUDIENCES.has(presentedAudienceOf(encodedClaims) ?? "")) {
+		return { valid: false, reason: "audience" };
+	}
 	const claims = claimsFrom(encodedClaims);
 	if (claims === null) return { valid: false, reason: "malformed" };
 	if (claims.audience !== audience) return { valid: false, reason: "audience" };
@@ -124,10 +137,8 @@ export function verifySessionToken(signingKey: string, token: string, now: Date,
 
 /**
  * The audiences of the owner supervisor protocol. A bootstrap token opens the one-time exchange; a supervisor token opens
- * the owner routes of one computer. The per-turn gateway token keeps its own claims and its own functions above.
- *
- * Phase 2a intent: once the combined server step lands, the `owner-host` audience and the per-turn host token are deleted
- * and these two audiences are the only tokens a container presents to the Front Door. They are additive until then.
+ * the owner routes of one computer. The per-turn gateway token keeps its own claims and its own functions above. These two
+ * audiences are the only tokens a container presents to the Front Door; the per-turn child holds no host token.
  */
 export type SupervisorTokenAudience = typeof OWNER_BOOTSTRAP_AUDIENCE | typeof COMPUTER_OWNER_AUDIENCE;
 

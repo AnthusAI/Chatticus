@@ -13,7 +13,8 @@ import { ApiClient } from "./api.ts";
 import { snapshotReadStoreOf } from "./computer-snapshot-files-support.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { ledgerDependenciesFor } from "./executor-harness.ts";
-import { modelGatewayFor } from "./model-gateway-support.ts";
+import { modelGatewayFor, SCENARIO_GATEWAY_SIGNING_KEY } from "./model-gateway-support.ts";
+import { ownerBrokerOf } from "./owner-broker-support.ts";
 import { probedListingClients } from "./front-door-listing-probe.ts";
 import { ensurePiStorage, type ScenarioPiStorage } from "./pi-storage.ts";
 import { startAppServer } from "./http-server.ts";
@@ -90,6 +91,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
 		turnControl: world.turnControlStore(),
 		modelGateway: modelGatewayFor(world),
+		ownerSupervisor: { signingKey: SCENARIO_GATEWAY_SIGNING_KEY, broker: ownerBrokerOf(world) },
 		snapshotFiles: new SnapshotFileService(snapshotReadStoreOf(world)),
 		policy: new DynamoPolicyStore(world.messagingTable.client, world.messagingTable.tableName),
 		computer: computerHandoffDependenciesFor(world),

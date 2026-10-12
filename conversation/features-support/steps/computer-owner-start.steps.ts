@@ -1,22 +1,14 @@
 import assert from "node:assert/strict";
-import { chmodSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
-import { runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome } from "../../../computer/host/src/owner.ts";
-import { HostProtocolClient } from "../../../computer/host/src/protocol-client.ts";
-import { OWNER_START_GENERATION_VARIABLE } from "../../src/computer/owner-environment.ts";
-import { ComputerHostDisk } from "../../src/snapshot/host.ts";
-import { FilesystemSnapshotStore } from "../../src/snapshot/store.ts";
-
-import { verifySessionToken, type SessionTokenAudience } from "../../src/gateway/session-token.ts";
+import { OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS } from "@chatticus/host-protocol/supervisor";
 import { ensureComputer } from "../../src/domain/computers.ts";
 import { getTurn } from "../../src/domain/turns.ts";
+import { verifyComputerOwnerToken, verifyOwnerBootstrapToken, verifySessionToken } from "../../src/gateway/session-token.ts";
 import { deliverStartJob, computerScenarioOf, queuedStartJobs, startStoryTurn, STORY_BOT, STORY_TENANT, workTurn } from "../computer-scenario.ts";
-import { computerOwnerDepsFor, computerOwnerScenarioOf, startComputerOwner } from "../computer-owner.ts";
-import { httpBaseUrl } from "../front-door.ts";
+import { computerOwnerScenarioOf } from "../computer-owner.ts";
 import { modelScenarioOf } from "../executor-harness.ts";
-import { FAKE_SCOPED_CREDENTIALS } from "../fakes/fake-ecs.ts";
-import { gatewayScenarioOf, SCENARIO_GATEWAY_SIGNING_KEY } from "../model-gateway-support.ts";
+import { ensureTestOrganization } from "../org-user-client.ts";
+import { SCENARIO_GATEWAY_SIGNING_KEY } from "../model-gateway-support.ts";
 import {
 	composeStarter,
 	containerEnvironmentOf,
@@ -28,8 +20,9 @@ import {
 	runTaskOf,
 	withCapturedLogs,
 } from "../owner-start-support.ts";
-import { activeTurnOf } from "../turn-grant-support.ts";
 import type { ChatticusWorld } from "../world.ts";
+
+const BOOTSTRAP_VARIABLE = "CHATTICUS_OWNER_BOOTSTRAP_TOKEN";
 
 function startJobOf(world: ChatticusWorld) {
 	const job = computerScenarioOf(world).startJob;
@@ -54,6 +47,7 @@ Given("a turn parked on the workspace with its start job queued", async function
 });
 
 Given("the organization is homed in the deployment account", async function (this: ChatticusWorld) {
+	await ensureTestOrganization(this, STORY_TENANT);
 	const store = this.messagingStore();
 	await store.putOrganization(organizationHomedIn(await store.getOrganization(STORY_TENANT), OWNER_START_DEPLOYMENT_ACCOUNT));
 });
@@ -85,12 +79,6 @@ Given("the organization has no AWS home", async function (this: ChatticusWorld) 
 
 Given("the starter has the owner settings", function (this: ChatticusWorld) {
 	Object.assign(ownerStartOf(this).environment, ownerRuntimeSettings());
-});
-
-Given("the starter has the owner settings without the setting {string}", function (this: ChatticusWorld, name: string) {
-	const scenario = ownerStartOf(this);
-	Object.assign(scenario.environment, ownerRuntimeSettings());
-	delete scenario.environment[name];
 });
 
 When("the starter handles the start job", async function (this: ChatticusWorld) {
@@ -161,11 +149,11 @@ Then("the container environment holds the table of the messaging store", functio
 	assert.equal(environmentValue(this, "CHATTICUS_MESSAGING_TABLE"), this.messagingTable.tableName);
 });
 
-Then("the container environment names the turn, the bot and the member of the start job", function (this: ChatticusWorld) {
+Then("the container environment names the organization, the computer and the member of the start job", async function (this: ChatticusWorld) {
 	const job = startJobOf(this);
-	assert.equal(environmentValue(this, "CHATTICUS_TAKEOVER_TURN_ID"), job.turnId);
-	assert.equal(environmentValue(this, "CHATTICUS_TAKEOVER_BOT_ID"), job.botId);
+	const computer = await ensureComputer(job.tenantId, { store: this.messagingStore(), ids: this.ids });
 	assert.equal(environmentValue(this, "CHATTICUS_TENANT_ID"), job.tenantId);
+	assert.equal(environmentValue(this, "CHATTICUS_COMPUTER_ID"), computer.computerId);
 	assert.equal(environmentValue(this, "CHATTICUS_USER_ID"), job.userId);
 });
 
@@ -177,70 +165,82 @@ Then("the container environment holds no invoke key and no copy of the invoke ke
 	}
 });
 
-Then("the container environment holds nothing secret except the two tokens and the scoped credentials", function (this: ChatticusWorld) {
-	const secretNames = ["CHATTICUS_MODEL_GATEWAY_TOKEN", "CHATTICUS_OWNER_HOST_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"];
-	const names = [...containerEnvironmentOf(this).keys()].filter((name) => /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(name));
-	assert.deepEqual(names.sort(), secretNames.sort());
+Then("the starter assumed no role", function (this: ChatticusWorld) {
+	assert.equal(ownerStartOf(this).crossAccount.calls.length, 0);
+	assert.equal(ownerStartOf(this).ecs.runTaskCalls.length, 1);
 });
 
-Then("the starter registered the owner of the container as a worker of the organization", async function (this: ChatticusWorld) {
+Then("the container environment names no turn, no bot, no gateway token, no host token and no AWS credential", function (this: ChatticusWorld) {
+	const names = new Set(containerEnvironmentOf(this).keys());
+	for (const forbidden of [
+		"CHATTICUS_TAKEOVER_TURN_ID",
+		"CHATTICUS_TAKEOVER_BOT_ID",
+		"CHATTICUS_MODEL_GATEWAY_TOKEN",
+		"CHATTICUS_OWNER_HOST_TOKEN",
+		"AWS_ACCESS_KEY_ID",
+		"AWS_SECRET_ACCESS_KEY",
+		"AWS_SESSION_TOKEN",
+	]) {
+		assert.equal(names.has(forbidden), false, `${forbidden} is in the container environment`);
+	}
+});
+
+Then("the container environment holds exactly one secret: a bootstrap token valid for {int} seconds", function (this: ChatticusWorld, seconds: number) {
+	assert.equal(seconds, OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS);
+	const secretNames = [...containerEnvironmentOf(this).keys()].filter((name) => /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(name));
+	assert.deepEqual(secretNames, [BOOTSTRAP_VARIABLE]);
+	const verification = verifyOwnerBootstrapToken(SCENARIO_GATEWAY_SIGNING_KEY, environmentValue(this, BOOTSTRAP_VARIABLE), this.clock.now());
+	assert.ok(verification.valid, JSON.stringify(verification));
+	assert.equal(verification.claims.expiresAtSeconds - verification.claims.issuedAtSeconds, seconds);
+	assert.equal(verification.claims.expiresAtSeconds, Math.floor(this.clock.now().getTime() / 1000) + seconds);
+});
+
+Then("the bootstrap token names the organization, the computer, the new owner id and the claimed generation", async function (this: ChatticusWorld) {
+	const job = startJobOf(this);
+	const computer = await ensureComputer(job.tenantId, { store: this.messagingStore(), ids: this.ids });
+	const verification = verifyOwnerBootstrapToken(SCENARIO_GATEWAY_SIGNING_KEY, environmentValue(this, BOOTSTRAP_VARIABLE), this.clock.now());
+	assert.ok(verification.valid, JSON.stringify(verification));
+	const issuedAtSeconds = Math.floor(this.clock.now().getTime() / 1000);
+	assert.deepEqual(verification.claims, {
+		audience: "owner-bootstrap",
+		tenantId: job.tenantId,
+		computerId: computer.computerId,
+		ownerId: environmentValue(this, "CHATTICUS_OWNER_ID"),
+		startGeneration: computer.hostStartGeneration,
+		issuedAtSeconds,
+		expiresAtSeconds: issuedAtSeconds + OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS,
+	});
+	assert.equal(computer.hostStartGeneration, 1);
+});
+
+Then("the bootstrap token is not valid as a supervisor token or as a gateway token", function (this: ChatticusWorld) {
+	const token = environmentValue(this, BOOTSTRAP_VARIABLE);
+	assert.deepEqual(verifyComputerOwnerToken(SCENARIO_GATEWAY_SIGNING_KEY, token, this.clock.now()), { valid: false, reason: "audience" });
+	assert.deepEqual(verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, token, this.clock.now(), "model-gateway"), { valid: false, reason: "audience" });
+});
+
+Then("the starter registered the owner as a worker of the household computer", async function (this: ChatticusWorld) {
 	const ownerId = environmentValue(this, "CHATTICUS_OWNER_ID");
 	const worker = await this.messagingStore().getWorker(STORY_TENANT, ownerId);
 	assert.ok(worker, "The starter registered no worker for the owner.");
 	assert.deepEqual([...worker.capabilities].sort(), ["computer", "cpu"]);
+	assert.equal(worker.costClass, "local");
 	assert.equal(worker.computerId, (await ensureComputer(STORY_TENANT, { store: this.messagingStore(), ids: this.ids })).computerId);
+});
+
+Then("the organization has no worker registered by the starter", async function (this: ChatticusWorld) {
+	const workers = await this.messagingStore().listWorkers(STORY_TENANT);
+	assert.deepEqual(workers.filter((worker) => worker.workerId.startsWith("owner-")), []);
 });
 
 Then("the container environment holds a fresh owner id", function (this: ChatticusWorld) {
 	assert.match(environmentValue(this, "CHATTICUS_OWNER_ID"), /^owner-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 });
 
-Then("the second task has a different owner id and different tokens from the first", function (this: ChatticusWorld) {
+Then("the second task has a different owner id and a different bootstrap token from the first", function (this: ChatticusWorld) {
 	assert.equal(ownerStartOf(this).ecs.runTaskCalls.length, 2);
 	assert.notEqual(environmentValue(this, "CHATTICUS_OWNER_ID", 0), environmentValue(this, "CHATTICUS_OWNER_ID", 1));
-	assert.notEqual(environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN", 0), environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN", 1));
-	assert.notEqual(environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN", 0), environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN", 1));
-});
-
-Then("the gateway token binds the turn, the bot and the owner id of the container for 3600 seconds", function (this: ChatticusWorld) {
-	assertTokenBinding(this, "CHATTICUS_MODEL_GATEWAY_TOKEN", "model-gateway");
-});
-
-Then("the host token binds the turn, the bot, the owner id and the start generation of the container for 3600 seconds", function (this: ChatticusWorld) {
-	assertTokenBinding(this, "CHATTICUS_OWNER_HOST_TOKEN", "owner-host");
-});
-
-function assertTokenBinding(world: ChatticusWorld, variable: string, audience: SessionTokenAudience): void {
-	const job = startJobOf(world);
-	const verification = verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, environmentValue(world, variable), world.clock.now(), audience);
-	assert.ok(verification.valid, JSON.stringify(verification));
-	assert.deepEqual(verification.claims, {
-		audience,
-		startGeneration: 1,
-		tenantId: job.tenantId,
-		botId: job.botId,
-		turnId: job.turnId,
-		ownerId: environmentValue(world, "CHATTICUS_OWNER_ID"),
-		expiresAtSeconds: Math.floor(world.clock.now().getTime() / 1000) + 3600,
-	});
-}
-
-Then("the host token is not valid as a gateway token and the gateway token is not valid as a host token", function (this: ChatticusWorld) {
-	const gateway = environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN");
-	const host = environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN");
-	assert.notEqual(gateway, host);
-	assert.deepEqual(verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, host, this.clock.now(), "model-gateway"), { valid: false, reason: "audience" });
-	assert.deepEqual(verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, gateway, this.clock.now(), "owner-host"), { valid: false, reason: "audience" });
-});
-
-Then("STS was asked exactly {int} time(s) to assume the role {string}", function (this: ChatticusWorld, count: number, role: string) {
-	const calls = ownerStartOf(this).sts.calls;
-	assert.equal(calls.length, count);
-	for (const call of calls) assert.equal(call.RoleArn, role);
-});
-
-Then("STS was not asked to assume a scoped role", function (this: ChatticusWorld) {
-	assert.equal(ownerStartOf(this).sts.calls.length, 0);
+	assert.notEqual(environmentValue(this, BOOTSTRAP_VARIABLE, 0), environmentValue(this, BOOTSTRAP_VARIABLE, 1));
 });
 
 Then("the cross-account role was assumed exactly {int} time(s)", function (this: ChatticusWorld, count: number) {
@@ -262,149 +262,18 @@ Then("no cross-account role was assumed", function (this: ChatticusWorld) {
 	assert.equal(ownerStartOf(this).crossAccount.calls.length, 0);
 });
 
-Then("the session name is derived from the owner id and the session lasts {int} seconds", function (this: ChatticusWorld, seconds: number) {
-	const call = ownerStartOf(this).sts.calls[0]!;
-	const ownerId = environmentValue(this, "CHATTICUS_OWNER_ID");
-	assert.ok(call.RoleSessionName.includes(ownerId), call.RoleSessionName);
-	assert.match(call.RoleSessionName, /^[\w+=,.@-]{2,64}$/);
-	assert.equal(call.DurationSeconds, seconds);
-});
-
-Then("the session tags are the organization, bot, channel, computer and turn of the start", async function (this: ChatticusWorld) {
-	const job = startJobOf(this);
-	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
-	const computer = await ensureComputer(job.tenantId, { store: this.messagingStore(), ids: this.ids });
-	assert.deepEqual(ownerStartOf(this).sts.calls[0]!.Tags, [
-		{ Key: "tenant", Value: job.tenantId },
-		{ Key: "bot", Value: job.botId },
-		{ Key: "channel", Value: turn.channelId },
-		{ Key: "computer", Value: computer.computerId },
-		{ Key: "turn", Value: job.turnId },
-	]);
-});
-
-Then("the assume-role call carries no session policy", function (this: ChatticusWorld) {
-	const call = ownerStartOf(this).sts.calls[0]!;
-	assert.equal("Policy" in call, false);
-	assert.equal("PolicyArns" in call, false);
-});
-
 Given("the computer of the organization has the identifier {string}", async function (this: ChatticusWorld, computerId: string) {
 	const store = this.messagingStore();
 	const computer = await ensureComputer(STORY_TENANT, { store, ids: this.ids });
 	await store.putComputer({ ...computer, computerId });
 });
 
-Then("the container environment holds the scoped credentials STS returned",function (this: ChatticusWorld) {
-	assert.equal(environmentValue(this, "AWS_ACCESS_KEY_ID"), FAKE_SCOPED_CREDENTIALS.AccessKeyId);
-	assert.equal(environmentValue(this, "AWS_SECRET_ACCESS_KEY"), FAKE_SCOPED_CREDENTIALS.SecretAccessKey);
-	assert.equal(environmentValue(this, "AWS_SESSION_TOKEN"), FAKE_SCOPED_CREDENTIALS.SessionToken);
-});
-
-Then("the starter logged none of the two tokens, the scoped credentials, the invoke key and the signing key", function (this: ChatticusWorld) {
+Then("the starter logged none of the bootstrap token, the invoke key and the signing key", function (this: ChatticusWorld) {
 	const output = ownerStartOf(this).logs.join("\n");
 	assert.ok(output.includes("owner_task_started"), "The starter logged nothing about the start");
-	const secrets = [
-		environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN"),
-		environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN"),
-		FAKE_SCOPED_CREDENTIALS.AccessKeyId,
-		FAKE_SCOPED_CREDENTIALS.SecretAccessKey,
-		FAKE_SCOPED_CREDENTIALS.SessionToken,
-		OWNER_START_INVOKE_KEY,
-		SCENARIO_GATEWAY_SIGNING_KEY,
-	];
-	for (const secret of secrets) assert.ok(!output.includes(secret), "A secret reached a log line");
-});
-
-When("the container takes over the turn with its task environment and is held after its tool ran", async function (this: ChatticusWorld) {
-	const ownerId = environmentValue(this, "CHATTICUS_OWNER_ID");
-	const job = activeTurnJobOf(this);
-	const { ended, held } = await startComputerOwner(this, "started", { hold: true, job, workerId: ownerId });
-	assert.ok(held);
-	const early = ended.then((outcome) => {
-		throw new Error(`The container ended ${outcome} before its tool ran.`);
-	});
-	await Promise.race([held.reached, early]);
-});
-
-const diskRuns = new WeakMap<ChatticusWorld, OwnerEntryPointOutcome>();
-
-When(
-	"the container runs its parked turn on its computer disk through the Front Door with only its task environment",
-	async function (this: ChatticusWorld) {
-		assert.ok(this.app, "The scenario has no HTTP front door.");
-		assert.ok(this.snapshotTmpdir, "The scenario has no temporary directory.");
-		const app = this.app;
-		const ownerId = environmentValue(this, "CHATTICUS_OWNER_ID");
-		const tenantId = environmentValue(this, "CHATTICUS_TENANT_ID");
-		const generation = Number.parseInt(environmentValue(this, OWNER_START_GENERATION_VARIABLE), 10);
-		const plane = new HostProtocolClient({
-			baseUrl: "http://front-door.test",
-			tenantId,
-			workerToken: environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN"),
-			userId: environmentValue(this, "CHATTICUS_USER_ID"),
-			fetchFunction: (async (input: Request | URL | string, init?: RequestInit) => app.request(String(input), init)) as typeof fetch,
-		});
-		const disk = new ComputerHostDisk(join(this.snapshotTmpdir, "hosts", ownerId), new FilesystemSnapshotStore(join(this.snapshotTmpdir, "store")));
-		const launcher = join(this.snapshotTmpdir, "owner-start-shell");
-		writeFileSync(launcher, '#!/bin/sh\nexec /bin/bash "$@"\n');
-		chmodSync(launcher, 0o755);
-		const job = activeTurnJobOf(this);
-		const deps = await computerOwnerDepsFor(this);
-		const outcome = await runOwnerOnComputerDisk(
-			plane,
-			{
-				tenantId,
-				workerId: ownerId,
-				turnId: job.turnId,
-				startGeneration: generation,
-				liveRoot: disk.liveRoot,
-				store: disk.store,
-				heartbeatTimer: { start: () => 0, stop: () => undefined },
-			},
-			() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot: join(disk.liveRoot, "workspace"), shellLauncherPath: launcher, workerId: ownerId }),
-		);
-		diskRuns.set(this, outcome);
-	},
-);
-
-Then("the container's run on its computer disk ended {string}", function (this: ChatticusWorld, outcome: string) {
-	assert.equal(diskRuns.get(this), outcome);
-});
-
-Then("the computer published its snapshot and is stopped and its start lease of generation 1 has ended", async function (this: ChatticusWorld) {
-	const computer = await this.messagingStore().getComputer(STORY_TENANT);
-	assert.ok(computer, "The organization has no computer.");
-	assert.equal(computer.snapshotGeneration, 1);
-	assert.equal(computer.stopped, true);
-	assert.equal(computer.hostStartGeneration, 1);
-	assert.equal(computer.hostStartLeaseExpiresAt, undefined);
-});
-
-function activeTurnJobOf(world: ChatticusWorld) {
-	const job = startJobOf(world);
-	return { tenantId: job.tenantId, turnId: activeTurnOf(world).turnId, botId: job.botId };
-}
-
-When("the container asks the model gateway for an answer with the token of its start", async function (this: ChatticusWorld) {
-	const scenario = gatewayScenarioOf(this);
-	const response = await fetch(`${await httpBaseUrl(this)}/orgs/${STORY_TENANT}/model-gateway/v1/responses`, {
-		method: "POST",
-		headers: {
-			"content-type": "application/json",
-			accept: "text/event-stream",
-			authorization: `Bearer ${environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN")}`,
-		},
-		body: JSON.stringify({ model: "gpt-5-nano", stream: true, input: [{ role: "user", content: "Say good morning." }] }),
-	});
-	scenario.lastBody = await response.text();
-	scenario.lastResponse = response;
-});
-
-Then("the owner that took the turn over claimed it under the owner id of the start", async function (this: ChatticusWorld) {
-	const job = startJobOf(this);
-	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
-	assert.equal(turn.claimedBy, environmentValue(this, "CHATTICUS_OWNER_ID"));
+	for (const secret of [environmentValue(this, BOOTSTRAP_VARIABLE), OWNER_START_INVOKE_KEY, SCENARIO_GATEWAY_SIGNING_KEY]) {
+		assert.ok(!output.includes(secret), "A secret reached a log line");
+	}
 });
 
 Then("the parked turn failed telling the person the organization has no computer set up yet", async function (this: ChatticusWorld) {

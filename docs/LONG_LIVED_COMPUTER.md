@@ -161,13 +161,16 @@ Verified in the code. Paths are relative to the repository root.
 
 ### 4.3 Credentials
 
-- The starter mints two tokens (gateway and owner-host audiences) bound to tenant,
-  bot, turn, owner id and start generation, valid 3600 seconds
-  (`conversation/src/computer/owner-start-driver.ts:28,141-154`), assumes the
-  scoped role with five session tags tenant, bot, channel, computer and turn
-  (`owner-start-driver.ts:155-176`), registers the owner as a worker
-  (`:183`), and puts everything in the RunTask container overrides
-  (`:188-218`).
+- The starter mints one token, a bootstrap token (audience `owner-bootstrap`) bound
+  to tenant, computer, owner id and start generation, valid five minutes
+  (`OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS`;
+  `conversation/src/computer/owner-start-driver.ts`), registers the owner as a
+  worker, and puts it in the RunTask container overrides with the identifiers
+  and no credential. The supervisor in the container exchanges it once at the
+  bootstrap route for a supervisor token and supervisor credentials, and every
+  dispatch carries the turn credentials for one conversation, brokered under
+  five session tags tenant, bot, channel, computer and turn. See
+  `docs/OWNER_SUPERVISOR_PROTOCOL.md`.
 - The role's static policy is written with the tags, so the credentials reach only
   one conversation session (`conversation/src/gateway/owner-role-policy.json`;
   the S3 session prefix and the Dynamo leading keys use the `bot` and `channel`

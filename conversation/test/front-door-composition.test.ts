@@ -328,3 +328,37 @@ describe("front door write gate", () => {
 		expect((await write(app, "POST")).status).not.toBe(503);
 	});
 });
+
+describe("front door composition of the owner routes", () => {
+	const GATEWAY_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:gateway-signing-MnOpQr";
+	const secrets = fakeSecrets({ ...SECRET_VALUES, [GATEWAY_SECRET_ARN]: "gateway-signing-key-for-the-composition-test" });
+	const lambda = {
+		async send() {
+			throw new Error("the broker must not be called by an unauthenticated request");
+		},
+	};
+	const pollWithInvokeKey = (app: Awaited<ReturnType<typeof composeFrontDoorApp>>) =>
+		app.request("http://front-door.test/orgs/anthus/host/owner/poll", {
+			method: "POST",
+			headers: { "X-Chatticus-Invoke-Key": "invoke-key-value", "content-type": "application/json" },
+			body: "{}",
+		});
+
+	it("serves the owner routes when the signing key and the broker function are set", async () => {
+		const app = await composeFrontDoorApp(
+			environmentFor({ CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: GATEWAY_SECRET_ARN, CHATTICUS_OWNER_CREDENTIAL_BROKER_FUNCTION_NAME: "owner-credential-broker" }),
+			{ ...clientsWith(fakeParameters(PARAMETER_VALUES), secrets), lambda },
+		);
+		const response = await pollWithInvokeKey(app);
+		expect(response.status).toBe(403);
+		expect(await response.json()).toMatchObject({ code: "not_current_owner" });
+	});
+
+	it("serves no owner route when the broker function is not set", async () => {
+		const app = await composeFrontDoorApp(
+			environmentFor({ CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: GATEWAY_SECRET_ARN }),
+			clientsWith(fakeParameters(PARAMETER_VALUES), secrets),
+		);
+		expect((await pollWithInvokeKey(app)).status).toBe(404);
+	});
+});

@@ -1,0 +1,51 @@
+import {
+	OwnerCredentialBrokerError,
+	type OwnerCredentialBrokerPort,
+	type SupervisorGrant,
+	type SupervisorGrantRequest,
+	type TurnGrant,
+	type TurnGrantRequest,
+} from "../src/computer/owner-credential-broker.ts";
+import { FakeOwnerCredentialBroker } from "./fakes/fake-owner-credential-broker.ts";
+import { SCENARIO_GATEWAY_SIGNING_KEY } from "./model-gateway-support.ts";
+import type { ChatticusWorld } from "./world.ts";
+
+/**
+ * The scenario's credential broker as the Front Door sees it: the fake that mints real tokens with the scenario key and
+ * records every request, which a scenario can also make unreachable and reachable again.
+ */
+export class ScenarioOwnerCredentialBroker implements OwnerCredentialBrokerPort {
+	readonly fake: FakeOwnerCredentialBroker;
+	private unreachable = false;
+
+	constructor(world: ChatticusWorld) {
+		this.fake = new FakeOwnerCredentialBroker(SCENARIO_GATEWAY_SIGNING_KEY, world.clock);
+	}
+
+	/** Make every call fail as an unreachable broker does until {@link setReachable} is called with true. */
+	setReachable(reachable: boolean): void {
+		this.unreachable = !reachable;
+	}
+
+	issue(request: SupervisorGrantRequest): Promise<SupervisorGrant>;
+	issue(request: TurnGrantRequest): Promise<TurnGrant>;
+	async issue(request: SupervisorGrantRequest | TurnGrantRequest): Promise<SupervisorGrant | TurnGrant> {
+		if (this.unreachable) {
+			this.fake.calls.push({ request, tags: [] });
+			throw new OwnerCredentialBrokerError("broker_unreachable", "The scenario made the broker unreachable.");
+		}
+		return request.purpose === "supervisor" ? this.fake.issue(request) : this.fake.issue(request);
+	}
+}
+
+const brokers = new WeakMap<ChatticusWorld, ScenarioOwnerCredentialBroker>();
+
+/** The scenario's credential broker, created on first use; every front door the scenario wires holds this one. */
+export function ownerBrokerOf(world: ChatticusWorld): ScenarioOwnerCredentialBroker {
+	let broker = brokers.get(world);
+	if (broker === undefined) {
+		broker = new ScenarioOwnerCredentialBroker(world);
+		brokers.set(world, broker);
+	}
+	return broker;
+}

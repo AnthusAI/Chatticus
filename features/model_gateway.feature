@@ -62,8 +62,8 @@ Feature: Model gateway for a container's Pi session
     And no request reached the vendor
     And the vendor ledger holds no spend for the turn
 
-  Scenario: A token minted for the host routes is refused by the gateway
-    Given the container holds a session token minted for the host routes
+  Scenario: A token minted for the supervisor routes is refused by the gateway
+    Given the container holds a session token minted for the supervisor routes
     When the container asks the model gateway for an answer
     Then the gateway answers with status 401
     And no request reached the vendor

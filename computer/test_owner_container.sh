@@ -1,7 +1,9 @@
 #!/bin/sh
 # Builds the slim computer image and proves, inside the real container, that the
-# owner program starts, runs a local command through the shell launcher, and that
-# the command's user cannot reach the credentials the owner process holds.
+# owner supervisor starts (settings, runtime directory, liveness file, watchdog,
+# SIGTERM), that the per-turn owner program refuses to run without its settings,
+# that it runs a local command through the shell launcher, and that the command's
+# user cannot reach the credentials the supervisor and the owner process hold.
 # Needs Docker and no AWS. Run from anywhere:
 #   sh computer/test_owner_container.sh
 # CI builds the image once and passes it in: set CHATTICUS_OWNER_TEST_IMAGE and
@@ -13,10 +15,11 @@ cd "${ROOT}"
 
 IMAGE="${CHATTICUS_OWNER_TEST_IMAGE:-chatticus-computer:owner-test}"
 OWNER=/opt/chatticus/host/owner.mjs
+SUPERVISOR=/opt/chatticus/host/supervisor.mjs
 SECRET_KEY="owner-test-model-key-5f1c"
 SECRET_AWS="owner-test-aws-secret-8d2e"
 SECRET_TOKEN="owner-test-gateway-token-3b7a"
-SECRET_INVOKE="owner-test-host-token-9c4d"
+SECRET_INVOKE="owner-test-bootstrap-token-9c4d"
 
 failures=0
 pass() { echo "PASS  $1"; }
@@ -35,7 +38,7 @@ owner() {
     -e AWS_SECRET_ACCESS_KEY="${SECRET_AWS}" \
     -e AWS_SESSION_TOKEN="${SECRET_AWS}" \
     -e CHATTICUS_MODEL_GATEWAY_TOKEN="${SECRET_TOKEN}" \
-    -e CHATTICUS_OWNER_HOST_TOKEN="${SECRET_INVOKE}" \
+    -e CHATTICUS_OWNER_BOOTSTRAP_TOKEN="${SECRET_INVOKE}" \
     "${IMAGE}" node "${OWNER}" "$@"
 }
 
@@ -44,7 +47,60 @@ probe() {
 }
 
 started="$(date +%s)"
-if owner 2>&1 | grep -q '^owner_no_job$'; then pass "the owner program starts and finds no takeover job"; else fail "the owner program did not start cleanly"; fi
+owner_exit=0
+owner >/dev/null 2>&1 || owner_exit=$?
+if [ "${owner_exit}" = "2" ]; then pass "the owner program started without a subcommand exits 2 and runs no turn"; else fail "the owner program without a subcommand exited ${owner_exit}, expected 2"; fi
+
+owner_exit=0
+out="$(owner turn 2>&1)" || owner_exit=$?
+if [ "${owner_exit}" = "2" ] && ! echo "${out}" | grep -q "${SECRET_TOKEN}"; then pass "the owner turn subcommand without its settings exits 2 and names no secret"; else fail "the owner turn subcommand without settings: exit ${owner_exit}: ${out}"; fi
+
+supervisor_exit=0
+out="$(docker run --rm -e CHATTICUS_OWNER_BOOTSTRAP_TOKEN="${SECRET_INVOKE}" "${IMAGE}" node "${SUPERVISOR}" 2>&1)" || supervisor_exit=$?
+if [ "${supervisor_exit}" = "7" ] && echo "${out}" | grep -q '^owner_configuration_invalid' && ! echo "${out}" | grep -q "${SECRET_INVOKE}"; then pass "the supervisor without its settings exits 7 and never prints the bootstrap token"; else fail "the supervisor without settings: exit ${supervisor_exit}: ${out}"; fi
+
+watchdog_exit=0
+docker run --rm "${IMAGE}" chatticus-watchdog 99999999 >/dev/null 2>&1 || watchdog_exit=$?
+if [ "${watchdog_exit}" = "0" ]; then pass "the watchdog of a supervisor that is gone exits 0"; else fail "the watchdog of a gone supervisor exited ${watchdog_exit}"; fi
+
+SUPERVISOR_CONTAINER="chatticus-supervisor-test-$$"
+trap 'docker rm -f "${SUPERVISOR_CONTAINER}" >/dev/null 2>&1 || true' EXIT
+docker run -d --name "${SUPERVISOR_CONTAINER}" \
+  -e CHATTICUS_TENANT_ID=anthus \
+  -e CHATTICUS_USER_ID=ryan \
+  -e CHATTICUS_OWNER_ID=owner-container-test \
+  -e CHATTICUS_OWNER_START_GENERATION=1 \
+  -e CHATTICUS_OWNER_BOOTSTRAP_TOKEN="${SECRET_INVOKE}" \
+  -e CHATTICUS_FRONT_DOOR_URL=http://127.0.0.1:9 \
+  -e CHATTICUS_MODEL_GATEWAY_URL=http://127.0.0.1:9/v1 \
+  -e CHATTICUS_MESSAGING_TABLE=messaging \
+  -e CHATTICUS_CONVERSATIONS_TABLE=conversations \
+  -e CHATTICUS_PI_SESSIONS_BUCKET=pi-sessions \
+  -e CHATTICUS_SNAPSHOT_BUCKET=snapshots \
+  -e CHATTICUS_ENVIRONMENT=development \
+  -e AWS_REGION=us-east-1 \
+  "${IMAGE}" node "${SUPERVISOR}" >/dev/null
+sleep 3
+
+logs="$(docker logs "${SUPERVISOR_CONTAINER}" 2>&1)"
+if echo "${logs}" | grep -q '^owner_started ' && ! echo "${logs}" | grep -q "${SECRET_INVOKE}"; then pass "the supervisor starts, logs owner_started and never logs the bootstrap token"; else fail "the supervisor log: ${logs}"; fi
+
+if docker exec "${SUPERVISOR_CONTAINER}" test -f /run/chatticus/supervisor.alive; then pass "the supervisor keeps its liveness file"; else fail "the supervisor has no liveness file"; fi
+
+mode="$(docker exec "${SUPERVISOR_CONTAINER}" stat -c %a /run/chatticus)"
+if [ "${mode}" = "700" ]; then pass "the runtime directory of the supervisor and the watchdog is mode 700"; else fail "the runtime directory is mode ${mode}"; fi
+
+if docker exec "${SUPERVISOR_CONTAINER}" sh -c 'cat /proc/[0-9]*/cmdline 2>/dev/null | tr "\000" " "' | grep -q 'chatticus-watchdog'; then pass "the watchdog runs as its own process beside the supervisor"; else fail "no watchdog process runs in the supervisor container"; fi
+
+out="$(docker exec --user 2000 "${SUPERVISOR_CONTAINER}" sh -c 'cat /proc/1/environ 2>&1; cat /run/chatticus/supervisor.alive 2>&1' || true)"
+if echo "${out}" | grep -qi 'permission denied' && ! echo "${out}" | grep -q "${SECRET_INVOKE}"; then pass "the unprivileged shell user cannot read the supervisor's environment or its runtime directory"; else fail "the unprivileged user reached the supervisor: ${out}"; fi
+
+out="$(docker exec "${SUPERVISOR_CONTAINER}" sh -c 'env | grep -c "^AWS_ACCESS_KEY_ID=\|^AWS_SECRET_ACCESS_KEY=\|^AWS_SESSION_TOKEN=" || true')"
+if [ "${out}" = "0" ]; then pass "the supervisor's task environment holds no AWS access key, secret key or session token"; else fail "the task environment holds ${out} AWS credential variable(s)"; fi
+
+docker stop -t 10 "${SUPERVISOR_CONTAINER}" >/dev/null
+stopped_code="$(docker inspect --format '{{.State.ExitCode}}' "${SUPERVISOR_CONTAINER}")"
+if [ "${stopped_code}" = "143" ]; then pass "SIGTERM stops the supervisor with exit code 143"; else fail "the supervisor stopped with exit code ${stopped_code}, expected 143"; fi
 
 first_tool_started="$(date +%s)"
 uid="$(probe 'id -u')"
