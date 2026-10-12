@@ -20,6 +20,8 @@ import { Input } from "./ui/input";
 import { Sheet } from "./ui/sheet";
 import { ComputerPausedNotice } from "./ComputerPausedNotice";
 import { TurnGrantPanel } from "./TurnGrantPanel";
+import { ComputerFilesPanel } from "./workspace/ComputerFilesPanel";
+import { InspectorTabs, inspectorPanelDomId, inspectorTabDomId } from "./workspace/InspectorTabs";
 import { useVoiceControl, type VoiceControl } from "./useVoiceControl";
 import {
   createBot,
@@ -81,6 +83,8 @@ import {
 import { createVoiceLineDelivery } from "../lib/voice-line-delivery";
 import type { RetainedTurnActivity } from "../lib/committed-activity";
 import { reduceTurnActivity } from "../lib/turn-activity";
+import type { InspectorTabId } from "../lib/inspector-tabs";
+import { touchedFilesFromActivity } from "../lib/touched-files";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
@@ -159,6 +163,7 @@ export function EnabledWorkspace({
   const [rosterOpen, setRosterOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTabId>("context");
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"bot" | "channel">("bot");
   const [createName, setCreateName] = useState("");
@@ -184,6 +189,14 @@ export function EnabledWorkspace({
   );
   const visibleRoster = roster.filter((item) =>
     item.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  );
+  const touchedFiles = useMemo(
+    () =>
+      touchedFilesFromActivity(selectedMessages, [
+        ...(retainedActivity?.activity.tools ?? []),
+        ...reduceTurnActivity(turnEvents).tools,
+      ]),
+    [selectedMessages, retainedActivity, turnEvents],
   );
   const inspector = buildInspectorModel({ computer, tasks, selectedItem, bots });
   const rosterViewState = resolveRosterViewState({
@@ -807,7 +820,23 @@ export function EnabledWorkspace({
         <h2 className="text-sm font-extrabold">Context</h2>
         <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.closeInspector} onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); }}><X size={18} aria-hidden="true" /></Button>
       </div>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
+      <InspectorTabs selected={inspectorTab} onSelect={setInspectorTab} />
+      {inspectorTab === "files" ? (
+        <div
+          role="tabpanel"
+          id={inspectorPanelDomId("files")}
+          aria-labelledby={inspectorTabDomId("files")}
+          className="min-h-0 flex-1 overflow-y-auto pb-4"
+        >
+          <ComputerFilesPanel org={activeOrg} touched={touchedFiles} />
+        </div>
+      ) : (
+      <div
+        role="tabpanel"
+        id={inspectorPanelDomId("context")}
+        aria-labelledby={inspectorTabDomId("context")}
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4"
+      >
         <section className="rounded-2xl bg-surface p-4">
           <div className="flex items-center gap-2"><ComputerIcon size={17} aria-hidden="true" /><h3 className="text-sm font-bold">Computer</h3></div>
           {inspector.computer ? (
@@ -849,6 +878,7 @@ export function EnabledWorkspace({
           />
         ) : null}
       </div>
+      )}
     </aside>
   );
 
