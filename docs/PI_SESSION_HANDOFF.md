@@ -339,6 +339,15 @@ What is not built or not proven:
   Computers stack still exist and are removed in a later infra PR. Customer
   accounts still use the host worker.
 
+## What is next
+
+The owner described on this page serves one turn and exits. The next step is
+designed, not built, in [Long-lived computer, file protocol and preview](LONG_LIVED_COMPUTER.md):
+an owner that stays up after the turn and idles out, a protocol for the web app to
+view and edit the files in `/workspace`, and a browser-tab preview of a dev server
+the bot starts. It also proposes a renewal route for the one-hour credentials named
+under Limits above.
+
 ## Build record
 
 | Ticket | Pull requests |

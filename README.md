@@ -568,6 +568,7 @@ as a leftover for the implementation agent.
 - [Design challenges](docs/DESIGN_CHALLENGES.md)
 - [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
 - [Pi session handoff](docs/PI_SESSION_HANDOFF.md) (how a turn is handed from the Lambda to a Pi owner in the computer container, with diagrams, proof and limits)
+- [Long-lived computer, file protocol and preview](docs/LONG_LIVED_COMPUTER.md) (PROPOSED design: an owner that stays up and idles out, viewing and editing the computer's files, a browser-tab preview of a dev server)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Approval spec](docs/APPROVAL.md)

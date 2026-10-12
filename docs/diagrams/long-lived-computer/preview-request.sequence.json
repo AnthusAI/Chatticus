@@ -1,0 +1,214 @@
+{
+ "schema_version": 1,
+ "diagram_type": "sequence",
+ "meta": {
+  "title": "Proposed: one preview request and its trust boundaries",
+  "subtitle": "Status: PROPOSED. Highlighted calls carry a check or a secret. The relay never connects to an address taken from a request.",
+  "output": "docs/diagrams/long-lived-computer/preview-request.html",
+  "viewBox": [
+   1080,
+   654
+  ],
+  "column_fit": "spread",
+  "quality_profile": "showcase"
+ },
+ "participants": [
+  {
+   "id": "app",
+   "type": "frontend",
+   "label": "App page",
+   "sublabel": "app origin"
+  },
+  {
+   "id": "fdr",
+   "type": "backend",
+   "label": "Front Door",
+   "sublabel": "member auth"
+  },
+  {
+   "id": "frame",
+   "type": "external",
+   "label": "Preview frame",
+   "sublabel": "random host"
+  },
+  {
+   "id": "cf",
+   "type": "cloud",
+   "label": "CloudFront",
+   "sublabel": "preview domain"
+  },
+  {
+   "id": "relay",
+   "type": "backend",
+   "label": "PreviewRelay",
+   "sublabel": "no secrets"
+  },
+  {
+   "id": "ddb",
+   "type": "database",
+   "label": "DynamoDB",
+   "sublabel": "session, items"
+  },
+  {
+   "id": "owner",
+   "type": "backend",
+   "label": "Owner",
+   "sublabel": "supervisor"
+  },
+  {
+   "id": "dev",
+   "type": "external",
+   "label": "Dev server",
+   "sublabel": "uid 2000"
+  }
+ ],
+ "segments": [
+  {
+   "from": 160,
+   "to": 240,
+   "label": "Open session"
+  },
+  {
+   "from": 240,
+   "to": 352,
+   "label": "To relay"
+  },
+  {
+   "from": 352,
+   "to": 520,
+   "label": "Relay and owner"
+  }
+ ],
+ "messages": [
+  {
+   "id": "m1",
+   "from": "app",
+   "to": "fdr",
+   "y": 170,
+   "label": "open preview (member token, port)",
+   "variant": "security"
+  },
+  {
+   "id": "m2",
+   "from": "fdr",
+   "to": "ddb",
+   "y": 198,
+   "label": "session: computer, port, expiry",
+   "variant": "default"
+  },
+  {
+   "id": "m3",
+   "from": "fdr",
+   "to": "app",
+   "y": 226,
+   "label": "https://random-host.preview-domain/",
+   "variant": "return"
+  },
+  {
+   "id": "m4",
+   "from": "app",
+   "to": "frame",
+   "y": 254,
+   "label": "iframe src, sandbox, no permissions",
+   "variant": "default"
+  },
+  {
+   "id": "m5",
+   "from": "frame",
+   "to": "cf",
+   "y": 282,
+   "label": "GET /",
+   "variant": "emphasis"
+  },
+  {
+   "id": "m6",
+   "from": "cf",
+   "to": "relay",
+   "y": 310,
+   "label": "forward, caching off",
+   "variant": "default"
+  },
+  {
+   "id": "m7",
+   "from": "relay",
+   "to": "ddb",
+   "y": 338,
+   "label": "session live? put request item",
+   "variant": "security"
+  },
+  {
+   "id": "m8",
+   "from": "owner",
+   "to": "fdr",
+   "y": 366,
+   "label": "poll (0.5 s while open)",
+   "variant": "emphasis"
+  },
+  {
+   "id": "m9",
+   "from": "fdr",
+   "to": "owner",
+   "y": 394,
+   "label": "pending requests",
+   "variant": "return"
+  },
+  {
+   "id": "m10",
+   "from": "owner",
+   "to": "dev",
+   "y": 422,
+   "label": "GET 127.0.0.1:port",
+   "variant": "security"
+  },
+  {
+   "id": "m11",
+   "from": "dev",
+   "to": "owner",
+   "y": 450,
+   "label": "response",
+   "variant": "return"
+  },
+  {
+   "id": "m12",
+   "from": "owner",
+   "to": "fdr",
+   "y": 478,
+   "label": "post response (S3 over 32 KB)",
+   "variant": "dashed"
+  },
+  {
+   "id": "m13",
+   "from": "relay",
+   "to": "frame",
+   "y": 506,
+   "label": "poll table, stream with frame-ancestors",
+   "variant": "security"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "rose",
+   "title": "Origin",
+   "items": [
+    "Preview host is not the app origin and shares no cookie scope",
+    "Capability is the 128-bit host name; expiry and revoke server-side"
+   ]
+  },
+  {
+   "dot": "emerald",
+   "title": "No SSRF",
+   "items": [
+    "Target is a table lookup done by the owner of that computer",
+    "Loopback only; redirects never followed off it"
+   ]
+  },
+  {
+   "dot": "orange",
+   "title": "Limits",
+   "items": [
+    "A page load takes seconds",
+    "No WebSocket: the app reloads the frame on change"
+   ]
+  }
+ ]
+}
