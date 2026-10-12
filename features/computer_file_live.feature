@@ -16,6 +16,13 @@ Feature: Members view and edit the files on the running computer
   Door, in a key family that neither owner role can reach. An open Files panel tells the control plane to be quick for a
   short while. The wire schemas are in host-protocol/src/live-files.ts.
 
+  The computer is needed only to run things. While it is off a member reads and edits files all the same: an edit is
+  kept in an overlay in the snapshot bucket (one small object per edited file and an index, written only by the Front
+  Door with conditional puts), reads merge the overlay over the snapshot, and the next owner seals the overlay after it
+  extracts the snapshot, applies it through the file helper before any turn runs, and has it cleared once a publish
+  that holds the edits is recorded. Viewing and editing never start a computer; an open panel does not keep one awake.
+  The schemas of the overlay are in host-protocol/src/edit-overlay.ts.
+
   Background:
     Given an empty control plane
     And tenant "anthus" user "ryan" has computer "household-computer"
@@ -264,14 +271,6 @@ Feature: Members view and edit the files on the running computer
     And the audit log has no records
 
   @server
-  Scenario: A write is refused when the computer is off
-    Given no owner is running
-    When member "mia" creates the computer file "/workspace/fresh.md" with "new"
-    Then the file response status is 409
-    And the file response error is "computer_not_live"
-    And no file request was left for the owner
-
-  @server
   Scenario: A write the owner never took does not happen later
     Given a live owner is polling for the household computer every 10 seconds
     And the live disk of the owner holds workspace file "notes.md" containing "first draft"
@@ -294,12 +293,15 @@ Feature: Members view and edit the files on the running computer
     Then the audit log has a record for member "mia" with outcome "ok"
 
   @server
-  Scenario: A write is refused while the owner is stopping
+  Scenario: An edit made while the owner is stopping waits for the owner
     Given a live owner is polling for the household computer
     And the owner's stop request was approved
+    And the overlay is sealed by that owner
     When member "mia" creates the computer file "/workspace/fresh.md" with "new"
-    Then the file response status is 409
-    And the file response error is "computer_not_live"
+    Then the file response status is 503
+    And the file response error is "computer_stopping"
+    And the file response says "retry_after_ms" is "5000"
+    And the audit log has no records
 
   @server
   Scenario: An idle stop is vetoed while a file operation is pending
@@ -314,6 +316,350 @@ Feature: Members view and edit the files on the running computer
     When the owner's idle stop is approved between a member's request being judged and being queued
     Then the member's file request is not queued
     And the file response says "fallback_reason" is "owner_stopping"
+
+  # ---------------------------------------------------------------- editing while the computer is off (the edit overlay)
+
+  @server
+  Scenario: An edit made while the computer is off is visible in the next read
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then the file response status is 200
+    And the file response says "source" is "overlay"
+    And the file response says "backed_up" is "true"
+    And the file response says "previous_sha256" is the hash of "first draft"
+    When a member reads the computer file "/workspace/notes.md"
+    Then the file response says "source" is "snapshot"
+    And the content response holds "second draft"
+    And the content response has the SHA-256 of "second draft" and the same ETag
+    And the file response says "overlay" is "pending"
+    And the saved snapshot pack was not changed
+
+  @server
+  Scenario: A new file made while the computer is off is listed and created only if it does not exist
+    Given the computer disk holds workspace file "taken.md" containing "old"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" creates the computer file "/workspace/fresh.md" with "new"
+    Then the file response status is 200
+    And the file response says "created" is "true"
+    When a member lists the computer files at "/workspace"
+    Then the listing shows these entries in order:
+      | name     | kind |
+      | fresh.md | file |
+      | taken.md | file |
+    When member "mia" creates the computer file "/workspace/taken.md" with "new"
+    Then the file response status is 409
+    And the file response error is "already_exists"
+
+  @server
+  Scenario: A computer that never published can still be edited
+    Given no owner is running
+    And the computer has never published a snapshot
+    When member "mia" creates the computer file "/workspace/first.md" with "hello"
+    Then the file response status is 200
+    When a member reads the computer file "/workspace/first.md"
+    Then the content response holds "hello"
+
+  @server
+  Scenario: A stale-hash edit made while the computer is off is refused
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" replaces the computer file "/workspace/notes.md" with "mine" if it still has the hash of "an older draft"
+    Then the file response status is 409
+    And the file response error is "precondition_failed"
+    And the file response says "current_sha256" is the hash of "first draft"
+    And the overlay holds no entry for "/workspace/notes.md"
+
+  @server
+  Scenario: Two members editing while the computer is off cannot both win
+    Given the computer disk holds workspace file "plan.md" containing "v1"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" has read the computer file "/workspace/plan.md" and holds its hash
+    And member "ryan" has read the computer file "/workspace/plan.md" and holds its hash
+    When member "mia" replaces the computer file "/workspace/plan.md" with "from Mia" if it still has the hash of "v1"
+    And member "ryan" replaces the computer file "/workspace/plan.md" with "from Ryan" if it still has the hash of "v1"
+    Then the first file response status is 200
+    And the second file response status is 409
+    And the second file response says "current_sha256" is the hash of "from Mia"
+    And the overlay holds "from Mia" for "/workspace/plan.md"
+
+  @server
+  Scenario: Two members editing different files at the same instant both stand
+    Given the computer disk holds workspace file "a.md" containing "a"
+    And the computer disk holds workspace file "b.md" containing "b"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" and member "ryan" replace "/workspace/a.md" and "/workspace/b.md" at the same instant
+    Then both file responses have status 200
+    And the overlay holds both entries
+
+  @server
+  Scenario: Editing while the computer is off starts nothing
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then no computer start job is queued
+    And the computer record is unchanged
+
+  @server
+  Scenario: An edit made while the computer is off is audited
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then the audit log has one record for member "mia" with these fields:
+      | field         | value                      |
+      | operation     | write                      |
+      | path          | /workspace/notes.md        |
+      | outcome       | ok                         |
+      | source        | overlay                    |
+      | sha256_before | the hash of "first draft"  |
+      | sha256_after  | the hash of "second draft" |
+    And the audit record holds no file content
+
+  @server
+  Scenario: A file in a directory the saved copy never keeps cannot be edited while the computer is off
+    Given the computer disk holds workspace file "app/package.json" containing "{}"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" creates the computer file "/workspace/app/node_modules/x/index.js" with "x"
+    Then the file response status is 422
+    And the file response error is "not_in_saved_copy"
+    And the overlay holds no entry for "/workspace/app/node_modules/x/index.js"
+
+  @server
+  Scenario: A link in the saved copy cannot be edited while the computer is off
+    Given the computer disk holds workspace file "real.txt" containing "one"
+    And the computer disk holds a symbolic link "alias.txt" to "real.txt"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" replaces the computer file "/workspace/alias.txt" with "two" if it still has the hash of "one"
+    Then the file response status is 403
+    And the file response error is "path_refused"
+
+  @server
+  Scenario: A file in a folder that does not exist cannot be created while the computer is off
+    Given the computer disk holds workspace file "notes.md" containing "x"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" creates the computer file "/workspace/missing/new.md" with "x"
+    Then the file response status is 404
+    And the file response error is "parent_missing"
+
+  @server
+  Scenario: A write into .git is refused while the computer is off
+    Given the computer disk holds workspace file "notes.md" containing "x"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" creates the computer file "/workspace/.git/config" with "[core]"
+    Then the file response status is 403
+    And the file response error is "path_refused"
+    And the overlay holds no entry for "/workspace/.git/config"
+
+  @server
+  Scenario: The overlay holds at most 100 edited files
+    Given the computer disk is published
+    And no owner is running
+    And member "mia" has created 100 files while the computer is off
+    When member "mia" creates the computer file "/workspace/one-too-many.md" with "x"
+    Then the file response status is 409
+    And the file response error is "overlay_full"
+
+  @server
+  Scenario: A secret edited while the computer is off is masked on read and revealed with an audit record
+    Given the computer disk holds workspace file ".env" containing "API_KEY=abc123"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" replaces the computer file "/workspace/.env" with "API_KEY=def456" if it still has the hash of "API_KEY=abc123"
+    Then the file response status is 200
+    When a member reads the computer file "/workspace/.env"
+    Then the file response says "masked" is "true"
+    And the file response carries no file content
+    When member "mia" reveals the computer file "/workspace/.env"
+    Then the content response holds "API_KEY=def456"
+    And the audit log has one record for member "mia" with these fields:
+      | field     | value  |
+      | operation | reveal |
+      | source    | overlay |
+
+  @server
+  Scenario: A member discards their own pending edit
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
+    When member "mia" discards the pending edit of "/workspace/notes.md"
+    Then the file response status is 200
+    And the overlay holds no entry for "/workspace/notes.md"
+    And a member reads the computer file "/workspace/notes.md" and gets "first draft"
+    And the audit log has a record for member "mia" with operation "discard"
+
+  @server
+  Scenario: An edit made while the owner extracts the snapshot is in the set the owner seals
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And a live owner is polling for the household computer in state "hydrating"
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then the file response says "source" is "overlay"
+    When the owner seals the overlay
+    Then the sealed entries are exactly:
+      | path                | sha256                     |
+      | /workspace/notes.md | the hash of "second draft" |
+
+  @server
+  Scenario: An edit made after the owner sealed the overlay waits for the owner
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And a live owner is polling for the household computer in state "hydrating"
+    And the owner sealed the overlay
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then the file response status is 503
+    And the file response error is "computer_starting"
+    And the file response says "retry_after_ms" is "2000"
+    And the overlay holds no entry for "/workspace/notes.md"
+    And the audit log has no records
+
+  @server
+  Scenario: A seal and an edit that race leave exactly one of them in charge
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And a live owner is polling for the household computer in state "hydrating"
+    When the owner seals the overlay at the same instant as member "mia" edits "/workspace/notes.md"
+    Then either the sealed entries hold the edit or the edit was answered "computer_starting"
+    And never both and never neither
+
+  @server
+  Scenario: A seal left by an owner that died is replaced by the next edit
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And the overlay was sealed by an owner whose heartbeat then lapsed
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then the file response status is 200
+    And the overlay is not sealed
+    And the overlay holds "second draft" for "/workspace/notes.md"
+
+  @server
+  Scenario: An owner of an older generation cannot seal or clear
+    Given the overlay was sealed by an owner of generation 1
+    And a newer owner of generation 2 has bootstrapped
+    When the owner of generation 1 asks to seal the overlay
+    Then the request is refused with code "stale_generation"
+    When the owner of generation 1 asks to clear "/workspace/notes.md"
+    Then the request is refused with code "stale_generation"
+
+  @server
+  Scenario: A clear that is not sealed by the caller is refused
+    Given the computer disk is published
+    And a live owner is polling for the household computer
+    When the owner asks to clear "/workspace/notes.md" before it sealed the overlay
+    Then the request is refused with code "overlay_not_sealed"
+
+  @server
+  Scenario: Clearing removes only the entries that were applied
+    Given member "mia" replaced "/workspace/a.md" with "a2" and "/workspace/b.md" with "b2" while the computer was off
+    And the owner sealed the overlay
+    When the owner asks to clear "/workspace/a.md" at the revision and hash it applied
+    Then the overlay holds no entry for "/workspace/a.md"
+    And the overlay holds "b2" for "/workspace/b.md"
+    And the blob of "a2" is deleted and the blob of "b2" is kept
+
+  @server
+  Scenario: A clear that names an entry that changed since is ignored
+    Given member "mia" replaced "/workspace/a.md" with "a2" while the computer was off
+    And the owner sealed the overlay
+    When the owner asks to clear "/workspace/a.md" at revision 99
+    Then the overlay still holds "a2" for "/workspace/a.md"
+
+  @server
+  Scenario: A clear before any publish is recorded is refused
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
+    And a live owner is polling for the household computer
+    And the owner sealed the overlay
+    When the owner asks to clear "/workspace/notes.md" at the revision and hash it applied
+    Then the overlay still holds "second draft" for "/workspace/notes.md"
+    When the owner publishes a snapshot and the control plane records it
+    And the owner asks to clear "/workspace/notes.md" at the revision and hash it applied
+    Then the overlay holds no entry for "/workspace/notes.md"
+
+  @server
+  Scenario: A snapshot that moved under an edit shows a conflict and keeps both versions
+    Given the computer disk holds workspace file "plan.md" containing "v1"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
+    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
+    When a member reads the computer file "/workspace/plan.md"
+    Then the content response holds "from the host"
+    And the file response says "overlay" is "conflict"
+    And the file response says "mine_sha256" is the hash of "from Mia"
+    When a member reads the computer file "/workspace/plan.md" as the "mine" variant
+    Then the content response holds "from Mia"
+
+  @server
+  Scenario: An edit made on both sides conflicts and is never applied silently
+    Given the computer disk holds workspace file "plan.md" containing "v1"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
+    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
+    When member "ryan" replaces the computer file "/workspace/plan.md" with "from Ryan" if it still has the hash of "v1"
+    Then the file response status is 409
+    And the file response says "current_sha256" is the hash of "from the host"
+    When member "mia" replaces the computer file "/workspace/plan.md" with "from Mia again" if it still has the hash of "from the host"
+    Then the file response status is 200
+    And the overlay holds "from Mia again" for "/workspace/plan.md" with base hash of "from the host"
+
+  @server
+  Scenario: A conflict can be dropped explicitly
+    Given the computer disk holds workspace file "plan.md" containing "v1"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
+    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
+    When member "mia" discards the pending edit of "/workspace/plan.md"
+    Then the overlay holds no entry for "/workspace/plan.md"
+    And a member reads the computer file "/workspace/plan.md" and gets "from the host"
+
+  @server
+  Scenario: A computer in a customer account cannot be edited while it is off
+    Given the organization is homed in a customer account
+    When member "mia" creates the computer file "/workspace/fresh.md" with "new"
+    Then the file response status is 409
+    And the file response error is "edit_unsupported"
+
+  @server
+  Scenario: An owner of protocol 1 blocks edits while it runs
+    Given the computer disk holds workspace file "notes.md" containing "x"
+    And the computer disk is published
+    And a live owner is polling for the household computer with protocol version 1
+    When member "mia" replaces the computer file "/workspace/notes.md" with "y" if it still has the hash of "x"
+    Then the file response status is 409
+    And the file response error is "owner_too_old"
+
+  @server
+  Scenario: The owner roles cannot write or delete overlay objects
+    Then the per-turn role policy denies s3:GetObject, s3:PutObject and s3:DeleteObject on "tenants/anthus/computers/household-computer/overlay/index.json"
+    And the per-turn role policy denies s3:PutObject and s3:DeleteObject on "tenants/anthus/computers/household-computer/overlay/blobs/abc"
+    And the supervisor role policy allows s3:GetObject on "tenants/anthus/computers/household-computer/overlay/index.json"
+    And the supervisor role policy denies s3:PutObject, s3:DeleteObject and s3:DeleteObjectVersion on "tenants/anthus/computers/household-computer/overlay/index.json"
+    And the supervisor role policy denies s3:PutObject on "tenants/anthus/computers/household-computer/overlay/blobs/abc"
+    And the supervisor role policy still allows s3:PutObject on "tenants/anthus/computers/household-computer/snapshot.tar.gz"
+    And the supervisor role policy denies every action on the overlay of another computer
+
+  @server
+  Scenario: The Front Door writes the overlay with conditional puts
+    Given the computer disk is published
+    And no owner is running
+    When member "mia" creates the computer file "/workspace/fresh.md" with "new"
+    Then the overlay blob was put with "If-None-Match: *"
+    And the overlay index was put with a condition on the entity tag it had read
 
   # ---------------------------------------------------------------- audit
 
@@ -609,11 +955,12 @@ Feature: Members view and edit the files on the running computer
     Then the stop is approved
 
   @server
-  Scenario: A panel that is open when the computer is off learns it
+  Scenario: A panel that is open when the computer is off learns it and starts nothing
     Given no owner is running
     When a member's Files panel tells the computer it is open
     Then the response says the computer is off
     And no file request was left for the owner
+    And no computer start job is queued
 
   # ---------------------------------------------------------------- the container
 
@@ -710,6 +1057,99 @@ Feature: Members view and edit the files on the running computer
     When the control plane answers the result with 403 "not_current_owner"
     Then the supervisor ends as superseded
 
+  @supervisor
+  Scenario: The owner applies the overlay after extraction and before any turn
+    Given the saved snapshot holds workspace file "notes.md" containing "first draft"
+    And the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
+    And a turn is already parked for the computer
+    When the supervisor starts and hydrates
+    Then the supervisor extracted the snapshot, then sealed the overlay, then applied the entries
+    And the workspace file "notes.md" contains "second draft"
+    And the supervisor accepted no dispatch before the apply ended
+    And the supervisor reported "hydrating" until the apply ended
+
+  @supervisor
+  Scenario: The owner applies the overlay when the local cache matched
+    Given the local cache already holds the published snapshot
+    And the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
+    When the supervisor starts and hydrates
+    Then the snapshot was not extracted again
+    And the workspace file "notes.md" contains "second draft"
+
+  @supervisor
+  Scenario: The owner applies the overlay when no snapshot was ever published
+    Given no snapshot was ever published
+    And the overlay holds "hello" for a new file "/workspace/first.md"
+    When the supervisor starts and hydrates
+    Then the workspace file "first.md" contains "hello"
+
+  @supervisor
+  Scenario: A turn that arrives right after the hydrate runs while the entries wait to be cleared
+    Given the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
+    And a turn is already parked for the computer
+    When the supervisor starts, hydrates and polls until it is served
+    Then the turn ran
+    And the overlay still holds the entry for "/workspace/notes.md"
+    And the supervisor did not publish while the turn ran
+
+  @supervisor
+  Scenario: The owner asks to clear only after the publish that holds the edits is recorded
+    Given the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
+    When the supervisor starts and hydrates
+    Then the supervisor asked to clear nothing yet
+    When 5 seconds go by with the supervisor idle
+    Then the supervisor published the snapshot
+    And after the publish was recorded the supervisor asked to clear exactly "/workspace/notes.md" at the revision and hash it applied
+
+  @supervisor
+  Scenario: A clear that was lost is asked again and before the stopped report
+    Given the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
+    And the control plane does not answer the clear request
+    When the supervisor starts, hydrates and publishes
+    And 10 seconds go by
+    Then the supervisor asked to clear again
+    When the supervisor is told to stop
+    Then the supervisor asked to clear before it reported the computer stopped
+
+  @supervisor
+  Scenario: An edit that equals what the snapshot already holds is cleared without a publish
+    Given the saved snapshot already holds "second draft" in "/workspace/notes.md"
+    And the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
+    When the supervisor starts and hydrates
+    Then the supervisor asked to clear "/workspace/notes.md" at once
+    And the supervisor did not publish
+
+  @supervisor
+  Scenario: The owner finds a third version on the disk and does not overwrite it
+    Given the saved snapshot holds workspace file "plan.md" containing "from the host"
+    And the overlay holds "from Mia" for "/workspace/plan.md" with base hash of "v1"
+    When the supervisor starts and hydrates
+    Then the workspace file "plan.md" contains "from the host"
+    And the supervisor reported a conflict for "/workspace/plan.md" with the disk hash of "from the host"
+    And the supervisor asked to clear nothing
+
+  @supervisor
+  Scenario: An overlay that cannot be read fails the hydrate
+    Given the overlay holds an entry whose blob is missing
+    When the supervisor starts and hydrates
+    Then the supervisor exits with code 8
+    And no turn was served
+
+  @supervisor
+  Scenario: An overlay blob that does not hash to its entry fails the hydrate
+    Given the overlay holds an entry whose blob holds other bytes
+    When the supervisor starts and hydrates
+    Then the supervisor exits with code 8
+    And the workspace was not written
+
+  @supervisor
+  Scenario: The overlay is applied through the file helper and cannot reach outside the workspace
+    Given the saved snapshot holds a symbolic link "leak" to a file outside the workspace
+    And the overlay holds "overwritten" for "/workspace/leak" with base hash of the link target
+    When the supervisor starts and hydrates
+    Then the outside file is unchanged
+    And the supervisor reported a conflict for "/workspace/leak"
+
   # ---------------------------------------------------------------- the web app
 
   @web
@@ -804,6 +1244,43 @@ Feature: Members view and edit the files on the running computer
     Then the editor is not offered
     And the panel says the file is too large to edit here
 
+  @web
+  Scenario: A member edits a file while the computer is off
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" in "Anthus Labs"
+    And the saved copy holds workspace file "notes.md" containing "first draft"
+    When the member opens "/workspace/notes.md" and chooses Edit
+    And the member replaces the text with "second draft" and chooses Save
+    Then the panel shows "Saved. Your change will be applied when the computer starts"
+    And no computer was started
+    When the member opens "/workspace/notes.md"
+    Then the panel shows "second draft"
+
+  @web
+  Scenario: The panel marks a file that is waiting for the computer
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" in "Anthus Labs"
+    And a pending edit of "/workspace/notes.md" made while the computer was off
+    When the member opens the Files tab
+    Then the listing marks "notes.md" as "Edited, waiting for the computer"
+
+  @web
+  Scenario: A conflict made while the computer was off shows both versions
+    Given the enabled workspace web SPA with the computer off for "ryan@example.com" in "Anthus Labs"
+    And a pending edit of "/workspace/plan.md" that conflicts with a newer saved version
+    When the member opens "/workspace/plan.md"
+    Then the panel shows "Your edit conflicts with a newer version of this file"
+    And the panel shows the saved version next to the member's text
+    When the member chooses Use theirs
+    Then the panel shows the saved version only
+
+  @web
+  Scenario: An edit made while the computer is starting is tried again
+    Given the enabled workspace web SPA with the computer starting for "ryan@example.com" in "Anthus Labs"
+    And the next save is answered "computer_starting" with a retry time of 2 seconds
+    When the member saves a changed file
+    Then the panel shows "The computer is starting; your text is kept"
+    And the panel tries to save again after 2 seconds
+    And the member's text is still in the editor
+
   # ---------------------------------------------------------------- the whole path
 
   @end-to-end
@@ -850,3 +1327,49 @@ Feature: Members view and edit the files on the running computer
     And 31 seconds go by
     Then the supervisor published the snapshot
     And the saved copy holds workspace file "notes.md" containing "second draft"
+
+  @end-to-end
+  Scenario: An edit made while the computer is off is applied on the next hydrate and the bot sees it
+    Given the model is scripted to call "read_workspace" with:
+      """
+      {"path": "/workspace/notes.md"}
+      """
+    And the model is scripted to answer "I read it."
+    And the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    And bot "Researcher" is asked "read the notes"
+    And bot "Researcher" works its turn until it waits for the computer
+    And a supervisor is started for the household computer
+    And the supervisor polls until it is served
+    Then the model saw "second draft" in its next request
+    And the file "notes.md" on the live disk contains "second draft"
+
+  @end-to-end
+  Scenario: The overlay is empty after the publish that holds the edit
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
+    And a supervisor is running for the household computer
+    When 6 seconds go by
+    Then the supervisor published the snapshot
+    And the overlay is empty and not sealed by a stopped owner
+    And the saved copy holds workspace file "notes.md" containing "second draft"
+
+  @end-to-end
+  Scenario: The overlay survives a crash of the owner before it publishes
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
+    And a supervisor is running for the household computer
+    And the supervisor applied the overlay but has not published
+    When the task is killed without a stopped report
+    And 31 seconds go by
+    Then a member reads the computer file "/workspace/notes.md" and gets "second draft" from the snapshot with the overlay
+    And the overlay still holds the entry for "/workspace/notes.md"
+    When a new supervisor is started and hydrates
+    Then the file "notes.md" on the live disk contains "second draft"
+

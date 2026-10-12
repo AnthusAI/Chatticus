@@ -603,7 +603,7 @@ often did a second turn start without a new owner (`owner_serving_turn` where
 
 | Computer state | Source | Freshness |
 | --- | --- | --- |
-| Off | The published snapshot, via the v2 index | As of `published_at` (shown in the response and the UI) |
+| Off | The published snapshot, via the v2 index, **with the person's pending edits (the edit overlay) merged over it** | As of `published_at` plus the overlay (shown in the response and the UI) |
 | On | The live disk, through the owner | Current |
 
 The browser sees one REST API and a `source` field. The Front Door decides with one
@@ -724,6 +724,16 @@ to change this" button.
   cannot be flooded.
 - **Stale reads.** The snapshot answer says `as_of`; the UI never presents it as
   current.
+
+### 7.5a Editing while the computer is off (owner decision, 2026-10-12)
+
+The computer is needed only to run things, never to view or edit files. The design above assumed an owner for every edit; that is replaced. While no owner can serve a file
+request, an edit goes into an **overlay** in the snapshot bucket under the computer's prefix (`overlay/index.json` and one content-addressed blob per edited file), written only by the
+Front Door with conditional puts so `If-Match` works against the effective hash (overlay over snapshot). Reads merge it over the snapshot index. The next owner extracts the snapshot,
+**seals** the overlay (closing it to member writes, so a request cannot slip between the owner's read and its apply), applies the entries through the unprivileged file helper before any turn
+runs, and has them cleared only after a publish that holds them is recorded. A change on both sides is a conflict that is shown and kept, never applied over. Viewing and editing never start a
+computer, and an open panel does not keep one awake. Customer-account computers have no supervisor to apply an overlay, so they read the snapshot only. Full contract, races and IAM:
+[Live files protocol](LIVE_FILES_PROTOCOL.md), sections 3 (O1 to O4, L30 to L47), 5.5, 7.7 and 12.8.
 
 ## 8. Preview (PROPOSED)
 
@@ -1014,28 +1024,28 @@ events, and need the larger task.
 ### Phase 3: live file view and edit
 
 - **Contract.** [Live files protocol](LIVE_FILES_PROTOCOL.md) is the exact interface and settles the
-  places where this page is wrong or silent (its section 2): the choice of live or snapshot by one predicate
+  places where this page is wrong or silent (its section 2, 34 items): the choice of live or snapshot by one predicate
   (not `liveOwnerOf` alone), the watch ping that sets the 1 second pace, delivery states so a timed-out write
   never runs later, deletion of request items by the reader (TTL is a backstop only), a fixed result route,
   the stop veto and the sweep interplay, the dirty flag and quiet publish after an edit, the shared secret-name list and reveal,
-  the atomic helper write with a post-check, rate and size limits, and audit written before the owner is asked.
-- **Scope.** The three `GET` routes answer from the owner when it is live; `PUT` with `If-Match` or `If-None-Match`;
-  `POST` reveal and watch; request items and the result route; helper `list`, ranged `read`, conditional atomic `write`;
-  audit records written by the Front Door in a key family neither owner role can reach; conflict UI, edit mode, source
-  indicator and the `Pi changed this a moment ago` notice; fast poll while the panel is open. No infrastructure change.
-- **Gherkin.** `features/computer_file_live.feature` (draft, tagged `@server`, `@supervisor`, `@web`,
-  `@end-to-end`): among them a live read reflects an unpublished change; a write with a stale hash is refused 409; an edit lands in
-  the audit log; a planted symlink is contained; a timeout falls back to the snapshot with `stale`; the owner cannot read the audit
-  family; a masked secret file and a reveal that is audited; a non-member is refused; a `.git` write is refused; the size cap; a
-  concurrent edit conflicts; the fast poll returns to normal after the panel closes. The requirement to scenario table is section 13
-  of the contract.
-- **Parts.** F0 (schemas and constants), A1 and A2 (server), C (helper and supervisor), W (web), E (end to end and live proof).
-  Section 15 of the contract has files, dependencies and deploy order.
-- **Live proof.** Edit a file in the web app while a turn is idle; ask the bot to read it back; edit it from both sides at
-  once and see the conflict; see the audit records; see the pace return to normal after the panel closes (contract section 17).
-- **Depends on.** Phase 2a (merged and live). Needs Phase 1's index only for the fall-back.
-- **Open questions.** Eleven product questions are listed in section 14 of the contract; the most consequential are
-  editing while the computer is off (Q1) and whether an open panel keeps the computer awake (Q2).
+  the atomic helper write with a post-check, rate and size limits, audit written before the owner is asked, and, since the owner's
+  decision that files are viewed and edited with the computer off, the **edit overlay** (section 7.5a above).
+- **Scope.** The three `GET` routes answer from the owner when it is live and from the snapshot with the overlay merged otherwise; `PUT` with `If-Match` or `If-None-Match`
+  goes to the owner when it can serve and into the overlay otherwise; `POST` reveal, watch and overlay discard; request items and the result route; the overlay store, its seal and clear
+  routes; helper `list`, ranged `read`, conditional atomic `write`; the supervisor's seal, apply and clear at hydrate; audit written by the Front Door in key families neither owner role can reach; conflict
+  UI, edit mode, source indicator and the `Pi changed this a moment ago` notice; fast poll (1 second) while the panel is open. Infrastructure: the Front Door may write the overlay prefix and the supervisor role is
+  explicitly denied writes there.
+- **Gherkin.** `features/computer_file_live.feature` (draft, tagged `@server`, `@supervisor`, `@web`, `@end-to-end`): among them a live read reflects an unpublished change; a write with a stale hash is refused 409;
+  an edit lands in the audit log; a planted symlink is contained; a timeout falls back to the snapshot with `stale`; the owner cannot read the audit family; a masked secret file and an audited reveal; a non-member is
+  refused; a `.git` write is refused; the size cap; a concurrent edit conflicts; the fast poll returns to normal after the panel closes; an edit made while the computer is off is visible in the next read, applied on the
+  next hydrate and seen by the bot, refused when its hash is stale, in conflict when the snapshot moved under it, kept across a crash, and cannot be written by an owner role. The requirement to scenario table is section 13 of the contract.
+- **Parts.** F0 (schemas, constants, file rules, overlay schemas), B (infrastructure and policy), A1 (file requests on the server), A3 (the overlay core), A2 (member routes), C (helper and file runner), C2 (the overlay at hydrate),
+  W (web), E (end to end and live proof). Section 15 of the contract has files, dependencies and deploy order.
+- **Live proof.** Edit a file in the web app while a turn is idle; ask the bot to read it back; edit it from both sides at once and see the conflict; edit a file with the computer off, then start it and see the bot read the edit;
+  kill the owner after the apply and before the publish and see the edit survive; see the audit records; see the pace return to normal after the panel closes (contract section 17).
+- **Depends on.** Phase 2a (merged and live). Needs Phase 1's index for the saved copy.
+- **Open questions.** Seven product questions remain in section 14 of the contract (overlay caps, deletes while off, expiring non-current bucket versions, customer-account computers, the short wait while an owner seals,
+  who may discard, the local-host role).
 
 ### Phase 4: background processes and preview
 
@@ -1069,7 +1079,7 @@ out-of-memory.
 - A user-editable snapshot include or exclude file.
 - Automatic restart of crashed dev servers.
 - Channel notices when a person edits a file.
-- Delete, move, upload and download of large files.
+- Delete, move, upload and download of large files (and, in the overlay, tombstones and new folders).
 - Multi-viewer previews with per-user access; a session has one creator.
 - Per-organization idle timeouts.
 - Direct dispatch to a warm owner (Phase 5 optimization only).
