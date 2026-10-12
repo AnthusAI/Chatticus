@@ -307,6 +307,29 @@ export class InMemoryMessagingStore implements MessagingStore {
 		return structuredClone(settled);
 	}
 
+	async recordComputerSnapshotPublished(tenantId: string, published: { snapshotUri: string; snapshotChecksum: string }): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.hydrateRequired) return null;
+		const next: Computer = {
+			...computer,
+			snapshotUri: published.snapshotUri,
+			snapshotChecksum: published.snapshotChecksum,
+			snapshotGeneration: computer.snapshotGeneration + 1,
+			diskDirty: false,
+		};
+		this.computers.set(tenantId, next);
+		return structuredClone(next);
+	}
+
+	async recordComputerHydrated(tenantId: string): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined) return null;
+		const { intendedHostWorkerId: _cleared, ...rest } = computer;
+		const next: Computer = { ...rest, hydrateRequired: false, diskDirty: false };
+		this.computers.set(tenantId, next);
+		return structuredClone(next);
+	}
+
 	async markComputerDiskDirty(tenantId: string): Promise<boolean> {
 		const computer = this.computers.get(tenantId);
 		if (computer === undefined) {

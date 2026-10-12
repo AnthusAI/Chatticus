@@ -582,6 +582,28 @@ export class DynamoMessagingStore implements MessagingStore {
 		}
 	}
 
+	async recordComputerSnapshotPublished(tenantId: string, published: { snapshotUri: string; snapshotChecksum: string }): Promise<Computer | null> {
+		return this.updateComputerWhere(tenantId, {
+			update: "SET snapshot_uri = :uri, snapshot_checksum = :checksum, snapshot_generation = snapshot_generation + :one, disk_dirty = :clean",
+			condition: "attribute_exists(pk) AND hydrate_required = :no",
+			values: {
+				":uri": { S: published.snapshotUri },
+				":checksum": { S: published.snapshotChecksum },
+				":one": { N: "1" },
+				":clean": { BOOL: false },
+				":no": { BOOL: false },
+			},
+		});
+	}
+
+	async recordComputerHydrated(tenantId: string): Promise<Computer | null> {
+		return this.updateComputerWhere(tenantId, {
+			update: "SET hydrate_required = :no, disk_dirty = :no REMOVE intended_host_worker_id",
+			condition: "attribute_exists(pk)",
+			values: { ":no": { BOOL: false } },
+		});
+	}
+
 	async markComputerDiskDirty(tenantId: string): Promise<boolean> {
 		try {
 			await this.client.send(

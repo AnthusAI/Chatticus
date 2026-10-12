@@ -93,6 +93,21 @@ export interface MessagingStore {
 	 */
 	settleLostComputerHost(tenantId: string, expectedGeneration: number, lostAt: Date, hydrateRequired: boolean): Promise<Computer | null>;
 	/**
+	 * Record a published snapshot on the computer as a targeted update that touches no other field: the URI and checksum are set,
+	 * the snapshot generation goes up by one and the dirty flag is cleared. A field written after the caller read the record
+	 * (a dispatch, a stop approval, an interactive window) survives.
+	 *
+	 * @returns The computer after the change, or null when there is no computer or a hydrate is required first.
+	 */
+	recordComputerSnapshotPublished(tenantId: string, published: { snapshotUri: string; snapshotChecksum: string }): Promise<Computer | null>;
+	/**
+	 * Record that a host hydrated the published snapshot, as a targeted update: hydrate-required and dirty flags are cleared and
+	 * the intended host is removed. No other field is touched.
+	 *
+	 * @returns The computer after the change, or null when there is no computer.
+	 */
+	recordComputerHydrated(tenantId: string): Promise<Computer | null>;
+	/**
 	 * Mark the live disk of the computer as holding writes no snapshot has published, without touching any other field.
 	 *
 	 * @returns false when the organization has no computer.

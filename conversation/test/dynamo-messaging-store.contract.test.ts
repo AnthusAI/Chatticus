@@ -5,6 +5,7 @@ import { Decimal } from "../src/budget/decimal.ts";
 import { InMemoryMessagingStore } from "../features-support/in-memory-messaging-store.ts";
 import type { Channel, ChannelMessageRecord } from "../src/domain/channels.ts";
 import type { Identity, Invitation, Membership, Organization } from "../src/domain/organizations.ts";
+import { recordHostHydrated, recordHostSnapshotPublished } from "../src/domain/computers.ts";
 import { DuplicateBotNameError } from "../src/http/errors.ts";
 import type { Bot } from "../src/store/codecs/bot.ts";
 import type { Computer } from "../src/store/codecs/computer.ts";
@@ -547,6 +548,51 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				expect(await store.approveOwnerStop("tenant-a", "owner-a", "d-2", T0)).toBe(true);
 				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-2", dispatch("d-3", 3))).toBe(false);
 				expect(await store.getComputer("tenant-a")).toMatchObject({ dispatchId: "d-2", dispatchAttempt: 2, ownerStopApprovedAt: T0 });
+			});
+
+			const racingAfterFirstComputerRead = (store: MessagingStore, race: () => Promise<unknown>): MessagingStore => {
+				let raced = false;
+				return new Proxy(store, {
+					get(target, property) {
+						const value = Reflect.get(target, property) as unknown;
+						if (property === "getComputer") {
+							return async (tenantId: string) => {
+								const computer = await target.getComputer(tenantId);
+								if (!raced) {
+									raced = true;
+									await race();
+								}
+								return computer;
+							};
+						}
+						return typeof value === "function" ? value.bind(target) : value;
+					},
+				});
+			};
+
+			it("records a snapshot publish without reverting a field written between its read and its write", async () => {
+				const store = await makeStore();
+				await store.putComputer({ ...computerOnGeneration(1), snapshotUri: "s3://snapshots/tenant-a", snapshotChecksum: "checksum-1", snapshotGeneration: 1, diskDirty: true });
+				await store.putWorker({ workerId: "owner-a", tenantId: "tenant-a", costClass: "local", capabilities: ["cpu", "computer"], tokenHash: "hash", lastHeartbeatAt: T0, computerId: "c-1" });
+				await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				const racing = racingAfterFirstComputerRead(store, () => store.updateOwnerPresence("tenant-a", "owner-a", { idleSinceAt: T0 }));
+				const published = await recordHostSnapshotPublished("tenant-a", "owner-a", "checksum-2", null, { store: racing });
+				expect(published).toMatchObject({ snapshotChecksum: "checksum-2", snapshotGeneration: 2, diskDirty: false });
+				expect(await store.getComputer("tenant-a")).toMatchObject({ snapshotChecksum: "checksum-2", snapshotGeneration: 2, diskDirty: false, idleSinceAt: T0 });
+				expect((await store.getWorker("tenant-a", "owner-a"))?.hydratedSnapshotGeneration).toBe(2);
+			});
+
+			it("records a hydrate without reverting a field written between its read and its write", async () => {
+				const store = await makeStore();
+				await store.putComputer({ ...computerOnGeneration(1), snapshotUri: "s3://snapshots/tenant-a", snapshotGeneration: 3, hydrateRequired: true, diskDirty: true, intendedHostWorkerId: "owner-a" });
+				await store.putWorker({ workerId: "owner-a", tenantId: "tenant-a", costClass: "local", capabilities: ["cpu", "computer"], tokenHash: "hash", lastHeartbeatAt: T0, computerId: "c-1" });
+				await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				const racing = racingAfterFirstComputerRead(store, () => store.updateOwnerPresence("tenant-a", "owner-a", { idleSinceAt: T0 }));
+				await recordHostHydrated("tenant-a", "owner-a", { store: racing });
+				const after = await store.getComputer("tenant-a");
+				expect(after).toMatchObject({ hydrateRequired: false, diskDirty: false, idleSinceAt: T0 });
+				expect(after?.intendedHostWorkerId).toBeUndefined();
+				expect((await store.getWorker("tenant-a", "owner-a"))?.hydratedSnapshotGeneration).toBe(3);
 			});
 
 			it("records a poll only when its sequence is not older than the recorded one", async () => {
