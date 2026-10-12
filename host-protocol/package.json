@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/schemas.ts",
-    "./workspace-edit": "./src/workspace-edit.ts"
+    "./workspace-edit": "./src/workspace-edit.ts",
+    "./supervisor": "./src/supervisor.ts"
   },
   "dependencies": {
     "zod": "4.6.5"
