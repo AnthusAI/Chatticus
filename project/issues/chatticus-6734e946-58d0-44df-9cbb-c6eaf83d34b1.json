@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-6734e946-58d0-44df-9cbb-c6eaf83d34b1",
+  "title": "Live files A2: server member routes (live or snapshot, PUT, reveal, watch, audit)",
+  "description": "Contract: docs/LIVE_FILES_PROTOCOL.md sections 3 (L1, L2, L4, L5, L14, L18, L21 to L29), 5.2, 6.2, 6.3, 7.2, 7.3, 7.5, 12, 15 (A2). Gherkin first (features/computer_file_live.feature, tag @server).\n\nOwns these scenarios: every @server scenario in the Reading, Writing, Audit, Secrets and \"Who may\" groups, i.e. LF-1 to LF-14, LF-17 to LF-20, LF-22 to LF-27 of the traceability table in section 13, and the watch route scenarios of \"An open panel makes the owner poll every second\" family that need the route (shared with A1).\n\nFiles:\n- conversation/src/http/routes/computer-files.ts: choose live or snapshot with liveFileSourceOf; live GET list/stat/content with the 8 s wait loop (injected clock and sleep), abandon on timeout, fallback with fallback_reason, owner-warming short-circuit, too_busy count, mask re-check on resolved_path (L25); PUT content (7.3 steps 1 to 12, exact order); POST reveal; POST watch (7.5). Headers per 6.2. Error bodies and statuses per 6.3 (LIVE_FILE_ERROR_STATUS).\n- conversation/src/http/app.ts: declareRoute PUT /orgs/:tenant_id/computer/files/content, POST .../files/reveal, POST .../files/watch (audience user).\n- conversation/src/snapshot/files.ts: reveal option that skips masking, provenance fields (stale false, fallback_reason null), modified_at from the index mtime_ms, `revealed`/`editable` on content.\n- conversation/src/domain/file-audit.ts (new): write intent record, finalize, flags, 90 day expires_at, fail closed (503 audit_unavailable).\n- conversation/src/lambdas/front-door-composition.ts: wire the new store methods, clock and sleep.\n- Steps: conversation/features-support/steps/computer-file-live.steps.ts, reusing the Phase 1 snapshot file steps for the saved copy.\n- Existing scenarios that change: features/computer_snapshot_index.feature and computer-snapshot-files.steps.ts (responses gain stale, fallback_reason, modified_at; source stays \"snapshot\").\n- On development after merge: curl shows If-Match reaches the handler and ETag returns through CloudFront (contract 6.2 ASSUMPTION); record the result in a Kanbus comment.\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features green with the owned scenarios in features/cucumber-features.txt.\n\nDependencies: F0 and A1 merged. Blocks W integration and E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Writes are UTF-8 text only. Never log a path or content. Do not read or write project/.",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-041a1034-6ea9-4790-b8be-10f464f70024",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-8bc707d4-44a4-4355-8c37-e4da33c6d412",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-12T21:41:04.106086Z",
+  "updated_at": "2026-10-12T21:41:42.042601Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "planner"
+  },
+  "right_now_summary": "Work covers live and snapshot routes, writes, audit logging, and watch behavior.",
+  "right_now_updated_at": "2026-10-12T21:41:44.214408Z",
+  "custom": {}
+}

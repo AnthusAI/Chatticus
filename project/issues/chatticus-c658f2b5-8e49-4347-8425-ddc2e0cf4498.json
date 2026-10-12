@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-c658f2b5-8e49-4347-8425-ddc2e0cf4498",
+  "title": "Live files C: file helper operations and the supervisor file runner",
+  "description": "Contract: docs/LIVE_FILES_PROTOCOL.md sections 3 (L15 to L17, L23), 8, 9, 12.3, 12.5, 15 (C). Gherkin first (features/computer_file_live.feature, tag @supervisor). Independent of A: build against a fake Front Door plane and a fake launcher.\n\nOwns these scenarios: every @supervisor scenario in the draft feature (LF-12 helper part, LF-16, LF-32 to LF-39).\n\nFiles:\n- conversation/src/pi/owner-file-helper.ts: operations list, stat, ranged read (sha256 of the whole file, mask on the resolved path, O_NONBLOCK + fstat regular, 8 MiB cap), write (UTF-8 text, precondition if_match / if_none_match, temp file with random name O_EXCL|O_NOFOLLOW, fsync, fchmod, second comparison, rename for replace and link+unlink for create, post-check through the held descriptor keeping the replaced bytes as <name>.chatticus-replaced-<8 hex>, refuseGitSegments, createParents for Pi only) exactly per section 8. Imports only Node built-ins and host-protocol/live-file-rules.\n- conversation/src/pi/unprivileged-execution-env.ts: Pi writeFile uses the same write operation (atomic, createParents, no precondition, no refuseGitSegments); error code table covers the new codes.\n- conversation/src/pi/shell-environment.ts (new): move scrubbedShellEnvironment out of local-computer-tools.ts unchanged; both import it.\n- computer/host/src/live-file-operations.ts (new, class LiveFileOperations, ports per 9.1: queue 8, concurrency 2, expires_in_ms from receipt on the monotonic clock, owner_busy at 90 percent memory, result post with 3 attempts, pause/resume/stopAccepting, 60 s memory of finished ids) and live-file-helper-launcher.ts (new, ProcessFileHelperLauncher: launcher -c 'exec \"$@\"' ... file-helper.mjs, scrubbed env, 1 MiB stdout cap, 6 s kill of the process group). It must not import Pi, UnprivilegedExecutionEnv, the starter or the owner stores, and must not call stat/realpath/open on any request path.\n- computer/host/src/supervisor.ts, supervisor-ports.ts, supervisor-main.ts, protocol-client.ts (postFileResult), owner-main.ts (live-file-probe subcommand beside file-probe): integration of section 9.2 (accept file_requests in every state except booting and hydrating, pause around the post-child sweep, stopAccepting first in performStop and on SIGTERM, idle clock restart and quiet publish scheduling after a write, one `file_operation` log line without path or content).\n- host-protocol/src/supervisor.ts: OWNER_PROTOCOL_VERSION = 2 (one line, in this ticket).\n- computer/test_owner_container.sh: run live-file-probe for list, read, write and the .git refusal as the shell user; conversation/test/computer-image-structure.test.ts: bundle guards.\n- Tests: conversation/test/owner-file-helper.test.ts (extend: atomic write, hook between second comparison and rename keeps the replaced bytes, temp file removed on every failure, exclusive create, FIFO, links), conversation/test/live-file-operations.test.ts (queue, mutex, expiry with fake clock). Steps: conversation/features-support/steps/live-file-supervisor.steps.ts with a fake launcher and fake plane in features-support/fakes/.\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features green, including computer_owner_file_isolation.feature and computer_owner_supervisor.feature unchanged; the image builds (computer/Dockerfile) and computer/test_owner_container.sh passes where Docker is available (chatticus-6c66c5 tracks the local image build). Measure and comment: resident memory with two helpers reading 8 MiB files during a publish in a 512 MiB container (risk R1).\n\nDependencies: F0 merged. Blocks E. Deploy: merge after A1 and A2 are deployed so the first protocol 2 owner meets a server that knows file requests (section 15, deploy order).\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-041a1034-6ea9-4790-b8be-10f464f70024",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-7fa35ef3-50f4-44c5-9692-3a3307b749a6",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-12T21:41:11.745247Z",
+  "updated_at": "2026-10-12T21:41:47.789341Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "planner"
+  },
+  "right_now_summary": "The team is building supervisor file helpers, atomic writes, protocol updates, and tests for live file operations.",
+  "right_now_updated_at": "2026-10-12T21:41:49.046392Z",
+  "custom": {}
+}

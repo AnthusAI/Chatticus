@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-7fa35ef3-50f4-44c5-9692-3a3307b749a6",
+  "title": "Live files F0: shared schemas, constants and file rules in host-protocol",
+  "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (the PR `ts/live-files-contract`), sections 5, 3 (L3, L7, L18, L20) and 15 (F0). Foundation step: merge before A1, C or W integrate. No behavior change except the shared secret-name list gaining `.git-credentials`.\n\nFiles:\n- host-protocol/src/live-file-rules.ts (new, imports NOTHING): LIVE_WORKSPACE_ROOT, LIVE_FILE_PATH_MAX_CHARACTERS, livePathProblem, normalizeLivePath, livePathHasGitSegment, looksLikeSecretFile, looksBinary, trimToCharacterBoundary, utf8ByteLength (section 5.1).\n- host-protocol/src/live-files.ts (new): constants and every zod schema of section 5.2, verbatim.\n- host-protocol/src/supervisor.ts: add OWNER_FILE_REQUESTS_PROTOCOL_VERSION = 2 and OWNER_POLL_INTERACTIVE_MILLISECONDS = 1000; ownerErrorCodeSchema + \"operation_closed\" (409 in OWNER_ERROR_STATUS); ownerStopVetoReasonSchema + \"file_operation_pending\"; ownerPollResponseSchema + file_requests (max 4, default []). Do NOT change OWNER_PROTOCOL_VERSION (Part C does).\n- host-protocol/package.json: exports \"./live-files\" and \"./live-file-rules\".\n- conversation/src/snapshot/files.ts: import the shared rules, delete the private copies of indexPathOf's checks, looksLikeSecretFile, looksBinary, trimToCharacterBoundary (indexPathOf keeps the index-path mapping on top of livePathProblem).\n- conversation/test/live-file-rules.test.ts (new), conversation/test/live-files-protocol-schema.test.ts (new), conversation/test/owner-supervisor-protocol-schema.test.ts (extend: poll response with and without file_requests, new veto and error code).\n\nAcceptance (run from conversation/): npm run typecheck; npm test; npm run test:features. All green, including every existing computer_snapshot_index.feature scenario. The schema test proves: the largest read result serialized as a table item is under 380000 bytes; a 262144-byte write passes and one more byte fails; paths with \"..\", NUL, relative, or outside /workspace fail; a masked read result with content fails; a request with an unknown field fails and a poll response with an unknown field passes.\n\nDependencies: none. Blocks A1, C, W (shapes), A2.\n\nRules: no emojis, no line comments, TSDoc on public exports, long names. Do not read or write project/.",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-041a1034-6ea9-4790-b8be-10f464f70024",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-12T21:40:52.674125Z",
+  "updated_at": "2026-10-12T21:40:52.674356Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "planner"
+  },
+  "right_now_summary": "The shared live-file rules and protocol schemas are being prepared before dependent integrations.",
+  "right_now_updated_at": "2026-10-12T21:40:55.064945Z",
+  "custom": {}
+}

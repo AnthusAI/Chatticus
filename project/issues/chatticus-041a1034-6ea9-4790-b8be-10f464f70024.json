@@ -1,7 +1,7 @@
 {
   "id": "chatticus-041a1034-6ea9-4790-b8be-10f464f70024",
   "title": "Long-lived computer Phase 3: live file view and edit through the owner",
-  "description": "Fileops items served by the owner through the unprivileged helper, PUT with If-Match, audit, conflicts. Depends on 2a.",
+  "description": "Fileops items served by the owner through the unprivileged helper, PUT with If-Match, audit, conflicts. Depends on 2a (merged). Contract: docs/LIVE_FILES_PROTOCOL.md. Draft behavior: features/computer_file_live.feature. Sub-tasks: F0 chatticus-7fa35e, A1 chatticus-8bc707, A2 chatticus-6734e9, C chatticus-c658f2, W chatticus-4c646b, E chatticus-4a68c2.",
   "type": "task",
   "status": "open",
   "priority": 2,
@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "314ed9dc-a0cf-4f51-b4e2-066750758aa1",
+      "author": "home",
+      "text": "Phase 3 contract written: docs/LIVE_FILES_PROTOCOL.md and the draft features/computer_file_live.feature (PR from branch ts/live-files-contract into develop, not merged). Work split into sub-tasks, in dependency order: F0 chatticus-7fa35e (schemas, constants, file rules), then A1 chatticus-8bc707 (server store, domain, poll, result route) and C chatticus-c658f2 (helper and supervisor) and W chatticus-4c646b (web) in parallel, A2 chatticus-6734e9 (member routes) after A1, E chatticus-4a68c2 (end to end and live proof) last. Eleven product questions for the owner are in section 14 of the contract; none is decided. No infrastructure change is needed.",
+      "created_at": "2026-10-12T21:42:06.452800Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "planner"
+      }
+    }
+  ],
   "created_at": "2026-10-12T13:18:59.699384Z",
-  "updated_at": "2026-10-12T13:18:59.699412Z",
+  "updated_at": "2026-10-12T21:42:15.702613Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Phase 3 covers live file viewing and editing through the owner, with audit and conflict checks.",
-  "right_now_updated_at": "2026-10-12T13:19:01.278736Z",
+  "right_now_summary": "The contract is drafted, while teams build the live file editor, routes, helpers, and tests.",
+  "right_now_updated_at": "2026-10-12T21:42:17.814064Z",
   "custom": {}
 }
