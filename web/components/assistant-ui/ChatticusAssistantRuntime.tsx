@@ -15,6 +15,7 @@ import {
   type ChatticusThreadMessage,
   type FailedTurn,
 } from "@/lib/assistant-ui-bridge";
+import type { RetainedTurnActivity } from "@/lib/committed-activity";
 import type { TurnUiStatus } from "@/lib/workspace-state";
 
 import {
@@ -34,6 +35,7 @@ export type ChatticusAssistantRuntimeProps = {
   failedTurn?: FailedTurn | null;
   turnIsSlow?: boolean;
   turnEvents?: readonly TurnEvent[];
+  retainedActivity?: RetainedTurnActivity | null;
   onRetryFailedTurn?: (failure: FailedTurn) => Promise<void>;
   threadProps?: Omit<ChatticusAssistantThreadProps, "className">;
   className?: string;
@@ -50,14 +52,15 @@ function ChatticusAssistantRuntimeInner({
   failedTurn = null,
   turnIsSlow = false,
   turnEvents = [],
+  retainedActivity = null,
   onRetryFailedTurn,
   threadProps,
   className,
 }: ChatticusAssistantRuntimeProps) {
   const threadMessages = useMemo(
     () =>
-      buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow, turnEvents),
-    [failedTurn, messages, progress, turn, turnEvents, turnIsSlow, turnStatus],
+      buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow, turnEvents, retainedActivity),
+    [failedTurn, messages, progress, retainedActivity, turn, turnEvents, turnIsSlow, turnStatus],
   );
   const retryFailedTurn = useMemo(
     () =>

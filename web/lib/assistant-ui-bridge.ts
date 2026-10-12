@@ -1,13 +1,14 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import type { Message, Turn, TurnEvent } from "./api";
+import { committedMessageActivity, type RetainedTurnActivity } from "./committed-activity";
 import { reduceTurnActivity, type TurnActivity } from "./turn-activity";
 import type { TurnUiStatus } from "./workspace-state";
 
 export const STREAMING_MESSAGE_ID_PREFIX = "chatticus:streaming:";
 
 export type ChatticusThreadMessage =
-  | { kind: "committed"; message: Message }
+  | { kind: "committed"; message: Message; activity?: TurnActivity | null }
   | {
       kind: "streaming";
       turnId: string;
@@ -78,23 +79,35 @@ export function buildChatticusThreadMessages(
   failedTurn: FailedTurn | null = null,
   slow = false,
   turnEvents: readonly TurnEvent[] = [],
+  retained: RetainedTurnActivity | null = null,
 ): ChatticusThreadMessage[] {
-  const committed: ChatticusThreadMessage[] = messages.map((message) => ({
-    kind: "committed" as const,
-    message,
-  }));
+  const latestMessage = messages[messages.length - 1];
+  const liveReplyJustCommitted =
+    turn !== null &&
+    (turnStatus === "reconciling" || turnStatus === "completed") &&
+    Boolean(latestMessage) &&
+    latestMessage.author_kind === "bot" &&
+    latestMessage.author_id === turn.bot_id;
+  const liveReplyIsNew =
+    liveReplyJustCommitted && latestMessage.seq > (turn?.prompt_message_seq ?? 0);
+  const committed: ChatticusThreadMessage[] = messages.map((message) => {
+    if (message.author_kind !== "bot") {
+      return { kind: "committed" as const, message };
+    }
+    const keptLive =
+      liveReplyIsNew && message === latestMessage
+        ? reduceTurnActivity(turnEvents)
+        : retained?.messageId === message.message_id
+          ? retained.activity
+          : null;
+    const activity = committedMessageActivity(message, keptLive);
+    return { kind: "committed" as const, message, activity: activity.hasActivity ? activity : null };
+  });
   if (!turn) {
     return failedTurn ? [...committed, { kind: "failed", failure: failedTurn }] : committed;
   }
 
-  const latest = messages[messages.length - 1];
-  const botAlreadyCommitted =
-    (turnStatus === "reconciling" || turnStatus === "completed") &&
-    Boolean(latest) &&
-    latest.author_kind === "bot" &&
-    latest.author_id === turn.bot_id;
-
-  if (botAlreadyCommitted) {
+  if (liveReplyJustCommitted) {
     return committed;
   }
 
@@ -151,6 +164,7 @@ export function convertChatticusThreadMessage(
         custom: {
           authorBotName,
           createdAt: message.created_at,
+          activity: item.activity ?? undefined,
           isStreaming: false,
         },
       },
