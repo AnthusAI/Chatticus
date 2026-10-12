@@ -7,12 +7,13 @@ import { ControlPlaneStack } from "../lib/control-plane-stack";
 const ecsContext: Record<string, string> = {
   computerHostStart: "ecs",
   computerEcsCluster: "computers-cluster",
-  computerEcsTaskDefinition: "arn:aws:ecs:us-east-1:111111111111:task-definition/computer:7",
   computerEcsSubnets: "subnet-aaa,subnet-bbb",
   computerEcsSecurityGroups: "sg-111",
-  computerEcsExecutionRoleArn: "arn:aws:iam::111111111111:role/computer-execution",
-  computerEcsTaskRoleArn: "arn:aws:iam::111111111111:role/computer-task",
   computerEcrRepositoryUri: "111111111111.dkr.ecr.us-east-1.amazonaws.com/computer",
+  computerOwnerTaskDefinition: "arn:aws:ecs:us-east-1:111111111111:task-definition/ChatticusComputerOwner:3",
+  computerOwnerTaskRoleArn: "arn:aws:iam::111111111111:role/owner-task",
+  computerOwnerExecutionRoleArn: "arn:aws:iam::111111111111:role/owner-execution",
+  computerSnapshotBucketName: "chatticus-snapshots-bucket",
 };
 
 const app = new cdk.App({ context: ecsContext });

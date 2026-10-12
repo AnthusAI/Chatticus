@@ -136,3 +136,4 @@ features/owner_host_token.feature
 features/invoke_key_rotation.feature
 features/rich_turn_events.feature
 features/supervisor_role_policy.feature
+features/owner_credential_broker.feature

@@ -7,8 +7,8 @@ Feature: The organization computer stays on between turns and switches itself of
   with their parts and add this file to features/cucumber-features.txt in the same
   change. The contract is docs/OWNER_SUPERVISOR_PROTOCOL.md and the wire schemas are
   in host-protocol/src/supervisor.ts. Tags name who writes the steps. The tag
-  "server" covers the routes, the stores and the start check; "broker" the
-  credential broker and the roles; "supervisor" the program in the container,
+  "server" covers the routes, the stores and the start check; the credential
+  broker has its own feature, owner_credential_broker.feature; "supervisor" the program in the container,
   with a fake Front Door, clock and process table; "end-to-end" the real routes
   with the real supervisor loop.
 
@@ -449,94 +449,6 @@ Feature: The organization computer stays on between turns and switches itself of
     When the starter handles a start job for a computer in the deployment account
     Then the start was refused mentioning "computer"
     And the starter ran exactly 0 ECS tasks
-
-  @broker
-  Scenario: The broker issues supervisor credentials for the owner a bootstrap token names
-    Given the broker holds the signing key
-    When the broker is asked for supervisor credentials with a valid bootstrap token
-    Then the role "ComputerSupervisorRole" was assumed for 3600 seconds
-    And the session tags are exactly "tenant" and "computer"
-    And the assume-role call carries no session policy
-    And the answer holds a supervisor token for the audience "computer-owner" that names no turn
-    And the credentials, the token and the token's expiry end at the same moment
-
-  @broker
-  Scenario: The broker issues turn credentials with the five tags and a gateway token
-    Given the broker holds the signing key
-    When the broker is asked for turn credentials for bot "bot-1", channel "channel-1" and turn "turn-1" with a valid supervisor token
-    Then the role "ComputerOwnerScopedRole" was assumed for 3600 seconds
-    And the session tags are exactly "tenant", "bot", "channel", "computer" and "turn"
-    And the answer holds a gateway token for the audience "model-gateway" bound to the turn, the bot and the owner id
-
-  @broker
-  Scenario Outline: The broker refuses what it should not issue
-    Given the broker holds the signing key
-    When the broker is asked for <purpose> credentials and <fault>
-    Then the broker answers not ok with the code "<code>"
-    And STS was not asked to assume a role
-
-    Examples:
-      | purpose    | fault                                                          | code                   |
-      | supervisor | the authorization is a supervisor token                        | invalid_authorization  |
-      | supervisor | the authorization is expired                                   | invalid_authorization  |
-      | supervisor | the authorization names another owner than the payload         | authorization_mismatch |
-      | supervisor | the authorization names another generation than the payload    | authorization_mismatch |
-      | turn       | the authorization is a bootstrap token                         | invalid_authorization  |
-      | turn       | the authorization names another organization than the payload  | authorization_mismatch |
-      | turn       | the bot id is "bot 1"                                          | unsafe_tag_value       |
-      | turn       | the payload has no turn                                        | invalid_request        |
-      | supervisor | the payload names a turn                                       | invalid_request        |
-      | turn       | the payload version is 2                                       | invalid_request        |
-
-  @broker
-  Scenario: The broker reports an STS failure by name only
-    Given the broker holds the signing key
-    And STS refuses the assume-role call with the error "AccessDenied"
-    When the broker is asked for supervisor credentials with a valid bootstrap token
-    Then the broker answers not ok with the code "assume_role_failed"
-    And the message is "AccessDenied" and holds no token, key or credential
-
-  @broker
-  Scenario: The broker cannot sign without its key
-    Given the broker cannot read the signing key
-    When the broker is asked for supervisor credentials with a valid bootstrap token
-    Then the broker answers not ok with the code "signing_key_unavailable"
-
-  @broker
-  Scenario Outline: The supervisor role reaches its computer's snapshot prefix and nothing else
-    Given the supervisor role of organization "anthus" on computer "computer-1"
-    When the supervisor requests "<action>" on the "<store>" for the key "<key>"
-    Then the supervisor role <verdict> the request
-
-    Examples:
-      | action                     | store     | key                                  | verdict |
-      | s3:GetObject               | snapshots | tenants/anthus/computers/computer-1/snapshot.tar.gz | allows  |
-      | s3:PutObject               | snapshots | tenants/anthus/computers/computer-1/manifest.json   | allows  |
-      | s3:AbortMultipartUpload    | snapshots | tenants/anthus/computers/computer-1/snapshot.tar.gz | allows  |
-      | s3:DeleteObject            | snapshots | tenants/anthus/computers/computer-1/snapshot.tar.gz | denies  |
-      | s3:ListBucket              | snapshots | tenants/anthus/computers/computer-1/                | denies  |
-      | s3:GetObject               | snapshots | tenants/anthus/computers/computer-2/snapshot.tar.gz | denies  |
-      | s3:GetObject               | snapshots | tenants/other/computers/computer-1/snapshot.tar.gz  | denies  |
-      | s3:GetObject               | sessions  | conversations/anthus%23bot-1%23channel-1/log        | denies  |
-      | dynamodb:GetItem           | messaging | anthus#turn#0000000004                              | denies  |
-      | dynamodb:PutItem           | messaging | anthus#computer#record                              | denies  |
-      | dynamodb:GetItem           | messaging | anthus#org                                          | denies  |
-      | dynamodb:Query             | conversations | PI#anthus#bot-1#channel-1                       | denies  |
-
-  @broker
-  Scenario Outline: A per-turn credential reaches its own conversation and not the snapshot or another channel
-    Given the owner role of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-1" in turn "turn-1"
-    When the owner requests "<action>" on the "<store>" for the key "<key>"
-    Then the owner role <verdict> the request
-
-    Examples:
-      | action           | store     | key                                                  | verdict |
-      | s3:GetObject     | sessions  | conversations/anthus%23bot-1%23channel-1/log         | allows  |
-      | s3:GetObject     | sessions  | conversations/anthus%23bot-1%23channel-2/log         | denies  |
-      | s3:GetObject     | snapshots | tenants/anthus/computers/computer-1/snapshot.tar.gz  | denies  |
-      | s3:PutObject     | snapshots | tenants/anthus/computers/computer-1/manifest.json    | denies  |
-      | dynamodb:GetItem | conversations | PI#anthus#bot-1#channel-1                        | allows  |
-      | dynamodb:GetItem | conversations | PI#anthus#bot-1#channel-2                        | denies  |
 
   @supervisor
   Scenario: An owner with a bootstrap token and a snapshot hydrates, becomes idle and holds nothing in its environment
