@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { OwnerConfigurationError, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "../../computer/host/src/owner-deps.ts";
+import { OwnerConfigurationError } from "../../computer/host/src/owner-configuration.ts";
+import { ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment, ownerTurnJobFromEnvironment } from "../../computer/host/src/owner-deps.ts";
 import { createGatewayModels } from "../../computer/host/src/owner-models.ts";
-import { ownerExitCodeFor, startJobSourceFromEnvironment } from "../../computer/host/src/owner.ts";
+import { CHILD_EXIT_CONFIGURATION, CHILD_EXIT_SHELL_ISOLATION, CHILD_EXIT_UNCAUGHT, ShellIsolationError, ownerChildExitCodeForError, ownerExitCodeFor } from "../../computer/host/src/owner.ts";
 
 const gateway = { baseUrl: "https://gateway.example.test/v1", token: "session-token-1" };
 
@@ -54,15 +55,21 @@ describe("ownerStoresConfigFromEnvironment", () => {
 	});
 });
 
-describe("startJobSourceFromEnvironment", () => {
-	it("yields the named turn once and then none", async () => {
-		const source = startJobSourceFromEnvironment({ CHATTICUS_TENANT_ID: "t", CHATTICUS_TAKEOVER_TURN_ID: "u", CHATTICUS_TAKEOVER_BOT_ID: "b" });
-		expect(await source.claim()).toEqual({ tenantId: "t", turnId: "u", botId: "b" });
-		expect(await source.claim()).toBeNull();
+describe("ownerTurnJobFromEnvironment", () => {
+	const complete = {
+		CHATTICUS_TENANT_ID: "t",
+		CHATTICUS_TAKEOVER_TURN_ID: "u",
+		CHATTICUS_TAKEOVER_BOT_ID: "b",
+		CHATTICUS_DISPATCH_ID: "d",
+	};
+
+	it("reads the dispatched turn and the dispatch that delivered it", () => {
+		expect(ownerTurnJobFromEnvironment(complete)).toEqual({ job: { tenantId: "t", turnId: "u", botId: "b" }, dispatchId: "d" });
 	});
 
-	it("yields none when the start named no turn", async () => {
-		expect(await startJobSourceFromEnvironment({ CHATTICUS_TENANT_ID: "t" }).claim()).toBeNull();
+	it("names the missing variable", () => {
+		const { CHATTICUS_TAKEOVER_TURN_ID: _omitted, ...incomplete } = complete;
+		expect(() => ownerTurnJobFromEnvironment(incomplete)).toThrow("CHATTICUS_TAKEOVER_TURN_ID");
 	});
 });
 
@@ -71,23 +78,29 @@ describe("ownerIdentityFromEnvironment", () => {
 		CHATTICUS_TENANT_ID: "anthus",
 		CHATTICUS_USER_ID: "ryan",
 		CHATTICUS_OWNER_ID: "owner-1",
-		CHATTICUS_FRONT_DOOR_URL: "https://front-door.test/",
-		CHATTICUS_OWNER_HOST_TOKEN: "host-token-1",
+		CHATTICUS_OWNER_START_GENERATION: "3",
 	};
 
-	it("reads the identity and trims the trailing slash of the Front Door", () => {
-		expect(ownerIdentityFromEnvironment(complete)).toEqual({
-			tenantId: "anthus",
-			userId: "ryan",
-			ownerId: "owner-1",
-			frontDoorUrl: "https://front-door.test",
-			hostToken: "host-token-1",
-		});
+	it("reads the identity and holds no Front Door address and no host token", () => {
+		expect(ownerIdentityFromEnvironment(complete)).toEqual({ tenantId: "anthus", userId: "ryan", ownerId: "owner-1", generation: 3 });
 	});
 
 	it("names the missing variable", () => {
 		const { CHATTICUS_OWNER_ID: _omitted, ...incomplete } = complete;
 		expect(() => ownerIdentityFromEnvironment(incomplete)).toThrow("CHATTICUS_OWNER_ID");
+	});
+
+	it.each(["0", "-1", "two", "1.5"])("refuses the generation %s", (generation) => {
+		expect(() => ownerIdentityFromEnvironment({ ...complete, CHATTICUS_OWNER_START_GENERATION: generation })).toThrow(OwnerConfigurationError);
+	});
+});
+
+describe("ownerChildExitCodeForError", () => {
+	it("maps wrong settings to 2, an unusable shell launcher to 3 and anything else to 70", () => {
+		expect(ownerChildExitCodeForError(new OwnerConfigurationError("x"))).toBe(CHILD_EXIT_CONFIGURATION);
+		expect(ownerChildExitCodeForError(new ShellIsolationError("x"))).toBe(CHILD_EXIT_SHELL_ISOLATION);
+		expect(ownerChildExitCodeForError(new Error("x"))).toBe(CHILD_EXIT_UNCAUGHT);
+		expect([CHILD_EXIT_CONFIGURATION, CHILD_EXIT_SHELL_ISOLATION, CHILD_EXIT_UNCAUGHT]).toEqual([2, 3, 70]);
 	});
 });
 
@@ -96,7 +109,7 @@ describe("ownerExitCodeFor", () => {
 		expect(ownerExitCodeFor(outcome)).toBe(0);
 	});
 
-	it.each(["lost", "reconciling", "not_found", "no_job"] as const)("exits 1 when the turn ended %s", (outcome) => {
+	it.each(["lost", "reconciling", "not_found"] as const)("exits 1 when the turn ended %s", (outcome) => {
 		expect(ownerExitCodeFor(outcome)).toBe(1);
 	});
 });

@@ -39,6 +39,7 @@ COPY --from=host-bundle /opt/chatticus/host /opt/chatticus/host
 
 COPY computer/entrypoint.sh /usr/local/bin/chatticus-computer-entrypoint
 COPY computer/chatticus-shell /usr/local/bin/chatticus-shell
+COPY computer/chatticus-watchdog /usr/local/bin/chatticus-watchdog
 
 # Commands the model chooses run as chatticus-shell, never as root. The workspace
 # is shared with it through the chatticus-workspace group; everything else the
@@ -47,7 +48,7 @@ RUN groupadd --gid 2000 chatticus-shell \
     && groupadd --gid 2001 chatticus-workspace \
     && useradd --uid 2000 --gid chatticus-shell --groups chatticus-workspace \
         --no-create-home --home-dir /workspace --shell /usr/sbin/nologin chatticus-shell \
-    && chmod 755 /usr/local/bin/chatticus-computer-entrypoint /usr/local/bin/chatticus-shell \
+    && chmod 755 /usr/local/bin/chatticus-computer-entrypoint /usr/local/bin/chatticus-shell /usr/local/bin/chatticus-watchdog \
     && mkdir -p /var/lib/chatticus/computer/workspace \
         /var/lib/chatticus/computer/browser-profiles/untrusted \
         /var/lib/chatticus/computer/browser-profiles/privileged \

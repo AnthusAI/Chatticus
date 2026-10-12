@@ -86,7 +86,3 @@ Then(
 	},
 );
 
-Then("the computer owners made no {string} request", function (this: ChatticusWorld, action: string) {
-	const found = recordedOwnerRequestsOf(this).filter((request) => request.action === action).map(describeRequest);
-	assert.deepEqual([...new Set(found)], []);
-});

@@ -7,18 +7,33 @@ import { containerEnvironmentOf, ownerStartOf } from "../owner-start-support.ts"
 import type { ChatticusWorld } from "../world.ts";
 import { turnOf } from "./model-gateway.steps.ts";
 
-const OWNER_EVENTS: ReadonlySet<string> = new Set([
-	"owner_started",
-	"workspace_hydrated",
+const TURN_EVENTS: ReadonlySet<string> = new Set([
+	"owner_dispatch_received",
+	"owner_serving_turn",
+	"owner_child_exited",
 	"turn_claimed",
 	"turn_claim_lost",
 	"turn_skipped",
 	"tool_started",
 	"tool_finished",
 	"model_call",
-	"snapshot_published",
-	"snapshot_skipped",
 	"owner_exit",
+]);
+
+const OWNER_EVENTS: ReadonlySet<string> = new Set([
+	...TURN_EVENTS,
+	"owner_started",
+	"owner_bootstrapped",
+	"owner_idle",
+	"owner_draining",
+	"owner_stop_requested",
+	"owner_stop_vetoed",
+	"owner_stopping",
+	"workspace_hydrated",
+	"workspace_hydrate_failed",
+	"snapshot_published",
+	"snapshot_publish_failed",
+	"snapshot_skipped",
 ]);
 
 const STARTER_EVENTS: ReadonlySet<string> = new Set([
@@ -61,14 +76,14 @@ Then("the owner log of the started owner shows these events in order:", function
 });
 
 Then(
-	"every owner log line of {string} names the tenant {string}, the turn and the owner id",
+	"every owner log line of {string} names the tenant {string} and the owner id, and the lines about a turn name it",
 	function (this: ChatticusWorld, ownerId: string, tenantId: string) {
 		const all = parsedLogLines(capturedConsoleLines(this)).filter((line) => OWNER_EVENTS.has(line.event));
 		assert.ok(ownerLinesOf(this, ownerId).length > 0, `The owner ${ownerId} logged nothing.`);
 		for (const line of all) {
 			assert.equal(line.fields.get("tenant_id"), tenantId, line.text);
-			assert.ok((line.fields.get("turn_id") ?? "") !== "", line.text);
 			assert.ok((line.fields.get("owner_id") ?? "") !== "", line.text);
+			if (TURN_EVENTS.has(line.event)) assert.ok((line.fields.get("turn_id") ?? "") !== "", line.text);
 		}
 	},
 );

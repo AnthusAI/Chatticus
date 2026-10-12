@@ -68,11 +68,20 @@ v1 contents:
   adds Xvfb and Chromium back reports the browser ready at boot.
 - shell and `/workspace`
 - snapshot pack/hydrate CLI
-- `node /opt/chatticus/host/owner.mjs`: the Pi owner program. For computers in
-  Anthus's own accounts the ComputerStarter runs it in the `ChatticusComputerOwner`
-  task. It claims a parked turn, runs Pi's own tools locally, calls the model
-  through the gateway with a per-turn token, publishes the snapshot when content
-  changed and exits. Model-chosen commands run through `chatticus-shell` as
+- `node /opt/chatticus/host/supervisor.mjs`: the owner supervisor, the program
+  the `ChatticusComputerOwner` task runs for computers in Anthus's own accounts.
+  It exchanges its one-time bootstrap token for its own token and credentials,
+  restores the disk, asks the control plane for work (the poll is its
+  heartbeat), runs each dispatched turn in a `owner.mjs turn` child, publishes
+  a changed disk between turns, and stops itself after 15 minutes without work
+  or when the control plane drains it. `chatticus-watchdog` is a separate
+  process that ends a supervisor whose main loop has stopped. See
+  [docs/OWNER_SUPERVISOR_PROTOCOL.md](../docs/OWNER_SUPERVISOR_PROTOCOL.md).
+- `node /opt/chatticus/host/owner.mjs turn`: the per-turn Pi owner program the
+  supervisor starts. It takes over the one turn it was given, runs Pi's own
+  tools locally, calls the model through the gateway with that turn's token and
+  exits; it holds no host token and does not touch the snapshot. Model-chosen
+  commands run through `chatticus-shell` as
   uid 2000 with a scrubbed environment; the file tools run as that user too, through a
   helper started by the same launcher. See
   [docs/PI_SESSION_HANDOFF.md](../docs/PI_SESSION_HANDOFF.md) for the design,

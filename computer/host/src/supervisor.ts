@@ -1,0 +1,617 @@
+import {
+	OWNER_CHILD_FAILURE_LIMIT,
+	OWNER_DRAIN_GRACE_SECONDS,
+	OWNER_IDLE_TIMEOUT_SECONDS,
+	OWNER_PERIODIC_PUBLISH_SECONDS,
+	OWNER_POLL_SILENCE_FENCE_SECONDS,
+	OWNER_PROTOCOL_VERSION,
+	OWNER_QUIET_PUBLISH_SECONDS,
+	OWNER_STOP_RETRY_SECONDS,
+	type AwsCredentials,
+	type OwnerDispatch,
+	type OwnerPollRequest,
+	type OwnerPollResponse,
+	type OwnerState,
+	type OwnerStopReason,
+} from "@chatticus/host-protocol/supervisor";
+import { errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
+import { HostProtocolError } from "./protocol-client.ts";
+import { buildOwnerChildEnvironment } from "./supervisor-child-environment.ts";
+import {
+	SUPERVISOR_EXIT_BOOTSTRAP_FAILED,
+	SUPERVISOR_EXIT_BOOT_FAILED,
+	SUPERVISOR_EXIT_FENCED,
+	SUPERVISOR_EXIT_SIGTERM,
+	SUPERVISOR_EXIT_STOPPED,
+	SUPERVISOR_EXIT_SUPERSEDED,
+	type ChildExit,
+	type ChildSpawner,
+	type SpawnedChild,
+	type SupervisorClock,
+	type SupervisorDisk,
+	type SupervisorPlane,
+	type UnprivilegedProcessSweeper,
+} from "./supervisor-ports.ts";
+
+const BOOTSTRAP_RETRY_WINDOW_MILLISECONDS = 120_000;
+const BOOTSTRAP_RETRY_PAUSE_MILLISECONDS = 2000;
+const POLL_FAILURE_PAUSES_MILLISECONDS = [1000, 2000, 4000, 5000] as const;
+const TERMINATE_GRACE_AT_SIGTERM_MILLISECONDS = 5000;
+const TERMINATE_GRACE_AT_DRAIN_MILLISECONDS = 10_000;
+const STOPPED_REPORT_ATTEMPTS = 3;
+const STOPPED_REPORT_PAUSE_MILLISECONDS = 2000;
+const CREDENTIAL_STOP_MARGIN_MILLISECONDS = 180_000;
+const IDLE_LOG_INTERVAL_MILLISECONDS = 300_000;
+const POLLING_LOG_INTERVAL_MILLISECONDS = 60_000;
+
+const SUPERSEDING_CODES: ReadonlySet<string> = new Set(["stale_generation", "not_current_owner", "wrong_organization", "credential_mismatch"]);
+
+/** Who the supervisor is. */
+export type OwnerSupervisorIdentity = {
+	readonly tenantId: string;
+	/** The owner id the starter generated; also the worker id of the owner and the claim identity of every child. */
+	readonly ownerId: string;
+	/** The host start generation the starter claimed for this owner. */
+	readonly generation: number;
+};
+
+/** What a supervisor runs on. Every effect is a port, so a scenario supplies fakes for all of them. */
+export type OwnerSupervisorOptions = {
+	readonly identity: OwnerSupervisorIdentity;
+	/** The supervisor's own environment: the source of the settings the child shares. It is never modified. */
+	readonly environment: NodeJS.ProcessEnv;
+	readonly plane: SupervisorPlane;
+	/** Opens the computer's disk with the supervisor's AWS credentials once the bootstrap exchange has issued them. */
+	readonly openDisk: (credentials: AwsCredentials) => SupervisorDisk;
+	readonly spawner: ChildSpawner;
+	readonly sweeper: UnprivilegedProcessSweeper;
+	readonly clock: SupervisorClock;
+	readonly log: LogEmitter;
+	/** Percent of the container's memory in use, reported with every poll; absent or undefined, none is reported. */
+	readonly memoryUsedPercent?: () => number | undefined;
+};
+
+type RunningChild = {
+	readonly handle: SpawnedChild;
+	readonly dispatchId: string;
+	readonly turnId: string;
+	readonly botId: string;
+	readonly startedAtMilliseconds: number;
+};
+
+type StopCause = OwnerStopReason | "sigterm";
+
+/**
+ * The long-lived owner of the organization computer. After the bootstrap exchange it asks the control plane for work with a
+ * poll that is also its heartbeat, restores the disk, runs each dispatched turn in a per-turn child that holds only that
+ * turn's credentials, publishes a changed disk between turns, and stops itself when it has been idle, when the control plane
+ * drains it, when it is unhealthy, or when the container is stopped. It fences itself when the control plane has not
+ * answered for longer than the control plane waits before it counts the owner dead.
+ */
+export class OwnerSupervisor {
+	private readonly options: OwnerSupervisorOptions;
+	private readonly identity: OwnerSupervisorIdentity;
+	private currentState: OwnerState = "booting";
+	private exitCode: number | undefined;
+	private sequence = 0;
+	private wakeRequested = false;
+	private wakeController: AbortController | null = null;
+	private disk: SupervisorDisk | null = null;
+	private hydrated = false;
+	private activity: Promise<void> | null = null;
+	private child: RunningChild | null = null;
+	private startedAtMilliseconds = 0;
+	private credentialsStopAtMilliseconds = Number.POSITIVE_INFINITY;
+	private lastSuccessfulPollAtMilliseconds = 0;
+	private nextPollAtMilliseconds = 0;
+	private consecutivePollFailures = 0;
+	private pollsSinceLog = 0;
+	private dispatchesSinceLog = 0;
+	private failuresSinceLog = 0;
+	private lastPollIntervalMilliseconds = 0;
+	private nextPollingLogAtMilliseconds = 0;
+	private idleStartedAtMilliseconds: number | null = null;
+	private nextIdleLogAtMilliseconds = 0;
+	private nextPublishCheckAtMilliseconds: number | null = null;
+	private stopRetryAtMilliseconds = 0;
+	private consecutiveChildFailures = 0;
+	private turnsServed = 0;
+	private draining = false;
+	private drainStartedAtMilliseconds = 0;
+	private drainKillStarted = false;
+	private stopping = false;
+	private sigtermRequested = false;
+	private readonly servedDispatchIds = new Set<string>();
+
+	constructor(options: OwnerSupervisorOptions) {
+		this.options = options;
+		this.identity = options.identity;
+	}
+
+	/** Where the supervisor is in its life, as it reports it with the next poll. */
+	get state(): OwnerState {
+		return this.currentState;
+	}
+
+	/**
+	 * Tell the supervisor the container is being stopped. It stops accepting dispatches, ends the child, publishes the disk if
+	 * it changed, reports the computer stopped for its generation and ends with exit code 143. No stop is requested: the
+	 * platform stops the task regardless.
+	 */
+	requestTermination(): void {
+		this.sigtermRequested = true;
+		this.wake();
+	}
+
+	/**
+	 * Run the supervisor from its first log line to the end of its life.
+	 *
+	 * @returns The process exit code: 0 stopped in good order, 4 fenced, 5 no longer the owner, 6 bootstrap failed, 8 the disk could not be restored, 143 stopped by SIGTERM.
+	 */
+	async run(): Promise<number> {
+		this.log("owner_started", { generation: this.identity.generation, pid: process.pid });
+		this.startedAtMilliseconds = this.now();
+		if (!(await this.bootstrap())) return this.exitCode ?? SUPERVISOR_EXIT_BOOTSTRAP_FAILED;
+		while (this.exitCode === undefined) {
+			await this.waitForNextEvent();
+			if (this.exitCode !== undefined) break;
+			await this.doDueWork();
+			if (this.exitCode !== undefined) break;
+			if (this.now() >= this.nextPollAtMilliseconds) await this.pollOnce();
+			this.fenceIfSilent();
+		}
+		return this.exitCode;
+	}
+
+	private now(): number {
+		return this.options.clock.nowMilliseconds();
+	}
+
+	private log(event: string, fields: Parameters<LogEmitter>[1] = {}): void {
+		this.options.log(event, fields);
+	}
+
+	private finish(code: number): void {
+		if (this.exitCode !== undefined) return;
+		this.exitCode = code;
+		this.wake();
+	}
+
+	private wake(): void {
+		this.wakeRequested = true;
+		this.wakeController?.abort();
+	}
+
+	private requestPollNow(): void {
+		this.nextPollAtMilliseconds = this.now();
+		this.wake();
+	}
+
+	private async bootstrap(): Promise<boolean> {
+		const startedAt = this.now();
+		let attempts = 0;
+		for (;;) {
+			if (this.sigtermRequested) {
+				this.log("owner_stopping", { reason: "sigterm", uptime_ms: this.now() - this.startedAtMilliseconds, turns_served: 0 });
+				this.finish(SUPERVISOR_EXIT_SIGTERM);
+				return false;
+			}
+			attempts += 1;
+			try {
+				const response = await this.options.plane.bootstrap({
+					owner_id: this.identity.ownerId,
+					generation: this.identity.generation,
+					protocol_version: OWNER_PROTOCOL_VERSION,
+				});
+				const expiresAt = Math.min(Date.parse(response.aws_credentials.expires_at), Date.parse(response.supervisor_token_expires_at));
+				this.credentialsStopAtMilliseconds = expiresAt - CREDENTIAL_STOP_MARGIN_MILLISECONDS;
+				this.disk = this.options.openDisk(response.aws_credentials);
+				this.log("owner_bootstrapped", { expires_at: new Date(expiresAt).toISOString() });
+				this.lastSuccessfulPollAtMilliseconds = this.now();
+				this.nextPollAtMilliseconds = this.now();
+				this.nextPollingLogAtMilliseconds = this.now() + POLLING_LOG_INTERVAL_MILLISECONDS;
+				return true;
+			} catch (error) {
+				const refusal = error instanceof HostProtocolError ? error : null;
+				const retriable = refusal === null || refusal.status >= 500;
+				if (!retriable || this.now() - startedAt >= BOOTSTRAP_RETRY_WINDOW_MILLISECONDS) {
+					this.log("owner_bootstrap_failed", { status: refusal?.status, code: refusal?.code, error_name: refusal === null ? errorNameOf(error) : undefined, attempts });
+					this.finish(SUPERVISOR_EXIT_BOOTSTRAP_FAILED);
+					return false;
+				}
+				await this.sleepUntilWoken(BOOTSTRAP_RETRY_PAUSE_MILLISECONDS);
+				if (this.now() - startedAt >= BOOTSTRAP_RETRY_WINDOW_MILLISECONDS) {
+					this.log("owner_bootstrap_failed", { status: refusal?.status, code: refusal?.code, error_name: refusal === null ? errorNameOf(error) : undefined, attempts });
+					this.finish(SUPERVISOR_EXIT_BOOTSTRAP_FAILED);
+					return false;
+				}
+			}
+		}
+	}
+
+	private async sleepUntilWoken(milliseconds: number): Promise<void> {
+		if (milliseconds <= 0 || this.wakeRequested) {
+			this.wakeRequested = false;
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			return;
+		}
+		const controller = new AbortController();
+		this.wakeController = controller;
+		await this.options.clock.sleep(milliseconds, controller.signal);
+		this.wakeController = null;
+		this.wakeRequested = false;
+	}
+
+	private async waitForNextEvent(): Promise<void> {
+		const deadlines = [
+			this.nextPollAtMilliseconds,
+			this.lastSuccessfulPollAtMilliseconds + OWNER_POLL_SILENCE_FENCE_SECONDS * 1000,
+			this.nextPollingLogAtMilliseconds,
+		];
+		if (!this.stopping) deadlines.push(Math.max(this.credentialsStopAtMilliseconds, this.stopRetryAtMilliseconds));
+		if (this.canAskToStopForIdleness()) deadlines.push(Math.max(this.idleDeadline(), this.stopRetryAtMilliseconds));
+		if (this.currentState === "idle" && this.idleStartedAtMilliseconds !== null) deadlines.push(this.nextIdleLogAtMilliseconds);
+		if (this.canPublish() && this.nextPublishCheckAtMilliseconds !== null) deadlines.push(this.nextPublishCheckAtMilliseconds);
+		if (this.draining && this.child !== null && !this.drainKillStarted) deadlines.push(this.drainStartedAtMilliseconds + OWNER_DRAIN_GRACE_SECONDS * 1000);
+		if (this.draining && this.child === null && this.activity === null && !this.stopping) deadlines.push(this.stopRetryAtMilliseconds);
+		await this.sleepUntilWoken(Math.min(...deadlines) - this.now());
+	}
+
+	private idleDeadline(): number {
+		return (this.idleStartedAtMilliseconds ?? Number.POSITIVE_INFINITY) + OWNER_IDLE_TIMEOUT_SECONDS * 1000;
+	}
+
+	private canAskToStopForIdleness(): boolean {
+		return this.currentState === "idle" && this.idleStartedAtMilliseconds !== null && this.activity === null && !this.stopping && !this.draining;
+	}
+
+	private canPublish(): boolean {
+		return this.currentState === "idle" && this.activity === null && !this.stopping && !this.draining && this.child === null && this.hydrated;
+	}
+
+	private async doDueWork(): Promise<void> {
+		const now = this.now();
+		if (this.sigtermRequested && !this.stopping) {
+			this.beginStop("sigterm");
+			return;
+		}
+		if (now >= this.nextPollingLogAtMilliseconds) {
+			this.log("owner_polling", {
+				polls: this.pollsSinceLog,
+				interval_ms: this.lastPollIntervalMilliseconds,
+				dispatches: this.dispatchesSinceLog,
+				failures: this.failuresSinceLog,
+			});
+			this.pollsSinceLog = 0;
+			this.dispatchesSinceLog = 0;
+			this.failuresSinceLog = 0;
+			this.nextPollingLogAtMilliseconds = now + POLLING_LOG_INTERVAL_MILLISECONDS;
+		}
+		if (this.stopping) return;
+		if (now >= this.credentialsStopAtMilliseconds && now >= this.stopRetryAtMilliseconds) {
+			this.log("owner_credentials_expiring");
+			await this.askToStop("unhealthy");
+			return;
+		}
+		if (this.consecutiveChildFailures >= OWNER_CHILD_FAILURE_LIMIT && this.child === null && this.activity === null && now >= this.stopRetryAtMilliseconds) {
+			await this.askToStop("unhealthy");
+			return;
+		}
+		if (this.draining) {
+			if (this.child !== null && !this.drainKillStarted && now >= this.drainStartedAtMilliseconds + OWNER_DRAIN_GRACE_SECONDS * 1000) {
+				this.drainKillStarted = true;
+				void this.terminateChild(TERMINATE_GRACE_AT_DRAIN_MILLISECONDS);
+			}
+			if (this.child === null && this.activity === null && now >= this.stopRetryAtMilliseconds) await this.askToStop("lifetime");
+			return;
+		}
+		if (this.currentState !== "idle" || this.activity !== null || this.idleStartedAtMilliseconds === null) return;
+		if (now >= this.nextIdleLogAtMilliseconds) {
+			this.log("owner_idle", { idle_seconds: Math.floor((now - this.idleStartedAtMilliseconds) / 1000), timeout_seconds: OWNER_IDLE_TIMEOUT_SECONDS });
+			this.nextIdleLogAtMilliseconds = now + IDLE_LOG_INTERVAL_MILLISECONDS;
+		}
+		if (this.nextPublishCheckAtMilliseconds !== null && now >= this.nextPublishCheckAtMilliseconds && this.canPublish()) {
+			this.beginPublishCycle();
+			return;
+		}
+		if (now >= this.idleDeadline() && now >= this.stopRetryAtMilliseconds) await this.askToStop("idle");
+	}
+
+	private activeTurns(): OwnerPollRequest["active_turns"] {
+		if (this.child === null || (this.currentState !== "serving" && this.currentState !== "draining")) return [];
+		return [{ turn_id: this.child.turnId, dispatch_id: this.child.dispatchId }];
+	}
+
+	private async pollOnce(): Promise<void> {
+		const memory = this.options.memoryUsedPercent?.();
+		const request: OwnerPollRequest = {
+			owner_id: this.identity.ownerId,
+			generation: this.identity.generation,
+			protocol_version: OWNER_PROTOCOL_VERSION,
+			sequence: this.sequence,
+			state: this.currentState,
+			active_turns: this.activeTurns(),
+			...(memory === undefined ? {} : { memory_used_percent: Math.max(0, Math.min(100, Math.round(memory))) }),
+		};
+		let response: OwnerPollResponse;
+		try {
+			response = await this.options.plane.poll(request);
+		} catch (error) {
+			this.onPollFailure(error);
+			return;
+		}
+		this.consecutivePollFailures = 0;
+		this.lastSuccessfulPollAtMilliseconds = this.now();
+		this.sequence += 1;
+		this.pollsSinceLog += 1;
+		this.lastPollIntervalMilliseconds = response.next_poll_ms;
+		this.nextPollAtMilliseconds = this.now() + response.next_poll_ms;
+		this.onPollAnswered(response);
+	}
+
+	private onPollFailure(error: unknown): void {
+		if (error instanceof HostProtocolError) {
+			if (this.refusalEndsOwnership(error)) {
+				this.endAsSuperseded();
+				return;
+			}
+			if (error.status === 409 && error.code === "stale_poll") {
+				this.log("owner_poll_failed", { status: error.status, code: error.code, consecutive_failures: this.consecutivePollFailures, silent_seconds: this.silentSeconds() });
+				this.sequence += 1;
+				this.nextPollAtMilliseconds = this.now();
+				return;
+			}
+		}
+		this.consecutivePollFailures += 1;
+		this.failuresSinceLog += 1;
+		this.log("owner_poll_failed", {
+			status: error instanceof HostProtocolError ? error.status : undefined,
+			code: error instanceof HostProtocolError ? error.code : undefined,
+			error_name: error instanceof HostProtocolError ? undefined : errorNameOf(error),
+			consecutive_failures: this.consecutivePollFailures,
+			silent_seconds: this.silentSeconds(),
+		});
+		const pause = POLL_FAILURE_PAUSES_MILLISECONDS[Math.min(this.consecutivePollFailures, POLL_FAILURE_PAUSES_MILLISECONDS.length) - 1]!;
+		this.nextPollAtMilliseconds = this.now() + pause;
+	}
+
+	private silentSeconds(): number {
+		return Math.floor((this.now() - this.lastSuccessfulPollAtMilliseconds) / 1000);
+	}
+
+	private refusalEndsOwnership(error: HostProtocolError): boolean {
+		return error.status === 401 || (error.status === 403 && error.code !== undefined && SUPERSEDING_CODES.has(error.code));
+	}
+
+	private endAsSuperseded(): void {
+		this.log("owner_stopping", { reason: "superseded", uptime_ms: this.now() - this.startedAtMilliseconds, turns_served: this.turnsServed });
+		this.child?.handle.kill("SIGKILL");
+		this.finish(SUPERVISOR_EXIT_SUPERSEDED);
+	}
+
+	private fenceIfSilent(): void {
+		if (this.exitCode !== undefined) return;
+		if (this.now() - this.lastSuccessfulPollAtMilliseconds < OWNER_POLL_SILENCE_FENCE_SECONDS * 1000) return;
+		this.log("owner_stopping", { reason: "fenced", uptime_ms: this.now() - this.startedAtMilliseconds, turns_served: this.turnsServed });
+		this.child?.handle.kill("SIGKILL");
+		this.finish(SUPERVISOR_EXIT_FENCED);
+	}
+
+	private onPollAnswered(response: OwnerPollResponse): void {
+		if (this.currentState === "booting") this.beginHydration();
+		if (response.drain && !this.draining && !this.stopping) this.beginDrain(response.drain_reason ?? "unknown");
+		const dispatch = response.dispatches[0];
+		if (dispatch !== undefined) this.considerDispatch(dispatch);
+	}
+
+	private beginHydration(): void {
+		const disk = this.disk;
+		if (disk === null) return;
+		this.currentState = "hydrating";
+		this.activity = (async () => {
+			try {
+				await disk.hydrate();
+			} catch (error) {
+				this.log("snapshot_skipped", { reason: "boot_failed", error_name: errorNameOf(error) });
+				this.finish(SUPERVISOR_EXIT_BOOT_FAILED);
+				return;
+			}
+			this.hydrated = true;
+			this.nextPublishCheckAtMilliseconds = this.now() + OWNER_PERIODIC_PUBLISH_SECONDS * 1000;
+			this.activityEnded();
+		})();
+	}
+
+	private activityEnded(): void {
+		this.activity = null;
+		if (!this.draining && !this.stopping && this.currentState !== "serving") {
+			this.currentState = "idle";
+			if (this.idleStartedAtMilliseconds === null) this.startIdleClock();
+		}
+		this.wake();
+	}
+
+	private startIdleClock(): void {
+		this.idleStartedAtMilliseconds = this.now();
+		this.nextIdleLogAtMilliseconds = this.now() + IDLE_LOG_INTERVAL_MILLISECONDS;
+		this.log("owner_idle", { idle_seconds: 0, timeout_seconds: OWNER_IDLE_TIMEOUT_SECONDS });
+	}
+
+	private beginPublishCycle(): void {
+		const disk = this.disk;
+		if (disk === null) return;
+		this.currentState = "publishing";
+		this.activity = (async () => {
+			try {
+				if (await disk.needsPublish()) await disk.publish();
+			} catch (error) {
+				this.log("snapshot_check_failed", { error_name: errorNameOf(error) });
+			}
+			this.nextPublishCheckAtMilliseconds = this.now() + OWNER_PERIODIC_PUBLISH_SECONDS * 1000;
+			this.activityEnded();
+		})();
+	}
+
+	private beginDrain(reason: string): void {
+		this.draining = true;
+		this.drainStartedAtMilliseconds = this.now();
+		if (this.currentState !== "hydrating" && this.currentState !== "publishing") this.currentState = "draining";
+		this.log("owner_draining", { reason });
+		this.wake();
+	}
+
+	private considerDispatch(dispatch: OwnerDispatch): void {
+		this.dispatchesSinceLog += 1;
+		const ignore = (reason: string): void => {
+			this.log("owner_dispatch_ignored", { dispatch_id: dispatch.dispatch_id, turn_id: dispatch.turn_id, reason });
+		};
+		if (this.draining || this.stopping) return ignore("not_accepting");
+		if (this.child !== null || this.currentState !== "idle") return ignore("busy");
+		if (this.servedDispatchIds.has(dispatch.dispatch_id)) return ignore("already_served");
+		this.startChild(dispatch);
+	}
+
+	private startChild(dispatch: OwnerDispatch): void {
+		this.log("owner_dispatch_received", { dispatch_id: dispatch.dispatch_id, turn_id: dispatch.turn_id, bot_id: dispatch.bot_id, attempt: dispatch.attempt });
+		this.servedDispatchIds.add(dispatch.dispatch_id);
+		let handle: SpawnedChild;
+		try {
+			handle = this.options.spawner.spawn("turn", buildOwnerChildEnvironment(this.options.environment, dispatch));
+		} catch (error) {
+			this.consecutiveChildFailures += 1;
+			this.log("owner_child_spawn_failed", { dispatch_id: dispatch.dispatch_id, turn_id: dispatch.turn_id, error_name: errorNameOf(error), consecutive_failures: this.consecutiveChildFailures });
+			return;
+		}
+		const child: RunningChild = {
+			handle,
+			dispatchId: dispatch.dispatch_id,
+			turnId: dispatch.turn_id,
+			botId: dispatch.bot_id,
+			startedAtMilliseconds: this.now(),
+		};
+		this.child = child;
+		this.currentState = "serving";
+		this.idleStartedAtMilliseconds = null;
+		const waitingSince = dispatch.waiting_since === null ? null : Date.parse(dispatch.waiting_since);
+		this.log("owner_serving_turn", {
+			dispatch_id: dispatch.dispatch_id,
+			turn_id: dispatch.turn_id,
+			bot_id: dispatch.bot_id,
+			queue_wait_ms: waitingSince === null ? null : Math.max(0, this.now() - waitingSince),
+			concurrent: 1,
+		});
+		void handle.exited.then((exit) => this.onChildExit(child, exit));
+		this.requestPollNow();
+	}
+
+	private async onChildExit(child: RunningChild, exit: ChildExit): Promise<void> {
+		const failed = !(exit.code === 0 || exit.code === 1);
+		this.consecutiveChildFailures = failed ? this.consecutiveChildFailures + 1 : 0;
+		try {
+			await this.options.sweeper.sweep();
+		} catch (error) {
+			this.log("owner_sweep_failed", { error_name: errorNameOf(error) });
+		}
+		this.log("owner_child_exited", {
+			dispatch_id: child.dispatchId,
+			turn_id: child.turnId,
+			code: exit.code,
+			signal: exit.signal,
+			duration_ms: this.now() - child.startedAtMilliseconds,
+			clean: exit.code === 0 && exit.signal === null,
+			consecutive_failures: this.consecutiveChildFailures,
+		});
+		this.turnsServed += 1;
+		this.child = null;
+		if (!this.draining && !this.stopping) {
+			this.currentState = this.activity === null ? "idle" : this.currentState;
+			this.startIdleClock();
+			this.nextPublishCheckAtMilliseconds = this.now() + OWNER_QUIET_PUBLISH_SECONDS * 1000;
+		} else if (this.draining && !this.stopping) {
+			this.currentState = "draining";
+		}
+		this.requestPollNow();
+	}
+
+	private async terminateChild(graceMilliseconds: number): Promise<void> {
+		const child = this.child;
+		if (child === null) return;
+		child.handle.kill("SIGTERM");
+		const cancel = new AbortController();
+		const outcome = await Promise.race([child.handle.exited.then(() => "exited" as const), this.options.clock.sleep(graceMilliseconds, cancel.signal).then(() => "grace_over" as const)]);
+		cancel.abort();
+		if (outcome === "grace_over") {
+			child.handle.kill("SIGKILL");
+			await child.handle.exited;
+		}
+	}
+
+	private async askToStop(reason: Exclude<StopCause, "sigterm">): Promise<void> {
+		this.log("owner_stop_requested", { reason });
+		try {
+			const answer = await this.options.plane.stopRequest({
+				owner_id: this.identity.ownerId,
+				generation: this.identity.generation,
+				reason,
+				active_turns: this.activeTurns(),
+			});
+			if (answer.approved) {
+				this.beginStop(reason);
+				return;
+			}
+			this.log("owner_stop_vetoed", { reason: answer.reason });
+		} catch (error) {
+			if (error instanceof HostProtocolError && this.refusalEndsOwnership(error)) {
+				this.endAsSuperseded();
+				return;
+			}
+			this.log("owner_stop_request_failed", { reason, error_name: error instanceof HostProtocolError ? undefined : errorNameOf(error), status: error instanceof HostProtocolError ? error.status : undefined });
+		}
+		this.stopRetryAtMilliseconds = this.now() + OWNER_STOP_RETRY_SECONDS * 1000;
+	}
+
+	private beginStop(cause: StopCause): void {
+		if (this.stopping) return;
+		this.stopping = true;
+		this.currentState = "stopping";
+		this.performStop(cause).catch((error) => {
+			this.log("owner_stop_failed", { reason: cause, error_name: errorNameOf(error) });
+			this.finish(cause === "sigterm" ? SUPERVISOR_EXIT_SIGTERM : SUPERVISOR_EXIT_STOPPED);
+		});
+	}
+
+	private async performStop(cause: StopCause): Promise<void> {
+		this.log("owner_stopping", { reason: cause, uptime_ms: this.now() - this.startedAtMilliseconds, turns_served: this.turnsServed });
+		this.requestPollNow();
+		await this.terminateChild(cause === "sigterm" ? TERMINATE_GRACE_AT_SIGTERM_MILLISECONDS : TERMINATE_GRACE_AT_DRAIN_MILLISECONDS);
+		try {
+			await this.options.sweeper.sweep();
+		} catch (error) {
+			this.log("owner_sweep_failed", { error_name: errorNameOf(error) });
+		}
+		await this.activity;
+		if (this.exitCode !== undefined) return;
+		const disk = this.disk;
+		if (disk !== null && this.hydrated) {
+			try {
+				if (await disk.needsPublish()) await disk.publish();
+			} catch (error) {
+				this.log("snapshot_check_failed", { error_name: errorNameOf(error) });
+			}
+		}
+		for (let attempt = 1; attempt <= STOPPED_REPORT_ATTEMPTS; attempt += 1) {
+			try {
+				await this.options.plane.setComputerStopped(true, this.identity.generation);
+				break;
+			} catch (error) {
+				if (error instanceof HostProtocolError && this.refusalEndsOwnership(error)) {
+					this.endAsSuperseded();
+					return;
+				}
+				this.log("owner_stopped_report_failed", { attempt, error_name: error instanceof HostProtocolError ? undefined : errorNameOf(error), status: error instanceof HostProtocolError ? error.status : undefined });
+				if (attempt < STOPPED_REPORT_ATTEMPTS) await this.options.clock.sleep(STOPPED_REPORT_PAUSE_MILLISECONDS);
+			}
+		}
+		this.finish(cause === "sigterm" ? SUPERVISOR_EXIT_SIGTERM : SUPERVISOR_EXIT_STOPPED);
+	}
+}
