@@ -962,6 +962,9 @@ events, and need the larger task.
 
 ### Phase 2: long-lived owner (two shippable steps)
 
+- **Contract.** [Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md) is the exact interface of 2a and settles
+  the places where the sections of this page disagree (the bootstrap exchange is in 2a; the in-container watchdog is
+  in 2a and the external one in 2b; a 5 minute drain grace; no host token for the per-turn child).
 - **2a, supervisor and poll.** Supervisor loop, poll route (heartbeat merged),
   dispatch of parked turns, per-turn child, per-turn credentials through the
   broker, idle timeout and stop-request with veto, quiet publish, the
