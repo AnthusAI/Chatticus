@@ -3,17 +3,30 @@
   "title": "Provider failures: out-of-credits OpenAI account stops every bot; alert before it happens task 2",
   "description": "",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cbb656f1-1939-4dd8-968f-be794f27ac55",
+      "author": "home",
+      "text": "Created by mistake with a garbled title; duplicates the 'Alert before the OpenAI account runs out of credits' ticket.",
+      "created_at": "2026-10-12T10:50:05.770159Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-12T10:49:56.478830Z",
-  "updated_at": "2026-10-12T10:49:56.478859Z",
-  "closed_at": null,
+  "updated_at": "2026-10-12T10:50:06.258052Z",
+  "closed_at": "2026-10-12T10:50:06.258016Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
