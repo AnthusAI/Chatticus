@@ -34,17 +34,29 @@
         "model": "claude-sonnet-5-5",
         "name": "planner"
       }
+    },
+    {
+      "id": "fcd44096-b573-4378-8ed5-372bc4bad516",
+      "author": "home",
+      "text": "Contract revision 3 (PR 519): delete, rename and new folders are required in Phase 3, also while the computer is off. The overlay records put, delete, mkdir and move (a move keeps the content hash and carries no blob); the owner applies them at hydrate in the order mkdir, directory moves, file moves, puts, file deletes, directory deletes; any enabled member may delete files and empty folders and rename, only the owner role deletes a non-empty folder; helper operations mkdir, unlink, rmtree, rename. Non-current bucket versions expire after 30 days (part B). New: A4 chatticus-f9b663 (routes), later-phase ticket chatticus-ed8e4e (customer-account computers editable). Revised: F0, A3, C, C2, W, B, E. Open: two confirmations (Q-P1, Q-P2) in section 14.",
+      "created_at": "2026-10-12T22:22:06.661686Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "planner"
+      }
     }
   ],
   "created_at": "2026-10-12T13:18:59.699384Z",
-  "updated_at": "2026-10-12T22:01:52.164973Z",
+  "updated_at": "2026-10-12T22:22:06.661733Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is building the live-file edit system, with its contract set and work split across dependent tasks.",
-  "right_now_updated_at": "2026-10-12T22:02:13.677299Z",
+  "right_now_summary": "The team is building offline file editing with overlays, moves, deletes, folders, routes, policies, and tests.",
+  "right_now_updated_at": "2026-10-12T22:22:45.204639Z",
   "custom": {}
 }
