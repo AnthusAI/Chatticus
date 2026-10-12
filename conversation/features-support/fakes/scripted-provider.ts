@@ -20,7 +20,8 @@ type ScriptedStep =
 			readonly usage: ScriptedUsage;
 			readonly thinking?: readonly string[];
 	  }
-	| { readonly kind: "providerError"; readonly status: number; readonly code: string | null }
+	| { readonly kind: "providerError"; readonly status: number; readonly code: string | null; readonly message: string | null }
+	| { readonly kind: "streamedError"; readonly message: string }
 	| { readonly kind: "networkError" };
 
 /** A pause the provider holds before answering its next request, released by the scenario. */
@@ -28,9 +29,9 @@ export type ScriptedHold = { readonly release: () => void; readonly reached: Pro
 
 const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
 
-const providerErrorText = (status: number, code: string | null): string => {
+const providerErrorText = (status: number, code: string | null, message: string | null): string => {
 	if (code === null) return `${status} status code (no body)`;
-	return `OpenAI API error (${status}): ${JSON.stringify({ message: `scripted ${code}`, type: code, param: null, code })}`;
+	return `OpenAI API error (${status}): ${JSON.stringify({ message: message ?? `scripted ${code}`, type: code, param: null, code })}`;
 };
 
 /**
@@ -120,9 +121,9 @@ export class ScriptedProvider {
 		return this.steps.length > 0 || this.repeatingStep !== null;
 	}
 
-	/** Queue a failure the way the OpenAI SDK reports an HTTP error, with or without the provider's error code. */
-	providerError(status: number, code: string | null): this {
-		this.steps.push({ kind: "providerError", status, code });
+	/** Queue a failure the way the OpenAI SDK reports an HTTP error, with or without the provider's error code and message. */
+	providerError(status: number, code: string | null, message: string | null = null): this {
+		this.steps.push({ kind: "providerError", status, code, message });
 		return this;
 	}
 
@@ -133,8 +134,17 @@ export class ScriptedProvider {
 	}
 
 	/** Answer every request after the queued ones with the same provider error. */
-	alwaysProviderError(status: number, code: string | null): this {
-		this.repeatingStep = { kind: "providerError", status, code };
+	alwaysProviderError(status: number, code: string | null, message: string | null = null): this {
+		this.repeatingStep = { kind: "providerError", status, code, message };
+		return this;
+	}
+
+	/**
+	 * Answer every request after the queued ones with an error the provider streams after an HTTP 200, as the Responses
+	 * API streams an `error` event: pi-ai reports only the bare message, with no status and no error body.
+	 */
+	alwaysStreamedError(message: string): this {
+		this.repeatingStep = { kind: "streamedError", message };
 		return this;
 	}
 
@@ -219,7 +229,13 @@ export class ScriptedProvider {
 					return;
 				}
 				if (step.kind === "providerError") {
-					const failed = { ...blank, stopReason: "error" as const, errorMessage: providerErrorText(step.status, step.code) };
+					const failed = { ...blank, stopReason: "error" as const, errorMessage: providerErrorText(step.status, step.code, step.message) };
+					outer.push({ type: "error", reason: "error", error: failed });
+					outer.end(failed);
+					return;
+				}
+				if (step.kind === "streamedError") {
+					const failed = { ...blank, stopReason: "error" as const, errorMessage: step.message };
 					outer.push({ type: "error", reason: "error", error: failed });
 					outer.end(failed);
 					return;

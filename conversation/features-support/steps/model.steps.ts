@@ -48,6 +48,17 @@ Given(
 );
 
 Given(
+	"the model provider answers every request with status {int}, error code {string} and message {string}",
+	function (this: ChatticusWorld, status: number, code: string, message: string) {
+		modelScenarioOf(this).scripted.alwaysProviderError(status, code, message);
+	},
+);
+
+Given("the model provider streams the error {string} after an accepted request", function (this: ChatticusWorld, message: string) {
+	modelScenarioOf(this).scripted.alwaysStreamedError(message);
+});
+
+Given(
 	"the model provider answers every request with status {int} and no error body",
 	function (this: ChatticusWorld, status: number) {
 		modelScenarioOf(this).scripted.alwaysProviderError(status, null);
