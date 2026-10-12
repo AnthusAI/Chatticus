@@ -1,7 +1,10 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { browserProfileDir, ensureBrowserProfilesLayout, UNTRUSTED_PARTITION, WORKSPACE_DIRNAME } from "../browser-profiles.ts";
-import { CACHE_CHECKSUM_FILENAME, packChecksum, packLiveDisk, unpackLiveDisk } from "./pack.ts";
+import { consoleLogEmitter, type LogEmitter } from "../observability/log-line.ts";
+import { PACK_MAX_FILE_BYTES } from "./exclusions.ts";
+import { indexChecksumOf, serializeIndex } from "./index-format.ts";
+import { CACHE_CHECKSUM_FILENAME, packChecksum, streamLiveDisk, unpackLiveDisk } from "./pack.ts";
 import type { SnapshotManifest, SnapshotObjectStore } from "./store.ts";
 import { snapshotUri } from "./uri.ts";
 
@@ -76,7 +79,8 @@ export class ComputerHostDisk {
 	}
 
 	/**
-	 * Pack the live disk and upload it to the shared store.
+	 * Stream the live disk to the shared store as a pack, then write its index, then the manifest that names both.
+	 * Each oversized file left out of the pack is reported to `log` as `snapshot_file_skipped`.
 	 */
 	async publish(options: {
 		tenant_id: string;
@@ -84,10 +88,17 @@ export class ComputerHostDisk {
 		worker_id: string;
 		image_digest?: string | null;
 		published_at?: Date | null;
+		log?: LogEmitter;
 	}): Promise<SnapshotManifest> {
 		const uri = snapshotUri(options.tenant_id, options.computer_id, { bucket: this.store.bucket });
-		const pack = await packLiveDisk(this.liveRoot);
-		const checksum = packChecksum(pack);
+		const log = options.log ?? consoleLogEmitter({ tenant_id: options.tenant_id, computer_id: options.computer_id });
+		const live = streamLiveDisk(this.liveRoot, {
+			onSkippedFile: (path, sizeBytes) => log("snapshot_file_skipped", { path, size_bytes: sizeBytes, limit_bytes: PACK_MAX_FILE_BYTES }),
+		});
+		await this.store.putPack(uri, live.chunks);
+		const { checksum, index } = live.result();
+		const serializedIndex = serializeIndex(index);
+		await Promise.resolve(this.store.putIndex(uri, checksum, serializedIndex));
 		const manifest: SnapshotManifest = {
 			tenant_id: options.tenant_id,
 			computer_id: options.computer_id,
@@ -96,11 +107,9 @@ export class ComputerHostDisk {
 			published_at: (options.published_at || new Date()).toISOString(),
 			image_digest: options.image_digest || undefined,
 			pack_filename: "snapshot.tar.gz",
+			index_checksum: indexChecksumOf(serializedIndex),
 		};
-
-		if (this.store.put) {
-			await Promise.resolve(this.store.put(uri, pack, manifest));
-		}
+		await Promise.resolve(this.store.putManifest(uri, manifest));
 
 		this.writeChecksum(checksum);
 		return manifest;

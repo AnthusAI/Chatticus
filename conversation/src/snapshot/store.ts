@@ -1,4 +1,6 @@
-import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, renameSync, createWriteStream, openSync, readSync, closeSync } from "node:fs";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { join, resolve, basename } from "node:path";
 import { URL } from "node:url";
 import {
@@ -8,7 +10,8 @@ import {
 	defaultSnapshotBucket,
 	snapshotObjectDir,
 } from "./uri.ts";
-import { SnapshotPackError } from "./pack.ts";
+import { SnapshotObjectMissingError, SnapshotPackError } from "./pack.ts";
+import { indexObjectName } from "./index-format.ts";
 
 /**
  * Metadata stored next to a snapshot pack.
@@ -21,16 +24,29 @@ export interface SnapshotManifest {
 	published_at: string;
 	image_digest?: string | null;
 	pack_filename?: string;
+	/** SHA-256 of the serialized index stored at `index/<checksum>.json`; a manifest without it names no index. */
+	index_checksum?: string;
 }
 
 /**
- * Put and get snapshot packs by canonical URI.
+ * What the Front Door reads from a published snapshot: the manifest, the index it names, and byte ranges of the pack.
  */
-export interface SnapshotObjectStore {
+export interface SnapshotReadStore {
 	bucket: string;
-	put(snapshotUri: string, pack: Buffer, manifest: SnapshotManifest): void | Promise<void>;
-	getPack(snapshotUri: string): Buffer | Promise<Buffer>;
 	getManifest(snapshotUri: string): SnapshotManifest | Promise<SnapshotManifest>;
+	getIndexBytes(snapshotUri: string, packChecksum: string): Buffer | Promise<Buffer>;
+	getPackRange(snapshotUri: string, offset: number, length: number): Buffer | Promise<Buffer>;
+}
+
+/**
+ * Put and get snapshot packs by canonical URI. A publish writes the pack, then the index, then the manifest, so a reader
+ * that finds a manifest finds the index it names.
+ */
+export interface SnapshotObjectStore extends SnapshotReadStore {
+	putPack(snapshotUri: string, chunks: AsyncIterable<Buffer>): Promise<void>;
+	putIndex(snapshotUri: string, packChecksum: string, serializedIndex: Buffer): void | Promise<void>;
+	putManifest(snapshotUri: string, manifest: SnapshotManifest): void | Promise<void>;
+	getPack(snapshotUri: string): Buffer | Promise<Buffer>;
 }
 
 /**
@@ -49,10 +65,24 @@ export class FilesystemSnapshotStore implements SnapshotObjectStore {
 		mkdirSync(this.root, { recursive: true });
 	}
 
-	put(snapshotUri: string, pack: Buffer, manifest: SnapshotManifest): void {
+	async putPack(snapshotUri: string, chunks: AsyncIterable<Buffer>): Promise<void> {
 		const directory = this.getDirectory(snapshotUri);
 		mkdirSync(directory, { recursive: true });
-		atomicWrite(join(directory, PACK_FILENAME), pack);
+		const target = join(directory, PACK_FILENAME);
+		const temporary = join(directory, `.${PACK_FILENAME}.tmp`);
+		await pipeline(Readable.from(chunks), createWriteStream(temporary));
+		renameSync(temporary, target);
+	}
+
+	putIndex(snapshotUri: string, packChecksum: string, serializedIndex: Buffer): void {
+		const target = join(this.getDirectory(snapshotUri), indexObjectName(packChecksum));
+		mkdirSync(resolve(target, ".."), { recursive: true });
+		atomicWrite(target, serializedIndex);
+	}
+
+	putManifest(snapshotUri: string, manifest: SnapshotManifest): void {
+		const directory = this.getDirectory(snapshotUri);
+		mkdirSync(directory, { recursive: true });
 		const payload = JSON.stringify(manifest, null, 2) + "\n";
 		atomicWrite(join(directory, MANIFEST_FILENAME), Buffer.from(payload));
 	}
@@ -62,17 +92,48 @@ export class FilesystemSnapshotStore implements SnapshotObjectStore {
 		try {
 			return readFileSync(path);
 		} catch {
-			throw new SnapshotPackError(`No snapshot pack at ${JSON.stringify(snapshotUri)}.`);
+			throw new SnapshotObjectMissingError(`No snapshot pack at ${JSON.stringify(snapshotUri)}.`);
+		}
+	}
+
+	getPackRange(snapshotUri: string, offset: number, length: number): Buffer {
+		const path = join(this.getDirectory(snapshotUri), PACK_FILENAME);
+		let descriptor: number;
+		try {
+			descriptor = openSync(path, "r");
+		} catch {
+			throw new SnapshotObjectMissingError(`No snapshot pack at ${JSON.stringify(snapshotUri)}.`);
+		}
+		try {
+			const buffer = Buffer.alloc(length);
+			const bytesRead = readSync(descriptor, buffer, 0, length, offset);
+			return buffer.subarray(0, bytesRead);
+		} finally {
+			closeSync(descriptor);
+		}
+	}
+
+	getIndexBytes(snapshotUri: string, packChecksum: string): Buffer {
+		const path = join(this.getDirectory(snapshotUri), indexObjectName(packChecksum));
+		try {
+			return readFileSync(path);
+		} catch {
+			throw new SnapshotObjectMissingError(`No snapshot index at ${JSON.stringify(snapshotUri)} for ${packChecksum}.`);
 		}
 	}
 
 	getManifest(snapshotUri: string): SnapshotManifest {
 		const path = join(this.getDirectory(snapshotUri), MANIFEST_FILENAME);
+		let payload: string;
 		try {
-			const payload = readFileSync(path, "utf-8");
+			payload = readFileSync(path, "utf-8");
+		} catch {
+			throw new SnapshotObjectMissingError(`No snapshot manifest at ${JSON.stringify(snapshotUri)}.`);
+		}
+		try {
 			return JSON.parse(payload) as SnapshotManifest;
 		} catch {
-			throw new SnapshotPackError(`No snapshot manifest at ${JSON.stringify(snapshotUri)}.`);
+			throw new SnapshotPackError(`Snapshot manifest at ${JSON.stringify(snapshotUri)} is not valid JSON.`);
 		}
 	}
 

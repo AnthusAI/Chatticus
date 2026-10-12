@@ -17,6 +17,8 @@ import { createApp } from "../http/app.ts";
 import type { ModelGatewayDependencies } from "../gateway/model-gateway.ts";
 import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
 import { MessageBodyCache } from "../pi/message-cache.ts";
+import { SnapshotFileService } from "../snapshot/files.ts";
+import { S3SnapshotStore } from "../snapshot/s3.ts";
 import type { CommitObject } from "../storage/indexed-storage.ts";
 import { DynamoComputerActionStore } from "../store/action-store.ts";
 import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
@@ -69,6 +71,9 @@ export const REQUIRED_FRONT_DOOR_ENVIRONMENT = [
 
 /** Names the Secrets Manager secret holding the model gateway's session token signing key. The gateway is mounted only when it is set. */
 export const MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN_VARIABLE = "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN";
+
+/** Names the snapshot bucket the read-only file routes read. The routes answer 503 while it is unset. */
+export const SNAPSHOT_BUCKET_VARIABLE = "CHATTICUS_SNAPSHOT_BUCKET";
 
 /** The vendor address the gateway forwards to unless `CHATTICUS_MODEL_GATEWAY_UPSTREAM_URL` names another. */
 export const DEFAULT_MODEL_GATEWAY_UPSTREAM_URL = "https://api.openai.com/v1";
@@ -196,7 +201,9 @@ export async function composeFrontDoorApp(
 					},
 					log: (event) => console.log(JSON.stringify({ component: "model-gateway", ...event })),
 				};
+	const snapshotBucket = environment[SNAPSHOT_BUCKET_VARIABLE] ?? "";
 	return createApp({
+		snapshotFiles: snapshotBucket === "" ? null : new SnapshotFileService(new S3SnapshotStore(snapshotBucket, clients.s3)),
 		modelGateway,
 		writeGate: new CachedFailClosedWriteGate(new DynamoWriteGate(client, messagingTableName), clock),
 		clock,

@@ -358,3 +358,43 @@ describe("ControlPlane owner scoped role", () => {
     template.resourceCountIs(["AWS::IAM::Access", "Key"].join(""), 0);
   });
 });
+
+describe("ControlPlane FrontDoor snapshot read grant", () => {
+  const template = synthControlPlane("development", OWNER_CONTEXT);
+  const frontDoorStatements = statementsOf(policiesAttachedTo(template, /^FrontDoorServiceRole/));
+  const snapshotStatements = frontDoorStatements.filter((statement) =>
+    JSON.stringify(statement.Resource).includes("chatticus-snapshots-bucket"),
+  );
+
+  it("reads only objects under tenants/*/computers/*/ and lists only with that prefix", () => {
+    assert.equal(snapshotStatements.length, 2);
+    const read = snapshotStatements.find((statement) => [].concat(statement.Action).includes("s3:GetObject"))!;
+    assert.deepEqual([].concat(read.Action), ["s3:GetObject"]);
+    assert.deepEqual([].concat(read.Resource), ["arn:aws:s3:::chatticus-snapshots-bucket/tenants/*/computers/*/*"]);
+    const list = snapshotStatements.find((statement) => [].concat(statement.Action).includes("s3:ListBucket"))!;
+    assert.deepEqual([].concat(list.Action), ["s3:ListBucket"]);
+    assert.deepEqual([].concat(list.Resource), ["arn:aws:s3:::chatticus-snapshots-bucket"]);
+    assert.deepEqual(list.Condition, { StringLike: { "s3:prefix": ["tenants/*/computers/*/"] } });
+  });
+
+  it("never lets the FrontDoor write the snapshot bucket", () => {
+    for (const statement of snapshotStatements) {
+      for (const action of [].concat(statement.Action)) {
+        assert.ok(!/Put|Delete|Abort|Multipart/.test(String(action)), `unexpected action ${action}`);
+      }
+    }
+  });
+
+  it("tells the FrontDoor which bucket to read", () => {
+    assert.equal(functionVariables(template, "TypeScript front door").CHATTICUS_SNAPSHOT_BUCKET, "chatticus-snapshots-bucket");
+  });
+
+  it("grants the snapshot bucket to no other role than the FrontDoor and the owner role", () => {
+    const attached = Object.values(resourcesOfType(template, "AWS::IAM::Policy"))
+      .filter((policy) => JSON.stringify(policy.Properties.PolicyDocument).includes("arn:aws:s3:::chatticus-snapshots-bucket"))
+      .flatMap((policy) => policy.Properties.Roles.map((role: any) => String(role.Ref)));
+    for (const role of attached) {
+      assert.match(role, /^(FrontDoorServiceRole|ComputerOwnerScopedRole)/);
+    }
+  });
+});

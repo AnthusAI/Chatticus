@@ -8,7 +8,9 @@ import { DynamoWriteGate } from "../src/migration/migration-state.ts";
 import { DynamoPolicyStore } from "../src/store/policy-store.ts";
 import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
+import { SnapshotFileService } from "../src/snapshot/files.ts";
 import { ApiClient } from "./api.ts";
+import { snapshotReadStoreOf } from "./computer-snapshot-files-support.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { ledgerDependenciesFor } from "./executor-harness.ts";
 import { modelGatewayFor } from "./model-gateway-support.ts";
@@ -88,6 +90,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
 		turnControl: world.turnControlStore(),
 		modelGateway: modelGatewayFor(world),
+		snapshotFiles: new SnapshotFileService(snapshotReadStoreOf(world)),
 		policy: new DynamoPolicyStore(world.messagingTable.client, world.messagingTable.tableName),
 		computer: computerHandoffDependenciesFor(world),
 		budgetRollups: world.store,

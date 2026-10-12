@@ -34,9 +34,27 @@ Canonical layout:
 
 ```
 s3://chatticus-{env}/tenants/{tenant_id}/computers/{computer_id}/
-  snapshot.tar.gz       workspace + browser profile
-  manifest.json         image digest, checksum, published_by, published_at
+  snapshot.tar.gz       workspace + browser profile (v2: one gzip member per file)
+  index/{checksum}.json every entry: path, kind, size, mode, sha256, link target, member offset and length
+  manifest.json         image digest, checksum, index_checksum, published_by, published_at
 ```
+
+**Snapshot v2.** The pack is still a valid `.tar.gz`, so hydrate unpacks it
+exactly as before, but each file is its own gzip member inside the tar stream.
+The index (`conversation/src/snapshot/index-format.ts`) records, for every
+entry, the byte range of its member, so the Front Door can list a computer's
+files and read one file with a single ranged `GET` while the computer is off.
+A publish writes the pack, then the index, then the manifest, which is written
+last and names the index (`index_checksum`, the SHA-256 of the index bytes). A
+manifest without `index_checksum` is a v1 snapshot: it still hydrates, and the
+file routes answer `409 snapshot_not_indexed` until the computer publishes
+again or `conversation/bin/reindex-snapshots.ts` runs. The pack is streamed to S3
+as a multipart upload, so the owner's memory does not grow with the workspace.
+Directories named `node_modules`, `.next`, `dist`, `build`, `target`, `.venv`,
+`__pycache__` and `.cache` (at any depth), and any file over 50 MiB, are left out
+of the pack and the index; a skipped file is logged as `snapshot_file_skipped`.
+A publish scans size and modified time against the last index and hashes only
+files that moved, so an unchanged disk is not packed again.
 
 `manifest.json` names the image digest the snapshot was taken against. A
 host whose local image does not match still hydrates the workplace files; it

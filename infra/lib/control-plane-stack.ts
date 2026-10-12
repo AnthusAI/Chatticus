@@ -356,6 +356,23 @@ export class ControlPlaneStack extends cdk.Stack {
           computerOwnerStart,
           { messagingTable, conversationsTable, piSessionsBucket },
         );
+        const snapshotBucketArn = `arn:aws:s3:::${computerOwnerStart.snapshotBucketName}`;
+        frontDoorFunction.addToRolePolicy(
+          new iam.PolicyStatement({
+            sid: "ReadComputerSnapshots",
+            actions: ["s3:GetObject"],
+            resources: [`${snapshotBucketArn}/tenants/*/computers/*/*`],
+          }),
+        );
+        frontDoorFunction.addToRolePolicy(
+          new iam.PolicyStatement({
+            sid: "ListComputerSnapshots",
+            actions: ["s3:ListBucket"],
+            resources: [snapshotBucketArn],
+            conditions: { StringLike: { "s3:prefix": ["tenants/*/computers/*/"] } },
+          }),
+        );
+        frontDoorFunction.addEnvironment("CHATTICUS_SNAPSHOT_BUCKET", computerOwnerStart.snapshotBucketName);
       }
     }
 
