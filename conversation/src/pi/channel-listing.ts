@@ -2,8 +2,10 @@ import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { type CommitObjectCache, IndexedStorage } from "../storage/indexed-storage.ts";
 import { storageIdFor } from "../storage/storage-support.ts";
+import type { Storage } from "@earendil-works/pi-durable";
 import { type ChannelLogLine, readEntryBody, readLog } from "./channel-log.ts";
 import { list as listMailbox, type MailboxStore } from "./mailbox.ts";
+import { fitActivityBudget, readTurnActivity, type ToolActivityItem } from "./message-activity.ts";
 
 export type ChannelListingDependencies = {
 	readonly client: DynamoDBClient;
@@ -25,7 +27,11 @@ export type ListedMessage = {
 	body: string;
 	addressed_to_bot_id: string | null;
 	created_at: string;
+	/** The tool calls of the turn a bot message ends; absent when the turn used no tool or the message is not a bot answer. */
+	activity?: ToolActivityItem[];
 };
+
+type SessionRead = { storage: Storage; lines: ChannelLogLine[] };
 
 const authoritative = (candidate: { line: ChannelLogLine; botId: string }, current: { line: ChannelLogLine; botId: string }) =>
 	candidate.line.authorKind === "bot" && candidate.line.authorId === candidate.botId && current.line.authorId !== current.botId;
@@ -51,7 +57,7 @@ export async function listChannelMessages(
 	afterSeq = 0,
 ): Promise<ListedMessage[]> {
 	const mailboxStore: MailboxStore = { client: dependencies.client, tableName: dependencies.messagingTableName };
-	const bySeq = new Map<number, { listed: Omit<ListedMessage, "body">; body: Promise<string>; line?: ChannelLogLine; botId: string }>();
+	const bySeq = new Map<number, { listed: Omit<ListedMessage, "body" | "activity">; body: Promise<string>; line?: ChannelLogLine; botId: string; session?: SessionRead }>();
 	for (const botId of botIds) {
 		const storage = await IndexedStorage.openExisting({
 			client: dependencies.client,
@@ -61,10 +67,12 @@ export async function listChannelMessages(
 			storageId: storageIdFor(tenantId, botId, channelId),
 			commitCache: dependencies.commitCache,
 		});
+		const allLines = storage === undefined ? [] : await readLog(storage);
+		const session = storage === undefined ? undefined : { storage, lines: allLines };
 		const logged =
 			storage === undefined
 				? []
-				: (await readLog(storage))
+				: allLines
 						.filter((line) => line.seq > afterSeq)
 						.map((line) => ({ line, body: () => readEntryBody(storage, line.entryId) }));
 		for (const { line, body } of logged) {
@@ -73,6 +81,7 @@ export async function listChannelMessages(
 			bySeq.set(line.seq, {
 				line,
 				botId,
+				session,
 				listed: {
 					message_id: line.messageId,
 					channel_id: channelId,
@@ -105,5 +114,26 @@ export async function listChannelMessages(
 		}
 	}
 	const ordered = [...bySeq.values()].sort((left, right) => left.listed.seq - right.listed.seq);
-	return Promise.all(ordered.map(async (entry) => ({ ...entry.listed, body: await entry.body })));
+	const activities = fitActivityBudget(await Promise.all(ordered.map((entry) => activityOf(entry))));
+	return Promise.all(
+		ordered.map(async (entry, index) => {
+			const activity = activities[index];
+			return { ...entry.listed, body: await entry.body, ...(activity === undefined ? {} : { activity }) };
+		}),
+	);
 }
+
+const activityOf = async (entry: {
+	line?: ChannelLogLine;
+	botId: string;
+	session?: SessionRead;
+}): Promise<ToolActivityItem[] | undefined> => {
+	const { line, session } = entry;
+	if (line === undefined || session === undefined) return undefined;
+	if (line.authorKind !== "bot" || line.authorId !== entry.botId) return undefined;
+	const previousAnswer = session.lines
+		.filter((candidate) => candidate.authorKind === "bot" && candidate.authorId === entry.botId && candidate.entryId < line.entryId)
+		.reduce((newest, candidate) => Math.max(newest, candidate.entryId), 0);
+	const activity = await readTurnActivity(session.storage, previousAnswer, line.entryId);
+	return activity.length === 0 ? undefined : activity;
+};

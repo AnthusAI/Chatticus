@@ -217,6 +217,31 @@ Before any argument or output is placed in an event, every value in the process 
 `KEY`, `TOKEN` or `SECRET` (values of at least 8 characters), is replaced with `[redacted]`. Each event stays well under
 20 KB, far below the 400 KB item limit.
 
+### Tool activity in the message list
+
+`GET /orgs/{tenant}/channels/{id}/messages` gives every bot message an optional `activity` array: the tool calls the bot
+made between the prompt and that answer, so the tool cards survive a reload. It is built from the committed Pi session,
+which is permanent, not from the 24 hour events table, and the read-only Front Door builds it with no writes.
+
+An item is the `tool.call` and the `tool.result` of one call in one object: `call_id`, `tool`, `summary`, `arguments`,
+`arguments_truncated`, `ok` (boolean, or null when the session recorded no result), `result_summary` (the result's
+`summary`, or null), `output` (text or null), `output_truncated` and `duration_ms`. Arguments and output come from the
+same functions as the live events (`tool-event-fields.ts`), so the sanitising, the cuts and the secret scrub are the
+same, and an item says what the live events of that call said. `duration_ms` is always null because the session stores
+no timing.
+
+Rules:
+
+- The activity is attached to the bot's final answer of the turn, the message the channel log points at. It covers every
+  call made after the bot's previous answer in its own session up to that answer, in call order, text-before-tool steps
+  and steered messages included. A message with no tool calls has no `activity` field; human messages never have one.
+  A turn that ended without any answer has no listed message of its own, so its calls are listed on the next answer.
+- At most 50 items per message. A longer turn keeps its first 49 and ends with `{tool: "more", call_id: "more",
+  summary: "<N> more tool calls", ok: null, ...}` where N counts the calls left out.
+- At most 3,000,000 characters of activity in one response. When a list would exceed that, the oldest messages give up
+  their activity first and the newest keep it, so the response stays far below the 6 MB Lambda limit however long the
+  history. Activity is computed only for the messages the page returns, and `after` and `seq` behave as before.
+
 ### A failed model call fails the turn at once
 
 When the model provider answers with an error that a retry cannot fix (the

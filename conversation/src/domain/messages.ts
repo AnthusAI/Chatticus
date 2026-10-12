@@ -1,4 +1,5 @@
 import type { ChannelListingDependencies } from "../pi/channel-listing.ts";
+import type { ToolActivityItem } from "../pi/message-activity.ts";
 import { listChannelMessages as listChannelSessionMessages } from "../pi/channel-listing.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxItem, type MailboxStore } from "../pi/mailbox.ts";
 import type { Clock, IdSource } from "../http/app.ts";
@@ -13,7 +14,7 @@ import type { TurnAdmission, TurnProbeQueue, TurnRunQueue } from "./turn-admissi
 import { TURN_DEADLINE_SECONDS } from "./turns.ts";
 
 /** One committed channel message. */
-export type Message = ChannelMessageRecord;
+export type Message = ChannelMessageRecord & { activity?: ToolActivityItem[] };
 
 /** What the message functions read and write. */
 export type MessageDependencies = {
@@ -240,5 +241,6 @@ export async function listMessages(deps: MessageDependencies, request: ListMessa
 		body: entry.body,
 		addressedToBotId: entry.addressed_to_bot_id,
 		createdAt: new Date(entry.created_at),
+		...(entry.activity === undefined ? {} : { activity: entry.activity }),
 	}));
 }
