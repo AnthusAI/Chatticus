@@ -3,23 +3,36 @@
   "title": "Long-lived computer Phase 2a: supervisor, poll route, idle timeout (docs/LONG_LIVED_COMPUTER.md)",
   "description": "Supervisor loop, poll route (heartbeat merged), dispatch of parked turns, per-turn child, per-turn credentials through the broker, idle timeout 15 min and stop-request with veto, quiet publish, already_serving start check, max lifetime 50 minutes, watchdog, new log lines, removal of the legacy host service. Scenarios: features/computer_owner_long_lived.feature. Decisions accepted 2026-10-12: D1 to D15 as recommended.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2a040a18-918a-4e17-bcf5-015050ba42b0",
+      "author": "home",
+      "text": "Phase 2a is implemented and merged (PRs 516 contract, 517 A0 foundation, 518 supervisor, poll route, broker) and verified live on development: one owner served two back-to-back turns (turns_served=2), polling backs off from 1s to 3s, the quiet publish ran, and owner_idle logs idle_seconds against the 900 s timeout. Not yet proven live: idle shutdown after 15 minutes with a published snapshot, crash recovery, drain; tracked in chatticus-c24177. Local image build and test_owner_container.sh not yet run: chatticus-6c66c5. CI concurrency cancellations: chatticus-36012d. Closing this task.",
+      "created_at": "2026-10-12T17:50:01.030104Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-12T13:18:50.955487Z",
-  "updated_at": "2026-10-12T13:18:50.955531Z",
-  "closed_at": null,
+  "updated_at": "2026-10-12T17:50:04.211144Z",
+  "closed_at": "2026-10-12T17:50:04.210450Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is implementing the supervisor, poll route, turn dispatch, timeouts, watchdog, and cleanup.",
-  "right_now_updated_at": "2026-10-12T13:18:53.697322Z",
+  "right_now_summary": "Phase 2a is merged and verified live; idle shutdown, crash recovery, and drain still need proof.",
+  "right_now_updated_at": "2026-10-12T17:50:06.211624Z",
   "custom": {}
 }

@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "45374835-03e8-44fd-ab68-ce6481321dc1",
+      "author": "home",
+      "text": "Related new bug chatticus-36012d: after the Phase 2a merges, a single merge triggering ThinTurn, ControlPlane and the image build together again had deploy runs cancelled by concurrency. Same family; fix them together (separate groups or explicit sequencing).",
+      "created_at": "2026-10-12T17:50:08.193794Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-11T17:37:40.103261Z",
-  "updated_at": "2026-10-11T17:37:40.103303Z",
+  "updated_at": "2026-10-12T17:50:08.193824Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The shared queue cancels Lambda deploys when image builds run, leaving Lambdas on an incompatible image.",
-  "right_now_updated_at": "2026-10-11T17:37:42.149819Z",
+  "right_now_summary": "Image builds and Lambda deploys still cancel each other, causing mismatched images and crashing starters.",
+  "right_now_updated_at": "2026-10-12T17:50:11.293273Z",
   "custom": {}
 }

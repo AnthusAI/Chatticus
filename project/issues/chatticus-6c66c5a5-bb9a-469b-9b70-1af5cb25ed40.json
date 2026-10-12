@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-6c66c5a5-bb9a-469b-9b70-1af5cb25ed40",
+  "title": "Run the computer image build and computer/test_owner_container.sh locally for the supervisor",
+  "description": "The supervisor container image build and computer/test_owner_container.sh were never run locally for Phase 2a; only CI and the live development rehearsal exercised them. Run both on a developer machine, record the result, and fix anything that only fails locally.",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-12T17:49:50.117666Z",
+  "updated_at": "2026-10-12T17:49:50.117705Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The supervisor image build and test script still need local runs and recorded results.",
+  "right_now_updated_at": "2026-10-12T17:49:51.505591Z",
+  "custom": {}
+}

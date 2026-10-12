@@ -94,7 +94,7 @@ computer tool call, parks the turn, and the ComputerStarter runs a Fargate owner
 task. A Pi owner in that container claims the parked turn (same session, new
 fence), runs Pi's own `read`, `write`, `edit` and `bash` locally, calls the model
 through a gateway route with a per-turn token (the real OpenAI key stays in the
-control plane), publishes the workspace snapshot when content changed, and exits.
+control plane), publishes the workspace snapshot when content changed, and (Phase 2a) stays up as a long-lived supervisor that serves further turns, polling for parked turns with a 1 s to 3 s backoff and exiting after a 900 s idle timeout; verified live on development: one owner served two back-to-back turns, while idle shutdown with a published snapshot, crash recovery and drain are not yet proven live.
 Model-chosen commands run as an unprivileged user (uid 2000) with a scrubbed
 environment. Rehearsed live on **development only**: a smoke turn, a security
 check, a recovery after the owner task was stopped mid-command, and a bug-fix

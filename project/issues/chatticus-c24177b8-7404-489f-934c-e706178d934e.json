@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-c24177b8-7404-489f-934c-e706178d934e",
+  "title": "Long-lived owner: prove idle shutdown, crash recovery and drain live on development",
+  "description": "Phase 2a (chatticus-b6f765) is live on development but three behaviors are not yet proven live: (1) idle shutdown after the 15 minute timeout, with the workspace snapshot published before exit; (2) crash recovery, an owner task killed mid-turn or while idle and the next turn starting a fresh owner; (3) drain, a stop request or deploy while a turn is in flight. Acceptance: each rehearsed on develop.chattic.us with the owner log lines (owner_idle, publish, exit) captured and recorded in a comment here.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e0ad5392-9652-446f-8153-82d378688a46",
+      "author": "home",
+      "text": "Created at the Phase 2a milestone. Live evidence so far (owner_idle with idle_seconds against 900 s, turns_served=2) does not cover the three behaviors here.",
+      "created_at": "2026-10-12T17:50:13.267051Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-12T17:49:36.913888Z",
+  "updated_at": "2026-10-12T17:50:13.267081Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The team is testing idle shutdown, crash recovery, and draining on development with logs captured.",
+  "right_now_updated_at": "2026-10-12T17:50:14.813138Z",
+  "custom": {}
+}
