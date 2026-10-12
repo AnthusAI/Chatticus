@@ -36,6 +36,21 @@ export function ownerRolePolicyStatements(resources: OwnerRolePolicyResources): 
 	return (JSON.parse(text) as { statements: PolicyStatement[] }).statements;
 }
 
+/** The file of the supervisor role's permission statements; the CDK stack reads this same file. */
+export const SUPERVISOR_ROLE_POLICY_FILE = new URL("../src/gateway/supervisor-role-policy.json", import.meta.url);
+
+/**
+ * The statements of the computer supervisor role's permission policy, read from the same file the CDK stack deploys, with
+ * the snapshot bucket ARN filled in. The `${aws:PrincipalTag/...}` policy variables stay in the text.
+ *
+ * @param resources The ARN of the snapshot bucket.
+ * @returns The statements.
+ */
+export function supervisorRolePolicyStatements(resources: { readonly snapshotBucketArn: string }): PolicyStatement[] {
+	const text = readFileSync(SUPERVISOR_ROLE_POLICY_FILE, "utf8").replaceAll("{{snapshotBucketArn}}", resources.snapshotBucketArn);
+	return (JSON.parse(text) as { statements: PolicyStatement[] }).statements;
+}
+
 /** The session tags of the assumed role, by tag key. */
 export type SessionTagValues = Readonly<Record<string, string>>;
 

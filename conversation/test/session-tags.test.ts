@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { OWNER_SESSION_TAG_KEYS, OwnerSessionTagError, ownerSessionTags, type OwnerSessionScope } from "../src/gateway/session-tags.ts";
+import {
+	OWNER_SESSION_TAG_KEYS,
+	OwnerSessionTagError,
+	SUPERVISOR_SESSION_TAG_KEYS,
+	ownerSessionTags,
+	supervisorSessionTags,
+	type OwnerSessionScope,
+	type SupervisorSessionScope,
+} from "../src/gateway/session-tags.ts";
 
 const uuid = "0f8c2a1e-9b7d-4c3a-8e5f-1a2b3c4d5e6f";
 
@@ -38,5 +46,37 @@ describe("ownerSessionTags", () => {
 
 	it("names the offending tag in the error and never rewrites a value", () => {
 		expect(() => ownerSessionTags({ ...scope, channelId: "chan nel" })).toThrow(/channel id "chan nel"/);
+	});
+});
+
+describe("supervisorSessionTags", () => {
+	const supervisorScope: SupervisorSessionScope = { tenantId: scope.tenantId, computerId: scope.computerId };
+
+	it("returns exactly the tenant and computer tags in key order", () => {
+		expect(supervisorSessionTags(supervisorScope)).toEqual([
+			{ Key: "tenant", Value: "anthus" },
+			{ Key: "computer", Value: `computer-${uuid}` },
+		]);
+		expect(supervisorSessionTags(supervisorScope).map((tag) => tag.Key)).toEqual([...SUPERVISOR_SESSION_TAG_KEYS]);
+	});
+
+	it("carries no bot, channel or turn tag", () => {
+		const keys = supervisorSessionTags(supervisorScope).map((tag) => tag.Key);
+		expect(keys).not.toContain("bot");
+		expect(keys).not.toContain("channel");
+		expect(keys).not.toContain("turn");
+	});
+
+	it.each(["", "t*", "t?", "t#x", "t%23", "t id", "t/1", "t=1", "t+1", "t@1", "t$", "t{x}", "x".repeat(257)])("refuses the tenant id %j", (tenantId) => {
+		expect(() => supervisorSessionTags({ ...supervisorScope, tenantId })).toThrow(OwnerSessionTagError);
+	});
+
+	it.each(["", "c*", "c?", "c#x", "c%23", "c id", "c/1", "x".repeat(257)])("refuses the computer id %j", (computerId) => {
+		expect(() => supervisorSessionTags({ ...supervisorScope, computerId })).toThrow(OwnerSessionTagError);
+	});
+
+	it("names the offending tag in the error and accepts a value of exactly 256 characters", () => {
+		expect(() => supervisorSessionTags({ ...supervisorScope, computerId: "comp uter" })).toThrow(/computer id "comp uter"/);
+		expect(() => supervisorSessionTags({ ...supervisorScope, tenantId: "x".repeat(256) })).not.toThrow();
 	});
 });
