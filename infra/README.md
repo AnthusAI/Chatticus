@@ -104,24 +104,22 @@ sh deploy-chatticus-web-development.sh
 sh deploy-chatticus-auth-development.sh
 ```
 
-Staging and production, when you mean to:
+Staging and production, when you mean to, one stack at a time with that environment's own account credentials (the script refuses the legacy account):
 
 ```bash
-npx cdk deploy ChatticusThinTurnStaging
-npx cdk deploy ChatticusWebStaging
-npx cdk deploy ChatticusAuthStaging
-npx cdk deploy ChatticusThinTurnProduction
-npx cdk deploy ChatticusWebProduction
-npx cdk deploy ChatticusAuthProduction
+sh deploy-chatticus-dedicated-account.sh staging control-plane
+sh deploy-chatticus-dedicated-account.sh staging web
+sh deploy-chatticus-dedicated-account.sh staging thin-turn
 ```
 
-GitHub Actions: named deploy workflows run on **push** to the environment
-branch (`develop` for development; `main` for staging and production) and on
-**`workflow_dispatch`**. No CodePipeline. One AWS account
-hosts all three named cloud environments; three GitHub environments
-(`development`, `staging`, `production`) each assume a dedicated OIDC role
-(see below). A future split into dedicated AWS accounts per environment
-would re-scope `ChatticusGitHubDeploy`; this slice assumes one account.
+GitHub Actions: the development deploy workflows run on **push** to `develop` and on
+**`workflow_dispatch`**. The staging and production deploy workflows run on
+**`workflow_dispatch` only**, and every one of them deploys through
+`deploy-chatticus-dedicated-account.sh`, which refuses the legacy account. The
+GitHub `staging` and `production` environments require a reviewer, so each dispatch
+waits for approval. No CodePipeline. Each named cloud environment has its own
+AWS account, and its GitHub environment assumes that account's OIDC deploy role
+(see below).
 
 Wire OIDC once (below), redeploy `ChatticusGitHubDeploy` after adding or
 updating trusted workflow paths, then set **`AWS_DEPLOY_ROLE_ARN`** in each
@@ -132,12 +130,12 @@ GitHub environment from the matching stack output.
 | **Deploy ThinTurn (development)** | `deploy-thinturn-development.yml` | `deploy-chatticus-thinturn-development.sh` | `ChatticusThinTurn` |
 | **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-web-development.sh` | `ChatticusWeb` |
 | **Deploy Auth (development)** | `deploy-auth-development.yml` | `deploy-chatticus-auth-development.sh` | `ChatticusAuth` |
-| **Deploy ThinTurn (staging)** | `deploy-thinturn-staging.yml` | `deploy-chatticus-thinturn-staging.sh` | `ChatticusThinTurnStaging` |
-| **Deploy Web (staging)** | `deploy-web-staging.yml` | `deploy-chatticus-web-staging.sh` | `ChatticusWebStaging` |
-| **Deploy Auth (staging)** | `deploy-auth-staging.yml` | `deploy-chatticus-auth-staging.sh` | `ChatticusAuthStaging` |
-| **Deploy ThinTurn (production)** | `deploy-thinturn-production.yml` | `deploy-chatticus-thinturn-production.sh` | `ChatticusThinTurnProduction` |
-| **Deploy Web (production)** | `deploy-web-production.yml` | `deploy-chatticus-web-production.sh` | `ChatticusWebProduction` |
-| **Deploy Auth (production)** | `deploy-auth-production.yml` | `deploy-chatticus-auth-production.sh` | `ChatticusAuthProduction` |
+| **Deploy ThinTurn (staging)** | `deploy-thinturn-staging.yml` | `deploy-chatticus-dedicated-account.sh staging thin-turn` | `ChatticusThinTurnStaging` |
+| **Deploy Web (staging)** | `deploy-web-staging.yml` | `deploy-chatticus-dedicated-account.sh staging web` | `ChatticusWebStaging` |
+| **Deploy Auth (staging)** | `deploy-auth-staging.yml` | `deploy-chatticus-dedicated-account.sh staging auth` | `ChatticusAuthStaging` |
+| **Deploy ThinTurn (production)** | `deploy-thinturn-production.yml` | `deploy-chatticus-dedicated-account.sh production thin-turn` | `ChatticusThinTurnProduction` |
+| **Deploy Web (production)** | `deploy-web-production.yml` | `deploy-chatticus-dedicated-account.sh production web` | `ChatticusWebProduction` |
+| **Deploy Auth (production)** | `deploy-auth-production.yml` | `deploy-chatticus-dedicated-account.sh production auth` | `ChatticusAuthProduction` |
 
 For computers in Anthus's own accounts the ComputerStarter runs the owner task
 (`ChatticusComputerOwner`, `node /opt/chatticus/host/supervisor.mjs`). The starter

@@ -261,26 +261,36 @@ Chatticus has three named AWS environments for the thin-turn front door:
 pass `--environment` for one of those names. Run them from a logged-in
 developer or agent shell, not from GitHub Actions.
 
-| Git | Cloud environment | CDK stack |
-| --- | --- | --- |
-| `develop` | development | `ChatticusThinTurn` |
-| `main` (release) | staging + production | `ChatticusThinTurnStaging` / `ChatticusThinTurnProduction` |
+| Branch | Cloud environment | Trigger | CDK stack |
+| --- | --- | --- | --- |
+| `develop` | development | push to `develop`, or `workflow_dispatch` | `ChatticusThinTurn` |
+| `main` (release) | staging | `workflow_dispatch` only | `ChatticusThinTurnStaging` |
+| `main` (release) | production | `workflow_dispatch` only | `ChatticusThinTurnProduction` |
 
-Deployment is a real CI/CD pipeline, not a manual step: each of the nine
-`deploy-{web,thinturn,auth}-{development,staging,production}.yml`
-workflows triggers on `push` to its branch (`develop` for development,
-`main` for both staging and production) in addition to `workflow_dispatch`.
-A push to `main` deploys staging and production in the same motion --
-there is no separate approval gate between them. Branch protection on
-`main` (required PR review + green CI before merge) is the safety gate,
-not a deploy-time click. So "deploy this" from a human means: get the
-work merged to `main` (through the normal `develop` -> `main` promotion
-PR, reviewed and green) and then watch those workflow runs to
-completion -- not run `cdk deploy` by hand from a local shell with
-`aws login`. Local `cdk deploy` (via the `infra/deploy-*.sh` scripts)
-still works and remains the fallback when CI can't be used, but prefer
-the CI path: it authenticates via OIDC (`configure-aws-credentials`),
-not a personal AWS session.
+Only the development deploy workflows trigger on push. The staging and
+production deploy workflows (`deploy-{controlplane,web,thinturn,auth}-{staging,production}.yml`)
+are `workflow_dispatch` only: a push or merge to `main` never deploys
+anything. A structural test in `infra/test/deploy-workflows.test.ts` fails if
+a workflow bound to the `staging` or `production` GitHub environment regains
+a push, pull_request, schedule or workflow_run trigger. Every environment
+deploys through `infra/deploy-chatticus-dedicated-account.sh ENV STACK` into
+that environment's own AWS account; the script refuses the legacy account.
+
+The GitHub `staging` and `production` environments require a reviewer, and
+branch protection on `main` requires a PR, review and green CI. These are
+repository settings the owner controls; agents do not change them. Production
+is deployed only by a manual dispatch that the environment reviewer approves,
+and only a staging-proven release goes there. "Deploy this" from a human
+therefore means: get the work merged (`develop` for development; the normal
+`develop` -> `main` promotion PR for release), then dispatch the workflow for
+the target environment and watch the run to completion. Do not run `cdk deploy`
+by hand from a local shell with `aws login` unless CI cannot be used; the CI
+path authenticates via OIDC (`configure-aws-credentials`), not a personal AWS
+session.
+
+The integration-test principal (`CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN`)
+is enabled in development and staging, where acceptance runs need it, and never
+in production: the script refuses it there and no production workflow passes it.
 
 Shared stacks `ChatticusSnapshots` and `ChatticusComputers` are not
 per-environment. Never `cdk deploy --all`. Never destroy those two

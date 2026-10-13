@@ -59,9 +59,15 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     assert.match(contents, /STACK: budgets snapshots computers zones certificates thin-turn control-plane web auth/);
   });
 
-  it("passes the integration test role as context for the development control plane only, and refuses a malformed ARN before AWS", () => {
+  it("passes the integration test role as context for the development and staging control planes only, and refuses it for production, and refuses a malformed ARN before AWS", () => {
     assert.match(contents, /-c integrationTestAllowedRoleArn=/);
-    assert.match(contents, /"\$\{ENVIRONMENT\}" = "development" \] && \[ "\$\{STACK\}" = "ChatticusControlPlane"/);
+    assert.match(contents, /"\$\{ENVIRONMENT\}" = "development" \] \|\| \[ "\$\{ENVIRONMENT\}" = "staging" \]/);
+    const production = spawnSync("sh", [script, "production", "control-plane"], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: "arn:aws:iam::123456789012:role/x" },
+    });
+    assert.equal(production.status, 1);
+    assert.match(production.stderr, /must not be set for production/);
     const env = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "" };
     for (const bad of ["not-an-arn", "arn:aws:iam::123:role/x", "arn:aws:sts::123456789012:assumed-role/x/y", "arn:aws:iam::123456789012:user/x"]) {
       const result = spawnSync("sh", [script, "development", "control-plane"], {
