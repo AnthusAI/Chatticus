@@ -300,10 +300,10 @@ describe("clearing", () => {
 
 	it("stores a reported conflict on the matching revision only", async () => {
 		const { deps } = await sealedWithEntries();
-		await clearOverlay(deps, owner, { cleared: [], conflicts: [{ path: "/workspace/a.md", revision: 9, disk_sha256: null }] });
+		await clearOverlay(deps, owner, { cleared: [], conflicts: [{ path: "/workspace/a.md", revision: 9, reason: "changed", disk_sha256: null }] });
 		expect((await readOverlayState(deps, location)).index.entries[0]?.conflict).toBeNull();
-		await clearOverlay(deps, owner, { cleared: [], conflicts: [{ path: "/workspace/a.md", revision: 1, disk_sha256: hashOfText("disk") }] });
-		expect((await readOverlayState(deps, location)).index.entries[0]?.conflict).toMatchObject({ reason: "changed", disk_sha256: hashOfText("disk") });
+		await clearOverlay(deps, owner, { cleared: [], conflicts: [{ path: "/workspace/a.md", revision: 1, reason: "collision", disk_sha256: hashOfText("disk") }] });
+		expect((await readOverlayState(deps, location)).index.entries[0]?.conflict).toMatchObject({ reason: "collision", disk_sha256: hashOfText("disk") });
 	});
 
 	it("keeps the seal while it clears", async () => {

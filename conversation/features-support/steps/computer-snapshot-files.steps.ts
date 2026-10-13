@@ -16,6 +16,7 @@ import { WORKSPACE_DIRNAME } from "../../src/browser-profiles.ts";
 import { capturedConsoleLines, parsedLogLines } from "../log-capture-support.ts";
 import { bearerFor } from "../front-door.ts";
 import { ensureTestOrganization, organizationMemberHeaders } from "../org-user-client.ts";
+import { sendFileRoute } from "../computer-file-live-support.ts";
 import { cleanUpFileRoutesScenario, computerDiskOf, createFileRoutesBucket, fileRoutesOf, type FileRouteResponse } from "../computer-snapshot-files-support.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -44,17 +45,8 @@ function responseOf(world: ChatticusWorld): FileRouteResponse {
 }
 
 async function call(world: ChatticusWorld, headers: Record<string, string>, tenantId: string, route: string, query: Record<string, string>): Promise<void> {
-	assert.ok(world.api, "The scenario has no HTTP front door.");
 	const search = new URLSearchParams(query).toString();
-	const response = await world.api.get(`/orgs/${tenantId}/computer/files${route}${search === "" ? "" : `?${search}`}`, { headers });
-	const text = await response.text();
-	let json: any = null;
-	try {
-		json = JSON.parse(text);
-	} catch {
-		json = null;
-	}
-	fileRoutesOf(world).response = { status: response.status, text, json, headers: response.headers };
+	await sendFileRoute(world, { method: "GET", path: `/orgs/${tenantId}/computer/files${route}${search === "" ? "" : `?${search}`}`, headers });
 }
 
 async function callAsMember(world: ChatticusWorld, route: string, query: Record<string, string>): Promise<void> {

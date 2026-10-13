@@ -13,6 +13,7 @@ import { ApiClient } from "./api.ts";
 import { snapshotReadStoreOf } from "./computer-snapshot-files-support.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { editOverlayRuntimeOf } from "./edit-overlay-support.ts";
+import { fileWaitOf } from "./computer-file-live-support.ts";
 import { ledgerDependenciesFor } from "./executor-harness.ts";
 import { modelGatewayFor, SCENARIO_GATEWAY_SIGNING_KEY } from "./model-gateway-support.ts";
 import { ownerBrokerOf } from "./owner-broker-support.ts";
@@ -95,6 +96,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		ownerSupervisor: { signingKey: SCENARIO_GATEWAY_SIGNING_KEY, broker: ownerBrokerOf(world) },
 		snapshotFiles: new SnapshotFileService(snapshotReadStoreOf(world)),
 		editOverlay: editOverlayRuntimeOf(world),
+		fileWait: fileWaitOf(world),
 		policy: new DynamoPolicyStore(world.messagingTable.client, world.messagingTable.tableName),
 		computer: computerHandoffDependenciesFor(world),
 		budgetRollups: world.store,

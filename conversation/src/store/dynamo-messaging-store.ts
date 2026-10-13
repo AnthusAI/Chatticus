@@ -37,6 +37,7 @@ import * as idempotencyCodec from "./codecs/idempotency.ts";
 import * as identityCodec from "./codecs/identity.ts";
 import * as invitationCodec from "./codecs/invitation.ts";
 import * as liveFileOperationCodec from "./codecs/live-file-operation.ts";
+import { encodeOutcome } from "./codecs/live-file-operation.ts";
 import type { LiveFileOperation, LiveFileOperationStatus } from "./codecs/live-file-operation.ts";
 import * as membershipCodec from "./codecs/membership.ts";
 import * as organizationCodec from "./codecs/organization.ts";
@@ -973,7 +974,7 @@ export class DynamoMessagingStore implements MessagingStore {
 					ExpressionAttributeValues: {
 						":done": { S: "done" },
 						":delivered": { S: "delivered" },
-						":outcome": { S: outcome },
+						":outcome": encodeOutcome(outcome),
 						":now": { N: String(Math.floor(now.getTime() / 1000)) },
 					},
 					ReturnValues: "ALL_NEW",

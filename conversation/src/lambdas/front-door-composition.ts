@@ -21,6 +21,8 @@ import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
 import { MessageBodyCache } from "../pi/message-cache.ts";
 import { SnapshotFileService } from "../snapshot/files.ts";
 import { S3SnapshotStore } from "../snapshot/s3.ts";
+import { S3OverlayStore } from "../snapshot/overlay-store.ts";
+import { StoreOverlayAuditSink } from "../domain/file-audit.ts";
 import type { CommitObject } from "../storage/indexed-storage.ts";
 import { DynamoComputerActionStore } from "../store/action-store.ts";
 import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
@@ -214,6 +216,10 @@ export async function composeFrontDoorApp(
 	const snapshotBucket = environment[SNAPSHOT_BUCKET_VARIABLE] ?? "";
 	return createApp({
 		snapshotFiles: snapshotBucket === "" ? null : new SnapshotFileService(new S3SnapshotStore(snapshotBucket, clients.s3)),
+		editOverlay:
+			snapshotBucket === ""
+				? null
+				: { overlay: new S3OverlayStore(snapshotBucket, clients.s3), snapshots: new S3SnapshotStore(snapshotBucket, clients.s3), audit: new StoreOverlayAuditSink(store) },
 		modelGateway,
 		ownerSupervisor,
 		writeGate: new CachedFailClosedWriteGate(new DynamoWriteGate(client, messagingTableName), clock),

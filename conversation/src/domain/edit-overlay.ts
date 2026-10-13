@@ -18,7 +18,7 @@ import {
 	type OverlayEntry,
 	type OverlayIndex,
 } from "@chatticus/host-protocol/edit-overlay";
-import { LIVE_FILE_CONTENT_MAX_BYTES } from "@chatticus/host-protocol/live-files";
+import { LIVE_FILE_CONTENT_MAX_BYTES, LIVE_FILE_ERROR_STATUS } from "@chatticus/host-protocol/live-files";
 import { looksLikeSecretFile } from "@chatticus/host-protocol/live-file-rules";
 import type { Clock, IdSource } from "../http/app.ts";
 import { ComputerNotFoundError } from "../http/errors.ts";
@@ -117,33 +117,6 @@ export type OverlayDomainRefusalCode =
 	| "precondition_failed"
 	| "corrupt_snapshot";
 
-/** The HTTP status of each refusal the overlay raises (section 6.3 of the contract). */
-export const OVERLAY_REFUSAL_STATUS: Readonly<Record<OverlayDomainRefusalCode, number>> = {
-	path_refused: 403,
-	not_in_saved_copy: 422,
-	not_found: 404,
-	parent_missing: 404,
-	not_a_file: 422,
-	not_a_directory: 422,
-	already_exists: 409,
-	precondition_failed: 409,
-	overlay_full: 409,
-	path_busy: 409,
-	directory_not_empty: 409,
-	owner_role_required: 403,
-	invalid_move: 422,
-	too_many_entries: 413,
-	file_too_large: 413,
-	computer_starting: 503,
-	computer_stopping: 503,
-	content_too_large: 413,
-	audit_unavailable: 503,
-	overlay_unavailable: 503,
-	overlay_contended: 503,
-	snapshot_not_indexed: 409,
-	corrupt_snapshot: 500,
-};
-
 /** A change the overlay will not take, with the code and status the member route answers with. */
 export class EditOverlayRefusal extends Error {
 	readonly code: OverlayDomainRefusalCode;
@@ -160,7 +133,7 @@ export class EditOverlayRefusal extends Error {
 		super(message);
 		this.name = "EditOverlayRefusal";
 		this.code = code;
-		this.status = OVERLAY_REFUSAL_STATUS[code];
+		this.status = LIVE_FILE_ERROR_STATUS[code];
 		this.currentSha256 = options.currentSha256;
 		this.retryAfterMs = options.retryAfterMs;
 	}
@@ -280,11 +253,20 @@ export async function loadEffectiveOverlayView(
  * @throws EditOverlayRefusal `corrupt_snapshot` when the blob is missing or does not hash to its name.
  */
 export async function readOverlayBlobText(deps: EditOverlayDependencies, location: OverlayLocation, sha256: string): Promise<string> {
+	return (await readOverlayBlobBytes(deps, location, sha256)).toString("utf8");
+}
+
+/**
+ * The bytes of an overlay blob, verified against its name.
+ *
+ * @throws EditOverlayRefusal `corrupt_snapshot` when the blob is missing or does not hash to its name.
+ */
+export async function readOverlayBlobBytes(deps: EditOverlayDependencies, location: OverlayLocation, sha256: string): Promise<Buffer> {
 	const read = await storeCall(() => deps.overlay.get(location, overlayBlobObject(sha256)));
 	if (read.kind !== "found" || sha256Of(read.object.body) !== sha256) {
 		throw new EditOverlayRefusal("corrupt_snapshot", "A saved edit does not match its record.");
 	}
-	return read.object.body.toString("utf8");
+	return read.object.body;
 }
 
 /**
@@ -563,6 +545,9 @@ export async function sealOverlay(deps: EditOverlayDependencies, owner: Pick<Own
 	throw new EditOverlayRefusal("overlay_contended", "The overlay is being changed at the same moment; try again.", { retryAfterMs: 1000 });
 }
 
+/** Why the owner did not apply an entry: the disk changed, the target exists, a directory is not empty, or the kinds differ. */
+export type OverlayConflictReason = Extract<OverlayEntry["conflict"], { reason: string }>["reason"];
+
 /** One entry the owner names, by path and the revision it applied. */
 export type OverlayEntryReference = { readonly path: string; readonly revision: number };
 
@@ -577,7 +562,10 @@ export type OverlayEntryReference = { readonly path: string; readonly revision: 
 export async function clearOverlay(
 	deps: EditOverlayDependencies,
 	owner: Pick<OwnerIdentity, "tenantId" | "ownerId" | "startGeneration">,
-	request: { readonly cleared: readonly OverlayEntryReference[]; readonly conflicts: ReadonlyArray<OverlayEntryReference & { readonly disk_sha256: string | null }> },
+	request: {
+		readonly cleared: readonly OverlayEntryReference[];
+		readonly conflicts: ReadonlyArray<OverlayEntryReference & { readonly reason: OverlayConflictReason; readonly disk_sha256: string | null }>;
+	},
 ): Promise<{ remaining: number }> {
 	const location = { tenantId: owner.tenantId, computerId: (await requireComputer(deps, owner.tenantId)).computerId };
 	const auditIds = new Map<string, string>();
@@ -601,7 +589,7 @@ export async function clearOverlay(
 		const clearedPaths = new Set(toClear.map((entry) => entry.path));
 		const toFlag = request.conflicts.flatMap((reference) => {
 			const entry = matching(reference);
-			return entry === undefined || clearedPaths.has(entry.path) ? [] : [{ entry, diskSha256: reference.disk_sha256 }];
+			return entry === undefined || clearedPaths.has(entry.path) ? [] : [{ entry, diskSha256: reference.disk_sha256, reason: reference.reason }];
 		});
 		if (toClear.length === 0 && toFlag.length === 0) return { remaining: index.entries.length };
 
@@ -626,12 +614,13 @@ export async function clearOverlay(
 				at,
 			});
 		}
-		const flagged = new Map(toFlag.map(({ entry, diskSha256 }) => [entry.path, diskSha256]));
+		const flagged = new Map(toFlag.map(({ entry, diskSha256, reason }) => [entry.path, { diskSha256, reason }]));
 		const next = index.entries
 			.filter((entry) => !clearedPaths.has(entry.path))
-			.map((entry): OverlayEntry =>
-				flagged.has(entry.path) ? ({ ...entry, conflict: { reason: "changed", disk_sha256: flagged.get(entry.path) ?? null, found_at: at } } as OverlayEntry) : entry,
-			);
+			.map((entry): OverlayEntry => {
+				const found = flagged.get(entry.path);
+				return found === undefined ? entry : ({ ...entry, conflict: { reason: found.reason, disk_sha256: found.diskSha256, found_at: at } } as OverlayEntry);
+			});
 		if (await swapIndex(deps, location, etag, next, seal)) {
 			for (const entry of [...toClear, ...toFlag.map(({ entry }) => entry)]) {
 				const operationId = auditIds.get(auditKey(entry));
