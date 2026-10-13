@@ -375,19 +375,34 @@ describe("ControlPlane credential broker and owner roles", () => {
     }
   });
 
-  it("deploys exactly the one statement of the supervisor policy file, scoped to its snapshot prefix by the two tags", () => {
+  it("deploys exactly the two statements of the supervisor policy file: the snapshot allow and the overlay deny", () => {
     const fileStatements = JSON.parse(readFileSync(SUPERVISOR_ROLE_POLICY_FILE, "utf8")).statements as Record<string, any>[];
     assert.equal(supervisorStatements.length, fileStatements.length);
-    assert.equal(supervisorStatements.length, 1);
-    const [deployed] = supervisorStatements;
-    assert.deepEqual(actionsOf(deployed!).sort(), ["s3:AbortMultipartUpload", "s3:GetObject", "s3:PutObject"]);
-    assert.equal(deployed!.Condition, undefined);
-    assert.ok(
-      JSON.stringify(deployed!.Resource).includes(
-        ":s3:::chatticus-snapshots-bucket/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/*",
-      ),
-    );
-    assert.equal(([] as unknown[]).concat(deployed!.Resource).length, 1);
+    assert.equal(supervisorStatements.length, 2);
+    const computerPrefix = ":s3:::chatticus-snapshots-bucket/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/";
+    const allow = supervisorStatements.find((statement) => statement.Effect === "Allow")!;
+    assert.deepEqual(actionsOf(allow).sort(), ["s3:AbortMultipartUpload", "s3:GetObject", "s3:PutObject"]);
+    assert.equal(allow.Condition, undefined);
+    assert.ok(JSON.stringify(allow.Resource).includes(computerPrefix + "*"));
+    assert.equal(([] as unknown[]).concat(allow.Resource).length, 1);
+    const deny = supervisorStatements.find((statement) => statement.Effect === "Deny")!;
+    assert.equal(deny.Sid, "OverlayIsWrittenByTheFrontDoorOnly");
+    assert.deepEqual(actionsOf(deny).sort(), [
+      "s3:AbortMultipartUpload",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:PutObject",
+      "s3:PutObjectTagging",
+    ]);
+    assert.equal(deny.Condition, undefined);
+    assert.ok(JSON.stringify(deny.Resource).includes(computerPrefix + "overlay/*"));
+    assert.equal(([] as unknown[]).concat(deny.Resource).length, 1);
+  });
+
+  it("gives the supervisor role no delete right in any Allow statement", () => {
+    for (const statement of supervisorStatements.filter((candidate) => candidate.Effect === "Allow")) {
+      for (const action of actionsOf(statement)) assert.ok(!/Delete/.test(String(action)), `unexpected allow ${action}`);
+    }
   });
 
   it("lets the starter run the owner task and pass only the owner roles, and gives it no right to assume any owner role", () => {
@@ -498,7 +513,7 @@ describe("ControlPlane FrontDoor snapshot read grant", () => {
   );
 
   it("reads only objects under tenants/*/computers/*/ and lists only with that prefix", () => {
-    assert.equal(snapshotStatements.length, 2);
+    assert.equal(snapshotStatements.length, 3);
     const read = snapshotStatements.find((statement) => actionsOf(statement).includes("s3:GetObject"))!;
     assert.deepEqual(actionsOf(read), ["s3:GetObject"]);
     assert.deepEqual(([] as unknown[]).concat(read.Resource), ["arn:aws:s3:::chatticus-snapshots-bucket/tenants/*/computers/*/*"]);
@@ -508,10 +523,21 @@ describe("ControlPlane FrontDoor snapshot read grant", () => {
     assert.deepEqual(list.Condition, { StringLike: { "s3:prefix": ["tenants/*/computers/*/"] } });
   });
 
-  it("never lets the FrontDoor write the snapshot bucket", () => {
+  it("lets the FrontDoor put and delete only under the overlay prefix of a computer", () => {
+    const writes = snapshotStatements.filter((statement) => actionsOf(statement).some((action) => /Put|Delete|Abort|Multipart/.test(String(action))));
+    assert.equal(writes.length, 1);
+    const [write] = writes;
+    assert.equal(write!.Sid, "WriteComputerEditOverlay");
+    assert.equal(write!.Effect, "Allow");
+    assert.deepEqual([...actionsOf(write!)].sort(), ["s3:DeleteObject", "s3:PutObject"]);
+    assert.deepEqual(([] as unknown[]).concat(write!.Resource), ["arn:aws:s3:::chatticus-snapshots-bucket/tenants/*/computers/*/overlay/*"]);
+    assert.equal(write!.Condition, undefined);
+  });
+
+  it("never lets the FrontDoor delete a version, tag an object or write outside the overlay", () => {
     for (const statement of snapshotStatements) {
       for (const action of actionsOf(statement)) {
-        assert.ok(!/Put|Delete|Abort|Multipart/.test(String(action)), `unexpected action ${action}`);
+        assert.ok(!/DeleteObjectVersion|Tagging|Acl|Abort|Multipart/.test(String(action)), `unexpected action ${action}`);
       }
     }
   });

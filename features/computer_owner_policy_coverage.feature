@@ -41,6 +41,7 @@ Feature: The owner role policy covers every request the computer owner makes
     And the computer owners made a "dynamodb:GetItem" request on a key starting "PI#"
     And the supervisor made a "s3:GetObject" request on a key starting "tenants/"
     And every snapshot request the supervisor made is allowed by the supervisor role policy
+    And the supervisor made no write request on the edit overlay
     And the computer owners made no request on the snapshot bucket
     And every request the computer owners made is allowed by the owner role policy
 

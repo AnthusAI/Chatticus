@@ -73,7 +73,15 @@ Then("the supervisor made a {string} request on a key starting {string}", functi
 	assert.ok(keys.some((key) => key.startsWith(keyPrefix)), `No ${action} request on a key starting ${keyPrefix}; saw ${[...new Set(keys)].join(" | ")}`);
 });
 
-Then("the computer owners made no request on the snapshot bucket", function (this: ChatticusWorld) {
+Then("the supervisor made no write request on the edit overlay", function (this: ChatticusWorld) {
+	const writeActions = new Set(["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:PutObjectTagging", "s3:AbortMultipartUpload"]);
+	const found = recordedSupervisorRequestsOf(this).filter(
+		(request) => writeActions.has(request.action) && request.keys.some((key) => key.includes("/overlay/")),
+	);
+	assert.deepEqual(found.map(describeRequest), []);
+});
+
+Then("the computer owners made no request on the snapshot bucket",function (this: ChatticusWorld) {
 	const found = recordedOwnerRequestsOf(this).filter((request) => request.service === "s3" && request.keys.some((key) => key.startsWith("tenants/")));
 	assert.deepEqual(found.map(describeRequest), []);
 });

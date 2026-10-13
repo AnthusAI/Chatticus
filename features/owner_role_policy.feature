@@ -168,6 +168,12 @@ Feature: The computer owner role reaches one conversation session and nothing el
       | s3:PutObject    | snapshots   | tenants/anthus/computers/computer-10/manifest.json       |
       | s3:DeleteObject | snapshots   | tenants/anthus/computers/computer-1/manifest.json        |
       | s3:GetObject    | other-bucket | conversations/anthus%23bot-1%23channel-1/commits/1.json |
+      | s3:GetObject    | snapshots   | tenants/anthus/computers/computer-1/overlay/index.json   |
+      | s3:PutObject    | snapshots   | tenants/anthus/computers/computer-1/overlay/index.json   |
+      | s3:DeleteObject | snapshots   | tenants/anthus/computers/computer-1/overlay/index.json   |
+      | s3:GetObject    | snapshots   | tenants/anthus/computers/computer-1/overlay/blobs/abc    |
+      | s3:PutObject    | snapshots   | tenants/anthus/computers/computer-1/overlay/blobs/abc    |
+      | s3:DeleteObject | snapshots   | tenants/anthus/computers/computer-1/overlay/blobs/abc    |
 
   Scenario Outline: The owner lists only the prefix of its own session
     When the owner lists bucket "<bucket>" with the prefix "<prefix>"

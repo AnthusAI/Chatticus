@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 
-/** One Allow statement of an IAM identity policy, with policy variables still in its text. */
+/** One Allow or Deny statement of an IAM identity policy, with policy variables still in its text. */
 export type PolicyStatement = {
 	readonly Sid?: string;
-	readonly Effect: "Allow";
+	readonly Effect: "Allow" | "Deny";
 	readonly Action: readonly string[];
 	readonly Resource: readonly string[];
 	readonly Condition?: Record<string, Record<string, readonly string[]>>;
@@ -109,7 +109,8 @@ function conditionHolds(statement: PolicyStatement, request: AuthorizedRequest, 
 
 /**
  * Whether the role's policy allows one request for a session with the given tags, by the rules IAM applies to a policy of
- * Allow statements: some statement must name the action and the resource and have every condition true, after the
+ * Allow and Deny statements: a matching Deny statement overrides every Allow; otherwise some Allow statement must name
+ * the action and the resource and have every condition true, after the
  * `${aws:PrincipalTag/...}` variables are replaced by the session's tag values. The evaluator supports the `StringEquals`
  * and `StringLike` operators with or without the `ForAllValues:` prefix and refuses any other operator, so a policy can
  * never pass by a condition the evaluator did not understand. A `ForAllValues` condition on a key the request does not
@@ -121,11 +122,12 @@ function conditionHolds(statement: PolicyStatement, request: AuthorizedRequest, 
  * @returns True when some statement allows the request.
  */
 export function policyAllows(statements: readonly PolicyStatement[], tags: SessionTagValues, request: AuthorizedRequest): boolean {
-	return statements.some(
+	const matching = statements.filter(
 		(statement) =>
-			statement.Effect === "Allow" &&
 			statement.Action.some((action) => matchesGlob(action, request.action, true)) &&
 			statement.Resource.some((resource) => matchesGlob(substituteTags(resource, tags), request.resourceArn, false)) &&
 			conditionHolds(statement, request, tags),
 	);
+	if (matching.some((statement) => statement.Effect === "Deny")) return false;
+	return matching.some((statement) => statement.Effect === "Allow");
 }

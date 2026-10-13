@@ -78,18 +78,43 @@ Then("the supervisor role denies the request", function (this: ChatticusWorld) {
 	assert.equal(policyAllows(roleOf(this).statements, roleOf(this).tags, request), false, `Allowed: ${JSON.stringify(request)}`);
 });
 
-Then("the supervisor role has exactly one statement", function (this: ChatticusWorld) {
-	assert.equal(roleOf(this).statements.length, 1);
+const COMPUTER_PREFIX = `arn:aws:s3:::${FIXED_STORE_NAMES.snapshotBucket}/tenants/\${aws:PrincipalTag/tenant}/computers/\${aws:PrincipalTag/computer}/`;
+
+function statementsWithEffect(world: ChatticusWorld, effect: "Allow" | "Deny"): PolicyStatement[] {
+	return roleOf(world).statements.filter((statement) => statement.Effect === effect);
+}
+
+Then("the supervisor role has exactly two statements", function (this: ChatticusWorld) {
+	assert.equal(roleOf(this).statements.length, 2);
+	assert.equal(statementsWithEffect(this, "Allow").length, 1);
+	assert.equal(statementsWithEffect(this, "Deny").length, 1);
 });
 
-Then("the supervisor role statement allows only get, put and abort of multipart upload", function (this: ChatticusWorld) {
-	assert.deepEqual([...roleOf(this).statements[0]!.Action].sort(), ["s3:AbortMultipartUpload", "s3:GetObject", "s3:PutObject"]);
+Then("the supervisor role allow statement allows only get, put and abort of multipart upload", function (this: ChatticusWorld) {
+	assert.deepEqual([...statementsWithEffect(this, "Allow")[0]!.Action].sort(), ["s3:AbortMultipartUpload", "s3:GetObject", "s3:PutObject"]);
 });
+
+Then(
+	"the supervisor role deny statement denies put, delete, delete of a version, tagging and abort of multipart upload on the overlay prefix built from both session tags",
+	function (this: ChatticusWorld) {
+		const [deny] = statementsWithEffect(this, "Deny");
+		assert.deepEqual([...deny!.Action].sort(), [
+			"s3:AbortMultipartUpload",
+			"s3:DeleteObject",
+			"s3:DeleteObjectVersion",
+			"s3:PutObject",
+			"s3:PutObjectTagging",
+		]);
+		assert.deepEqual(deny!.Resource, [`${COMPUTER_PREFIX}overlay/*`]);
+	},
+);
 
 Then("every resource of the supervisor role statements is a snapshot object path built from both session tags", function (this: ChatticusWorld) {
-	const prefix = `arn:aws:s3:::${FIXED_STORE_NAMES.snapshotBucket}/tenants/\${aws:PrincipalTag/tenant}/computers/\${aws:PrincipalTag/computer}/*`;
 	for (const statement of roleOf(this).statements) {
-		for (const resource of statement.Resource) assert.equal(resource, prefix, `${statement.Sid ?? "statement"} names ${resource}`);
+		for (const resource of statement.Resource) {
+			assert.ok(resource.startsWith(COMPUTER_PREFIX), `${statement.Sid ?? "statement"} names ${resource}`);
+			assert.ok(resource === `${COMPUTER_PREFIX}*` || resource === `${COMPUTER_PREFIX}overlay/*`, `${statement.Sid ?? "statement"} names ${resource}`);
+		}
 	}
 });
 

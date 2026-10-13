@@ -54,6 +54,27 @@ Feature: The computer supervisor role reaches the snapshot of one computer and n
       | s3:ListBucketMultipartUploads  |
       | s3:*                           |
 
+  Scenario Outline: The supervisor reads the edit overlay of its own computer and cannot write, delete or replace it
+    When the supervisor requests "<action>" on the object "<key>" of bucket "snapshots"
+    Then the supervisor role <verdict> the request
+
+    Examples:
+      | action                  | key                                                    | verdict |
+      | s3:GetObject            | tenants/anthus/computers/computer-1/overlay/index.json | allows  |
+      | s3:GetObject            | tenants/anthus/computers/computer-1/overlay/blobs/abc  | allows  |
+      | s3:PutObject            | tenants/anthus/computers/computer-1/overlay/index.json | denies  |
+      | s3:PutObject            | tenants/anthus/computers/computer-1/overlay/blobs/abc  | denies  |
+      | s3:DeleteObject         | tenants/anthus/computers/computer-1/overlay/index.json | denies  |
+      | s3:DeleteObject         | tenants/anthus/computers/computer-1/overlay/blobs/abc  | denies  |
+      | s3:DeleteObjectVersion  | tenants/anthus/computers/computer-1/overlay/index.json | denies  |
+      | s3:PutObjectTagging     | tenants/anthus/computers/computer-1/overlay/blobs/abc  | denies  |
+      | s3:AbortMultipartUpload | tenants/anthus/computers/computer-1/overlay/blobs/abc  | denies  |
+      | s3:PutObject            | tenants/anthus/computers/computer-1/snapshot.tar.gz    | allows  |
+      | s3:PutObject            | tenants/anthus/computers/computer-1/manifest.json      | allows  |
+      | s3:AbortMultipartUpload | tenants/anthus/computers/computer-1/snapshot.tar.gz    | allows  |
+      | s3:PutObject            | tenants/anthus/computers/computer-1/overlayish/file    | allows  |
+      | s3:PutObject            | tenants/anthus/computers/computer-2/overlay/index.json | denies  |
+
   Scenario Outline: The supervisor cannot list the snapshot bucket
     When the supervisor lists bucket "snapshots" with the prefix "<prefix>"
     Then the supervisor role denies the request
@@ -115,8 +136,9 @@ Feature: The computer supervisor role reaches the snapshot of one computer and n
       | sqs:SendMessage                | arn:aws:sqs:us-east-1:111111111111:turn-jobs                       |
       | ecs:StopTask                   | arn:aws:ecs:us-east-1:111111111111:task/cluster/task-1             |
 
-  Scenario: The policy file the stack deploys names one statement over one prefix built from the session tags
-    Then the supervisor role has exactly one statement
-    And the supervisor role statement allows only get, put and abort of multipart upload
+  Scenario: The policy file the stack deploys names one allow over the computer prefix and one deny over its overlay
+    Then the supervisor role has exactly two statements
+    And the supervisor role allow statement allows only get, put and abort of multipart upload
+    And the supervisor role deny statement denies put, delete, delete of a version, tagging and abort of multipart upload on the overlay prefix built from both session tags
     And every resource of the supervisor role statements is a snapshot object path built from both session tags
     And the supervisor role statements hold no condition and no wildcard action
