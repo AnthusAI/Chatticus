@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { OVERLAY_INDEX_OBJECT, overlayBlobObject, type OverlayEntry } from "@chatticus/host-protocol/edit-overlay";
 import { EditOverlayRefusal, type EditOverlayDependencies, type EditOverlayRuntime } from "../src/domain/edit-overlay.ts";
 import { StoreOverlayAuditSink } from "../src/domain/file-audit.ts";
-import { FilesystemOverlayStore, type OverlayLocation } from "../src/snapshot/overlay-store.ts";
+import { FilesystemOverlayStore, type OverlayLocation, type OverlayStore } from "../src/snapshot/overlay-store.ts";
 import { snapshotReadStoreOf } from "./computer-snapshot-files-support.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -15,7 +15,7 @@ export type EditAnswer =
 
 /** What a scenario about the edit overlay remembers between its steps. */
 export type OverlayScenario = {
-	readonly store: FilesystemOverlayStore;
+	readonly store: OverlayStore;
 	readonly audit: StoreOverlayAuditSink;
 	readonly location: OverlayLocation;
 	edit: EditAnswer | null;
@@ -32,11 +32,11 @@ const scenarios = new WeakMap<ChatticusWorld, OverlayScenario>();
 export const TENANT = "anthus";
 export const COMPUTER_ID = "household-computer";
 
-/** Create the scenario's overlay state on a local directory. */
-export function createOverlayScenario(world: ChatticusWorld): OverlayScenario {
+/** Create the scenario's overlay state on a local directory, or over the store the scenario gives. */
+export function createOverlayScenario(world: ChatticusWorld, store?: OverlayStore): OverlayScenario {
 	assert.ok(world.snapshotTmpdir, "The scenario has no temporary directory.");
 	const scenario: OverlayScenario = {
-		store: new FilesystemOverlayStore(join(world.snapshotTmpdir, "overlay-objects")),
+		store: store ?? new FilesystemOverlayStore(join(world.snapshotTmpdir, "overlay-objects")),
 		audit: new StoreOverlayAuditSink(world.messagingStore()),
 		location: { tenantId: TENANT, computerId: COMPUTER_ID },
 		edit: null,

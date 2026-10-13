@@ -44,10 +44,11 @@ export async function ensureIdleSupervisor(world: ChatticusWorld): Promise<void>
 /** A request without the parts every request shares. */
 export type FileRequestSpec =
 	| { readonly kind: "list" }
+	| { readonly kind: "stat"; readonly hash: boolean }
 	| { readonly kind: "read" }
 	| { readonly kind: "write"; readonly content: string; readonly precondition: { readonly type: "if_match"; readonly sha256: string } | { readonly type: "if_none_match" } }
-	| { readonly kind: "delete"; readonly recursive: boolean; readonly precondition: { readonly type: "if_match"; readonly sha256: string } | { readonly type: "if_match_tree"; readonly tree_sha256: string } }
-	| { readonly kind: "move"; readonly to: string; readonly precondition: { readonly type: "if_match"; readonly sha256: string } | { readonly type: "if_match_tree"; readonly tree_sha256: string } }
+	| { readonly kind: "delete"; readonly recursive: boolean; readonly precondition: { readonly type: "if_match"; readonly sha256: string } }
+	| { readonly kind: "move"; readonly to: string; readonly precondition: { readonly type: "if_match"; readonly sha256: string } }
 	| { readonly kind: "mkdir" };
 
 function requestOf(world: ChatticusWorld, path: string, spec: FileRequestSpec, expiresInMilliseconds: number): OwnerFileRequest {
@@ -57,6 +58,8 @@ function requestOf(world: ChatticusWorld, path: string, spec: FileRequestSpec, e
 	switch (spec.kind) {
 		case "list":
 			return { ...base, kind: "list", max_entries: 2000 };
+		case "stat":
+			return { ...base, kind: "stat", hash: spec.hash };
 		case "read":
 			return { ...base, kind: "read", offset: 0, length: 262144, mask: true };
 		case "write":

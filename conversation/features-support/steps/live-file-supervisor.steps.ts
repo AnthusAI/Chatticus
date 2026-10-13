@@ -50,6 +50,15 @@ Given("the workspace has a symbolic link {string} to {string}", function (this: 
 	symlinkSync(target, pathInWorkspace(this, link));
 });
 
+Given("the workspace holds an empty folder {string}", function (this: ChatticusWorld, name: string) {
+	mkdirSync(pathInWorkspace(this, name), { recursive: true });
+});
+
+Given("the workspace has a file {string} of {int} bytes", function (this: ChatticusWorld, name: string, size: number) {
+	mkdirSync(dirname(pathInWorkspace(this, name)), { recursive: true });
+	writeFileSync(pathInWorkspace(this, name), "x".repeat(size));
+});
+
 Given("the workspace holds a named pipe {string}", function (this: ChatticusWorld, name: string) {
 	execFileSync("mkfifo", [pathInWorkspace(this, name)]);
 });
@@ -145,12 +154,36 @@ When("the supervisor is given a delete request for {string} with the symlink has
 });
 
 When("the supervisor is given a recursive delete request for {string} with another tree hash", async function (this: ChatticusWorld, path: string) {
-	await offerFileRequest(this, path, { kind: "delete", recursive: true, precondition: { type: "if_match_tree", tree_sha256: WRONG_HASH } });
+	await offerFileRequest(this, path, { kind: "delete", recursive: true, precondition: { type: "if_match", sha256: WRONG_HASH } });
 });
 
 When("the supervisor is given a recursive delete request for {string} with the current tree hash", async function (this: ChatticusWorld, path: string) {
 	const name = path.replace("/workspace/", "");
-	await offerFileRequest(this, path, { kind: "delete", recursive: true, precondition: { type: "if_match_tree", tree_sha256: treeHashOfDirectory(pathInWorkspace(this, name)) } });
+	await offerFileRequest(this, path, { kind: "delete", recursive: true, precondition: { type: "if_match", sha256: treeHashOfDirectory(pathInWorkspace(this, name)) } });
+});
+
+function hashAPersonWouldBeShown(world: ChatticusWorld, path: string): string {
+	const location = pathInWorkspace(world, path.replace("/workspace/", ""));
+	const stats = lstatSync(location);
+	if (stats.isDirectory()) return treeHashOfDirectory(location);
+	if (stats.isSymbolicLink()) return symlinkHashOf(readlinkSync(location), sha256OfBytesText);
+	return sha256OfBytesText(readFileSync(location));
+}
+
+When("the supervisor is given a delete request for {string} with the hash a person would be shown", async function (this: ChatticusWorld, path: string) {
+	await offerFileRequest(this, path, { kind: "delete", recursive: false, precondition: { type: "if_match", sha256: hashAPersonWouldBeShown(this, path) } });
+});
+
+When("the supervisor is given a move request from {string} to {string} with the hash a person would be shown", async function (this: ChatticusWorld, from: string, to: string) {
+	await offerFileRequest(this, from, { kind: "move", to, precondition: { type: "if_match", sha256: hashAPersonWouldBeShown(this, from) } });
+});
+
+When("the supervisor is given a stat request for {string} that asks for the hash", async function (this: ChatticusWorld, path: string) {
+	await offerFileRequest(this, path, { kind: "stat", hash: true });
+});
+
+When("the supervisor is given a stat request for {string} that does not ask for the hash", async function (this: ChatticusWorld, path: string) {
+	await offerFileRequest(this, path, { kind: "stat", hash: false });
 });
 
 When("the supervisor is given a move request from {string} to {string} with the hash of {string}", async function (this: ChatticusWorld, from: string, to: string, text: string) {
@@ -199,6 +232,20 @@ Then("the result is the error {string} with the current tree hash", async functi
 		assert.equal(outcome.code, code);
 		assert.equal(outcome.current_sha256, treeHashOfDirectory(pathInWorkspace(this, "tree")));
 	}
+});
+
+Then("the result is the stat of a file with the content hash of {string}", async function (this: ChatticusWorld, text: string) {
+	const outcome = await lastOutcomeOf(this);
+	if (outcome.status !== "ok" || outcome.result.kind !== "stat") return assert.fail(JSON.stringify(outcome));
+	assert.equal(outcome.result.entry.kind, "file");
+	assert.equal(outcome.result.entry.sha256, sha256OfText(text));
+});
+
+Then("the result is the stat of a file without a content hash", async function (this: ChatticusWorld) {
+	const outcome = await lastOutcomeOf(this);
+	if (outcome.status !== "ok" || outcome.result.kind !== "stat") return assert.fail(JSON.stringify(outcome));
+	assert.equal(outcome.result.entry.kind, "file");
+	assert.equal(outcome.result.entry.sha256, null);
 });
 
 Then("the result does not contain {string}", async function (this: ChatticusWorld, text: string) {

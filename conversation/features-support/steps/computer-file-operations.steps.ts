@@ -24,7 +24,7 @@ const workspaceFile = (relative: string): string => (relative.startsWith("/") ? 
 const quoted = (hash: string): string => `"${hash}"`;
 const unquoted = (etag: string | null): string => (etag ?? "").replaceAll('"', "");
 
-const SEEN_HASH = '(the hash of "[^"]*"|the tree hash it was shown|the symlink hash it was shown)';
+const SEEN_HASH = '(the hash of "[^"]*"|the hash it was shown|the tree hash it was shown|the symlink hash it was shown)';
 
 async function sendAs(
 	world: ChatticusWorld,
@@ -166,7 +166,7 @@ When("a member stats the computer folder {string}", async function (this: Chatti
 
 /**
  * The owner takes each request the Front Door leaves for it and answers it from its disk, round after round, until the
- * member's request is answered: a delete or a rename first asks the owner what is at the path and then asks for the change.
+ * member's request is answered.
  */
 async function answerUntilTheChangeIsAnswered(world: ChatticusWorld): Promise<void> {
 	const scenario = memberFilesOf(world);
@@ -195,23 +195,6 @@ When("the owner answers every file request until the change is answered", async 
 	await answerUntilTheChangeIsAnswered(this);
 });
 
-When("the owner answers the first file request and does not take the next for {int} seconds", async function (this: ChatticusWorld, seconds: number) {
-	const scenario = memberFilesOf(this);
-	const owner = ownerOf(this);
-	await untilRequestIsWaiting(this);
-	const polled = await owner.poll();
-	assert.equal(polled.status, 200, JSON.stringify(polled.body));
-	for (const request of owner.lastPoll?.file_requests ?? []) {
-		const posted = await owner.postResult(request.operation_id, scenario.disk.answer(request));
-		assert.equal(posted.status, 200, JSON.stringify(posted.body));
-	}
-	scenario.wait.release();
-	const looked = await scenario.wait.untilSettledOrParked(scenario.pending!);
-	assert.equal(looked.settled, false, "The request was answered before the change was asked of the owner.");
-	await settleInFlight(this, 0.25);
-	assert.ok(seconds >= 8);
-});
-
 When("a member lists the pending changes", async function (this: ChatticusWorld) {
 	await sendAs(this, "mia", { method: "GET", path: `${FILES}/overlay` });
 });
@@ -238,18 +221,18 @@ Given("the live disk of the owner holds an empty folder {string}", function (thi
 	memberFilesOf(this).disk.putDirectory(workspaceFile(relative));
 });
 
-async function changeAs(world: ChatticusWorld, userId: string, request: OverlayMemberChange): Promise<void> {
+export async function changeAs(world: ChatticusWorld, userId: string, request: OverlayMemberChange): Promise<void> {
 	await changeOverlay(overlayDependenciesOf(world), { tenantId: TENANT, userId, request });
 }
 
-async function effectiveHashOf(world: ChatticusWorld, path: string): Promise<string> {
+export async function effectiveHashOf(world: ChatticusWorld, path: string): Promise<string> {
 	const { view } = await loadEffectiveOverlayView(overlayDependenciesOf(world), TENANT);
 	const hash = view.hashOf(path);
 	assert.ok(hash !== null, `There is nothing at ${path}.`);
 	return hash;
 }
 
-async function renameInOverlay(world: ChatticusWorld, userId: string, from: string, to: string): Promise<void> {
+export async function renameInOverlay(world: ChatticusWorld, userId: string, from: string, to: string): Promise<void> {
 	await changeAs(world, userId, { op: "move", from, to, ifMatchSha256: await effectiveHashOf(world, from) });
 }
 
@@ -316,6 +299,18 @@ Then("the file response carries the ETag of the tree hash of these entries:", fu
 Then("the stat entry has the same tree hash", function (this: ChatticusWorld) {
 	const response = lastResponse(this);
 	assert.equal(response.json?.entry?.tree_sha256, unquoted(response.headers.get("ETag")));
+});
+
+Then("the file response carries the ETag of the content hash of {string}", function (this: ChatticusWorld, text: string) {
+	assert.equal(unquoted(lastResponse(this).headers.get("ETag")), sha256Of(text));
+});
+
+Then("the stat entry has the content hash of {string}", function (this: ChatticusWorld, text: string) {
+	assert.equal(lastResponse(this).json?.entry?.sha256, sha256Of(text));
+});
+
+Then("the owner was given these kinds of file request in order:", function (this: ChatticusWorld, table: DataTable) {
+	assert.deepEqual(memberFilesOf(this).disk.requestKinds, table.raw().map((row) => row[0]));
 });
 
 Then("the file response carries the ETag of the link to {string}", function (this: ChatticusWorld, target: string) {

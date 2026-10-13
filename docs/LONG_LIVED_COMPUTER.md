@@ -1035,7 +1035,7 @@ events, and need the larger task.
   routes; helper `list`, ranged `read`, conditional atomic `write`; the supervisor's seal, apply and clear at hydrate; audit written by the Front Door in key families neither owner role can reach; conflict
   UI, edit mode, source indicator and the `Pi changed this a moment ago` notice; fast poll (1 second) while the panel is open. Infrastructure: the Front Door may write the overlay prefix and the supervisor role is
   explicitly denied writes there.
-- **Gherkin.** `features/computer_file_live.feature` (draft, tagged `@server`, `@supervisor`, `@web`, `@end-to-end`): among them a live read reflects an unpublished change; a write with a stale hash is refused 409;
+- **Gherkin.** the `computer_file_*.feature` files (tagged `@server`, `@supervisor`, `@web`, `@end-to-end`; see section 13 of `docs/LIVE_FILES_PROTOCOL.md`): among them a live read reflects an unpublished change; a write with a stale hash is refused 409;
   an edit lands in the audit log; a planted symlink is contained; a timeout falls back to the snapshot with `stale`; the owner cannot read the audit family; a masked secret file and an audited reveal; a non-member is
   refused; a `.git` write is refused; the size cap; a concurrent edit conflicts; the fast poll returns to normal after the panel closes; an edit made while the computer is off is visible in the next read, applied on the
   next hydrate and seen by the bot, refused when its hash is stale, in conflict when the snapshot moved under it, kept across a crash, and cannot be written by an owner role. The requirement to scenario table is section 13 of the contract.

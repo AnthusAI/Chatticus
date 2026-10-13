@@ -19,7 +19,8 @@ export type HeldOwner = {
 
 /** What a scenario about the computer owner remembers between its steps. */
 export type ComputerOwnerScenario = {
-	readonly workspace: string;
+	/** The directory the computer owner's tools work in; a scenario that runs a supervisor on a real disk points it at that disk's workspace. */
+	workspace: string;
 	readonly held: Map<string, HeldOwner>;
 	readonly outcomes: Map<string, TurnTakeoverOutcome>;
 	readonly turnIds: string[];

@@ -546,6 +546,54 @@ Feature: Members delete, rename and create folders on the computer, live when it
       | file | inner/c.txt | 3     |
 
   @server
+  Scenario: The ETag of a file on a running computer is its content hash
+    Given a live owner is polling for the household computer
+    And the live disk of the owner holds workspace file "a.txt" containing "hello"
+    When a member stats the computer file "/workspace/a.txt"
+    And the owner polls and answers the file request it is given
+    Then the file response says "source" is "live"
+    And the file response carries the ETag of the content hash of "hello"
+    And the stat entry has the content hash of "hello"
+
+  @server
+  Scenario: A file over the read limit has no hash on a running computer
+    Given a live owner is polling for the household computer
+    And the live disk of the owner holds a file "/workspace/big.txt" of 8388609 bytes
+    When a member stats the computer file "/workspace/big.txt"
+    And the owner polls and answers the file request it is given
+    Then the file response status is 413
+    And the file response error is "file_too_large"
+
+  @server
+  Scenario: A delete or a rename on a running computer asks the owner once whatever the path is
+    Given a live owner is polling for the household computer
+    And the live disk of the owner holds workspace file "a.txt" containing "a"
+    And the live disk of the owner holds workspace file "b.txt" containing "b"
+    And the live disk of the owner holds workspace file "old/x.txt" containing "x"
+    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "a"
+    And the owner answers every file request until the change is answered
+    Then the file response status is 200
+    And the owner was given these kinds of file request in order:
+      | delete |
+    When member "mia" deletes the computer file "/workspace/b.txt" if it still has the hash it was shown
+    And the owner answers every file request until the change is answered
+    Then the file response status is 200
+    And the live disk of the owner has no "b.txt"
+    And the owner was given these kinds of file request in order:
+      | delete |
+      | stat   |
+      | delete |
+    When member "mia" renames the computer folder "/workspace/old" to "/workspace/new" if it still has the tree hash it was shown
+    And the owner answers every file request until the change is answered
+    Then the file response status is 200
+    And the owner was given these kinds of file request in order:
+      | delete |
+      | stat   |
+      | delete |
+      | stat   |
+      | move   |
+
+  @server
   Scenario: A member cannot delete a folder with things in it through the owner either
     Given a live owner is polling for the household computer
     And the live disk of the owner holds workspace file "old/a.txt" containing "a"
@@ -596,7 +644,7 @@ Feature: Members delete, rename and create folders on the computer, live when it
     And the owner answers every file request until the change is answered
     Then the file response status is 404
     And the file response error is "not_found"
-    And the audit log has no records
+    And the audit log has a record for member "mia" with outcome "failed" and error "not_found"
 
   @server
   Scenario Outline: A delete, rename or new folder under .git is refused on the computer before the owner is asked
@@ -627,8 +675,7 @@ Feature: Members delete, rename and create folders on the computer, live when it
   Scenario: A delete the owner was asked for and never takes is abandoned and audited as failed
     Given a live owner is polling for the household computer
     And the live disk of the owner holds workspace file "a.txt" containing "a"
-    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "a"
-    And the owner answers the first file request and does not take the next for 8 seconds
+    When member "mia" deletes the computer file "/workspace/a.txt" if it still has the hash of "a" and the owner does not answer for 8 seconds
     Then the file response status is 504
     And the file response error is "owner_timeout"
     And the audit log has a record for member "mia" with outcome "failed" and error "owner_timeout"

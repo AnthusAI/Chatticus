@@ -151,11 +151,11 @@ export const liveFileWritePreconditionSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("if_none_match") }).strict(),
 ]);
 
-/** What a delete or a move must find: the content hash of a file or symlink, or the tree hash of a directory (L49). */
-export const liveFileRemovePreconditionSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("if_match"), sha256: sha256Hex }).strict(),
-	z.object({ type: z.literal("if_match_tree"), tree_sha256: sha256Hex }).strict(),
-]);
+/**
+ * What a delete or a move must find: the effective hash of the path (L49), which is the content hash of a file, the link hash
+ * of a symlink or the tree hash of a directory. The owner decides which it is by what is really at the path.
+ */
+export const liveFileRemovePreconditionSchema = z.object({ type: z.literal("if_match"), sha256: sha256Hex }).strict();
 
 const requestBase = {
 	operation_id: identifier,
@@ -170,7 +170,7 @@ const requestBase = {
  */
 export const ownerFileRequestSchema = z.discriminatedUnion("kind", [
 	z.object({ ...requestBase, kind: z.literal("list"), max_entries: z.number().int().min(1).max(LIVE_FILE_LISTING_MAX_ENTRIES) }),
-	z.object({ ...requestBase, kind: z.literal("stat"), tree: z.boolean().default(false) }),
+	z.object({ ...requestBase, kind: z.literal("stat"), hash: z.boolean().default(false) }),
 	z.object({
 		...requestBase,
 		kind: z.literal("read"),

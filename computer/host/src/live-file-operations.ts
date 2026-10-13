@@ -74,19 +74,15 @@ export function helperRequestOf(request: OwnerFileRequest, workspaceRoot: string
 		case "list":
 			return { ...base, operation: "list", maxEntries: request.max_entries, maxScan: LIVE_FILE_LISTING_SCAN_MAX_NAMES };
 		case "stat":
-			return { ...base, operation: "stat", tree: request.tree };
+			return { ...base, operation: "stat", hash: request.hash, maxFileBytes: LIVE_FILE_READ_MAX_FILE_BYTES };
 		case "read":
 			return { ...base, operation: "read", range: { offset: request.offset, length: request.length, maxFileBytes: LIVE_FILE_READ_MAX_FILE_BYTES, mask: request.mask } };
 		case "write":
 			return { ...base, operation: "write", content: request.content, precondition: request.precondition };
-		case "delete": {
-			const seen = request.precondition.type === "if_match" ? { sha256: request.precondition.sha256 } : { treeSha256: request.precondition.tree_sha256 };
-			return { ...base, operation: request.recursive ? "rmtree" : "unlink", recursive: request.recursive, ...seen };
-		}
-		case "move": {
-			const seen = request.precondition.type === "if_match" ? { sha256: request.precondition.sha256 } : { treeSha256: request.precondition.tree_sha256 };
-			return { ...base, operation: "rename", to: realPathOfLivePath(workspaceRoot, request.to), ...seen };
-		}
+		case "delete":
+			return { ...base, operation: request.recursive ? "rmtree" : "unlink", recursive: request.recursive, sha256: request.precondition.sha256 };
+		case "move":
+			return { ...base, operation: "rename", to: realPathOfLivePath(workspaceRoot, request.to), sha256: request.precondition.sha256 };
 		case "mkdir":
 			return { ...base, operation: "mkdir" };
 	}

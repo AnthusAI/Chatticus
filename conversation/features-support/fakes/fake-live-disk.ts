@@ -50,6 +50,9 @@ class DiskError extends Error {
 export class FakeLiveDisk {
 	private readonly nodes = new Map<string, DiskNode>([[WORKSPACE, { kind: "directory" }]]);
 
+	/** The kind of every request answered so far, in order. */
+	readonly requestKinds: string[] = [];
+
 	/** Create a file, and the directories above it. */
 	putFile(path: string, content: Buffer | string): void {
 		this.makeParents(path);
@@ -133,6 +136,7 @@ export class FakeLiveDisk {
 	 * @returns The outcome the supervisor would post.
 	 */
 	answer(request: OwnerFileRequest): LiveFileOutcome {
+		this.requestKinds.push(request.kind);
 		try {
 			return this.run(request);
 		} catch (error) {
@@ -199,7 +203,11 @@ export class FakeLiveDisk {
 		if (node === undefined) throw new DiskError("not_found", "No such path.");
 		const entry = this.entryOf(request.path, node);
 		if (node.kind === "symlink") entry.sha256 = symlinkHashOf(node.target, sha256Of);
-		if (node.kind === "directory" && request.tree) entry.tree_sha256 = this.treeHashAt(request.path);
+		if (node.kind === "directory" && request.hash) entry.tree_sha256 = this.treeHashAt(request.path);
+		if (node.kind === "file" && request.hash) {
+			if (node.content.length > LIVE_FILE_READ_MAX_FILE_BYTES) throw new DiskError("file_too_large", "The file is over the read limit.");
+			entry.sha256 = sha256Of(node.content);
+		}
 		return { status: "ok", result: { kind: "stat", entry } };
 	}
 
@@ -228,13 +236,12 @@ export class FakeLiveDisk {
 		if (request.path === WORKSPACE) throw new DiskError("outside_workspace", "The workspace itself cannot be removed.");
 		const node = this.nodes.get(request.path);
 		if (node === undefined) throw new DiskError("not_found", "No such path.");
-		const seenSha = request.precondition.type === "if_match" ? request.precondition.sha256 : undefined;
-		const seenTree = request.precondition.type === "if_match_tree" ? request.precondition.tree_sha256 : undefined;
+		const seen = request.precondition.sha256;
 		const resolved = request.path as `/workspace/${string}`;
 		if (request.recursive) {
 			if (node.kind !== "directory") throw new DiskError("not_a_directory", "The path is not a folder.");
 			const current = this.treeHashAt(request.path);
-			if (seenTree !== current) throw new DiskError("precondition_failed", "The folder is not the one that was seen.", current);
+			if (seen !== current) throw new DiskError("precondition_failed", "The folder is not the one that was seen.", current);
 			const removed = this.descendantsOf(request.path);
 			for (const [path] of removed) this.nodes.delete(path);
 			this.nodes.delete(request.path);
@@ -242,12 +249,12 @@ export class FakeLiveDisk {
 		}
 		if (node.kind === "directory") {
 			if (this.descendantsOf(request.path).length > 0) throw new DiskError("directory_not_empty", "The folder is not empty.");
-			if (seenSha !== undefined || seenTree !== EMPTY_TREE_HASH) throw new DiskError("precondition_failed", "The folder is not the one that was seen.", EMPTY_TREE_HASH);
+			if (seen !== EMPTY_TREE_HASH) throw new DiskError("precondition_failed", "The folder is not the one that was seen.", EMPTY_TREE_HASH);
 			this.nodes.delete(request.path);
 			return { status: "ok", result: { kind: "delete", resolved_path: resolved, directory: true, removed: 1, sha256_before: null, tree_sha256_before: EMPTY_TREE_HASH } };
 		}
 		const current = this.leafHashOf(node);
-		if (seenSha !== current || seenTree !== undefined) throw new DiskError("precondition_failed", "The path is not the one that was seen.", current);
+		if (seen !== current) throw new DiskError("precondition_failed", "The path is not the one that was seen.", current);
 		this.nodes.delete(request.path);
 		return { status: "ok", result: { kind: "delete", resolved_path: resolved, directory: false, removed: 1, sha256_before: current, tree_sha256_before: null } };
 	}
@@ -262,13 +269,12 @@ export class FakeLiveDisk {
 		const parent = this.nodes.get(posix.dirname(request.to));
 		if (parent === undefined) throw new DiskError("parent_missing", "The parent of the new path does not exist.");
 		if (parent.kind !== "directory") throw new DiskError("not_a_directory", "The parent of the new path is not a folder.");
-		const seenSha = request.precondition.type === "if_match" ? request.precondition.sha256 : undefined;
-		const seenTree = request.precondition.type === "if_match_tree" ? request.precondition.tree_sha256 : undefined;
+		const seen = request.precondition.sha256;
 		const from = request.path as `/workspace/${string}`;
 		const to = request.to as `/workspace/${string}`;
 		if (node.kind === "directory") {
 			const current = this.treeHashAt(request.path);
-			if (seenTree !== current || seenSha !== undefined) throw new DiskError("precondition_failed", "The folder is not the one that was seen.", current);
+			if (seen !== current) throw new DiskError("precondition_failed", "The folder is not the one that was seen.", current);
 			if (this.nodes.has(request.to)) throw new DiskError("already_exists", "Something with that name already exists.");
 			const moved = this.descendantsOf(request.path);
 			for (const [path] of moved) this.nodes.delete(path);
@@ -278,7 +284,7 @@ export class FakeLiveDisk {
 			return { status: "ok", result: { kind: "move", from, to, directory: true, sha256: null, tree_sha256: current } };
 		}
 		const current = this.leafHashOf(node);
-		if (seenSha !== current || seenTree !== undefined) throw new DiskError("precondition_failed", "The path is not the one that was seen.", current);
+		if (seen !== current) throw new DiskError("precondition_failed", "The path is not the one that was seen.", current);
 		if (this.nodes.has(request.to)) throw new DiskError("already_exists", "Something with that name already exists.");
 		this.nodes.delete(request.path);
 		this.nodes.set(request.to, node);

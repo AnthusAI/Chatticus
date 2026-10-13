@@ -103,21 +103,21 @@ describe("owner file requests", () => {
 		const requests = [
 			{ ...requestBase, kind: "list", max_entries: 2000 },
 			{ ...requestBase, kind: "stat" },
-			{ ...requestBase, kind: "stat", tree: true },
+			{ ...requestBase, kind: "stat", hash: true },
 			{ ...requestBase, kind: "read", offset: 0, length: 262144, mask: true },
 			{ ...requestBase, kind: "write", content: "hello", precondition: { type: "if_none_match" } },
 			{ ...requestBase, kind: "write", content: "hello", precondition: { type: "if_match", sha256: hash } },
 			{ ...requestBase, kind: "delete", recursive: false, precondition: { type: "if_match", sha256: hash } },
-			{ ...requestBase, kind: "delete", recursive: true, precondition: { type: "if_match_tree", tree_sha256: hash } },
+			{ ...requestBase, kind: "delete", recursive: true, precondition: { type: "if_match", sha256: hash } },
 			{ ...requestBase, kind: "move", to: "/workspace/b.txt", precondition: { type: "if_match", sha256: hash } },
 			{ ...requestBase, kind: "mkdir" },
 		];
 		for (const request of requests) expect(ownerFileRequestSchema.safeParse(request).success).toBe(true);
 	});
 
-	it("defaults the tree flag of a stat to false", () => {
+	it("defaults the hash flag of a stat to false", () => {
 		const parsed = ownerFileRequestSchema.parse({ ...requestBase, kind: "stat" });
-		expect(parsed.kind === "stat" && parsed.tree).toBe(false);
+		expect(parsed.kind === "stat" && parsed.hash).toBe(false);
 	});
 
 	it("refuses a kind it does not know, a missing field and a bad bound", () => {
@@ -138,7 +138,9 @@ describe("owner file requests", () => {
 	it("refuses a write with a bad precondition and a delete with a write precondition", () => {
 		expect(ownerFileRequestSchema.safeParse({ ...requestBase, kind: "write", content: "x", precondition: { type: "if_match", sha256: "short" } }).success).toBe(false);
 		expect(ownerFileRequestSchema.safeParse({ ...requestBase, kind: "delete", recursive: false, precondition: { type: "if_none_match" } }).success).toBe(false);
-		expect(liveFileRemovePreconditionSchema.safeParse({ type: "if_match_tree", tree_sha256: hash }).success).toBe(true);
+		expect(liveFileRemovePreconditionSchema.safeParse({ type: "if_match", sha256: hash }).success).toBe(true);
+		expect(liveFileRemovePreconditionSchema.safeParse({ type: "if_match_tree", tree_sha256: hash }).success).toBe(false);
+		expect(ownerFileRequestSchema.safeParse({ ...requestBase, kind: "delete", recursive: true, precondition: { type: "if_match_tree", tree_sha256: hash } }).success).toBe(false);
 	});
 
 	it("ignores a field a newer server adds, so an older owner keeps reading", () => {

@@ -293,7 +293,7 @@ export class SealingOverlayApplier implements OverlayApplier {
 		if (stat.kind === "symlink") return { kind: "symlink", sha256: stat.sha256 ?? null };
 		if (stat.kind === "directory") {
 			if (!wantTreeHash) return { kind: "directory", sha256: null };
-			const tree = await this.ask({ operation: "stat", path, tree: true });
+			const tree = await this.ask({ operation: "stat", path, hash: true });
 			return { kind: "directory", sha256: tree.ok ? (tree.treeSha256 ?? null) : null };
 		}
 		if (stat.kind === "file") {
@@ -312,7 +312,7 @@ export class SealingOverlayApplier implements OverlayApplier {
 	}
 
 	private async applyMove(entry: MoveEntry): Promise<Verdict> {
-		const seen = entry.directory ? { treeSha256: entry.tree_sha256 ?? undefined } : { sha256: entry.sha256 ?? undefined };
+		const seen = { sha256: (entry.directory ? entry.tree_sha256 : entry.sha256) ?? undefined };
 		const response = await this.ask({ operation: "rename", path: this.realPathOf(entry.from), to: this.realPathOf(entry.path), ...seen });
 		if (response.ok) return APPLIED;
 		const kept = entry.directory ? entry.tree_sha256 : entry.sha256;
@@ -403,8 +403,8 @@ export class SealingOverlayApplier implements OverlayApplier {
 	private async applyDirectoryDelete(entry: DeleteEntry): Promise<Verdict> {
 		const path = this.realPathOf(entry.path);
 		const response = entry.recursive
-			? await this.ask({ operation: "rmtree", path, recursive: true, treeSha256: entry.tree_sha256 ?? undefined })
-			: await this.ask({ operation: "unlink", path, treeSha256: EMPTY_DIRECTORY_TREE_HASH });
+			? await this.ask({ operation: "rmtree", path, recursive: true, sha256: entry.tree_sha256 ?? undefined })
+			: await this.ask({ operation: "unlink", path, sha256: EMPTY_DIRECTORY_TREE_HASH });
 		if (response.ok) return APPLIED;
 		switch (response.code) {
 			case "not_found":

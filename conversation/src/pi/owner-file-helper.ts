@@ -69,12 +69,15 @@ export type OwnerFileRequest = {
 	readonly to?: string;
 	/** Whether an `unlink` or `rmtree` is a recursive removal; `rmtree` requires it. */
 	readonly recursive?: boolean;
-	/** The content hash of a file, or the symlink hash of a link, that an `unlink` or `rename` must find. */
+	/**
+	 * The effective hash an `unlink`, `rmtree` or `rename` must find: the content hash of a file, the symlink hash of a link
+	 * or the tree hash of a directory. The helper decides which by what is really at the path.
+	 */
 	readonly sha256?: string;
-	/** The tree hash of a directory that an `unlink`, `rmtree` or `rename` must find. */
-	readonly treeSha256?: string;
-	/** For `stat` of a directory: also compute its tree hash. */
-	readonly tree?: boolean;
+	/** For `stat`: also compute the effective hash of the entry (the content hash of a file, the tree hash of a directory). */
+	readonly hash?: boolean;
+	/** For `stat` with `hash`: the largest file that is hashed; a larger one is `file_too_large`. */
+	readonly maxFileBytes?: number;
 };
 
 /** One directory entry of a `list`. */
@@ -435,13 +438,23 @@ async function listOperation(request: OwnerFileRequest, containment: Containment
 	return { ok: true, resolvedPath: logicalPathOf(location, containment), entries: entries.slice(0, maximumEntries), truncated };
 }
 
+async function hashOfFileWithin(location: string, maximumBytes: number | null): Promise<string> {
+	const { handle } = await openRegularFile(location, maximumBytes);
+	try {
+		return await hashOfOpenFile(handle);
+	} finally {
+		await handle.close();
+	}
+}
+
 async function statOperation(request: OwnerFileRequest, containment: Containment): Promise<OwnerFileResponse> {
 	const requested = resolve(request.path);
 	const { location } = await unfollowedLocationOf(requested, containment);
 	const stats = await lstat(location);
 	const kind = kindOf(stats);
 	const linkTarget = kind === "symlink" ? (await readlink(location)).slice(0, LINK_TARGET_MAXIMUM_CHARACTERS) : null;
-	const tree = request.tree === true && kind === "directory" ? await walkTree(location) : null;
+	const tree = request.hash === true && kind === "directory" ? await walkTree(location) : null;
+	const contentHash = request.hash === true && kind === "file" ? await hashOfFileWithin(location, request.maxFileBytes ?? null) : null;
 	return {
 		ok: true,
 		resolvedPath: logicalPathOf(location, containment),
@@ -451,6 +464,7 @@ async function statOperation(request: OwnerFileRequest, containment: Containment
 		mode: modeOf(stats),
 		linkTarget,
 		...(linkTarget === null ? {} : { sha256: symlinkHashOf(linkTarget, sha256Hex) }),
+		...(contentHash === null ? {} : { sha256: contentHash }),
 		...(tree === null ? {} : { treeSha256: tree.treeSha256 }),
 	};
 }
@@ -483,20 +497,20 @@ async function unlinkOperation(request: OwnerFileRequest, containment: Containme
 	const stats = await lstat(location);
 	if (stats.isDirectory()) {
 		if ((await readdir(location)).length > 0) throw new HelperError("directory_not_empty", "The folder is not empty.");
-		if (request.sha256 !== undefined || request.treeSha256 !== EMPTY_TREE_HASH) throw new HelperError("precondition_failed", "The folder is not the one that was seen.", EMPTY_TREE_HASH);
+		if (request.sha256 !== EMPTY_TREE_HASH) throw new HelperError("precondition_failed", "The folder is not the one that was seen.", EMPTY_TREE_HASH);
 		await rmdir(location);
 		return { ok: true, resolvedPath, directory: true, removed: 1, sha256Before: null, treeSha256Before: EMPTY_TREE_HASH };
 	}
 	if (stats.isSymbolicLink()) {
 		const current = symlinkHashOf(await readlink(location), sha256Hex);
-		if (request.sha256 !== current || request.treeSha256 !== undefined) throw new HelperError("precondition_failed", "The link is not the one that was seen.", current);
+		if (request.sha256 !== current) throw new HelperError("precondition_failed", "The link is not the one that was seen.", current);
 		await unlink(location);
 		return { ok: true, resolvedPath, directory: false, removed: 1, sha256Before: current, treeSha256Before: null };
 	}
 	const { handle, mode } = await openRegularFile(location, null);
 	try {
 		const current = await hashOfOpenFile(handle);
-		if (request.sha256 !== current || request.treeSha256 !== undefined) throw new HelperError("precondition_failed", "The file is not the one that was seen.", current);
+		if (request.sha256 !== current) throw new HelperError("precondition_failed", "The file is not the one that was seen.", current);
 		await unlink(location);
 		await hooks.afterUnlink?.(location);
 		const after = await hashOfOpenFile(handle);
@@ -520,7 +534,7 @@ async function rmtreeOperation(request: OwnerFileRequest, containment: Containme
 	const stats = await lstat(location);
 	if (!stats.isDirectory()) throw new HelperError("not_a_directory", "The path is not a folder.");
 	const { entries, treeSha256 } = await walkTree(location);
-	if (request.treeSha256 !== treeSha256) throw new HelperError("precondition_failed", "The folder is not the one that was seen.", treeSha256);
+	if (request.sha256 !== treeSha256) throw new HelperError("precondition_failed", "The folder is not the one that was seen.", treeSha256);
 	const deepestFirst = [...entries].sort((left, right) => right.relativePath.split("/").length - left.relativePath.split("/").length);
 	for (const entry of deepestFirst) {
 		const entryPath = join(location, ...entry.relativePath.split("/"));
@@ -554,7 +568,7 @@ async function renameOperation(request: OwnerFileRequest, containment: Containme
 	const to = logicalPathOf(target.location, containment);
 	if (sourceStats.isDirectory()) {
 		const { treeSha256 } = await walkTree(source.location);
-		if (request.treeSha256 !== treeSha256 || request.sha256 !== undefined) throw new HelperError("precondition_failed", "The folder is not the one that was seen.", treeSha256);
+		if (request.sha256 !== treeSha256) throw new HelperError("precondition_failed", "The folder is not the one that was seen.", treeSha256);
 		try {
 			await mkdir(target.location, { mode: NEW_DIRECTORY_PERMISSIONS });
 		} catch (error) {
@@ -574,7 +588,7 @@ async function renameOperation(request: OwnerFileRequest, containment: Containme
 	if (sourceStats.isSymbolicLink()) {
 		const linkTarget = await readlink(source.location);
 		const current = symlinkHashOf(linkTarget, sha256Hex);
-		if (request.sha256 !== current || request.treeSha256 !== undefined) throw new HelperError("precondition_failed", "The link is not the one that was seen.", current);
+		if (request.sha256 !== current) throw new HelperError("precondition_failed", "The link is not the one that was seen.", current);
 		try {
 			await symlink(linkTarget, target.location);
 		} catch (error) {
@@ -587,7 +601,7 @@ async function renameOperation(request: OwnerFileRequest, containment: Containme
 	const { handle } = await openRegularFile(source.location, null);
 	try {
 		const current = await hashOfOpenFile(handle);
-		if (request.sha256 !== current || request.treeSha256 !== undefined) throw new HelperError("precondition_failed", "The file is not the one that was seen.", current);
+		if (request.sha256 !== current) throw new HelperError("precondition_failed", "The file is not the one that was seen.", current);
 		try {
 			await link(source.location, target.location);
 		} catch (error) {

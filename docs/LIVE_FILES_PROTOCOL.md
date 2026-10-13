@@ -1,6 +1,6 @@
 # Live files protocol (Phase 3 contract)
 
-> **Status:** CONTRACT. Nothing on this page is built. It is the exact interface that
+> **Status:** CONTRACT, built in Phase 3 (the "as built" notes under section 15 say where the code differs). It is the exact interface that
 > several people build against in parallel for Phase 3 of
 > [Long-lived computer, file protocol and preview](LONG_LIVED_COMPUTER.md): the shared
 > schemas (F0), the server (A1, A2), the container (C) and the web app (W). It builds
@@ -12,7 +12,7 @@
 > `host-protocol/src/live-files.ts` and `host-protocol/src/live-file-rules.ts` by the
 > foundation step F0; until F0 merges, this page is the source. Once it merges, where
 > this page and those files disagree, fix the page. The draft behavior is in
-> [`features/computer_file_live.feature`](../features/computer_file_live.feature).
+> [`features/computer_file_live_member.feature`](../features/computer_file_live_member.feature) and the other `computer_file_*.feature` files.
 >
 > **Revision 2 (owner decisions).** The owner decided that a computer is needed only to *run*
 > things, never to view or edit files: a person reads and edits files while the computer is off,
@@ -389,11 +389,11 @@ export const liveFileWritePreconditionSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("if_none_match") }).strict(),
 ]);
 
-/** What a delete or a move must find: the content hash of a file or symlink, or the tree hash of a directory (L49). */
-export const liveFileRemovePreconditionSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("if_match"), sha256: sha256Hex }).strict(),
-	z.object({ type: z.literal("if_match_tree"), tree_sha256: sha256Hex }).strict(),
-]);
+/**
+ * What a delete or a move must find: the effective hash of the path (L49), which is the content hash of a file, the link hash
+ * of a symlink or the tree hash of a directory. The owner decides which it is by what is really at the path.
+ */
+export const liveFileRemovePreconditionSchema = z.object({ type: z.literal("if_match"), sha256: sha256Hex }).strict();
 
 const requestBase = {
 	operation_id: identifier,
@@ -408,7 +408,7 @@ const requestBase = {
  */
 export const ownerFileRequestSchema = z.discriminatedUnion("kind", [
 	z.object({ ...requestBase, kind: z.literal("list"), max_entries: z.number().int().min(1).max(LIVE_FILE_LISTING_MAX_ENTRIES) }),
-	z.object({ ...requestBase, kind: z.literal("stat"), tree: z.boolean().default(false) }),
+	z.object({ ...requestBase, kind: z.literal("stat"), hash: z.boolean().default(false) }),
 	z.object({
 		...requestBase,
 		kind: z.literal("read"),
@@ -1272,7 +1272,7 @@ Routes are in 6.2. Principal and rate rules are those of a write (7.3 steps 1 to
 **Who may (L51).** The original design (7.6, D8) said "Delete and move, when added, need the owner role". That no longer stands for the common case: delete, rename and new folders now matter to every member,
 who can already change a file and can already tell a bot to delete anything. Recommendation, adopted in the contract: **any enabled member** may delete a file or a symlink, rename a file, a symlink or a directory, create a
 directory, and delete an *empty* directory, each audited with who, what and the hash seen; **only the organization owner role** may delete a *non-empty* directory (`recursive=true`), the one bulk, hard-to-undo action.
-A member who tries gets 403 `owner_role_required` and nothing is audited as attempted (it is logged). Renaming a non-empty directory is not destructive and is open to members.
+A member who tries gets 403 `owner_role_required`, and the refusal is audited as `refused` (7.8.8 decides; an earlier draft said it was only logged). `recursive=true` needs the owner role whether or not the folder has children: the flag is the request for the bulk delete, so the rule is one rule on both paths and an empty folder is deleted by a member with `recursive` absent. Renaming a non-empty directory is not destructive and is open to members.
 
 **Preconditions (L49, L50).** `DELETE` and `move` require `If-Match` of the effective hash of the path as the person last saw it; the `ETag` of `stat` and of `content` is that hash (a directory's is its tree hash). A missing
 header is 428; a different hash is 409 `precondition_failed` with `current_sha256` (the tree hash for a directory). `POST /directories` takes no precondition: it is idempotent.
@@ -1467,18 +1467,18 @@ scenarios of `computer_owner_file_isolation.feature` stay green and are the proo
 
 ### 8.1 Helper operations for delete, rename and new folders (revision 3)
 
-`OwnerFileOperation` gains `mkdir`, `unlink`, `rmtree` and `rename`; the request gains `to` (rename), `recursive`, and the preconditions `sha256` or `treeSha256`. All of them: resolve the parent directory of each path they name
+`OwnerFileOperation` gains `mkdir`, `unlink`, `rmtree` and `rename`; the request gains `to` (rename), `recursive`, and one precondition field, `sha256`, the effective hash the entry must have (a file's content hash, a link's link hash or a directory's tree hash); the helper decides which by the entry's real kind, so the caller never has to know it. All of them: resolve the parent directory of each path they name
 (`finalLocationOf`) and assert it inside `allowedRoots`; never follow the final component; refuse a resolved `.git` segment when `refuseGitSegments`; answer with the codes of `LIVE_FILE_OWNER_ERROR_CODES`.
 
 * **`mkdir`**: the parent must exist (`parent_missing`); `mkdir` with mode `0775` through the launcher's umask; `EEXIST` on a directory is `ok` with `created: false`, on anything else `already_exists`.
 * **`unlink`**: `lstat` the final component. A file: open `O_RDONLY | O_NONBLOCK`, `fstat` regular, hash, compare with the precondition (`precondition_failed` with `currentSha256`), `unlink`, then re-hash through the held descriptor; if it differs
   from the expected hash (an in-place writer in the window), write those bytes to `<name>.chatticus-deleted-<8 hex>` beside it and answer ok with `keptAs`. A symlink: compare the symlink hash (L49), `unlink`. A directory: `rmdir`; `directory_not_empty` if it has children.
-* **`rmtree`**: only with `recursive` and a `treeSha256`. Walk with `lstat` (never following a link, staying on the starting device, at most 5000 entries, else `too_many_entries`), compute the tree hash, compare (`precondition_failed` with the current tree hash),
+* **`rmtree`**: only with `recursive` and a `sha256` that is the tree hash. Walk with `lstat` (never following a link, staying on the starting device, at most 5000 entries, else `too_many_entries`), compute the tree hash, compare (`precondition_failed` with the current tree hash),
   then remove depth first with `unlink` and `rmdir`. A tree that contains a `.git` directory below the named path is removed (L59).
 * **`rename`**: `lstat` the source without following; compare the precondition (the content or symlink hash, or the tree hash of a directory); the target's parent must exist and the target must not (`already_exists`); the target must not lie inside the source (`invalid_move`);
   same device. A file or symlink: `link(source, target)` (it fails if the target exists) then `unlink(source)`; the inode is the same, so an in-place writer in the window loses nothing. A directory: `mkdir(target)` exclusively, then `rename(source, target)`, which replaces only the empty
   directory just made; `ENOTEMPTY` or `EEXIST` removes the made directory and answers `already_exists`.
-* **`stat`** with `tree: true` on a directory returns `treeSha256` (and `too_many_entries` past 5000).
+* **`stat`** with `hash: true` returns the effective hash: `treeSha256` for a directory (`too_many_entries` past 5000) and `sha256` for a regular file of at most `maxFileBytes` (the live read limit, 8 MiB; a larger file is `file_too_large`). A link's `sha256` (its link hash) is always returned.
 
 Pi's own file tools do not use these operations. The supervisor's file runner (9.1) maps request kinds `delete`, `move` and `mkdir` to them and passes `refuseGitSegments: true`.
 
@@ -1933,7 +1933,7 @@ it already has read and write on the whole bucket, and it is operator-trusted, o
 
 ## 13. Traceability
 
-Scenario names are those of `features/computer_file_live.feature`, except the `@web` ones, which live in `features/web_computer_files.feature` (registered, with steps) under the same names. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
+Scenario names are those of the registered `computer_file_*.feature` files and `web_computer_files.feature`: `computer_file_live_member` and `computer_file_live_operations` (server routes), `computer_file_live_owner` (the owner routes), `computer_file_overlay` and `computer_file_overlay_authority` (the overlay, store level and who may write it), `computer_file_live_supervisor` and `computer_file_overlay_supervisor` (the supervisor), `web_computer_files` (the panel) and `computer_file_live_end_to_end` (the whole path); the draft file that held them has been deleted. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
 `@end-to-end` (E). `vitest` is the unit-test exception of `AGENTS.md`: pure helpers only.
 
 | # | Requirement | Section | Scenarios | Tag |
@@ -2109,14 +2109,14 @@ Revision 2 adds the overlay integration: `http/routes/computer-files.ts` routes 
 **A4 as built** (`features/computer_file_live_operations.feature`, steps in `features-support/steps/computer-file-operations.steps.ts`; `FakeLiveDisk` learned stat with a tree hash, delete, move and mkdir with the helper's precondition rules). Where the code differs from the text above:
 
 * The routes are `http/routes/computer-file-operations.ts` (`DELETE /files`, `POST /files/move`, `POST /files/directories`); `GET /files/overlay` stays with part A3. Each builds a `MemberFileChange` and calls `performMemberChange`.
-* The `ETag` of `stat` is the effective hash: the tree hash of a folder (also in `entry.tree_sha256`), the link hash of a link (also in `entry.sha256`), the content hash of a file. A live `stat` asks the owner with `tree: true`; a running computer does not hash a file for a stat, so a live file has no `ETag` on `stat` (its `content` response has one). A folder over 5000 descendants answers 413 `too_many_entries` on `stat`.
-* A person's `If-Match` does not say whether it is a content hash or a tree hash, and the owner's helper checks them differently, so on the live path a delete without `recursive` and a rename first ask the owner for a `stat` of the path (not audited, nothing changed) and send `if_match_tree` for a folder and `if_match` otherwise. A recursive delete is always a folder and skips that question. A path that is not there is 404 `not_found` from that question.
+* The `ETag` of `stat` is the effective hash: the tree hash of a folder (also in `entry.tree_sha256`), the link hash of a link (also in `entry.sha256`), the content hash of a file. A live `stat` asks the owner with `hash: true`: the owner hashes a regular file of at most 8 MiB, so a running computer gives a file the same `ETag` on `stat` as on `content`; a larger file answers 413 `file_too_large` on `stat` (the panel words it as for an over-limit file). A folder over 5000 descendants answers 413 `too_many_entries` on `stat`.
+* A person's `If-Match` does not say whether it is a content hash, a link hash or a tree hash, and it does not need to: the live request carries it as the one `if_match` precondition and the owner's helper compares it with the effective hash of what is really at the path. A delete or a rename on the live path is therefore one round trip to the owner. A path that is not there is the owner's 404 `not_found`, and the attempt is audited as `failed` with that code like any other answer. Because the Front Door does not know the kind on that path, the audit record of a live delete without `recursive`, and of a live rename, holds the hash seen in `sha256_before` whatever it is the hash of; a recursive delete, which is always a folder, records `tree_sha256_before`.
 * `recursive=true` needs the organization owner role whether or not the folder has children: one rule on both paths, checked before anything is queued or written. The refusal is audited as `refused` (7.8.8), not merely logged (7.8.1).
 * On the live path the Front Door cannot know that a `mkdir` finds the folder already there, so that idempotent call is audited (the overlay path does not audit it).
 
 ### C. Container: helper and the supervisor's file runner (needs F0)
 
-(Revision 3 adds to this part: the helper operations of 8.1 (`mkdir`, `unlink`, `rmtree`, `rename`, `stat` with `tree`), the runner's mapping of request kinds `delete`, `move`, `mkdir`, and the tree hash and symlink hash in `host-protocol/src/live-file-rules.ts` shared with the Front Door. Scenarios: LF-74.)
+(Revision 3 adds to this part: the helper operations of 8.1 (`mkdir`, `unlink`, `rmtree`, `rename`, `stat` with `hash`), the runner's mapping of request kinds `delete`, `move`, `mkdir`, and the tree hash and symlink hash in `host-protocol/src/live-file-rules.ts` shared with the Front Door. Scenarios: LF-74.)
 
 Files: `conversation/src/pi/owner-file-helper.ts` (section 8), `conversation/src/pi/unprivileged-execution-env.ts` (Pi `write` through the same operation),
 `conversation/src/pi/shell-environment.ts` (new, extracted), `computer/host/src/live-file-operations.ts` (new), `computer/host/src/live-file-helper-launcher.ts` (new),
@@ -2149,6 +2149,15 @@ Revision 2 adds: edit while the computer is off (`source: "overlay"`), the `Edit
 ### E. End to end and live proof (needs A2, A4 and C2)
 
 The `@end-to-end` scenarios (LF-46, LF-64, LF-76) in one steps file, the live proof (section 17), and the milestone sub-agent for Kanbus and README.
+
+**E as built** (`features/computer_file_live_end_to_end.feature`, steps in `features-support/steps/live-files-end-to-end.steps.ts` with `features-support/live-files-end-to-end-support.ts`; LF-59 is `features/computer_file_overlay_authority.feature`). Where the code differs from the text above:
+
+* The scenarios run the production routes with the real `OwnerSupervisor` loop (the long-lived harness of `owner-long-lived.steps.ts`, now parameterised by a wiring), the real `HostDiskLifecycle` over the scenario's bucket, the real `SealingOverlayApplier` and the real file helper run in the test process on a real directory. A bot's turn works in the same directory, so one disk is seen by the member, the helper and the bot. The `FakeLiveDisk` is not used here: it answers owner requests in memory and the bot's tools need a real workspace. Time, the child process of a turn, the model, the credential broker and the wait of the Front Door (`ScenarioFileWait`) are faked.
+* Time moves only by waking the supervisor's sleepers; work the supervisor does in real time (restore, publish, helper) is counted as in flight and finishes before time moves on. Each supervisor the scenario starts gets a fresh live disk, as each task of the computer does.
+* "A task that crashes" is a supervisor that is never woken again. The next owner can be started only after the heartbeat has lapsed (30 seconds) **and** the start lease of the dead task has run out (`HOST_START_LEASE_SECONDS`, 60), so the crash scenario lets 61 seconds go by, not 31.
+* LF-64 (empty after the publish): the scenario also lets the supervisor idle until it stops (reason `idle`) and then asserts the overlay is empty and not sealed, which is the state 17 step 6a promises "after the stop".
+* LF-59 second scenario: the first write of the index is create-only (`If-None-Match: *`); the `If-Match` of the entity tag that was read applies to every later write, so the scenario makes two edits and checks the chain of tags against moto's conditional writes.
+* The scenario that lists the workspace for the bot runs `ls` with `cwd` `/workspace` instead of `ls /workspace`, because the test shell has no `/workspace` directory.
 
 ### Order and dependencies
 
