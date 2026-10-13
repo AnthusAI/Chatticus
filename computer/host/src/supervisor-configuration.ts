@@ -13,6 +13,8 @@ export type SupervisorConfiguration = {
 	readonly snapshotBucket: string;
 	readonly liveRoot: string;
 	readonly workspaceRoot: string;
+	/** The unprivileged shell launcher the file helper is started through. */
+	readonly shellLauncherPath: string;
 	/** The one-time token. The environment it came from no longer holds it. */
 	readonly bootstrapToken: string;
 };
@@ -48,6 +50,7 @@ export function supervisorConfigurationFromEnvironment(environment: NodeJS.Proce
 		snapshotBucket: requiredSetting(environment, "CHATTICUS_SNAPSHOT_BUCKET"),
 		liveRoot: (environment["CHATTICUS_LIVE_ROOT"] ?? "").trim().replace(/\/+$/, "") || "/var/lib/chatticus/computer",
 		workspaceRoot: (environment["CHATTICUS_WORKSPACE_ROOT"] ?? "").trim() || "/workspace",
+		shellLauncherPath: (environment["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim() || "/usr/local/bin/chatticus-shell",
 		bootstrapToken,
 	};
 }

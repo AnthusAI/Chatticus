@@ -36,7 +36,6 @@ describe("computer image structure", () => {
 				owner: resolve(repositoryRoot, "computer", "host", "src", "owner-main.ts"),
 				supervisor: resolve(repositoryRoot, "computer", "host", "src", "supervisor-main.ts"),
 				snapshot: resolve(repositoryRoot, "conversation", "bin", "snapshot.ts"),
-				"file-helper": resolve(repositoryRoot, "conversation", "src", "pi", "owner-file-helper-main.ts"),
 			},
 			outdir: "unused",
 			absWorkingDir: repositoryRoot,
@@ -60,8 +59,15 @@ describe("computer image structure", () => {
 		expect(supervisor, "the build produced no supervisor bundle").toBeDefined();
 		for (const input of Object.keys(supervisor![1].inputs)) {
 			expect(input, "the supervisor bundles Pi, the turn executor, the owner stores or an AWS client it has no use for").not.toMatch(
-				/node_modules\/@earendil-works\/|conversation\/src\/pi\/|conversation\/src\/turn\/|computer\/host\/src\/owner-deps|node_modules\/@aws-sdk\/client-(dynamodb|sts|lambda|secrets-manager|sqs|ecs)\//,
+				/node_modules\/@earendil-works\/|conversation\/src\/pi\/(?!shell-environment\.ts)|conversation\/src\/turn\/|computer\/host\/src\/owner-deps|node_modules\/@aws-sdk\/client-(dynamodb|sts|lambda|secrets-manager|sqs|ecs)\//,
 			);
+		}
+	});
+
+	it("keeps the supervisor from opening a workspace path: the file runner modules import no file system module", () => {
+		for (const name of ["live-file-operations.ts", "live-file-helper-launcher.ts"]) {
+			const source = readFileSync(resolve(repositoryRoot, "computer", "host", "src", name), "utf-8");
+			expect(source, name).not.toMatch(/from "node:(fs|fs\/promises)"/);
 		}
 	});
 

@@ -4,8 +4,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { S3Client } from "@aws-sdk/client-s3";
 import { consoleLogEmitter } from "../../../conversation/src/observability/log-line.ts";
+import { scrubbedShellEnvironment } from "../../../conversation/src/pi/shell-environment.ts";
 import { S3SnapshotStore } from "../../../conversation/src/snapshot/s3.ts";
 import { HostDiskLifecycle } from "./host-disk-lifecycle.ts";
+import { ProcessFileHelperLauncher } from "./live-file-helper-launcher.ts";
 import { OwnerConfigurationError } from "./owner-configuration.ts";
 import { ProcessChildSpawner } from "./process-child-spawner.ts";
 import { OwnerSupervisorClient } from "./protocol-client.ts";
@@ -121,6 +123,13 @@ export async function supervisorMain(environment: NodeJS.ProcessEnv = process.en
 		clock: runtimeSupervisorClock,
 		log,
 		memoryUsedPercent: containerMemoryUsedPercent,
+		fileHelperLauncher: new ProcessFileHelperLauncher({
+			launcherPath: configuration.shellLauncherPath,
+			helperCommand: [process.execPath, join(dirname(fileURLToPath(import.meta.url)), "file-helper.mjs")],
+			workingDirectory: configuration.workspaceRoot,
+			environment: scrubbedShellEnvironment(configuration.workspaceRoot, environment),
+		}),
+		workspaceRoot: configuration.workspaceRoot,
 	});
 	process.once("SIGTERM", () => supervisor.requestTermination());
 	try {

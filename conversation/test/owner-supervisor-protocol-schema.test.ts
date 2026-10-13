@@ -237,10 +237,10 @@ describe("owner errors", () => {
 		}
 	});
 
-	it("fixes the file request protocol version and the interactive pace without changing the protocol version", () => {
+	it("fixes the file request protocol version, the interactive pace and an owner protocol version that understands file requests", () => {
 		expect(OWNER_FILE_REQUESTS_PROTOCOL_VERSION).toBe(2);
 		expect(OWNER_POLL_INTERACTIVE_MILLISECONDS).toBe(1000);
-		expect(OWNER_PROTOCOL_VERSION).toBe(1);
+		expect(OWNER_PROTOCOL_VERSION).toBe(2);
 	});
 
 	it("reads a refusal body and refuses one without a code", () => {

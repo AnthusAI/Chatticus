@@ -2,9 +2,13 @@ import { accessSync, constants } from "node:fs";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { consoleLogEmitter, errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
-import { createOwnerExecutionEnv, scrubbedShellEnvironment, WORKSPACE_VIRTUAL_ROOT, workspaceFileToolRunners } from "../../../conversation/src/pi/local-computer-tools.ts";
+import { createOwnerExecutionEnv, WORKSPACE_VIRTUAL_ROOT, workspaceFileToolRunners } from "../../../conversation/src/pi/local-computer-tools.ts";
+import type { LiveFileOutcome, OwnerFileRequest as LiveFileRequest } from "@chatticus/host-protocol/live-files";
+import { scrubbedShellEnvironment } from "../../../conversation/src/pi/shell-environment.ts";
 import { takeOverTurn, type TurnTakeoverOutcome } from "../../../conversation/src/turn/computer-owner.ts";
 import type { ExecutorDeps, TurnExecutionJob } from "../../../conversation/src/turn/types.ts";
+import { ProcessFileHelperLauncher } from "./live-file-helper-launcher.ts";
+import { helperRequestOf, outcomeFromHelperResponse } from "./live-file-operations.ts";
 import { OwnerConfigurationError } from "./owner-configuration.ts";
 
 /** The directory of the computer's workspace as the model sees it and as the container has it. */
@@ -125,6 +129,52 @@ export async function runFileProbe(
 	} catch (error) {
 		return { isError: true, text: error instanceof Error ? error.message : String(error) };
 	}
+}
+
+/** The live file operations the probe can run. */
+export type LiveFileProbeKind = "list" | "read" | "write" | "stat" | "delete" | "mkdir";
+
+/**
+ * Run one live file operation exactly as the supervisor runs it for a member: the same request mapping, the same launcher
+ * and the same validated answer, so the file is touched by the helper through the shell launcher and not by this process.
+ * It exists so an image can show what the live operations do as the unprivileged user: a listing, a ranged read, an atomic
+ * write with a precondition, and the refusal of a path inside a .git directory.
+ *
+ * @param kind The operation.
+ * @param path The workspace path.
+ * @param text For a write, the text to write; for a delete, the hash the file must have.
+ * @param expectedSha256 For a write, the hash the file must have; absent, the file must not exist.
+ * @param options Workspace, launcher and the helper command.
+ * @returns The outcome the supervisor would post to the control plane.
+ */
+export async function runLiveFileProbe(
+	kind: LiveFileProbeKind,
+	path: string,
+	text: string,
+	expectedSha256: string,
+	options: Pick<OwnerEntryPointOptions, "workspaceRoot" | "shellLauncherPath" | "fileHelperCommand">,
+): Promise<LiveFileOutcome> {
+	assertShellLauncherUsable(options.shellLauncherPath);
+	const base = { operation_id: "live-file-probe", path, expires_in_ms: 8000 };
+	const request: LiveFileRequest =
+		kind === "list"
+			? { ...base, kind, max_entries: 2000 }
+			: kind === "read"
+				? { ...base, kind, offset: 0, length: 262144, mask: true }
+				: kind === "write"
+					? { ...base, kind, content: text, precondition: expectedSha256 === "" ? { type: "if_none_match" } : { type: "if_match", sha256: expectedSha256 } }
+					: kind === "delete"
+						? { ...base, kind, recursive: false, precondition: { type: "if_match", sha256: text } }
+						: kind === "stat"
+							? { ...base, kind, tree: false }
+							: { ...base, kind };
+	const launcher = new ProcessFileHelperLauncher({
+		launcherPath: options.shellLauncherPath,
+		helperCommand: options.fileHelperCommand ?? [],
+		workingDirectory: options.workspaceRoot,
+		environment: scrubbedShellEnvironment(options.workspaceRoot),
+	});
+	return outcomeFromHelperResponse(request, await launcher.run(helperRequestOf(request, options.workspaceRoot), 6000));
 }
 
 /** Who an owner is on its log lines: the tenant, the turn and the owner id. None of them is a secret. */

@@ -27,6 +27,9 @@ export class SnapshotStack extends cdk.Stack {
     this.bucket.addLifecycleRule({
       abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
     });
+    this.bucket.addLifecycleRule({
+      noncurrentVersionExpiration: cdk.Duration.days(30),
+    });
 
     const localWorkerRole = new iam.Role(this, "LocalWorkerRole", {
       assumedBy: new iam.AccountRootPrincipal(),

@@ -1,3 +1,4 @@
+import type { OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
 import type {
 	OwnerBootstrapRequest,
 	OwnerBootstrapResponse,
@@ -59,14 +60,16 @@ export const runtimeSupervisorClock: SupervisorClock = {
 };
 
 /**
- * What the supervisor asks of the Front Door: the bootstrap exchange, the poll and the stop request, and the computer
- * routes the boot driver and the disk lifecycle call. A refusal is thrown as a `HostProtocolError` carrying the status and
+ * What the supervisor asks of the Front Door: the bootstrap exchange, the poll, the stop request and the result of a file
+ * request, and the computer routes the boot driver and the disk lifecycle call. A refusal is thrown as a `HostProtocolError` carrying the status and
  * the owner error code; a network failure or a timeout is any other error.
  */
 export interface SupervisorPlane extends HostBootPlane {
 	bootstrap(request: OwnerBootstrapRequest): Promise<OwnerBootstrapResponse>;
 	poll(request: OwnerPollRequest): Promise<OwnerPollResponse>;
 	stopRequest(request: OwnerStopRequest): Promise<OwnerStopResponse>;
+	/** Post the owner's answer to one file request; a repeat of an answer already recorded is recorded again without harm. */
+	postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }>;
 }
 
 /**
