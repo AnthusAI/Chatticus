@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Context } from "hono";
 import {
 	LIVE_FILE_CONTENT_MAX_BYTES,
+	LIVE_FILE_LISTING_MAX_ENTRIES,
 	liveFileContentResponseSchema,
 	liveFileListingResponseSchema,
 	liveFileRevealBodySchema,
@@ -19,6 +20,7 @@ import { beginMemberAudit, finishMemberAudit, memberAuditRecordOf } from "../../
 import { countFileRequest } from "../../domain/file-rate-limit.ts";
 import { newLiveFileOperationId, watchFilePanel, type FileWaitPort } from "../../domain/live-files.ts";
 import { MemberFileRefusal } from "../../domain/member-file-refusal.ts";
+import { ComputerNotFoundError } from "../errors.ts";
 import {
 	performMemberChange,
 	readThroughOwner,
@@ -42,7 +44,7 @@ import {
 import type { LiveFileDependencies } from "../../domain/live-files.ts";
 import type { FileAuditRecord, FileAuditSource } from "../../store/codecs/file-audit.ts";
 import type { Clock, IdSource } from "../app.ts";
-import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
+import { isRefusal, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
 import { writePreconditionOf } from "./file-preconditions.ts";
 
 /** Everything the member file routes depend on. */
@@ -86,6 +88,7 @@ function respondWithError(c: Context, error: unknown): Response {
 	c.header("X-Content-Type-Options", "nosniff");
 	c.header("Cache-Control", "private, no-store");
 	if (error instanceof SnapshotFileError) return c.json({ error: error.code, message: error.message }, error.status as 400);
+	if (error instanceof ComputerNotFoundError) return c.json({ error: "no_snapshot", message: "This computer has not published a snapshot." }, 404);
 	if (error instanceof MemberFileRefusal) {
 		const body: ErrorBody = { error: error.code, message: error.message };
 		if (error.detail.currentSha256 !== undefined) body.current_sha256 = error.detail.currentSha256;
@@ -118,7 +121,7 @@ function requestedPathOf(raw: string | undefined): string {
 type Caller = { readonly principal: Principal; readonly member: FileMember };
 
 function memberOf(principal: Principal): FileMember {
-	return { tenantId: principal.tenantId, userId: principal.userId ?? "", role: principal.role };
+	return { tenantId: principal.tenantId, userId: principal.userId ?? principal.workerId ?? "caller", role: principal.role };
 }
 
 /** Resolve the caller, answering the principal's own refusal as it is. A change needs a member with a user id (L24). */
@@ -151,7 +154,7 @@ type SnapshotProvenance = { stale: boolean; fallback_reason: LiveFileFallbackRea
 function provenanceOf(ctx: FileRoutingContext, fallback: { reason: LiveFileFallbackReason; retryAfterMs?: number } | null): SnapshotProvenance {
 	const reason = fallback?.reason ?? (ctx.source.source === "snapshot" ? ctx.source.reason : null);
 	return {
-		stale: reason !== null,
+		stale: reason !== null || ctx.source.source === "live",
 		fallback_reason: reason,
 		...(fallback?.retryAfterMs === undefined ? {} : { retry_after_ms: fallback.retryAfterMs }),
 	};
@@ -198,7 +201,7 @@ export async function listComputerFilesHandler(c: Context, deps: ComputerFileRou
 	return serveRead(c, deps, async (caller, ctx, path) => {
 		let fallback: { reason: LiveFileFallbackReason; retryAfterMs?: number } | null = null;
 		if (ctx.source.source === "live") {
-			const read = await readThroughOwner(memberFileDependencies(deps), ctx, caller.member, { kind: "list", path, max_entries: 2000 });
+			const read = await readThroughOwner(memberFileDependencies(deps), ctx, caller.member, { kind: "list", path, max_entries: LIVE_FILE_LISTING_MAX_ENTRIES });
 			if (read.kind === "answered") {
 				if (read.outcome.status === "error") throw refusalOfOwnerError(read.outcome);
 				const result = read.outcome.result;
@@ -494,7 +497,7 @@ export async function watchComputerFilesHandler(c: Context, deps: ComputerFileRo
 		await countFileRequest(deps.store, rateKeyOf(caller), "watch", deps.clock.now());
 		const parsed = liveFileWatchBodySchema.safeParse(await readJsonBody(c, 1024));
 		if (!parsed.success) throw new MemberFileRefusal("invalid_body", parsed.error.issues.map((issue) => issue.message).join("; "));
-		const state = await watchFilePanel(liveFileDependencies(deps), pathParameter(c, "tenant_id"), parsed.data.open);
+		const state = await watchFilePanel(liveFileDependencies(deps), caller.member.tenantId, parsed.data.open);
 		return c.json(liveFileWatchResponseSchema.parse(state), 200);
 	} catch (error) {
 		return respondWithError(c, error);

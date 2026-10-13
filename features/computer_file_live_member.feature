@@ -346,6 +346,16 @@ Feature: Members view and edit the files of the computer, live when it runs and 
     And no file request is left in the table
 
   @server
+  Scenario: A write the owner answers within the extra seven seconds is a success
+    Given a live owner is polling for the household computer
+    And the live disk of the owner holds workspace file "notes.md" containing "first draft"
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    And the owner polls and answers the file request it is given after 10 seconds
+    Then the file response status is 200
+    And the live disk of the owner now has workspace file "notes.md" containing "second draft"
+    And the audit log has a record for member "mia" with outcome "ok"
+
+  @server
   Scenario: An edit made while the owner is stopping waits for the owner
     Given a live owner is polling for the household computer
     And the owner's stop request was approved
@@ -366,6 +376,19 @@ Feature: Members view and edit the files of the computer, live when it runs and 
     And the file response error is "computer_starting"
     And the file response says "retry_after_ms" is "2000"
     And the audit log has no records
+
+  @server
+  Scenario: An edit made through the route while the owner extracts the snapshot is in the set the owner seals
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And an owner of the household computer is hydrating
+    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then the file response status is 200
+    And the file response says "source" is "overlay"
+    When the owner seals the overlay
+    Then the sealed entries are exactly:
+      | path                | sha256                     |
+      | /workspace/notes.md | the hash of "second draft" |
 
   @server
   Scenario: A member's read that loses the race with an idle stop is answered from the saved copy

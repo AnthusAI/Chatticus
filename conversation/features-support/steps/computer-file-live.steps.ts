@@ -77,7 +77,6 @@ function lastResponse(world: ChatticusWorld) {
 	return response;
 }
 
-// ---------------------------------------------------------------- a running owner
 
 Given("a live owner is polling for the household computer in state {string}", async function (this: ChatticusWorld, state: string) {
 	const owner = await startLiveOwner(this);
@@ -131,7 +130,6 @@ Given("{int} file requests are pending that the owner has not taken", async func
 	}
 });
 
-// ---------------------------------------------------------------- the disk of the running owner
 
 Given("the live disk of the owner holds workspace file {string} containing {string}", function (this: ChatticusWorld, relative: string, content: string) {
 	memberFilesOf(this).disk.putFile(workspaceFile(relative), content);
@@ -165,7 +163,6 @@ Then("the live file {string} still has {int} bytes", function (this: ChatticusWo
 	assert.equal(memberFilesOf(this).disk.sizeOf(path), size);
 });
 
-// ---------------------------------------------------------------- what the scenario assumes about the computer
 
 Given("the computer has never published a snapshot", async function (this: ChatticusWorld) {
 	const computer = await computerForOrganization(TENANT, { store: this.messagingStore() });
@@ -212,7 +209,6 @@ Given("member {string} has read the computer file {string} and holds its hash", 
 	scenario.responses.length = before;
 });
 
-// ---------------------------------------------------------------- reading as a member
 
 When("a member reads the computer file {string} and the owner does not answer for {int} seconds", async function (this: ChatticusWorld, path: string, seconds: number) {
 	const headers = await memberHeadersFor(this, TENANT, "ryan");
@@ -268,7 +264,6 @@ When(
 	},
 );
 
-// ---------------------------------------------------------------- the owner acts
 
 When("the owner polls and answers the file request it is given", async function (this: ChatticusWorld) {
 	await ownerAnswersTheWaitingRequest(this);
@@ -307,6 +302,29 @@ When("the owner polls and answers the write reporting the hash of {string} as th
 		assert.ok(answer.status === "ok" && answer.result.kind === "write", "The fake disk did not accept the write.");
 		return { status: "ok", result: { ...answer.result, sha256_after: hashOf(text) } };
 	});
+});
+
+When("the owner polls and answers the file request it is given after {int} seconds", async function (this: ChatticusWorld, seconds: number) {
+	await untilRequestIsWaiting(this);
+	const owner = ownerOf(this);
+	const scenario = memberFilesOf(this);
+	const pending = scenario.pending;
+	assert.ok(pending);
+	const polled = await owner.poll();
+	assert.equal(polled.status, 200, JSON.stringify(polled.body));
+	const requests = owner.lastPoll?.file_requests ?? [];
+	assert.ok(requests.length > 0, "The poll carried no file request for the owner to answer.");
+	for (let quarters = 0; quarters < seconds * 4; quarters += 1) {
+		const looked: { settled: boolean } = await scenario.wait.untilSettledOrParked(pending);
+		assert.equal(looked.settled, false, "The request was answered before the owner answered it.");
+		this.clock.advanceSeconds(0.25);
+		scenario.wait.release();
+	}
+	for (const request of requests) {
+		const posted = await owner.postResult(request.operation_id, scenario.disk.answer(request));
+		assert.equal(posted.status, 200, JSON.stringify(posted.body));
+	}
+	await settleInFlight(this, 0);
 });
 
 When("the owner polls and holds the file request for {int} seconds", async function (this: ChatticusWorld, seconds: number) {
@@ -359,7 +377,6 @@ Then("the owner's answer is refused with code {string}", function (this: Chattic
 	assert.equal(reply.body.code, code);
 });
 
-// ---------------------------------------------------------------- writing as a member
 
 When(
 	"member {string} replaces the computer file {string} with {string} if it still has the hash of {string}",
@@ -478,7 +495,6 @@ When("a member's Files panel pings that it is open through the watch route", asy
 	await sendFileRoute(this, { method: "POST", path: `${FILES}/watch`, headers, body: { open: true } });
 });
 
-// ---------------------------------------------------------------- what the member was told
 
 Then("the file response says {string} is the hash of {string}", function (this: ChatticusWorld, field: string, text: string) {
 	assert.equal(lastResponse(this).json?.[field], hashOf(text), lastResponse(this).text);
@@ -556,7 +572,6 @@ Then(/^the (\d+)(?:st|nd|rd|th) file response carries a "([^"]*)" header$/, func
 	assert.ok(Number(value) >= 1);
 });
 
-// ---------------------------------------------------------------- the table
 
 Then("the computer record says the disk is dirty", async function (this: ChatticusWorld) {
 	assert.equal((await computerForOrganization(TENANT, { store: this.messagingStore() })).diskDirty, true);
@@ -591,7 +606,6 @@ Then("the saved snapshot pack was not changed", async function (this: ChatticusW
 	assert.deepEqual(writes, [], "The file routes wrote to the snapshot bucket.");
 });
 
-// ---------------------------------------------------------------- the audit log
 
 async function auditRecordsOfAll(world: ChatticusWorld) {
 	return world.messagingStore().listFileAuditRecords(TENANT, world.clock.now());
