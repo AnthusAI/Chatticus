@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { S3Client } from "@aws-sdk/client-s3";
+import { CreateBucketCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import type { GetParameterCommand } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { DynamoWriteGate, WRITE_GATE_CACHE_MILLISECONDS } from "../src/migration/migration-state.ts";
 import { createMessagingTable } from "../features-support/messaging-table.ts";
+import { ensureComputer } from "../src/domain/computers.ts";
+import { mintComputerOwnerToken } from "../src/gateway/session-token.ts";
+import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
 import {
 	composeFrontDoorApp,
 	REQUIRED_FRONT_DOOR_ENVIRONMENT,
@@ -352,6 +355,62 @@ describe("front door composition of the owner routes", () => {
 		const response = await pollWithInvokeKey(app);
 		expect(response.status).toBe(403);
 		expect(await response.json()).toMatchObject({ code: "not_current_owner" });
+	});
+
+	describe("the edit overlay routes", () => {
+		const SIGNING_KEY = "gateway-signing-key-for-the-composition-test";
+		const bucket = `front-door-overlay-${randomUUID().slice(0, 12)}`;
+		const s3 = new S3Client({ endpoint, region: "us-east-1", credentials, forcePathStyle: true, maxAttempts: 1 });
+
+		const sealRequest = async (app: Awaited<ReturnType<typeof composeFrontDoorApp>>, tenantId: string, ownerId: string) => {
+			const issuedAtSeconds = Math.floor(Date.now() / 1000);
+			const token = mintComputerOwnerToken(SIGNING_KEY, {
+				audience: "computer-owner",
+				tenantId,
+				computerId: "household",
+				ownerId,
+				startGeneration: 1,
+				issuedAtSeconds,
+				expiresAtSeconds: issuedAtSeconds + 600,
+			});
+			return app.request(`http://front-door.test/orgs/${tenantId}/host/owner/overlay-seal`, {
+				method: "POST",
+				headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+				body: JSON.stringify({ owner_id: ownerId, generation: 1 }),
+			});
+		};
+
+		const seedOwnedComputer = async (tenantId: string, ownerId: string) => {
+			const store = new DynamoMessagingStore(dynamo, tableName);
+			const computer = await ensureComputer(tenantId, { store, ids: { next: () => randomUUID() } }, "household");
+			await store.putComputer({ ...computer, hostStartGeneration: 1, hostStartDispatchedGeneration: 1, ownerId, ownerGeneration: 1, ownerProtocolVersion: 2 });
+		};
+
+		const composeWith = (extra: Record<string, string | undefined>) =>
+			composeFrontDoorApp(
+				environmentFor({
+					CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: GATEWAY_SECRET_ARN,
+					CHATTICUS_OWNER_CREDENTIAL_BROKER_FUNCTION_NAME: "owner-credential-broker",
+					...extra,
+				}),
+				{ ...clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets({ ...SECRET_VALUES, [GATEWAY_SECRET_ARN]: SIGNING_KEY })), s3, lambda },
+			);
+
+		it("lets an owner seal the overlay in the snapshot bucket when the deployment names one", async () => {
+			await s3.send(new CreateBucketCommand({ Bucket: bucket }));
+			await seedOwnedComputer("sealtenant", "owner-seal-1");
+			const response = await sealRequest(await composeWith({ CHATTICUS_SNAPSHOT_BUCKET: bucket }), "sealtenant", "owner-seal-1");
+			expect(response.status).toBe(200);
+			expect(await response.json()).toEqual({ entries: [] });
+			const stored = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: "tenants/sealtenant/computers/household/overlay/index.json" }));
+			expect(JSON.parse(await stored.Body!.transformToString())).toMatchObject({ sealed: { owner_id: "owner-seal-1", generation: 1 }, entries: [] });
+		});
+
+		it("answers 503 on the overlay routes when the deployment has no snapshot bucket", async () => {
+			await seedOwnedComputer("nobuckettenant", "owner-seal-2");
+			const response = await sealRequest(await composeWith({ CHATTICUS_SNAPSHOT_BUCKET: undefined }), "nobuckettenant", "owner-seal-2");
+			expect(response.status).toBe(503);
+		});
 	});
 
 	it("serves no owner route when the broker function is not set", async () => {

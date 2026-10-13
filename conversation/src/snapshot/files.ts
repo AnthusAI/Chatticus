@@ -1,16 +1,19 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
+import type { OverlayEntry } from "@chatticus/host-protocol/edit-overlay";
 import { livePathProblem, looksBinary, looksLikeSecretFile, normalizeLivePath, trimToCharacterBoundary } from "@chatticus/host-protocol/live-file-rules";
+import { LIVE_FILE_ERROR_STATUS, LIVE_FILE_LISTING_MAX_ENTRIES } from "@chatticus/host-protocol/live-files";
 import zlib from "node:zlib";
 import { WORKSPACE_DIRNAME } from "../browser-profiles.ts";
 import { formatLogLine } from "../observability/log-line.ts";
 import { indexChecksumOf, parseIndex, type SnapshotIndexEntry } from "./index-format.ts";
+import { createEffectiveView, snapshotViewOfIndex, type EffectiveNode, type EffectiveView } from "./overlay-merge.ts";
 import { SnapshotObjectMissingError } from "./pack.ts";
 import type { SnapshotManifest, SnapshotReadStore } from "./store.ts";
 import { snapshotUri } from "./uri.ts";
 
 /** The most entries one directory listing returns. */
-export const MAX_LISTED_ENTRIES = 2000;
+export const MAX_LISTED_ENTRIES = LIVE_FILE_LISTING_MAX_ENTRIES;
 
 /** The most bytes one content read returns. */
 export const MAX_CONTENT_RANGE_BYTES = 262144;
@@ -31,22 +34,18 @@ const TAR_BLOCK_BYTES = 512;
 
 const INDEX_CACHE_ENTRIES = 4;
 
-/** The error codes a file route answers with, each with the HTTP status it carries. */
-export const SNAPSHOT_FILE_ERROR_STATUS = {
-	invalid_path: 400,
-	invalid_range: 400,
-	no_snapshot: 404,
-	not_found: 404,
-	snapshot_not_indexed: 409,
-	range_too_large: 413,
-	not_a_file: 422,
-	not_a_directory: 422,
-	too_many_symlinks: 422,
-	corrupt_snapshot: 500,
-} as const;
-
-/** One of the codes in `SNAPSHOT_FILE_ERROR_STATUS`. */
-export type SnapshotFileErrorCode = keyof typeof SNAPSHOT_FILE_ERROR_STATUS;
+/** The codes a read of the saved copy answers with; the statuses are those of `LIVE_FILE_ERROR_STATUS`. */
+export type SnapshotFileErrorCode =
+	| "invalid_path"
+	| "invalid_range"
+	| "no_snapshot"
+	| "not_found"
+	| "snapshot_not_indexed"
+	| "range_too_large"
+	| "not_a_file"
+	| "not_a_directory"
+	| "too_many_symlinks"
+	| "corrupt_snapshot";
 
 /** A file request the snapshot cannot satisfy, with the code and status the route answers with. */
 export class SnapshotFileError extends Error {
@@ -59,8 +58,15 @@ export class SnapshotFileError extends Error {
 	}
 
 	get status(): number {
-		return SNAPSHOT_FILE_ERROR_STATUS[this.code];
+		return LIVE_FILE_ERROR_STATUS[this.code];
 	}
+}
+
+/** The overlay of a computer as the file reads see it: the pending entries and a way to read the blob of a saved edit. */
+export interface OverlayReadView {
+	readonly entries: readonly OverlayEntry[];
+	/** The bytes of the blob with this hash, verified against it. */
+	readBlob(sha256: string): Promise<Buffer>;
 }
 
 /** One entry as the file routes render it. */
@@ -72,6 +78,9 @@ export interface FileEntryPayload {
 	mode: string | null;
 	sha256: string | null;
 	link_target: string | null;
+	modified_at: string | null;
+	overlay: "none" | "pending" | "conflict";
+	tree_sha256: string | null;
 }
 
 /** The answer to a listing. */
@@ -104,6 +113,19 @@ export interface FileContent {
 	content: string;
 	truncated: boolean;
 	masked: boolean;
+	revealed: boolean;
+	modified_at: string | null;
+	overlay: "none" | "pending" | "conflict";
+	mine_sha256: string | null;
+}
+
+/** How a content read treats a masked file and an overlay conflict. */
+export interface ContentReadOptions {
+	readonly overlay?: OverlayReadView | null;
+	/** Return the content of a masked file; the caller has audited the reveal. */
+	readonly reveal?: boolean;
+	/** Return the person's version of a path whose overlay entry conflicts with a newer snapshot. */
+	readonly variant?: "mine";
 }
 
 /**
@@ -144,40 +166,43 @@ export function loadedIndexOf(entries: readonly SnapshotIndexEntry[]): LoadedInd
 }
 
 /**
- * Follow symbolic links inside the index, at most eight of them, only to targets under `workspace/`.
+ * Follow symbolic links inside the effective view, at most eight of them, only to targets under `/workspace`.
  *
- * @throws SnapshotFileError `not_found` for a target outside `workspace/` or absent from the index, `too_many_symlinks` past eight hops.
+ * @throws SnapshotFileError `not_found` for a target outside `/workspace` or absent from the view, `too_many_symlinks` past eight hops.
  */
-export function followSymlinks(index: LoadedIndex, start: SnapshotIndexEntry): SnapshotIndexEntry {
-	let entry = start;
+export function followSymlinks(view: EffectiveView, start: EffectiveNode): EffectiveNode {
+	let node = start;
 	let hops = 0;
-	while (entry.kind === "symlink") {
+	while (node.kind === "symlink") {
 		hops += 1;
 		if (hops > MAX_SYMLINK_HOPS) throw new SnapshotFileError("too_many_symlinks", `More than ${MAX_SYMLINK_HOPS} symbolic links in a row.`);
-		const target = posix.normalize(posix.join(posix.dirname(entry.path), entry.link_target ?? ""));
-		if (target !== WORKSPACE_DIRNAME && !target.startsWith(`${WORKSPACE_DIRNAME}/`)) {
+		const target = posix.normalize(posix.join(posix.dirname(node.path), node.linkTarget ?? ""));
+		if (target !== `/${WORKSPACE_DIRNAME}` && !target.startsWith(`/${WORKSPACE_DIRNAME}/`)) {
 			throw new SnapshotFileError("not_found", "The link leads outside /workspace.");
 		}
-		const next = index.byPath.get(target);
+		const next = view.lookup(target);
 		if (next === undefined) throw new SnapshotFileError("not_found", "The link leads to nothing in the snapshot.");
-		entry = next;
+		node = next;
 	}
-	return entry;
+	return node;
 }
 
-function payloadOf(entry: SnapshotIndexEntry): FileEntryPayload {
+function payloadOf(node: EffectiveNode): FileEntryPayload {
 	return {
-		name: posix.basename(entry.path),
-		path: `/${entry.path}`,
-		kind: entry.kind,
-		size: entry.kind === "file" ? entry.size : null,
-		mode: entry.mode.toString(8).padStart(3, "0"),
-		sha256: entry.kind === "file" ? entry.sha256 : null,
-		link_target: entry.kind === "symlink" ? entry.link_target : null,
+		name: node.name,
+		path: node.path,
+		kind: node.kind,
+		size: node.size,
+		mode: node.mode,
+		sha256: node.sha256,
+		link_target: node.linkTarget,
+		modified_at: node.modifiedAt,
+		overlay: node.overlay,
+		tree_sha256: null,
 	};
 }
 
-type OpenSnapshot = { uri: string; manifest: SnapshotManifest; index: LoadedIndex };
+type OpenSnapshot = { uri: string; manifest: SnapshotManifest | null; index: LoadedIndex | null };
 
 class CorruptMemberError extends Error {}
 
@@ -193,9 +218,14 @@ function paddedSizeOf(size: number): number {
 	return remainder === 0 ? size : size + TAR_BLOCK_BYTES - remainder;
 }
 
+const viewOf = (snapshot: OpenSnapshot, overlay: OverlayReadView | null | undefined): EffectiveView =>
+	createEffectiveView(snapshotViewOfIndex(snapshot.index), overlay?.entries ?? []);
+
 /**
- * Reads a published snapshot without opening the whole pack: the manifest names the index, the index lists every entry and
- * where each file's gzip member lives, and a file read is one ranged read of that member. It writes nothing.
+ * Reads a published snapshot without opening the whole pack, with the edit overlay merged over it: the manifest names the
+ * index, the index lists every entry and where each file's gzip member lives, and a file read is one ranged read of that
+ * member. A computer that never published, but has pending edits, is an empty `/workspace` plus those edits. It writes
+ * nothing.
  */
 export class SnapshotFileService {
 	private readonly store: SnapshotReadStore;
@@ -205,78 +235,92 @@ export class SnapshotFileService {
 	}
 
 	/** List one directory: directories first, then by name, at most 2000 entries. */
-	async list(tenantId: string, computerId: string, rawPath: string | undefined): Promise<FileListing> {
-		const path = indexPathOf(rawPath);
-		const snapshot = await this.open(tenantId, computerId);
-		const found = snapshot.index.byPath.get(path);
+	async list(tenantId: string, computerId: string, rawPath: string | undefined, overlay?: OverlayReadView | null): Promise<FileListing> {
+		const path = `/${indexPathOf(rawPath)}`;
+		const snapshot = await this.open(tenantId, computerId, overlay);
+		const view = viewOf(snapshot, overlay);
+		const found = view.lookup(path);
 		if (found === undefined) throw new SnapshotFileError("not_found", "No such path in the snapshot.");
-		const directory = followSymlinks(snapshot.index, found);
+		const directory = followSymlinks(view, found);
 		if (directory.kind !== "directory") throw new SnapshotFileError("not_a_directory", "The path is not a directory.");
-		const children = [...(snapshot.index.childrenOf.get(directory.path) ?? [])].sort((left, right) => {
-			const leftRank = left.kind === "directory" ? 0 : 1;
-			const rightRank = right.kind === "directory" ? 0 : 1;
-			if (leftRank !== rightRank) return leftRank - rightRank;
-			const leftName = posix.basename(left.path);
-			const rightName = posix.basename(right.path);
-			return leftName < rightName ? -1 : leftName > rightName ? 1 : 0;
-		});
+		const listed = view.list(directory.path);
 		return {
 			source: "snapshot",
-			as_of: snapshot.manifest.published_at ?? null,
-			path: `/${path}`,
-			truncated: children.length > MAX_LISTED_ENTRIES,
-			entries: children.slice(0, MAX_LISTED_ENTRIES).map(payloadOf),
+			as_of: snapshot.manifest?.published_at ?? null,
+			path,
+			truncated: listed.truncated,
+			entries: listed.entries.map(payloadOf),
 		};
 	}
 
 	/** One entry, as it is, without following a symbolic link. */
-	async stat(tenantId: string, computerId: string, rawPath: string | undefined): Promise<FileStat> {
-		const path = indexPathOf(rawPath);
-		const snapshot = await this.open(tenantId, computerId);
-		const entry = snapshot.index.byPath.get(path);
-		if (entry === undefined) throw new SnapshotFileError("not_found", "No such path in the snapshot.");
-		return { source: "snapshot", as_of: snapshot.manifest.published_at ?? null, entry: payloadOf(entry) };
+	async stat(tenantId: string, computerId: string, rawPath: string | undefined, overlay?: OverlayReadView | null): Promise<FileStat> {
+		const path = `/${indexPathOf(rawPath)}`;
+		const snapshot = await this.open(tenantId, computerId, overlay);
+		const node = viewOf(snapshot, overlay).lookup(path);
+		if (node === undefined) throw new SnapshotFileError("not_found", "No such path in the snapshot.");
+		return { source: "snapshot", as_of: snapshot.manifest?.published_at ?? null, entry: payloadOf(node) };
 	}
 
 	/**
-	 * Read a byte range of one file. The file's gzip member is fetched with one ranged read, decompressed, and its SHA-256
-	 * checked against the index before any byte is returned.
+	 * Where the bytes of a file would come from: `overlay` when a pending edit supplies them, `snapshot` otherwise. A reveal
+	 * is audited with this before anything is read.
+	 *
+	 * @throws SnapshotFileError When the path does not lead to a file.
+	 */
+	async originOf(tenantId: string, computerId: string, rawPath: string | undefined, overlay?: OverlayReadView | null): Promise<"overlay" | "snapshot"> {
+		const path = `/${indexPathOf(rawPath)}`;
+		const snapshot = await this.open(tenantId, computerId, overlay);
+		const view = viewOf(snapshot, overlay);
+		const found = view.lookup(path);
+		if (found === undefined) throw new SnapshotFileError("not_found", "No such path in the snapshot.");
+		const node = followSymlinks(view, found);
+		if (node.kind !== "file") throw new SnapshotFileError("not_a_file", "The path is not a file.");
+		return node.overlay === "pending" ? "overlay" : "snapshot";
+	}
+
+	/**
+	 * Read a byte range of one file. A file of the snapshot is fetched with one ranged read of its gzip member,
+	 * decompressed, and its SHA-256 checked against the index before any byte is returned; the text of a pending edit is
+	 * checked against the hash of its entry.
 	 */
 	async content(
 		tenantId: string,
 		computerId: string,
 		rawPath: string | undefined,
 		range: { offset: number; length: number },
+		options: ContentReadOptions = {},
 	): Promise<FileContent> {
-		const path = indexPathOf(rawPath);
+		const path = `/${indexPathOf(rawPath)}`;
 		if (range.length > MAX_CONTENT_RANGE_BYTES) {
 			throw new SnapshotFileError("range_too_large", `A read returns at most ${MAX_CONTENT_RANGE_BYTES} bytes.`);
 		}
-		let snapshot = await this.open(tenantId, computerId);
+		let snapshot = await this.open(tenantId, computerId, options.overlay);
 		for (let attempt = 1; ; attempt += 1) {
 			try {
-				return await this.readContent(snapshot, path, range);
+				return await this.readContent(snapshot, path, range, options);
 			} catch (error) {
 				if (!(error instanceof CorruptMemberError)) throw error;
-				const fresh = await this.open(tenantId, computerId);
-				if (attempt === 1 && fresh.manifest.checksum !== snapshot.manifest.checksum) {
+				const fresh = await this.open(tenantId, computerId, options.overlay);
+				if (attempt === 1 && fresh.manifest?.checksum !== snapshot.manifest?.checksum) {
 					snapshot = fresh;
 					continue;
 				}
-				console.error(formatLogLine("snapshot_member_corrupt", { tenant_id: tenantId, computer_id: computerId, path: `/${path}`, reason: error.message }));
+				console.error(formatLogLine("snapshot_member_corrupt", { tenant_id: tenantId, computer_id: computerId, path, reason: error.message }));
 				throw new SnapshotFileError("corrupt_snapshot", "The stored file does not match the snapshot index.");
 			}
 		}
 	}
 
-	private async open(tenantId: string, computerId: string): Promise<OpenSnapshot> {
+	private async open(tenantId: string, computerId: string, overlay: OverlayReadView | null | undefined): Promise<OpenSnapshot> {
 		const uri = snapshotUri(tenantId, computerId, { bucket: this.store.bucket });
 		let manifest: SnapshotManifest;
 		try {
 			manifest = await Promise.resolve(this.store.getManifest(uri));
 		} catch (error) {
-			if (error instanceof SnapshotObjectMissingError) throw new SnapshotFileError("no_snapshot", "This computer has not published a snapshot.");
-			throw error;
+			if (!(error instanceof SnapshotObjectMissingError)) throw error;
+			if ((overlay?.entries.length ?? 0) > 0) return { uri, manifest: null, index: null };
+			throw new SnapshotFileError("no_snapshot", "This computer has not published a snapshot.");
 		}
 		if (manifest.index_checksum === undefined) {
 			throw new SnapshotFileError("snapshot_not_indexed", "The snapshot has no index yet; it needs to be published again or re-indexed.");
@@ -306,39 +350,37 @@ export class SnapshotFileService {
 		return { uri, manifest, index };
 	}
 
-	private async readContent(snapshot: OpenSnapshot, path: string, range: { offset: number; length: number }): Promise<FileContent> {
-		const found = snapshot.index.byPath.get(path);
+	private async readContent(snapshot: OpenSnapshot, path: string, range: { offset: number; length: number }, options: ContentReadOptions): Promise<FileContent> {
+		const view = viewOf(snapshot, options.overlay);
+		const found = view.lookup(path);
 		if (found === undefined) throw new SnapshotFileError("not_found", "No such path in the snapshot.");
-		const entry = followSymlinks(snapshot.index, found);
-		if (entry.kind !== "file") throw new SnapshotFileError("not_a_file", "The path is not a file.");
-		const sha256 = entry.sha256 ?? "";
-		const asOf = snapshot.manifest.published_at ?? null;
-		if (looksLikeSecretFile(entry.path) || looksLikeSecretFile(path)) {
-			return {
-				source: "snapshot",
-				as_of: asOf,
-				path: `/${path}`,
-				size: entry.size,
-				sha256,
-				encoding: "utf8",
-				binary: false,
-				offset: range.offset,
-				length: 0,
-				content: "",
-				truncated: false,
-				masked: true,
-			};
+		const node = followSymlinks(view, found);
+		if (node.kind !== "file") throw new SnapshotFileError("not_a_file", "The path is not a file.");
+		const mine = options.variant === "mine";
+		if (mine && (node.overlay !== "conflict" || node.mineSha256 === null)) {
+			throw new SnapshotFileError("not_found", "That file has no version of yours that conflicts with the saved copy.");
 		}
-		const data = await this.readVerifiedFile(snapshot, entry);
+		const asOf = snapshot.manifest?.published_at ?? null;
+		const shown = {
+			source: "snapshot" as const,
+			as_of: asOf,
+			path,
+			revealed: options.reveal === true,
+			modified_at: node.modifiedAt,
+			overlay: node.overlay,
+			mine_sha256: node.mineSha256,
+		};
+		if (options.reveal !== true && (looksLikeSecretFile(node.path) || looksLikeSecretFile(path))) {
+			return { ...shown, size: node.size ?? 0, sha256: mine ? (node.mineSha256 ?? "") : (node.sha256 ?? ""), encoding: "utf8", binary: false, offset: range.offset, length: 0, content: "", truncated: false, masked: true };
+		}
+		const data = mine ? await this.readBlob(options.overlay, node.mineSha256!) : await this.readNodeBytes(snapshot, node, options.overlay);
 		const binary = looksBinary(data);
 		const requested = data.subarray(Math.min(range.offset, data.length), Math.min(range.offset + range.length, data.length));
 		const slice = binary ? requested : trimToCharacterBoundary(requested);
 		return {
-			source: "snapshot",
-			as_of: asOf,
-			path: `/${path}`,
-			size: entry.size,
-			sha256,
+			...shown,
+			size: data.length,
+			sha256: createHash("sha256").update(data).digest("hex"),
 			encoding: binary ? "base64" : "utf8",
 			binary,
 			offset: range.offset,
@@ -347,6 +389,19 @@ export class SnapshotFileService {
 			truncated: Math.min(range.offset, data.length) + slice.length < data.length,
 			masked: false,
 		};
+	}
+
+	private async readBlob(overlay: OverlayReadView | null | undefined, sha256: string): Promise<Buffer> {
+		if (overlay === null || overlay === undefined) throw new SnapshotFileError("not_found", "There is no overlay to read.");
+		return overlay.readBlob(sha256);
+	}
+
+	private async readNodeBytes(snapshot: OpenSnapshot, node: EffectiveNode, overlay: OverlayReadView | null | undefined): Promise<Buffer> {
+		if (node.source.type === "blob") return this.readBlob(overlay, node.source.sha256);
+		if (node.source.type !== "snapshot" || snapshot.index === null) throw new SnapshotFileError("not_a_file", "The path is not a file.");
+		const entry = snapshot.index.byPath.get(node.source.path.slice(1));
+		if (entry === undefined) throw new CorruptMemberError("the index entry of a moved file is gone");
+		return this.readVerifiedFile(snapshot, entry);
 	}
 
 	private async readVerifiedFile(snapshot: OpenSnapshot, entry: SnapshotIndexEntry): Promise<Buffer> {

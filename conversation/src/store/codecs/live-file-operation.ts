@@ -3,8 +3,20 @@
  * delivery state. See docs/LIVE_FILES_PROTOCOL.md section 7.1.
  */
 
+import { gunzipSync, gzipSync } from "node:zlib";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { liveFileOperationKey } from "../keys.ts";
+
+/**
+ * The attribute an owner's answer is stored as: the JSON, deflated. A listing of 2000 entries is about 540 KB as text, past
+ * the 400 KB a table item holds, and about a tenth of that deflated; a read of 256 KiB of binary is base64 text and shrinks too.
+ *
+ * @param outcome The answer as JSON text.
+ * @returns The attribute value.
+ */
+export function encodeOutcome(outcome: string): AttributeValue {
+	return { B: gzipSync(Buffer.from(outcome, "utf8")) };
+}
 
 /** Where a request is: queued, handed to the owner, answered, or given up on by the waiting handler. */
 export type LiveFileOperationStatus = "pending" | "delivered" | "done" | "abandoned";
@@ -67,7 +79,7 @@ export function encode(value: LiveFileOperation): Item {
 	if (value.request !== undefined) item.request = { S: value.request };
 	if (value.deliveredAt !== undefined) item.delivered_at = { S: value.deliveredAt.toISOString() };
 	if (value.deliveredSequence !== undefined) item.delivered_sequence = { N: String(value.deliveredSequence) };
-	if (value.outcome !== undefined) item.outcome = { S: value.outcome };
+	if (value.outcome !== undefined) item.outcome = encodeOutcome(value.outcome);
 	if (value.waiterGone === true) item.waiter_gone = { BOOL: true };
 	if (value.auditAtMilliseconds !== undefined) item.audit_at_ms = { N: String(value.auditAtMilliseconds) };
 	return item;
@@ -103,7 +115,7 @@ export function decode(item: Item): LiveFileOperation {
 		queuedAt: new Date(required(item, "queued_at")),
 		...(item.delivered_at?.S === undefined ? {} : { deliveredAt: new Date(item.delivered_at.S) }),
 		...(item.delivered_sequence?.N === undefined ? {} : { deliveredSequence: Number(item.delivered_sequence.N) }),
-		...(item.outcome?.S === undefined ? {} : { outcome: item.outcome.S }),
+		...(item.outcome?.B === undefined ? {} : { outcome: gunzipSync(item.outcome.B).toString("utf8") }),
 		...(item.waiter_gone?.BOOL === true ? { waiterGone: true } : {}),
 		...(item.audit_at_ms?.N === undefined ? {} : { auditAtMilliseconds: Number(item.audit_at_ms.N) }),
 		expiresAt: new Date(Number(expiresAt) * 1000),

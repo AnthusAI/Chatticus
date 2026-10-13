@@ -11,8 +11,13 @@ import {
   binaryFileLabel,
   buildBreadcrumbs,
   buildListingView,
+  answerWantsRetry,
+  childPath,
   classifyFirstRange,
   describeFilesError,
+  describeSourceLine,
+  entryNameProblem,
+  fallbackRetryDelayMs,
   filesQuery,
   formatFileSize,
   formatRelativeTime,
@@ -89,7 +94,7 @@ describe("listing display", () => {
     assert.deepEqual(sorted, ["docs", "src", "latest", ".env", "data.bin", "logo.png", "notes.txt"]);
     assert.deepEqual(workspaceListing.entries.map((entry) => entry.name), before);
     const numbered: FileEntry[] = ["f10", "f2"].map((name) => ({
-      name, path: `/workspace/${name}`, kind: "file", size: 1, mode: null, sha256: null, link_target: null,
+      name, path: `/workspace/${name}`, kind: "file", size: 1, mode: null, sha256: null, link_target: null, modified_at: null, overlay: "none", tree_sha256: null,
     }));
     assert.deepEqual(sortEntries(numbered).map((entry) => entry.name), ["f2", "f10"]);
   });
@@ -111,7 +116,7 @@ describe("listing display", () => {
   it("flags an empty folder and a truncated listing, and caps displayed rows", () => {
     assert.equal(buildListingView(emptyListing).empty, true);
     const many: FileEntry[] = Array.from({ length: LISTING_ENTRY_LIMIT + 5 }, (_, index) => ({
-      name: `f${index}`, path: `/workspace/f${index}`, kind: "file", size: 1, mode: null, sha256: null, link_target: null,
+      name: `f${index}`, path: `/workspace/f${index}`, kind: "file", size: 1, mode: null, sha256: null, link_target: null, modified_at: null, overlay: "none", tree_sha256: null,
     }));
     const view = buildListingView({ entries: many, truncated: true });
     assert.equal(view.rows.length, LISTING_ENTRY_LIMIT);
@@ -223,5 +228,108 @@ describe("masked, binary and image handling", () => {
     assert.equal(shortenHash("a".repeat(64)), "a".repeat(12));
     assert.equal(shortenHash("abc"), "abc");
     assert.equal(filesQuery("/workspace/a b", { offset: 0, length: 262144 }), "path=%2Fworkspace%2Fa+b&offset=0&length=262144");
+  });
+});
+
+const NOW = Date.parse("2026-10-12T10:00:00.000Z");
+const FIVE_MINUTES_AGO = "2026-10-12T09:55:00.000Z";
+
+describe("describeSourceLine", () => {
+  it("says Live from the computer for a live answer", () => {
+    const line = describeSourceLine({ source: "live", as_of: null, stale: false, fallback_reason: null }, "live", NOW);
+    assert.deepEqual(line, { text: "Live from the computer", tone: "live", retryable: false });
+  });
+
+  it("says the computer is off and when the copy was saved", () => {
+    const line = describeSourceLine({ source: "snapshot", as_of: FIVE_MINUTES_AGO, stale: false, fallback_reason: null }, "off", NOW);
+    assert.equal(line.text, "Computer is off. Showing the copy saved 5 minutes ago");
+    assert.equal(line.retryable, false);
+  });
+
+  it("says the computer is starting when the watch ping says so", () => {
+    const line = describeSourceLine({ source: "snapshot", as_of: FIVE_MINUTES_AGO, stale: false, fallback_reason: null }, "starting", NOW);
+    assert.equal(line.text, "The computer is starting. Showing the saved copy");
+  });
+
+  it("calls a stale answer a fallback with a Retry, and a warming owner a connection, not an error", () => {
+    const stale = describeSourceLine({ source: "snapshot", as_of: FIVE_MINUTES_AGO, stale: true, fallback_reason: "owner_timeout" }, "live", NOW);
+    assert.equal(stale.text, "Could not reach the running computer. Showing the saved copy from 5 minutes ago");
+    assert.equal(stale.retryable, true);
+    const warming = describeSourceLine({ source: "snapshot", as_of: FIVE_MINUTES_AGO, stale: true, fallback_reason: "owner_warming" }, "live", NOW);
+    assert.deepEqual(warming, { text: "Connecting to the running computer", tone: "connecting", retryable: false });
+  });
+
+  it("copes with no answer yet and with a saved copy of unknown age", () => {
+    assert.equal(describeSourceLine(null, null, NOW).tone, "connecting");
+    assert.equal(
+      describeSourceLine({ source: "snapshot", as_of: null, stale: false, fallback_reason: null }, "off", NOW).text,
+      "Computer is off. Showing the last saved copy",
+    );
+  });
+});
+
+describe("the fallback retry", () => {
+  it("asks again for a stale or warming answer only, after retry_after_ms or 2 seconds", () => {
+    assert.equal(answerWantsRetry({ stale: true, fallback_reason: "owner_timeout" }), true);
+    assert.equal(answerWantsRetry({ stale: false, fallback_reason: "owner_warming" }), true);
+    assert.equal(answerWantsRetry({ stale: false, fallback_reason: null }), false);
+    assert.equal(answerWantsRetry(null), false);
+    assert.equal(fallbackRetryDelayMs({ retry_after_ms: 3000 }), 3000);
+    assert.equal(fallbackRetryDelayMs({}), 2000);
+  });
+});
+
+describe("wording for failed changes", () => {
+  const titleOf = (status: number, code: string, details = {}) => describeFilesError(new FilesApiError(status, code, "server words", details));
+
+  it("keeps the text and retries by itself for a computer that is starting or stopping", () => {
+    const starting = titleOf(503, "computer_starting", { retryAfterMs: 2000 });
+    assert.equal(starting.title, "The computer is starting; your text is kept");
+    assert.equal(starting.autoRetryAfterMs, 2000);
+    assert.equal(titleOf(503, "computer_stopping").autoRetryAfterMs, 5000);
+  });
+
+  it("offers Reload, not Retry, when the outcome of a save is unknown", () => {
+    const unknown = titleOf(504, "outcome_unknown");
+    assert.equal(unknown.title, "Not sure the save happened. Reload the file to check");
+    assert.equal(unknown.reloadInstead, true);
+  });
+
+  it("explains each refusal of a delete, a rename and a new folder in plain words", () => {
+    assert.match(titleOf(409, "path_busy").title, /Pending changes/);
+    assert.equal(titleOf(409, "directory_not_empty").title, "That folder is not empty");
+    assert.match(titleOf(403, "owner_role_required").title, /organization owner/);
+    assert.equal(titleOf(422, "invalid_move").title, "A folder cannot be moved into itself");
+    assert.match(titleOf(413, "too_many_entries").title, /too many items/);
+    assert.equal(titleOf(409, "already_exists").title, "A file with that name exists");
+  });
+
+  it("explains the edit refusals of the overlay", () => {
+    assert.equal(titleOf(409, "owner_too_old").title, "The computer is being updated; try again in a few minutes");
+    assert.match(titleOf(409, "overlay_full").title, /start the computer or discard some/);
+    assert.equal(titleOf(422, "not_in_saved_copy").title, "This folder is not kept in the saved copy");
+    assert.equal(titleOf(409, "edit_unsupported").title, "Files on this computer cannot be edited here");
+    assert.equal(titleOf(504, "owner_timeout").title, "Could not reach the computer; your text is kept");
+  });
+
+  it("never echoes server text for a new code", () => {
+    for (const code of ["path_busy", "outcome_unknown", "overlay_full", "computer_starting"]) {
+      assert.ok(!titleOf(409, code).title.includes("server words"), code);
+    }
+  });
+});
+
+describe("names typed for files and folders", () => {
+  it("accepts a plain name and refuses the rest in words", () => {
+    assert.equal(entryNameProblem("notes.md"), null);
+    assert.equal(entryNameProblem("  "), "Type a name");
+    assert.equal(entryNameProblem("a/b"), "A name cannot contain /");
+    assert.equal(entryNameProblem(".."), "That name is not allowed");
+    assert.equal(entryNameProblem("x".repeat(300)), "That name is too long");
+  });
+
+  it("joins a name onto a folder", () => {
+    assert.equal(childPath("/workspace/src", " index.ts "), "/workspace/src/index.ts");
+    assert.equal(childPath("/workspace", "docs"), "/workspace/docs");
   });
 });

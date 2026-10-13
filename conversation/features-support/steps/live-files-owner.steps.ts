@@ -42,7 +42,7 @@ type LiveFilesScenario = {
 
 const scenarios = new WeakMap<ChatticusWorld, LiveFilesScenario>();
 
-function scenarioOf(world: ChatticusWorld): LiveFilesScenario {
+export function scenarioOf(world: ChatticusWorld): LiveFilesScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
 		scenario = {
@@ -64,7 +64,7 @@ function scenarioOf(world: ChatticusWorld): LiveFilesScenario {
 	return scenario;
 }
 
-function ownerOf(world: ChatticusWorld): FakeLiveOwner {
+export function ownerOf(world: ChatticusWorld): FakeLiveOwner {
 	const owner = scenarioOf(world).owner;
 	assert.ok(owner, "The scenario has no live owner.");
 	return owner;
@@ -72,7 +72,7 @@ function ownerOf(world: ChatticusWorld): FakeLiveOwner {
 
 const sha256Of = (text: string): string => createHash("sha256").update(text).digest("hex");
 
-function dependenciesOf(world: ChatticusWorld): LiveFileDependencies {
+export function dependenciesOf(world: ChatticusWorld): LiveFileDependencies {
 	return { store: world.messagingStore(), clock: world.clock, ids: world.ids, heartbeatTimeoutSeconds: world.heartbeatTimeoutSeconds };
 }
 
@@ -82,7 +82,7 @@ function ownerWireOf(world: ChatticusWorld) {
 	return { app: world.app, tenantId: STORY_TENANT, ownerId: server.ownerId, generation: server.generation, token: server.supervisorToken };
 }
 
-async function startLiveOwner(world: ChatticusWorld): Promise<FakeLiveOwner> {
+export async function startLiveOwner(world: ChatticusWorld): Promise<FakeLiveOwner> {
 	await bootstrapOwner(world);
 	const owner = new FakeLiveOwner(ownerWireOf(world));
 	const answer = await owner.poll();
@@ -152,7 +152,7 @@ async function post(world: ChatticusWorld, operationId: string, outcome: LiveFil
 	scenario.lastResult = await owner.postResult(operationId, outcome);
 }
 
-async function auditRecordsOf(world: ChatticusWorld, userId: string) {
+export async function auditRecordsOf(world: ChatticusWorld, userId: string) {
 	const now = world.clock.now();
 	const records = await world.messagingStore().listFileAuditRecords(STORY_TENANT, now);
 	return records.filter((record) => record.userId === userId);

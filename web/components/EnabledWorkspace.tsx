@@ -164,6 +164,7 @@ export function EnabledWorkspace({
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTabId>("context");
+  const [filesTabVisited, setFilesTabVisited] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"bot" | "channel">("bot");
   const [createName, setCreateName] = useState("");
@@ -820,17 +821,31 @@ export function EnabledWorkspace({
         <h2 className="text-sm font-extrabold">Context</h2>
         <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.closeInspector} onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); }}><X size={18} aria-hidden="true" /></Button>
       </div>
-      <InspectorTabs selected={inspectorTab} onSelect={setInspectorTab} />
-      {inspectorTab === "files" ? (
+      <InspectorTabs
+        selected={inspectorTab}
+        onSelect={(tab) => {
+          if (tab === "files") setFilesTabVisited(true);
+          setInspectorTab(tab);
+        }}
+      />
+      {filesTabVisited ? (
         <div
           role="tabpanel"
           id={inspectorPanelDomId("files")}
           aria-labelledby={inspectorTabDomId("files")}
+          hidden={inspectorTab !== "files"}
           className="min-h-0 flex-1 overflow-y-auto pb-4"
         >
-          <ComputerFilesPanel org={activeOrg} touched={touchedFiles} />
+          <ComputerFilesPanel
+            key={activeOrg.tenantId}
+            org={activeOrg}
+            touched={touchedFiles}
+            role={activeOrganization?.role ?? "member"}
+            active={inspectorTab === "files"}
+          />
         </div>
-      ) : (
+      ) : null}
+      {inspectorTab === "files" ? null : (
       <div
         role="tabpanel"
         id={inspectorPanelDomId("context")}

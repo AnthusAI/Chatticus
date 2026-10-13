@@ -168,10 +168,19 @@ describe("overlay owner routes and objects", () => {
 			owner_id: "o",
 			generation: 1,
 			cleared: [{ path: "/workspace/a", revision: 2 }],
-			conflicts: [{ path: "/workspace/b", revision: 3, disk_sha256: otherHash }],
+			conflicts: [{ path: "/workspace/b", revision: 3, reason: "not_empty", disk_sha256: otherHash }],
 		});
 		expect(parsed.cleared).toHaveLength(1);
 		expect(parsed.conflicts[0]?.disk_sha256).toBe(otherHash);
+		expect(parsed.conflicts[0]?.reason).toBe("not_empty");
+	});
+
+	it("refuses a reported conflict without a reason or with an unknown one", () => {
+		const base = { owner_id: "o", generation: 1, cleared: [] };
+		expect(ownerOverlayAppliedRequestSchema.safeParse({ ...base, conflicts: [{ path: "/workspace/b", revision: 3, disk_sha256: null }] }).success).toBe(false);
+		expect(
+			ownerOverlayAppliedRequestSchema.safeParse({ ...base, conflicts: [{ path: "/workspace/b", revision: 3, reason: "whim", disk_sha256: null }] }).success,
+		).toBe(false);
 	});
 
 	it("refuses a reference without a revision, a path outside the workspace and an unknown field", () => {

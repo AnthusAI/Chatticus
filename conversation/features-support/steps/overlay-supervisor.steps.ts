@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Given, Then, When } from "@cucumber/cucumber";
@@ -28,8 +27,6 @@ import type { OwnerErrorCode } from "@chatticus/host-protocol/supervisor";
 import type { ChatticusWorld } from "../world.ts";
 
 const OUTSIDE_CONTENT = "outside secret";
-
-const pathHashOf = (path: string): string => createHash("sha256").update(path, "utf8").digest("hex").slice(0, 12);
 
 const workspaceOf = (world: ChatticusWorld): string => supervisorScenarioOf(world).workspaceRoot;
 
@@ -317,17 +314,13 @@ Then("the supervisor reported a conflict for {string} with the disk hash of {str
 });
 
 Then("the supervisor reported a conflict for {string} with reason {string}", function (this: ChatticusWorld, path: string, reason: string) {
-	assert.ok(conflictReportsOf(this).some((report) => report.path === path), `No conflict for ${path}.`);
-	const lines = logLinesOf(this, "overlay_entry_conflict");
-	assert.ok(
-		lines.some((line) => line.includes(`reason=${reason}`) && line.includes(`path_hash=${pathHashOf(path)}`)),
-		`No conflict line with reason ${reason} for ${path}. Lines: ${lines.join(" | ")}`,
-	);
+	const report = conflictReportsOf(this).find((candidate) => candidate.path === path);
+	assert.ok(report, `No conflict for ${path}.`);
+	assert.equal(report.reason, reason);
 });
 
 Then("the supervisor reported no conflict", function (this: ChatticusWorld) {
 	assert.equal(conflictReportsOf(this).length, 0);
-	assert.equal(logLinesOf(this, "overlay_entry_conflict").length, 0);
 });
 
 Then("the workspace was not written", function (this: ChatticusWorld) {

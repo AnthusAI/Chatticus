@@ -31,6 +31,8 @@ Feature: Browse a computer's files from its published snapshot
     Then the file response status is 200
     And the file response was published as of the manifest time
     And the file response says "path" is "/workspace"
+    And the file response says "stale" is "false"
+    And the file response says "fallback_reason" is "null"
     And the listing shows these entries in order:
       | name      | kind      |
       | src       | directory |
@@ -43,6 +45,7 @@ Feature: Browse a computer's files from its published snapshot
     And the file response says "size" is "28"
     And the file response was published as of the manifest time
     And the file response carries header "X-Content-Type-Options" as "nosniff"
+    And the file response has a modification time
 
   Scenario: A listing puts directories first and then sorts by name
     Given the computer disk holds workspace file "b.txt" containing "b"
@@ -64,6 +67,8 @@ Feature: Browse a computer's files from its published snapshot
     And a member stats the computer file "/workspace/src/a.c"
     Then the file response status is 200
     And the entry "a.c" is a file of 28 bytes with SHA-256 of "int main(void) { return 0; }"
+    And the stat entry has a modification time
+    And the file response says "stale" is "false"
     And the file response was published as of the manifest time
 
   Scenario: Excluded directories are absent from the pack and the index

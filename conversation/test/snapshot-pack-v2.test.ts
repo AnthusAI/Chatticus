@@ -12,6 +12,7 @@ import {
 	loadedIndexOf,
 } from "../src/snapshot/files.ts";
 import type { SnapshotIndexEntry } from "../src/snapshot/index-format.ts";
+import { createEffectiveView, snapshotViewOfIndex } from "../src/snapshot/overlay-merge.ts";
 import { packLiveDiskWithIndex, unpackLiveDisk } from "../src/snapshot/pack.ts";
 
 const roots: string[] = [];
@@ -137,13 +138,16 @@ describe("symbolic links inside the index", () => {
 		for (let step = 1; step <= 9; step += 1) {
 			entries.push(entry(`workspace/l${step}`, "symlink", step === 9 ? "real" : `l${step + 1}`));
 		}
-		const index = loadedIndexOf(entries);
-		expect(followSymlinks(index, index.byPath.get("workspace/l2")!).path).toBe("workspace/real");
-		expect(() => followSymlinks(index, index.byPath.get("workspace/l1")!)).toThrow(SnapshotFileError);
+		const view = createEffectiveView(snapshotViewOfIndex(loadedIndexOf(entries)), []);
+		expect(followSymlinks(view, view.lookup("/workspace/l2")!).path).toBe("/workspace/real");
+		expect(() => followSymlinks(view, view.lookup("/workspace/l1")!)).toThrow(SnapshotFileError);
 	});
 
 	it("refuses a target outside workspace even if an index names one", () => {
-		const index = loadedIndexOf([entry("workspace", "directory"), entry("workspace/out", "symlink", "../browser-profiles/x"), entry("browser-profiles/x", "file")]);
-		expect(() => followSymlinks(index, index.byPath.get("workspace/out")!)).toThrow(/outside \/workspace/);
+		const view = createEffectiveView(
+			snapshotViewOfIndex(loadedIndexOf([entry("workspace", "directory"), entry("workspace/out", "symlink", "../browser-profiles/x"), entry("browser-profiles/x", "file")])),
+			[],
+		);
+		expect(() => followSymlinks(view, view.lookup("/workspace/out")!)).toThrow(/outside \/workspace/);
 	});
 });

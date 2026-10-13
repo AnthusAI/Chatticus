@@ -190,7 +190,6 @@ export class SealingOverlayApplier implements OverlayApplier {
 			if (verdict === undefined) continue;
 			if (verdict.kind === "conflict") {
 				conflicts.push({ path: entry.path, revision: entry.revision, diskSha256: verdict.diskSha256, reason: verdict.reason });
-				log("overlay_entry_conflict", { operation: entry.op, reason: verdict.reason, path_hash: sha256Of(Buffer.from(entry.path, "utf8")).slice(0, 12) });
 			} else {
 				applied.push({ path: entry.path, revision: entry.revision });
 				if (verdict.kind === "applied") freshlyApplied += 1;
@@ -227,7 +226,7 @@ export class SealingOverlayApplier implements OverlayApplier {
 					owner_id: ownerId,
 					generation,
 					cleared: [],
-					conflicts: conflicts.map((report) => ({ path: report.path, revision: report.revision, disk_sha256: report.diskSha256 })),
+					conflicts: conflicts.map((report) => ({ path: report.path, revision: report.revision, reason: report.reason, disk_sha256: report.diskSha256 })),
 				});
 				return;
 			} catch (error) {

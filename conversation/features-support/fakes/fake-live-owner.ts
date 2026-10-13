@@ -102,6 +102,15 @@ export class FakeLiveOwner {
 	}
 
 	/**
+	 * Seal the overlay for this owner, as a supervisor does once it has extracted the snapshot.
+	 *
+	 * @returns The answer; a 200 carries the entries to apply.
+	 */
+	async sealOverlay(): Promise<FakeLiveOwnerAnswer> {
+		return this.send("/owner/overlay-seal", { owner_id: this.wire.ownerId, generation: this.wire.generation });
+	}
+
+	/**
 	 * Post the answer to one request.
 	 *
 	 * @param operationId The request answered.

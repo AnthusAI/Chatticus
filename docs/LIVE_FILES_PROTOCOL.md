@@ -193,7 +193,7 @@ a hash check and an audit record, audit retention is 90 days.
 | L50 | **Delete and rename need `If-Match` of the effective hash (a missing one is 428); creating a directory is idempotent** (`mkdir` of a directory that exists is 200 `created: false`; of a file, 409 `already_exists`). A delete or rename of a path that does not exist is 404 `not_found`. | O5. |
 | L51 | **Who may (supersedes the owner-role rule of design 7.6 and D8 for delete and move).** Any enabled member may delete or rename a file or a symlink, rename a directory, create a directory, and delete an **empty** directory, each audited. Only the organization **owner role** (`Principal.role === "owner"`) may delete a **non-empty** directory (`recursive`), 403 `owner_role_required` otherwise. | Delete and move now matter to every member, as editing does, and the shared workplace already lets any member tell a bot to do the same; the audit is the safeguard. Only the irreversible bulk delete keeps the original restraint. |
 | L52 | **A rename never replaces an existing path.** `to` must be absent in the effective view (409 `already_exists`), its parent must exist (404 `parent_missing`), it must not lie inside `from` (422 `invalid_move`), and neither path may be the workspace root. Overwrite is not offered; the person deletes first. | Removes a class of silent data loss; Q-P1 asks if it is wanted later. |
-| L53 | **A pending directory rename or recursive delete is exclusive.** While an entry that moves or deletes a directory exists, any other change at, under, or onto its source or target path is 409 `path_busy` (the person waits for the next owner to apply it or discards the change). A directory move or recursive delete is likewise refused while an overlay entry already exists at or under its source or target (`path_busy`). | Avoids composing path translations and collapsing trees; one entry describes the whole subtree and the apply is a single rename or removal. |
+| L53 | **A pending directory rename or recursive delete is exclusive.** While an entry that moves or deletes a directory exists, any other change at, under, or onto its source or target path is 409 `path_busy` (the person waits for the next owner to apply it or discards the change). A directory **move** is likewise refused while an overlay entry already exists at or under its source or target (`path_busy`). A **recursive delete** is not refused for the entries under it: the table of 7.8.4 wins, the entries below the folder are dropped and a move target or `put` with `from` that lay inside becomes a delete of its source. It is refused with `path_busy` when a pending change **takes a file out of the folder** (an entry elsewhere whose `from` lies under the folder), because the delete would then remove a file the person is moving. | Avoids composing path translations and collapsing trees; one entry describes the whole subtree and the apply is a single rename or removal. |
 | L54 | **Entries collapse when they undo each other.** Deleting a pending create (a `put` with no base and no `from`) removes it. Deleting a `put` that replaced a snapshot file becomes a `delete` with the snapshot hash as base. Renaming a pending create changes its path. Renaming a snapshot file back to its own path removes the move. Deleting the target of a move becomes a delete of its source. A `put` onto a path with a `delete` becomes a `put` whose base is the snapshot hash. Table in 7.8.4. | Keeps the entry count and the apply minimal and makes undo natural. |
 | L55 | **Reads merge all four.** A deleted path (and everything under a deleted directory) is absent from lists, stat and content; a mkdir or move target is a directory or file with `overlay: "pending"`; the content of a moved file is read from the snapshot pack at its source path. Rules in 7.8.3. | |
 | L56 | **Apply order at hydrate is fixed:** 1 mkdir (shallowest first), 2 directory moves (shallowest first), 3 file and symlink moves, 4 puts, 5 deletes of files and symlinks, 6 deletes of directories (deepest first; a recursive delete is one removal). Each step uses the file helper with its precondition, as uid 2000. The outcome of each operation is applied, already applied, or a conflict (table in 7.8.5). | Parents exist before children are created, moves happen before puts at their targets, and deletes come last so what moved out of a directory is gone before the directory is. |
@@ -835,7 +835,7 @@ export const ownerOverlayAppliedRequestSchema = z
 		owner_id: identifier,
 		generation: z.number().int().positive(),
 		cleared: z.array(entryReference).max(OVERLAY_MAX_ENTRIES).default([]),
-		conflicts: z.array(entryReference.extend({ disk_sha256: sha256Hex.nullable() })).max(OVERLAY_MAX_ENTRIES).default([]),
+		conflicts: z.array(entryReference.extend({ reason: overlayConflictSchema.shape.reason, disk_sha256: sha256Hex.nullable() })).max(OVERLAY_MAX_ENTRIES).default([]),
 	})
 	.strict();
 export const ownerOverlayAppliedResponseSchema = z.object({ remaining: z.number().int().nonnegative() });
@@ -920,6 +920,8 @@ The body is `{ "error": code, "message": text }` plus `current_sha256`, `retry_a
 | `too_many_entries` | 413 | a directory operation over 5000 descendants (L62) |
 | `not_in_saved_copy` | 422 | the path is under a directory the snapshot never keeps (L40) |
 | `snapshot_not_indexed` | 409 | existing |
+| `overlay_unavailable` | 503 | the overlay store cannot be read or written, or its index does not parse (added by part A3); the text is kept |
+| `overlay_contended` | 503 | three swaps of the overlay index were lost to other writers in a row (added by part A3); carries `retry_after_ms` (1000) |
 | `content_too_large` | 413 | body over 256 KiB, refused before the owner is asked |
 | `file_too_large` | 413 | live read over 8 MiB, or a write that would replace a file over 256 KiB |
 | `range_too_large` | 413 | existing |
@@ -1000,6 +1002,12 @@ sort key `at#{epoch milliseconds, 13 digits}#{operation_id}`.
 
 No file content, no body, no token is ever stored. A reader treats a record past
 `expires_at` as absent and a `pending` record older than 120 seconds as `unknown`.
+
+**Stored answer.** The `outcome` attribute of the request item is the JSON of the owner's answer **deflated** (a DynamoDB binary attribute), not text. A listing of 2000 entries is about
+540 KB as text, past the 400 KB an item holds (W14 counted only the 256 KiB read), and about a tenth of that deflated; `codecs/live-file-operation.ts` `encodeOutcome` and its decode are the one place that knows.
+
+**Worker item** (`store/codecs/worker.ts`): gains `pollPaceMilliseconds` (`poll_pace_ms`), the pace the control plane last told the owner (part A1). Expected pickup (L27) is
+`lastHeartbeatAt + pollPaceMilliseconds - now`, and the watch answer reports the pace from it. It is cleared with the other poll fields when the owner exchanges its bootstrap token.
 
 **Rate counters**: partition `U#{user_id}` (the user partition of `dynamo-messaging-store.ts`),
 sort key `file_rate#{class}#{bucket}`, attributes `attempt_count`, `expires_at`; the new store
@@ -1205,7 +1213,8 @@ In the supervisor's `hydrate()` (section 9.4), in this order and before the supe
    `write` with `if_match base_sha256` (`if_none_match` when `base_sha256` is null) and `refuseGitSegments`. `ok`: applied. `precondition_failed` whose
    `current_sha256` equals `entry.sha256`: already applied. Any other outcome of `precondition_failed` or `already_exists`: **conflict**. The other operations use the helper operations of 8.1 and the outcomes of 7.8.5. A blob that cannot
    be read or does not hash, or a helper failure other than those, fails the hydrate (L34).
-4. If there are conflicts, `POST overlay-applied { conflicts }`. The Front Door stores `conflict: { disk_sha256, found_at }` on each entry whose `revision`
+4. If there are conflicts, `POST overlay-applied { conflicts }`, each with the `reason` the owner found (`changed`, `collision`, `not_empty` or `kind_mismatch`, the column of 7.8.5) and the `disk_sha256` it saw.
+   The Front Door stores `conflict: { reason, disk_sha256, found_at }` on each entry whose `revision`
    still matches, and writes an `overlay_apply` audit record with outcome `conflict`. Failing this post is logged and retried; it does not fail the hydrate.
 5. Remember the applied set. If the disk now equals the published index (nothing to publish) go to 7 at once.
 6. Return from `hydrate()`; the supervisor is idle. The first publish check is 5 seconds later (L36). A turn that arrives first runs; the entries stay.
@@ -1323,6 +1332,7 @@ of 7.7.3 steps 7 and 8 with the new set of entries, then the audit finalization.
 | | a directory (snapshot, mkdir, or move target) | 200 `created: false`, nothing written, no audit record |
 | | a file or symlink | 409 `already_exists` |
 | any | a path under a directory with a pending `move` or recursive `delete` | 409 `path_busy` |
+| `delete` a directory, `recursive` | a pending change elsewhere takes a file out of the directory (its `from` lies under it) | 409 `path_busy`; every other entry under the directory is dropped as in the row above |
 
 A request that names a missing parent is 404 `parent_missing`; a target that exists is 409 `already_exists`; a source that does not exist is 404 `not_found`.
 
@@ -1923,7 +1933,7 @@ it already has read and write on the whole bucket, and it is operator-trusted, o
 
 ## 13. Traceability
 
-Scenario names are those of `features/computer_file_live.feature`. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
+Scenario names are those of `features/computer_file_live.feature`, except the `@web` ones, which live in `features/web_computer_files.feature` (registered, with steps) under the same names. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
 `@end-to-end` (E). `vitest` is the unit-test exception of `AGENTS.md`: pure helpers only.
 
 | # | Requirement | Section | Scenarios | Tag |
@@ -1931,7 +1941,7 @@ Scenario names are those of `features/computer_file_live.feature`. Tags: `@serve
 | LF-1 | A read of a running computer reflects what is on its disk now, not the last publish | 7.2 | A live read reflects a change that was never published; A live listing shows a file the saved copy does not have | server |
 | LF-2 | A computer that is off is answered from the snapshot and is not stale | 7.2, L4 | A computer that is off is answered from the saved copy and is not stale | server |
 | LF-3 | An owner that is hydrating, too old, or stopping is answered from the snapshot with the reason, stale | L2, L3 | An owner that is still hydrating is answered from the saved copy and marked stale; An owner that predates file operations is answered from the saved copy | server |
-| LF-4 | A live request that times out falls back to the snapshot with `stale` | 7.2 step 4.6 | A live request that times out falls back to the saved copy and says stale | server |
+| LF-4 | A live request that times out falls back to the snapshot with `stale` | 7.2 step 4.6 | A live request that times out falls back to the saved copy and says stale; A request the owner took but did not answer in time falls back to the saved copy | server |
 | LF-5 | A slow owner is not waited for; the panel is told when to ask again | L27 | An owner that is slow to poll is not waited for | server |
 | LF-6 | A live not-found is an answer, never replaced by the snapshot | L28 | A file deleted on the computer is not found even though the saved copy has it | server |
 | LF-7 | Reads are ranged, hashed as a whole, capped | L15 | A binary file is returned in pieces and every piece names the hash of the whole file; A file over the read limit is refused with its size; A listing is cut at 2000 entries | server |
@@ -1940,9 +1950,9 @@ Scenario names are those of `features/computer_file_live.feature`. Tags: `@serve
 | LF-10 | A write needs a precondition; a create only if absent | 6.2 | A write without a precondition is refused before it reaches the owner; A new file is created only if it does not exist | server |
 | LF-11 | The size limits hold before the owner is asked and in the helper | L15, L20 | A write larger than 256 KiB is refused before it reaches the owner; A file larger than the edit limit cannot be replaced | server |
 | LF-12 | A write into `.git` is refused, lexically and after links | L23 | A write into a .git directory is refused; A link inside the workspace to a .git file is refused by the helper as well | server, supervisor |
-| LF-13 | A live write needs a live owner able to serve it; otherwise it waits or goes to the overlay | L2, L5, L33 | A write to an owner that will not poll soon is refused with a retry time; An edit made while the owner is stopping waits for the owner | server |
-| LF-14 | A write the Front Door gave up on never runs later; a delivered one is reported unknown and audited when it lands | L9 | A write the owner never took does not happen later; A write the owner took but did not answer is reported as unknown and audited when the answer comes | server |
-| LF-15 | An idle stop is vetoed by a pending request, and a stop and a request cannot both win | L11 | An idle stop is vetoed while a file operation is pending; A stop and a file operation cannot both win; A request is not handed to an owner that is stopping | server |
+| LF-13 | A live write needs a live owner able to serve it; otherwise it waits or goes to the overlay | L2, L5, L33 | A write to an owner that will not poll soon is refused with a retry time; An edit made while the owner is stopping waits for the owner; An edit made after a hydrating owner sealed the overlay waits for the owner | server |
+| LF-14 | A write the Front Door gave up on never runs later; a delivered one is reported unknown and audited when it lands | L9 | A write the owner never took does not happen later; A write the owner took but did not answer is reported as unknown and audited when the answer comes; A write the owner answers within the extra seven seconds is a success | server |
+| LF-15 | An idle stop is vetoed by a pending request, and a stop and a request cannot both win | L11 | An idle stop is vetoed while a file operation is pending; A stop and a file operation cannot both win; A request is not handed to an owner that is stopping; A member's read that loses the race with an idle stop is answered from the saved copy; A member's write that loses the race with an idle stop waits for the next owner | server |
 | LF-16 | A stopping supervisor finishes the operation in flight and refuses the rest, so an edit is in the final publish | L17 | A stopping supervisor finishes the operation in flight and refuses the rest | supervisor |
 | LF-17 | An edit lands in the audit log; refused edits too; no content | L21, L29 | An edit lands in the audit log; A refused write is audited as refused | server |
 | LF-18 | The audit record exists before the owner is asked (fail closed) | L21 | The audit record is written before the owner is asked | server |
@@ -1956,7 +1966,7 @@ Scenario names are those of `features/computer_file_live.feature`. Tags: `@serve
 | LF-26 | Paths outside the workspace are refused before the owner is asked | 5.1 | A path that is not under /workspace is refused before anything is asked of the owner | server |
 | LF-27 | Per-user and per-computer limits | L22 | A member who asks too often is told to wait; Too many pending file operations are refused at once | server |
 | LF-28 | The poll delivers a request once, and again only for a repeated poll | 7.4 | The poll delivers a file request once and again only when the poll is repeated | server |
-| LF-29 | The result route accepts a result only from the owner that was given the request, once | 7.4 | A result from an owner that was not given the operation is refused; A result for an abandoned operation is refused; A result is recorded once; A result that does not parse is refused | server |
+| LF-29 | The result route accepts a result only from the owner that was given the request, once | 7.4 | A result from an owner that was not given the operation is refused; A result for an abandoned operation is refused; A result is recorded once; A result that does not parse is refused; A result for an abandoned read is refused; An answer the Front Door has read is not recorded again | server |
 | LF-30 | An open panel makes the owner poll every second, and the pace returns after it closes | L6, L7 | An open panel makes the owner poll every second; The owner returns to its normal pace after the panel closes; A panel that says it is closed ends the fast pace at once; A busy owner polls every second while a panel is open | server |
 | LF-31 | An open panel does not keep the computer awake and does not start it | L12 | A panel that is open does not keep the computer awake; A panel that is open when the computer is off learns it and starts nothing | server |
 | LF-32 | The helper lists, with kinds, sizes and link targets | 8 | The helper lists a directory with kinds, sizes and link targets | supervisor |
@@ -1974,17 +1984,17 @@ Scenario names are those of `features/computer_file_live.feature`. Tags: `@serve
 | LF-44 | A reveal is confirmed first and the secret does not linger | 10.7 | A masked file asks before it is revealed | web |
 | LF-45 | The panel signals it is open and stops when hidden | 10.2 | The panel tells the computer it is open and stops when it is hidden | web |
 | LF-46 | The whole path works with a real supervisor, helper and a bot turn | 1 | A member edits a file while no turn runs and the bot reads it back; Both sides edit the same file at once and exactly one edit stands; An edit is in the saved copy after the quiet publish | end-to-end |
-| LF-47 | A member edits and creates files while the computer is off; the next read shows the edit | L30, L32, 7.7.2, 7.7.3 | An edit made while the computer is off is visible in the next read; A new file made while the computer is off is listed and created only if it does not exist; A computer that never published can still be edited | server |
+| LF-47 | A member edits and creates files while the computer is off; the next read shows the edit | L30, L32, 7.7.2, 7.7.3 | An edit made while the computer is off is visible in the next read; A new file made while the computer is off is listed and created only if it does not exist; A computer that never published can still be edited; The saved copy is answered with a modification time and an editable flag; An edit is refused while the computer is off when the audit record cannot be written | server |
 | LF-48 | An edit with a stale hash is refused; two members cannot both win | L31, L32, R3 | A stale-hash edit made while the computer is off is refused; Two members editing while the computer is off cannot both win; Two members editing different files at the same instant both stand | server |
 | LF-49 | Viewing and editing never start a computer | O2, L45 | Editing while the computer is off starts nothing | server |
 | LF-50 | An edit made while off is audited with source overlay | L44 | An edit made while the computer is off is audited | server |
 | LF-51 | The overlay accepts only what the next publish keeps | L40, L41 | A file in a directory the saved copy never keeps cannot be edited while the computer is off; A link in the saved copy cannot be edited while the computer is off; A file in a folder that does not exist cannot be created while the computer is off; A write into .git is refused while the computer is off; The overlay holds at most 100 edited files | server |
 | LF-52 | A secret edited while off is masked on read and revealed with an audit record | L18, L43 | A secret edited while the computer is off is masked on read and revealed with an audit record | server |
 | LF-53 | A member can discard a pending edit, audited | 7.7.3 | A member discards their own pending edit | server |
-| LF-54 | The seal is the single linearization point between an edit and the owner | L33, R1, R2 | An edit made while the owner extracts the snapshot is in the set the owner seals; An edit made after the owner sealed the overlay waits for the owner; A seal and an edit that race leave exactly one of them in charge | server |
+| LF-54 | The seal is the single linearization point between an edit and the owner | L33, R1, R2 | An edit made while the owner extracts the snapshot is in the set the owner seals; An edit made after the owner sealed the overlay waits for the owner; A seal and an edit that race leave exactly one of them in charge; An edit made through the route while the owner extracts the snapshot is in the set the owner seals | server |
 | LF-55 | A stale seal is replaced; an owner of an older generation cannot seal or clear; a clear needs the caller's own seal | L38, 7.7.5 | A seal left by an owner that died is replaced by the next edit; An owner of an older generation cannot seal or clear; A clear that is not sealed by the caller is refused | server |
 | LF-56 | Clearing removes exactly the applied entries, and only after a publish is on record | L36, L37 | Clearing removes only the entries that were applied; A clear that names an entry that changed since is ignored; A clear before any publish is recorded is refused | server |
-| LF-57 | A change on both sides is a conflict that is shown, kept and never applied silently | L39, R7 | A snapshot that moved under an edit shows a conflict and keeps both versions; An edit made on both sides conflicts and is never applied silently; A conflict can be dropped explicitly; The owner finds a third version on the disk and does not overwrite it | server, supervisor |
+| LF-57 | A change on both sides is a conflict that is shown, kept and never applied silently | L39, R7 | A snapshot that moved under an edit shows a conflict and keeps both versions; An edit made on both sides conflicts and is never applied silently; A conflict can be dropped explicitly; The owner finds a third version on the disk and does not overwrite it; A conflict is shown with both versions and is replaced only on purpose (the member routes); The reason the owner gives for a conflict is the one that is stored | server, supervisor |
 | LF-58 | Computers that cannot apply an overlay cannot be edited | L46, L47 | A computer in a customer account cannot be edited while it is off; An owner of protocol 1 blocks edits while it runs | server |
 | LF-59 | Only the Front Door writes the overlay; the owner roles cannot write or delete it | 12.8 | The owner roles cannot write or delete overlay objects; The Front Door writes the overlay with conditional puts | server |
 | LF-60 | The owner applies the overlay after extraction and before any turn, in every hydrate, and the agent waits for nothing else | L34, L42 | The owner applies the overlay after extraction and before any turn; The owner applies the overlay when the local cache matched; The owner applies the overlay when no snapshot was ever published; A turn that arrives right after the hydrate runs while the entries wait to be cleared | supervisor |
@@ -2080,6 +2090,21 @@ Steps: `features-support/steps/computer-file-live.steps.ts`. Scenarios: LF-1 to 
 
 Revision 2 adds the overlay integration: `http/routes/computer-files.ts` routes the write per 7.3 step 4 (customer, live, `owner_too_old`, stopping, starting, overlay), merges the overlay into every snapshot answer (7.2 step 3, L43), adds `overlay`, `mine_sha256`, `variant`,
 `source: "overlay"`; `snapshot/files.ts` accepts the overlay for list, stat, content and reveal and answers an empty `/workspace` plus the overlay when nothing was published. Scenarios: LF-1 to LF-14, LF-17 to LF-20, LF-22 to LF-27, LF-47 to LF-52, LF-54, LF-57 (member side), LF-58.
+
+**A2 as built** (`features/computer_file_live_member.feature`, steps in `features-support/steps/computer-file-live.steps.ts`, a `FakeLiveDisk` in `features-support/fakes/`). Where the code differs from the text above:
+
+* The routes are `http/routes/computer-files.ts`; the decisions are in `domain/member-files.ts` (`routingContextOf`, `readThroughOwner`, `performMemberChange`, `refusalOfOwnerError`), `domain/file-audit.ts`
+  (`memberAuditRecordOf`, `StoreOverlayAuditSink`), `domain/file-rate-limit.ts` and `domain/member-file-refusal.ts`. Part A4 adds routes that build a `MemberFileChange` (the audit intent, the owner request and the overlay request of one change)
+  and call `performMemberChange`; the live path, the audit, the wait, the abandon rule and the overlay path are not repeated.
+* The wait is `awaitLiveFileOutcome` in `domain/live-files.ts`, with the sleep behind a `FileWaitPort` (`createApp({ fileWait })`), so no scenario waits for real time.
+* `LIVE_FILE_ERROR_STATUS` (section 6.3) lives in `host-protocol/src/live-files.ts`; `SnapshotFileError` and `EditOverlayRefusal` take their statuses from it.
+* An organization is a customer-account organization when its `awsAccountId` is set and is not the deployment account (`createApp({ deploymentAwsAccountId })`).
+* A `.git` path is refused and audited by the Front Door on the live path (7.3 step 3); on the overlay path the write algebra refuses it and writes the same record.
+* A reveal writes its audit record just before it queues the request (after the pickup and busy checks, which are not audited), and with the source it is answered from: `live`, `overlay` for a pending edit, `snapshot` otherwise. A live reveal that falls back is
+  finished `ok` by the Front Door.
+* `stat` answers `tree_sha256: null` for a directory in this part; the tree hash as an `ETag` arrives with the delete and rename routes of part A4.
+* The production composition now passes `editOverlay` (the S3 overlay store, the S3 snapshot store, `StoreOverlayAuditSink` over the messaging store); before it the overlay owner routes answered 503.
+* The `ETag` of `variant=mine` is the hash of the person's text.
 
 ### C. Container: helper and the supervisor's file runner (needs F0)
 

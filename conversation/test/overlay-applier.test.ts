@@ -259,7 +259,7 @@ describe("the overlay applier", () => {
 		const result = await applier.applyAfterHydrate();
 		expect(result.conflicts).toHaveLength(1);
 		expect(posts).toHaveLength(3);
-		expect(posts[2]).toMatchObject({ cleared: [], conflicts: [{ path: "/workspace/a.txt", revision: 1, disk_sha256: sha256Of("third") }] });
+		expect(posts[2]).toMatchObject({ cleared: [], conflicts: [{ path: "/workspace/a.txt", revision: 1, reason: "changed", disk_sha256: sha256Of("third") }] });
 	});
 
 	it("asks to clear exactly the entries it is given and says whether the Front Door acknowledged", async () => {
