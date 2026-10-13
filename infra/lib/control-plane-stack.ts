@@ -421,6 +421,13 @@ export class ControlPlaneStack extends cdk.Stack {
         );
         frontDoorFunction.addToRolePolicy(
           new iam.PolicyStatement({
+            sid: "WriteComputerEditOverlay",
+            actions: ["s3:PutObject", "s3:DeleteObject"],
+            resources: [`${snapshotBucketArn}/tenants/*/computers/*/overlay/*`],
+          }),
+        );
+        frontDoorFunction.addToRolePolicy(
+          new iam.PolicyStatement({
             sid: "ListComputerSnapshots",
             actions: ["s3:ListBucket"],
             resources: [snapshotBucketArn],

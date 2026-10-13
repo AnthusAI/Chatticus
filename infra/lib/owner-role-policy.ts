@@ -67,8 +67,9 @@ export function ownerRolePolicyStatements(
 }
 
 /**
- * The statements of the supervisor role's permission policy: the snapshot objects of one computer and nothing else.
- * The policy variables stay literal text, as for {@link ownerRolePolicyStatements}.
+ * The statements of the supervisor role's permission policy: the snapshot objects of one computer and nothing else, and
+ * an explicit Deny on the overlay prefix of that computer for every write. Each statement's `Effect` is passed through
+ * unchanged. The policy variables stay literal text, as for {@link ownerRolePolicyStatements}.
  */
 export function supervisorRolePolicyStatements(
   resources: SupervisorRolePolicyResources,
