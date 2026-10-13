@@ -179,9 +179,9 @@ describe("the request mapping", () => {
 
 	it("refuses .git and bounds every request, and maps delete and move to the helper operations", () => {
 		const base = { operation_id: "x", expires_in_ms: 1000 };
-		expect(helperRequestOf({ ...base, kind: "delete", path: "/workspace/t", recursive: true, precondition: { type: "if_match_tree", tree_sha256: SHA } }, WORKSPACE)).toMatchObject({
+		expect(helperRequestOf({ ...base, kind: "delete", path: "/workspace/t", recursive: true, precondition: { type: "if_match", sha256: SHA } }, WORKSPACE)).toMatchObject({
 			operation: "rmtree",
-			treeSha256: SHA,
+			sha256: SHA,
 			refuseGitSegments: true,
 			allowedRoots: [WORKSPACE],
 		});

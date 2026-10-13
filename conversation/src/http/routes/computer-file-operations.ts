@@ -58,17 +58,12 @@ export async function deleteComputerFileHandler(c: Context, deps: ComputerFileRo
 		const recursive = recursiveFlagOf(c.req.query("recursive"));
 		const path = requestedPathOf(c.req.query("path"));
 		refuseWorkspaceRoot(path);
-		const forFile = { kind: "delete" as const, path, recursive, precondition: { type: "if_match" as const, sha256: seen } };
-		const forDirectory = { kind: "delete" as const, path, recursive, precondition: { type: "if_match_tree" as const, tree_sha256: seen } };
-		const audit = { operation: "delete" as const, path, recursive, sha256Before: seen };
-		const auditForDirectory = { operation: "delete" as const, path, recursive, treeSha256Before: seen };
 		const change: MemberFileChange = {
-			audit: recursive ? auditForDirectory : audit,
-			liveRequest: recursive ? forDirectory : forFile,
+			audit: recursive ? { operation: "delete", path, recursive, treeSha256Before: seen } : { operation: "delete", path, recursive, sha256Before: seen },
+			liveRequest: { kind: "delete", path, recursive, precondition: { type: "if_match", sha256: seen } },
 			overlayRequest: { op: "delete", path, recursive, ownerRole: caller.member.role === "owner", ifMatchSha256: seen },
 			paths: [path],
 			ownerRoleRequired: recursive,
-			...(recursive ? {} : { entryKind: { path, requestForDirectory: forDirectory, auditForDirectory } }),
 		};
 		const result = await runChange(deps, caller, change);
 		if (result.source === "live") {
@@ -124,14 +119,11 @@ export async function moveComputerFileHandler(c: Context, deps: ComputerFileRout
 			throw new MemberFileRefusal("invalid_body", body.success ? "from and to are required." : body.error.issues.map((issue) => issue.message).join("; "));
 		}
 		refuseWorkspaceRoot(from, to);
-		const forFile = { kind: "move" as const, path: from, to, precondition: { type: "if_match" as const, sha256: seen } };
-		const forDirectory = { kind: "move" as const, path: from, to, precondition: { type: "if_match_tree" as const, tree_sha256: seen } };
 		const change: MemberFileChange = {
 			audit: { operation: "move", path: from, toPath: to, sha256Before: seen },
-			liveRequest: forFile,
+			liveRequest: { kind: "move", path: from, to, precondition: { type: "if_match", sha256: seen } },
 			overlayRequest: { op: "move", from, to, ifMatchSha256: seen },
 			paths: [from, to],
-			entryKind: { path: from, requestForDirectory: forDirectory, auditForDirectory: { operation: "move", path: from, toPath: to, treeSha256Before: seen } },
 		};
 		const result = await runChange(deps, caller, change);
 		if (result.source === "live") {

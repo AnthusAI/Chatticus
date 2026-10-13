@@ -242,13 +242,13 @@ function etagHeadersOf(hash: string | null): Record<string, string> {
 /**
  * GET /orgs/{tenant_id}/computer/files/stat?path=: one entry, as it is, without following a link. The `ETag` is the hash a
  * delete or a rename of the entry must give back: the tree hash of a folder, the link hash of a link, the content hash of a
- * file (a running computer does not hash a file for a stat, so a live file has none; its content response carries it).
+ * file (a running computer hashes a file of at most 8 MiB for it; a larger one answers 413 `file_too_large`).
  */
 export async function statComputerFileHandler(c: Context, deps: ComputerFileRouteDependencies): Promise<Response> {
 	return serveRead(c, deps, async (caller, ctx, path) => {
 		let fallback: { reason: LiveFileFallbackReason; retryAfterMs?: number } | null = null;
 		if (ctx.source.source === "live") {
-			const read = await readThroughOwner(memberFileDependencies(deps), ctx, caller.member, { kind: "stat", path, tree: true });
+			const read = await readThroughOwner(memberFileDependencies(deps), ctx, caller.member, { kind: "stat", path, hash: true });
 			if (read.kind === "answered") {
 				if (read.outcome.status === "error") throw refusalOfOwnerError(read.outcome);
 				const result = read.outcome.result;

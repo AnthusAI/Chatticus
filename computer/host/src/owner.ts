@@ -170,7 +170,7 @@ export async function runLiveFileProbe(
 					: kind === "delete"
 						? { ...base, kind, recursive: false, precondition: { type: "if_match", sha256: text } }
 						: kind === "stat"
-							? { ...base, kind, tree: false }
+							? { ...base, kind, hash: false }
 							: { ...base, kind };
 	const launcher = new ProcessFileHelperLauncher({
 		launcherPath: options.shellLauncherPath,

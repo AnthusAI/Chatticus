@@ -186,7 +186,7 @@ describe("the helper's delete, rename and new folders", () => {
 			],
 			sha,
 		);
-		const stat = await ask({ operation: "stat", path: join(workspace, "tree"), tree: true });
+		const stat = await ask({ operation: "stat", path: join(workspace, "tree"), hash: true });
 		expect(stat.ok && stat.treeSha256).toBe(expected);
 		const emptied = await ask({ operation: "stat", path: join(workspace, "tree/l") });
 		expect(emptied.ok && emptied.sha256).toBe(symlinkHashOf("a.txt", sha));
@@ -195,33 +195,33 @@ describe("the helper's delete, rename and new folders", () => {
 	it("removes a tree whose hash matches, counts the folder itself, and refuses past 5000 entries", async () => {
 		mkdirSync(join(workspace, "t/sub"), { recursive: true });
 		writeFileSync(join(workspace, "t/sub/x"), "1");
-		const tree = (await ask({ operation: "stat", path: join(workspace, "t"), tree: true }))!;
-		const removed = await ask({ operation: "rmtree", path: join(workspace, "t"), recursive: true, treeSha256: tree.ok ? tree.treeSha256 : "" });
+		const tree = (await ask({ operation: "stat", path: join(workspace, "t"), hash: true }))!;
+		const removed = await ask({ operation: "rmtree", path: join(workspace, "t"), recursive: true, sha256: tree.ok ? tree.treeSha256 : "" });
 		expect(removed.ok && removed.removed).toBe(3);
 		expect(existsSync(join(workspace, "t"))).toBe(false);
 		mkdirSync(join(workspace, "many"));
 		for (let index = 0; index < 5001; index += 1) writeFileSync(join(workspace, "many", `f${index}`), "");
-		expect(failureCode(await ask({ operation: "stat", path: join(workspace, "many"), tree: true }))).toBe("too_many_entries");
+		expect(failureCode(await ask({ operation: "stat", path: join(workspace, "many"), hash: true }))).toBe("too_many_entries");
 	});
 
 	it("removes a tree that holds a .git directory below the named one", async () => {
 		mkdirSync(join(workspace, "repo/.git"), { recursive: true });
 		writeFileSync(join(workspace, "repo/.git/config"), "x");
-		const tree = await ask({ operation: "stat", path: join(workspace, "repo"), tree: true });
-		const removed = await ask({ operation: "rmtree", path: join(workspace, "repo"), recursive: true, treeSha256: tree.ok ? tree.treeSha256 : "" });
+		const tree = await ask({ operation: "stat", path: join(workspace, "repo"), hash: true });
+		const removed = await ask({ operation: "rmtree", path: join(workspace, "repo"), recursive: true, sha256: tree.ok ? tree.treeSha256 : "" });
 		expect(removed.ok).toBe(true);
 	});
 
 	it("renames a directory without replacing and refuses a move into itself", async () => {
 		mkdirSync(join(workspace, "a/inner"), { recursive: true });
 		writeFileSync(join(workspace, "a/inner/f"), "x");
-		const tree = await ask({ operation: "stat", path: join(workspace, "a"), tree: true });
-		const treeSha256 = tree.ok ? (tree.treeSha256 ?? "") : "";
-		expect(failureCode(await ask({ operation: "rename", path: join(workspace, "a"), to: join(workspace, "a/inner/a2"), treeSha256 }))).toBe("invalid_move");
+		const tree = await ask({ operation: "stat", path: join(workspace, "a"), hash: true });
+		const folderHash = tree.ok ? (tree.treeSha256 ?? "") : "";
+		expect(failureCode(await ask({ operation: "rename", path: join(workspace, "a"), to: join(workspace, "a/inner/a2"), sha256: folderHash }))).toBe("invalid_move");
 		mkdirSync(join(workspace, "taken"));
-		expect(failureCode(await ask({ operation: "rename", path: join(workspace, "a"), to: join(workspace, "taken"), treeSha256 }))).toBe("already_exists");
+		expect(failureCode(await ask({ operation: "rename", path: join(workspace, "a"), to: join(workspace, "taken"), sha256: folderHash }))).toBe("already_exists");
 		expect(readdirSync(workspace).sort()).toEqual(["a", "taken"]);
-		const moved = await ask({ operation: "rename", path: join(workspace, "a"), to: join(workspace, "b"), treeSha256 });
+		const moved = await ask({ operation: "rename", path: join(workspace, "a"), to: join(workspace, "b"), sha256: folderHash });
 		expect(moved.ok).toBe(true);
 		expect(readFileSync(join(workspace, "b/inner/f"), "utf8")).toBe("x");
 	});
@@ -252,9 +252,9 @@ describe("the helper's delete, rename and new folders", () => {
 		mkdirSync(join(workspace, "full"));
 		writeFileSync(join(workspace, "full/x"), "1");
 		const emptyHash = sha("");
-		expect((await ask({ operation: "unlink", path: join(workspace, "empty"), treeSha256: emptyHash })).ok).toBe(true);
-		expect(failureCode(await ask({ operation: "unlink", path: join(workspace, "full"), treeSha256: emptyHash }))).toBe("directory_not_empty");
-		expect(failureCode(await ask({ operation: "unlink", path: workspace, treeSha256: emptyHash }))).toBe("outside_workspace");
+		expect((await ask({ operation: "unlink", path: join(workspace, "empty"), sha256: emptyHash })).ok).toBe(true);
+		expect(failureCode(await ask({ operation: "unlink", path: join(workspace, "full"), sha256: emptyHash }))).toBe("directory_not_empty");
+		expect(failureCode(await ask({ operation: "unlink", path: workspace, sha256: emptyHash }))).toBe("outside_workspace");
 	});
 
 	it("refuses a delete or rename whose path has a .git segment", async () => {

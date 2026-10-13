@@ -153,3 +153,36 @@ Feature: The supervisor carries out file requests for the live computer through 
     When the supervisor is given a move request from "/workspace/a.txt" to "/workspace/b.txt" with the hash of "a"
     Then the result is the error "already_exists"
     And the workspace file "b.txt" contains "b"
+
+  Scenario: The helper judges a folder by its tree hash in the one field that judges a file by its content hash
+    Given the workspace holds an empty folder "hollow"
+    And the workspace has a file "tidy/b.txt" containing "b"
+    And the workspace has a file "keep.txt" containing "k"
+    When the supervisor is given a delete request for "/workspace/hollow" with the hash a person would be shown
+    Then the result is ok
+    And "hollow" does not exist
+    When the supervisor is given a move request from "/workspace/tidy" to "/workspace/neat" with the hash a person would be shown
+    Then the result is ok
+    And the workspace file "neat/b.txt" contains "b"
+    And "tidy" does not exist
+    When the supervisor is given a delete request for "/workspace/keep.txt" with the hash a person would be shown
+    Then the result is ok
+    And "keep.txt" does not exist
+
+  Scenario: A folder with another hash than the one seen is not renamed
+    Given the workspace has a file "tidy/b.txt" containing "b"
+    When the supervisor is given a move request from "/workspace/tidy" to "/workspace/neat" with the hash of "not the folder"
+    Then the result is the error "precondition_failed"
+    And the workspace still holds "tidy/b.txt"
+
+  Scenario: The helper's stat gives the content hash of a file when asked
+    Given the workspace has a file "a.txt" containing "hello"
+    When the supervisor is given a stat request for "/workspace/a.txt" that asks for the hash
+    Then the result is the stat of a file with the content hash of "hello"
+
+  Scenario: The helper does not hash a file over the read limit
+    Given the workspace has a file "big.txt" of 8388609 bytes
+    When the supervisor is given a stat request for "/workspace/big.txt" that asks for the hash
+    Then the result is the error "file_too_large"
+    When the supervisor is given a stat request for "/workspace/big.txt" that does not ask for the hash
+    Then the result is the stat of a file without a content hash
