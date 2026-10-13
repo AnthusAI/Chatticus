@@ -26,6 +26,7 @@ import {
   wireComputerStarterOwnerRunTask,
 } from "./computer-host-start";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
+import { frontDoorSnapshotPolicyStatements } from "./owner-role-policy";
 
 const CREATE_REQUIRE_BANNER =
   'import { createRequire as topLevelCreateRequire } from "module"; ' +
@@ -412,28 +413,9 @@ export class ControlPlaneStack extends cdk.Stack {
           credentialBrokerFunction.functionName,
         );
         const snapshotBucketArn = `arn:aws:s3:::${computerOwnerStart.snapshotBucketName}`;
-        frontDoorFunction.addToRolePolicy(
-          new iam.PolicyStatement({
-            sid: "ReadComputerSnapshots",
-            actions: ["s3:GetObject"],
-            resources: [`${snapshotBucketArn}/tenants/*/computers/*/*`],
-          }),
-        );
-        frontDoorFunction.addToRolePolicy(
-          new iam.PolicyStatement({
-            sid: "WriteComputerEditOverlay",
-            actions: ["s3:PutObject", "s3:DeleteObject"],
-            resources: [`${snapshotBucketArn}/tenants/*/computers/*/overlay/*`],
-          }),
-        );
-        frontDoorFunction.addToRolePolicy(
-          new iam.PolicyStatement({
-            sid: "ListComputerSnapshots",
-            actions: ["s3:ListBucket"],
-            resources: [snapshotBucketArn],
-            conditions: { StringLike: { "s3:prefix": ["tenants/*/computers/*/"] } },
-          }),
-        );
+        for (const statement of frontDoorSnapshotPolicyStatements({ snapshotBucketArn })) {
+          frontDoorFunction.addToRolePolicy(statement);
+        }
         frontDoorFunction.addEnvironment("CHATTICUS_SNAPSHOT_BUCKET", computerOwnerStart.snapshotBucketName);
       }
     }

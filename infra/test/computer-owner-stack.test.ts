@@ -512,7 +512,7 @@ describe("ControlPlane FrontDoor snapshot read grant", () => {
     JSON.stringify(statement.Resource).includes("chatticus-snapshots-bucket"),
   );
 
-  it("reads only objects under tenants/*/computers/*/ and lists only with that prefix", () => {
+  it("reads only objects under tenants/*/computers/*/ and may list the bucket with no prefix condition so a missing key answers 404", () => {
     assert.equal(snapshotStatements.length, 3);
     const read = snapshotStatements.find((statement) => actionsOf(statement).includes("s3:GetObject"))!;
     assert.deepEqual(actionsOf(read), ["s3:GetObject"]);
@@ -520,7 +520,9 @@ describe("ControlPlane FrontDoor snapshot read grant", () => {
     const list = snapshotStatements.find((statement) => actionsOf(statement).includes("s3:ListBucket"))!;
     assert.deepEqual(actionsOf(list), ["s3:ListBucket"]);
     assert.deepEqual(([] as unknown[]).concat(list.Resource), ["arn:aws:s3:::chatticus-snapshots-bucket"]);
-    assert.deepEqual(list.Condition, { StringLike: { "s3:prefix": ["tenants/*/computers/*/"] } });
+    assert.equal(list.Condition, undefined);
+    assert.equal(list.Sid, "ListComputerSnapshots");
+    assert.equal(list.Effect, "Allow");
   });
 
   it("lets the FrontDoor put and delete only under the overlay prefix of a computer", () => {

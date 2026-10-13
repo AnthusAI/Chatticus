@@ -30,6 +30,15 @@ export const SUPERVISOR_ROLE_POLICY_FILE = path.join(
   "../../conversation/src/gateway/supervisor-role-policy.json",
 );
 
+/**
+ * The file of the Front Door role's snapshot bucket statements, read as data so the conversation scenarios evaluate the
+ * statements that are deployed.
+ */
+export const FRONT_DOOR_SNAPSHOT_POLICY_FILE = path.join(
+  __dirname,
+  "../../conversation/src/gateway/front-door-snapshot-policy.json",
+);
+
 /** The ARNs of the stores the statements refer to. */
 export interface OwnerRolePolicyResources {
   readonly piSessionsBucketArn: string;
@@ -75,6 +84,21 @@ export function supervisorRolePolicyStatements(
   resources: SupervisorRolePolicyResources,
 ): iam.PolicyStatement[] {
   return statementsFromFile(SUPERVISOR_ROLE_POLICY_FILE, {
+    snapshotBucketArn: resources.snapshotBucketArn,
+  });
+}
+
+/**
+ * The statements the Front Door role holds on the snapshot bucket: read every computer object, write and delete only
+ * under the overlay prefix, and list the bucket. The list statement carries no `s3:prefix` condition on purpose: S3
+ * answers a GetObject of a missing key with 404 NoSuchKey only when the caller may list the bucket, and that check
+ * carries no `s3:prefix` key, so a prefix condition turns every read of a missing key (an overlay not yet written) into
+ * 403 AccessDenied.
+ */
+export function frontDoorSnapshotPolicyStatements(
+  resources: SupervisorRolePolicyResources,
+): iam.PolicyStatement[] {
+  return statementsFromFile(FRONT_DOOR_SNAPSHOT_POLICY_FILE, {
     snapshotBucketArn: resources.snapshotBucketArn,
   });
 }
