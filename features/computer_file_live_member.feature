@@ -798,6 +798,28 @@ Feature: Members view and edit the files of the computer, live when it runs and 
     Then the file response status is 403
 
   @server
+  Scenario: An integration-test session of a member can write a file and the audit names its user id
+    Given the computer disk holds workspace file "notes.md" containing "first draft"
+    And the computer disk is published
+    And no owner is running
+    And the development environment accepts an integration-test session of member "pipeline" on the household computer
+    When the integration-test session replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
+    Then the file response status is 200
+    And the audit log has a record for member "pipeline" with these fields:
+      | field     | value               |
+      | operation | write               |
+      | path      | /workspace/notes.md |
+      | outcome   | ok                  |
+      | source    | overlay             |
+
+  @server
+  Scenario: A worker credential cannot write a file
+    Given a live owner is polling for the household computer
+    When the owner presents its supervisor token to replace the computer file "/workspace/notes.md" with "mine"
+    Then the file response status is 403
+    And the audit log has no records
+
+  @server
   Scenario: A member of a suspended organization cannot edit
     Given the organization of tenant "anthus" is suspended
     When member "mia" creates the computer file "/workspace/fresh.md" with "new"

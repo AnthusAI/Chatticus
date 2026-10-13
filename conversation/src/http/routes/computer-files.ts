@@ -127,6 +127,14 @@ function memberOf(principal: Principal): FileMember {
 	return { tenantId: principal.tenantId, userId: principal.userId ?? principal.workerId ?? "caller", role: principal.role };
 }
 
+/**
+ * Whether a principal may change files or reveal a masked one (L24): a user, or an integration-test session
+ * (which exists only outside production), and in both cases with a user id the audit record can name.
+ */
+export function principalMayChangeFiles(principal: Pick<Principal, "kind" | "userId">): boolean {
+	return (principal.kind === "user" || principal.kind === "integration") && principal.userId !== null;
+}
+
 /** Resolve the caller, answering the principal's own refusal as it is. A change needs a member with a user id (L24). */
 export async function resolveCaller(c: Context, deps: ComputerFileRouteDependencies, options: { requireUser: boolean }): Promise<Caller | Response> {
 	const principal = await resolveUserPrincipal(c, deps);
@@ -134,7 +142,7 @@ export async function resolveCaller(c: Context, deps: ComputerFileRouteDependenc
 		principal.headers.set("X-Content-Type-Options", "nosniff");
 		return principal;
 	}
-	if (options.requireUser && (principal.kind !== "user" || principal.userId === null)) {
+	if (options.requireUser && !principalMayChangeFiles(principal)) {
 		c.header("X-Content-Type-Options", "nosniff");
 		return c.json({ detail: "a member is required" }, 403);
 	}
