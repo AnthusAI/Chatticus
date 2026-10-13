@@ -34,6 +34,7 @@ import {
 	setComputerStopped,
 } from "../domain/computers.ts";
 import { heartbeatWorker } from "../domain/workers.ts";
+import { unsealOverlay, type EditOverlayDependencies } from "../domain/edit-overlay.ts";
 import { evaluateModelToolRequest } from "../pi/gate.ts";
 import { PolicyControl } from "../policy/policy-control.ts";
 import type { PolicyStore } from "../store/policy-store.ts";
@@ -53,6 +54,8 @@ export interface HostRouteDependencies {
 	ids: IdSource;
 	park: ParkDependencies;
 	policyStore: PolicyStore;
+	/** The edit overlay, whose seal an owner's stopped report ends; null where the deployment has none. */
+	editOverlay: EditOverlayDependencies | null;
 }
 
 type Parsed<T> = { readonly value: T } | { readonly refusal: Response };
@@ -126,6 +129,7 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 			if (!isStoppedReport || !reportsOnlyStopped) {
 				return ownerErrorResponse(c, "not_current_owner", "owner credential is not valid for the current owner of this computer");
 			}
+			if (deps.editOverlay !== null) await unsealOverlay(deps.editOverlay, owner);
 			return c.json(computerPayload(current), 200);
 		}
 	}
@@ -138,6 +142,7 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 		if (body.value.stopped && body.value.start_generation !== undefined) {
 			await releaseHostStartLease(tenantId, body.value.start_generation, deps);
 		}
+		if (body.value.stopped && owner !== null && deps.editOverlay !== null) await unsealOverlay(deps.editOverlay, owner);
 		if (body.value.stopped) await startOwnerForParkedTurns(deps.park, tenantId);
 	}
 	if (body.value.capability_ready !== undefined) {

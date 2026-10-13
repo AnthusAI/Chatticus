@@ -8,8 +8,10 @@ import {
 	ownerStopRequestSchema,
 	type OwnerErrorCode,
 } from "@chatticus/host-protocol/supervisor";
+import { ownerOverlayAppliedRequestSchema, ownerOverlaySealRequestSchema } from "@chatticus/host-protocol/edit-overlay";
 import { parseBearerToken, PrincipalHttpError } from "../auth/principal.ts";
-import { exchangeOwnerBootstrap, judgeOwnerStop, OwnerRefusal, pollOwner, type OwnerSupervisorDependencies } from "../domain/owner-supervisor.ts";
+import { EditOverlayRefusal, clearOverlay, sealOverlay, type EditOverlayDependencies } from "../domain/edit-overlay.ts";
+import { exchangeOwnerBootstrap, judgeOwnerStop, OwnerRefusal, pollOwner, type OwnerIdentity, type OwnerSupervisorDependencies } from "../domain/owner-supervisor.ts";
 import { verifyOwnerBootstrapToken } from "../gateway/session-token.ts";
 import { ownerHostPrincipalOf } from "./owner-host-auth.ts";
 import { pathParameter } from "./user-principal.ts";
@@ -91,6 +93,46 @@ export async function ownerPollHandler(c: Context, deps: OwnerSupervisorRouteDep
 		const body = await parseOwnerBody(c, ownerPollRequestSchema);
 		if ("refusal" in body) return body.refusal;
 		return c.json(await pollOwner(deps, owner, body.value), 200);
+	});
+}
+
+async function overlayGuarded(c: Context, overlay: EditOverlayDependencies | null, run: (overlay: EditOverlayDependencies) => Promise<Response>): Promise<Response> {
+	return guarded(c, async () => {
+		if (overlay === null) return c.json({ detail: "the edit overlay is not configured" }, 503);
+		try {
+			return await run(overlay);
+		} catch (error) {
+			if (error instanceof EditOverlayRefusal) return c.json({ detail: error.message, code: error.code }, error.status as 503);
+			throw error;
+		}
+	});
+}
+
+function requireNamedOwner(owner: OwnerIdentity, body: { owner_id: string; generation: number }): void {
+	if (body.owner_id !== owner.ownerId || body.generation !== owner.startGeneration) {
+		throw new OwnerRefusal("credential_mismatch", "request does not match the owner credential");
+	}
+}
+
+/** POST /orgs/{tenant_id}/host/owner/overlay-seal: after extraction the owner closes the overlay to member writes and gets the entries to apply. */
+export async function ownerOverlaySealHandler(c: Context, overlay: EditOverlayDependencies | null): Promise<Response> {
+	return overlayGuarded(c, overlay, async (dependencies) => {
+		const owner = ownerOf(c);
+		const body = await parseOwnerBody(c, ownerOverlaySealRequestSchema);
+		if ("refusal" in body) return body.refusal;
+		requireNamedOwner(owner, body.value);
+		return c.json(await sealOverlay(dependencies, owner), 200);
+	});
+}
+
+/** POST /orgs/{tenant_id}/host/owner/overlay-applied: the owner asks to clear what it applied, after a recorded publish, and reports what it could not apply. */
+export async function ownerOverlayAppliedHandler(c: Context, overlay: EditOverlayDependencies | null): Promise<Response> {
+	return overlayGuarded(c, overlay, async (dependencies) => {
+		const owner = ownerOf(c);
+		const body = await parseOwnerBody(c, ownerOverlayAppliedRequestSchema);
+		if ("refusal" in body) return body.refusal;
+		requireNamedOwner(owner, body.value);
+		return c.json(await clearOverlay(dependencies, owner, body.value), 200);
 	});
 }
 
