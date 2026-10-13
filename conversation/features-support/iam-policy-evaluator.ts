@@ -49,6 +49,21 @@ export function supervisorRolePolicyStatements(resources: { readonly snapshotBuc
 	return (JSON.parse(text) as { statements: PolicyStatement[] }).statements;
 }
 
+/** The file of the Front Door role's snapshot bucket statements; the CDK stack reads this same file. */
+export const FRONT_DOOR_SNAPSHOT_POLICY_FILE = new URL("../src/gateway/front-door-snapshot-policy.json", import.meta.url);
+
+/**
+ * The statements of the Front Door role's snapshot bucket policy, read from the same file the CDK stack deploys, with the
+ * snapshot bucket ARN filled in.
+ *
+ * @param resources The ARN of the snapshot bucket.
+ * @returns The statements.
+ */
+export function frontDoorSnapshotPolicyStatements(resources: { readonly snapshotBucketArn: string }): PolicyStatement[] {
+	const text = readFileSync(FRONT_DOOR_SNAPSHOT_POLICY_FILE, "utf8").replaceAll("{{snapshotBucketArn}}", resources.snapshotBucketArn);
+	return (JSON.parse(text) as { statements: PolicyStatement[] }).statements;
+}
+
 /** The session tags of the assumed role, by tag key. */
 export type SessionTagValues = Readonly<Record<string, string>>;
 
@@ -130,4 +145,33 @@ export function policyAllows(statements: readonly PolicyStatement[], tags: Sessi
 	);
 	if (matching.some((statement) => statement.Effect === "Deny")) return false;
 	return matching.some((statement) => statement.Effect === "Allow");
+}
+
+/** What S3 answers a caller who reads one object key. */
+export type ObjectReadOutcome = "returned" | "NoSuchKey" | "AccessDenied";
+
+/**
+ * What S3 answers a GetObject of a key, by the rule that decides 403 against 404: a caller without `s3:GetObject` on the key
+ * is refused; a caller with it gets the object, or 404 NoSuchKey when the key does not exist and the caller also holds
+ * `s3:ListBucket` on the bucket, or 403 AccessDenied when the key does not exist and the caller cannot list the bucket. The
+ * list permission is evaluated on the bucket with no `s3:prefix` key in the request, so a statement whose condition names
+ * that key does not count.
+ *
+ * @param statements The role's permission statements.
+ * @param tags The session tags the role was assumed with.
+ * @param bucketArn The ARN of the bucket.
+ * @param key The object key.
+ * @param keyExists Whether the object exists.
+ * @returns The outcome of the read.
+ */
+export function objectReadOutcome(
+	statements: readonly PolicyStatement[],
+	tags: SessionTagValues,
+	bucketArn: string,
+	key: string,
+	keyExists: boolean,
+): ObjectReadOutcome {
+	if (!policyAllows(statements, tags, { action: "s3:GetObject", resourceArn: `${bucketArn}/${key}`, contextKeys: {} })) return "AccessDenied";
+	if (keyExists) return "returned";
+	return policyAllows(statements, tags, { action: "s3:ListBucket", resourceArn: bucketArn, contextKeys: {} }) ? "NoSuchKey" : "AccessDenied";
 }
