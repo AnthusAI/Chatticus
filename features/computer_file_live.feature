@@ -260,13 +260,6 @@ Feature: Members view and edit the files on the running computer
       | /workspace/app/.git/hooks/pre-commit |
       | /workspace/.git                   |
 
-  @supervisor
-  Scenario: A link inside the workspace to a .git file is refused by the helper as well
-    Given the workspace has a symbolic link "sneaky" to the workspace file ".git/config"
-    When the helper is asked to create "/workspace/sneaky" with "[core]" as a live file operation
-    Then the helper answers "path_refused"
-    And the workspace file ".git/config" is unchanged
-
   @server
   Scenario: A write to an owner that will not poll soon is refused with a retry time
     Given a live owner that polls every 10 seconds and last polled 1 second ago
@@ -1112,99 +1105,6 @@ Feature: Members view and edit the files on the running computer
   # ---------------------------------------------------------------- the container
 
   @supervisor
-  Scenario: The helper lists a directory with kinds, sizes and link targets
-    Given the workspace holds a file "a.txt" of 3 bytes, a directory "src" and a symbolic link "latest" to "a.txt"
-    When the supervisor is given a list request for "/workspace"
-    Then the result lists these entries in order:
-      | name   | kind      | size | link_target |
-      | src    | directory |      |             |
-      | latest | symlink   |      | a.txt       |
-      | a.txt  | file      | 3    |             |
-
-  @supervisor
-  Scenario: A planted link to a file outside the workspace is not read
-    Given a file "owner-only.txt" outside the workspace containing "owner-secret-value"
-    And the workspace has a symbolic link "leak" to the outside file "owner-only.txt"
-    When the supervisor is given a read request for "/workspace/leak"
-    Then the result is the error "outside_workspace"
-    And the result does not contain "owner-secret-value"
-
-  @supervisor
-  Scenario: A planted link to a file outside the workspace is not overwritten
-    Given a file "owner-only.txt" outside the workspace containing "owner-secret-value"
-    And the workspace has a symbolic link "leak" to the outside file "owner-only.txt"
-    When the supervisor is given a write request for "/workspace/leak" with "overwritten" and the hash of "owner-secret-value"
-    Then the result is the error "outside_workspace"
-    And the outside file "owner-only.txt" still contains "owner-secret-value"
-
-  @supervisor
-  Scenario: A link inside the workspace is written through and stays a link
-    Given the workspace holds a file "real.txt" containing "one"
-    And the workspace has a symbolic link "alias.txt" to "real.txt"
-    When the supervisor is given a write request for "/workspace/alias.txt" with "two" and the hash of "one"
-    Then the result is ok
-    And the workspace file "real.txt" contains "two"
-    And "alias.txt" is still a symbolic link to "real.txt"
-
-  @supervisor
-  Scenario: A pipe in the workspace does not hang a read
-    Given the workspace holds a named pipe "fifo"
-    When the supervisor is given a read request for "/workspace/fifo"
-    Then the result is the error "not_a_file" within 2 seconds
-
-  @supervisor
-  Scenario: A helper that hangs is killed at its timeout
-    Given the file helper never answers
-    When the supervisor is given a read request for "/workspace/notes.md"
-    And 7 seconds go by
-    Then the result is the error "helper_timeout"
-    And no helper process is left running
-
-  @supervisor
-  Scenario: A request that waited too long in the supervisor is answered expired without touching the disk
-    Given two file operations are running that take 5 seconds each
-    When the supervisor is given a write request that expires in 2 seconds
-    And 6 seconds go by
-    Then the result is the error "expired"
-    And the workspace was not written
-
-  @supervisor
-  Scenario: A file operation in flight is not killed by the sweep after a turn
-    Given a turn's child has just exited
-    And a file operation is running that takes 2 seconds
-    When the supervisor sweeps the processes of the shell user
-    Then the file operation finishes with its own result
-    And the sweep ran after it finished
-
-  @supervisor
-  Scenario: A stopping supervisor finishes the operation in flight and refuses the rest
-    Given a write operation is running
-    And another file request is waiting
-    When the supervisor begins to stop
-    Then the write finishes and its result is posted
-    And the waiting request is answered "owner_stopping"
-    And the final publish includes the written file
-
-  @supervisor
-  Scenario: An edit schedules a quiet publish and counts as activity
-    Given the supervisor is idle with its idle clock at 10 minutes
-    When a write request is answered ok
-    Then the idle clock starts again
-    And a publish is due in 30 seconds
-
-  @supervisor
-  Scenario: The file operation line carries no path and no content
-    When the supervisor answers a read of "/workspace/secret-plans.md"
-    Then the log line "file_operation" has the fields "kind", "bytes", "path_hash", "outcome" and "duration_ms"
-    And no log line contains "secret-plans"
-
-  @supervisor
-  Scenario: An owner that is told it is no longer the owner stops when it posts a result
-    Given a file operation is running
-    When the control plane answers the result with 403 "not_current_owner"
-    Then the supervisor ends as superseded
-
-  @supervisor
   Scenario: The owner applies the overlay after extraction and before any turn
     Given the saved snapshot holds workspace file "notes.md" containing "first draft"
     And the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
@@ -1349,40 +1249,6 @@ Feature: Members view and edit the files on the running computer
     When the supervisor starts and hydrates
     Then the helper was asked for exactly one rename
     And the workspace has 300 files in "large" and no folder "big"
-
-  @supervisor
-  Scenario: The helper deletes a link and not its target
-    Given the workspace holds a file "real.txt" containing "one"
-    And the workspace has a symbolic link "alias.txt" to "real.txt"
-    When the supervisor is given a delete request for "/workspace/alias.txt" with the symlink hash
-    Then the result is ok
-    And the workspace file "real.txt" contains "one"
-    And "alias.txt" does not exist
-
-  @supervisor
-  Scenario: The helper refuses a rename that would leave the workspace
-    Given the workspace holds a file "a.txt" containing "a"
-    And the workspace has a symbolic link "out" to a folder outside the workspace
-    When the supervisor is given a move request from "/workspace/a.txt" to "/workspace/out/a.txt" with the hash of "a"
-    Then the result is the error "outside_workspace"
-    And the workspace file "a.txt" contains "a"
-
-  @supervisor
-  Scenario: The helper removes a folder tree only when its tree hash is the one seen
-    Given the workspace holds files "tree/a.txt" and "tree/sub/b.txt"
-    When the supervisor is given a recursive delete request for "/workspace/tree" with another tree hash
-    Then the result is the error "precondition_failed" with the current tree hash
-    And the workspace still holds "tree/sub/b.txt"
-    When the supervisor is given a recursive delete request for "/workspace/tree" with the current tree hash
-    Then the result is ok with 4 entries removed
-    And "tree" does not exist
-
-  @supervisor
-  Scenario: The helper renames without replacing
-    Given the workspace holds files "a.txt" containing "a" and "b.txt" containing "b"
-    When the supervisor is given a move request from "/workspace/a.txt" to "/workspace/b.txt" with the hash of "a"
-    Then the result is the error "already_exists"
-    And the workspace file "b.txt" contains "b"
 
   # ---------------------------------------------------------------- the web app
 

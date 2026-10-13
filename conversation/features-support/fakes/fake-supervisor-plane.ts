@@ -1,4 +1,5 @@
 import type { HostComputer } from "@chatticus/host-protocol";
+import type { OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
 import type {
 	OwnerBootstrapRequest,
 	OwnerBootstrapResponse,
@@ -56,6 +57,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	readonly bootstraps: Array<Recorded<OwnerBootstrapRequest>> = [];
 	readonly polls: Array<Recorded<OwnerPollRequest>> = [];
 	readonly stopRequests: Array<Recorded<OwnerStopRequest>> = [];
+	readonly fileResults: Array<Recorded<OwnerFileResultRequest>> = [];
 	readonly computerCalls: string[] = [];
 	readonly stoppedReports: Array<{ readonly generation: number | undefined; readonly atMilliseconds: number }> = [];
 	readonly pollFailures: Array<{ readonly sequence: number; readonly error: unknown }> = [];
@@ -68,6 +70,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	stopScript: OwnerStopResponse[] = [];
 	vetoesByReason = new Map<OwnerStopReason, OwnerStopVetoReason>();
 	pollAfterNextStopRequest: OwnerPollResponse | null = null;
+	fileResultScript: Array<Error | "ok"> = [];
 	stoppedReportScript: Array<Error | "ok"> = [];
 	heldRunningReport: { readonly promise: Promise<void>; release: () => void } | null = null;
 	defaultNextPollMilliseconds = 1000;
@@ -144,6 +147,13 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 		if (scripted !== undefined) return scripted;
 		const veto = this.vetoesByReason.get(request.reason);
 		return veto === undefined ? { approved: true } : { approved: false, reason: veto };
+	}
+
+	async postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }> {
+		this.fileResults.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		const outcome = this.fileResultScript.shift() ?? "ok";
+		if (outcome !== "ok") throw outcome;
+		return { recorded: true };
 	}
 
 	async getComputer(): Promise<HostComputer> {

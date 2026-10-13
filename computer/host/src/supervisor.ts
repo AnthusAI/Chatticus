@@ -14,7 +14,10 @@ import {
 	type OwnerState,
 	type OwnerStopReason,
 } from "@chatticus/host-protocol/supervisor";
+import type { LiveFileOutcome } from "@chatticus/host-protocol/live-files";
 import { errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
+import { LiveFileOperations } from "./live-file-operations.ts";
+import type { FileHelperLauncher } from "./live-file-helper-launcher.ts";
 import { HostProtocolError } from "./protocol-client.ts";
 import { buildOwnerChildEnvironment } from "./supervisor-child-environment.ts";
 import {
@@ -69,6 +72,10 @@ export type OwnerSupervisorOptions = {
 	readonly log: LogEmitter;
 	/** Percent of the container's memory in use, reported with every poll; absent or undefined, none is reported. */
 	readonly memoryUsedPercent?: () => number | undefined;
+	/** Starts the unprivileged file helper for one file request; the supervisor never opens a workspace path itself. */
+	readonly fileHelperLauncher: FileHelperLauncher;
+	/** The real directory that plays `/workspace` for file requests. */
+	readonly workspaceRoot: string;
 };
 
 type RunningChild = {
@@ -113,6 +120,7 @@ export class OwnerSupervisor {
 	private idleStartedAtMilliseconds: number | null = null;
 	private nextIdleLogAtMilliseconds = 0;
 	private nextPublishCheckAtMilliseconds: number | null = null;
+	private quietPublishDueAtMilliseconds: number | null = null;
 	private stopRetryAtMilliseconds = 0;
 	private consecutiveChildFailures = 0;
 	private turnsServed = 0;
@@ -122,10 +130,20 @@ export class OwnerSupervisor {
 	private stopping = false;
 	private sigtermRequested = false;
 	private readonly servedDispatchIds = new Set<string>();
+	private readonly files: LiveFileOperations;
 
 	constructor(options: OwnerSupervisorOptions) {
 		this.options = options;
 		this.identity = options.identity;
+		this.files = new LiveFileOperations({
+			launcher: options.fileHelperLauncher,
+			postResult: (operationId, outcome) => this.postFileResult(operationId, outcome),
+			clock: options.clock,
+			log: options.log,
+			workspaceRoot: options.workspaceRoot,
+			memoryUsedPercent: () => options.memoryUsedPercent?.(),
+			onFinished: (kind, outcome) => this.onFileOperationFinished(kind, outcome),
+		});
 	}
 
 	/** Where the supervisor is in its life, as it reports it with the next poll. */
@@ -402,6 +420,32 @@ export class OwnerSupervisor {
 		if (response.drain && !this.draining && !this.stopping) this.beginDrain(response.drain_reason ?? "unknown");
 		const dispatch = response.dispatches[0];
 		if (dispatch !== undefined) this.considerDispatch(dispatch);
+		this.files.accept(response.file_requests, this.currentState === "hydrating" ? "owner_busy" : undefined);
+	}
+
+	private async postFileResult(operationId: string, outcome: LiveFileOutcome): Promise<"recorded" | "closed"> {
+		try {
+			await this.options.plane.postFileResult({ owner_id: this.identity.ownerId, generation: this.identity.generation, operation_id: operationId, outcome });
+			return "recorded";
+		} catch (error) {
+			if (!(error instanceof HostProtocolError)) throw error;
+			if (this.refusalEndsOwnership(error)) {
+				this.endAsSuperseded();
+				return "closed";
+			}
+			if (error.status >= 500) throw error;
+			return "closed";
+		}
+	}
+
+	private onFileOperationFinished(kind: string, outcome: LiveFileOutcome): void {
+		if (this.currentState === "idle" && !this.stopping && !this.draining) this.startIdleClock();
+		if (outcome.status === "ok" && (kind === "write" || kind === "delete" || kind === "move" || kind === "mkdir")) {
+			const due = this.now() + OWNER_QUIET_PUBLISH_SECONDS * 1000;
+			this.quietPublishDueAtMilliseconds = due;
+			this.nextPublishCheckAtMilliseconds = this.nextPublishCheckAtMilliseconds === null ? due : Math.min(this.nextPublishCheckAtMilliseconds, due);
+		}
+		this.wake();
 	}
 
 	private beginHydration(): void {
@@ -441,13 +485,15 @@ export class OwnerSupervisor {
 		const disk = this.disk;
 		if (disk === null) return;
 		this.currentState = "publishing";
+		this.quietPublishDueAtMilliseconds = null;
 		this.activity = (async () => {
 			try {
 				if (await disk.needsPublish()) await disk.publish();
 			} catch (error) {
 				this.log("snapshot_check_failed", { error_name: errorNameOf(error) });
 			}
-			this.nextPublishCheckAtMilliseconds = this.now() + OWNER_PERIODIC_PUBLISH_SECONDS * 1000;
+			const periodic = this.now() + OWNER_PERIODIC_PUBLISH_SECONDS * 1000;
+			this.nextPublishCheckAtMilliseconds = this.quietPublishDueAtMilliseconds === null ? periodic : Math.min(periodic, this.quietPublishDueAtMilliseconds);
 			this.activityEnded();
 		})();
 	}
@@ -507,10 +553,13 @@ export class OwnerSupervisor {
 	private async onChildExit(child: RunningChild, exit: ChildExit): Promise<void> {
 		const failed = !(exit.code === 0 || exit.code === 1);
 		this.consecutiveChildFailures = failed ? this.consecutiveChildFailures + 1 : 0;
+		await this.files.pause();
 		try {
 			await this.options.sweeper.sweep();
 		} catch (error) {
 			this.log("owner_sweep_failed", { error_name: errorNameOf(error) });
+		} finally {
+			this.files.resume();
 		}
 		this.log("owner_child_exited", {
 			dispatch_id: child.dispatchId,
@@ -583,6 +632,7 @@ export class OwnerSupervisor {
 	private async performStop(cause: StopCause): Promise<void> {
 		this.log("owner_stopping", { reason: cause, uptime_ms: this.now() - this.startedAtMilliseconds, turns_served: this.turnsServed });
 		this.requestPollNow();
+		await this.files.stopAccepting();
 		await this.terminateChild(cause === "sigterm" ? TERMINATE_GRACE_AT_SIGTERM_MILLISECONDS : TERMINATE_GRACE_AT_DRAIN_MILLISECONDS);
 		try {
 			await this.options.sweeper.sweep();

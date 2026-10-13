@@ -9,8 +9,8 @@ import {
 	createScrubbedBashTool,
 	MAXIMUM_TERMINAL_OUTPUT_CHARACTERS,
 	resolveWorkspacePath,
-	scrubbedShellEnvironment,
 } from "../src/pi/local-computer-tools.ts";
+import { scrubbedShellEnvironment } from "../src/pi/shell-environment.ts";
 
 describe("scrubbedShellEnvironment", () => {
 	it("holds exactly a path, a home, a locale and a terminal type", () => {

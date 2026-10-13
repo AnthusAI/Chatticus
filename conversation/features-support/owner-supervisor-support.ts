@@ -2,13 +2,18 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { HostDiskLifecycle } from "../../computer/host/src/host-disk-lifecycle.ts";
+import { ProcessFileHelperLauncher } from "../../computer/host/src/live-file-helper-launcher.ts";
 import { OwnerSupervisor } from "../../computer/host/src/supervisor.ts";
 import { supervisorConfigurationFromEnvironment, type SupervisorConfiguration } from "../../computer/host/src/supervisor-configuration.ts";
 import type { SupervisorDisk } from "../../computer/host/src/supervisor-ports.ts";
 import { ShellUserProcessSweeper } from "../../computer/host/src/unprivileged-process-sweeper.ts";
+import { scrubbedShellEnvironment } from "../src/pi/shell-environment.ts";
+import { SOURCE_FILE_HELPER_COMMAND } from "../src/pi/unprivileged-execution-env.ts";
 import { FilesystemSnapshotStore } from "../src/snapshot/store.ts";
 import { formatLogLine, type LogFields } from "../src/observability/log-line.ts";
+import { computerOwnerScenarioOf } from "./computer-owner.ts";
 import { FakeChildSpawner } from "./fakes/fake-child-spawner.ts";
+import { ScenarioFileHelperLauncher } from "./fakes/fake-file-helper-launcher.ts";
 import { FakeProcessTable } from "./fakes/fake-process-table.ts";
 import { FakeSupervisorClock } from "./fakes/fake-supervisor-clock.ts";
 import { FakeSupervisorDisk } from "./fakes/fake-supervisor-disk.ts";
@@ -32,6 +37,9 @@ export type SupervisorScenario = {
 	readonly table: FakeProcessTable;
 	readonly logs: string[];
 	readonly disk: FakeSupervisorDisk;
+	/** The file helper the supervisor starts, and the directory that plays `/workspace` for its file requests. */
+	readonly fileHelper: ScenarioFileHelperLauncher;
+	readonly workspaceRoot: string;
 	configuration: SupervisorConfiguration | null;
 	useRealDisk: boolean;
 	memoryUsedPercent: number | undefined;
@@ -81,6 +89,13 @@ export function createSupervisorScenario(world: ChatticusWorld): SupervisorScena
 	mkdirSync(join(liveRoot, "workspace"), { recursive: true });
 	const clock = new FakeSupervisorClock();
 	const logs: string[] = [];
+	const workspaceRoot = computerOwnerScenarioOf(world).workspace;
+	const processLauncher = new ProcessFileHelperLauncher({
+		launcherPath: "/bin/sh",
+		helperCommand: SOURCE_FILE_HELPER_COMMAND,
+		workingDirectory: workspaceRoot,
+		environment: scrubbedShellEnvironment(workspaceRoot),
+	});
 	const scenario: SupervisorScenario = {
 		environment: taskEnvironment(liveRoot),
 		clock,
@@ -89,6 +104,8 @@ export function createSupervisorScenario(world: ChatticusWorld): SupervisorScena
 		table: new FakeProcessTable(),
 		logs,
 		disk: new FakeSupervisorDisk(clock, (event, fields) => logs.push(formatLogLine(event, { tenant_id: "anthus", owner_id: "owner-1", ...fields }))),
+		fileHelper: new ScenarioFileHelperLauncher(clock, processLauncher),
+		workspaceRoot,
 		configuration: null,
 		useRealDisk: false,
 		memoryUsedPercent: undefined,
@@ -139,6 +156,8 @@ export async function startSupervisor(world: ChatticusWorld): Promise<void> {
 		clock: scenario.clock,
 		log: emit,
 		memoryUsedPercent: () => scenario.memoryUsedPercent,
+		fileHelperLauncher: scenario.fileHelper,
+		workspaceRoot: scenario.workspaceRoot,
 	});
 	scenario.supervisor = supervisor;
 	void supervisor.run().then((code) => {

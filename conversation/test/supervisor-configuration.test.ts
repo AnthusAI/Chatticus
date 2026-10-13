@@ -28,6 +28,7 @@ describe("supervisorConfigurationFromEnvironment", () => {
 			snapshotBucket: "snapshots",
 			liveRoot: "/var/lib/chatticus/computer",
 			workspaceRoot: "/workspace",
+			shellLauncherPath: "/usr/local/bin/chatticus-shell",
 			bootstrapToken: "bootstrap-secret",
 		});
 	});
