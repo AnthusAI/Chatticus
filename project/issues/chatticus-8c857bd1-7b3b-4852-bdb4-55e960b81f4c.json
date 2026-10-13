@@ -12,16 +12,29 @@
     "cost-accounting"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2ff94cae-4d26-40d7-b37d-f219d2bcb5bf",
+      "author": "home",
+      "text": "T2 decision: no pi-durable afterResponse hook is used. Cost records are derived from the session entries (assistant message usage) after the fact, keyed idempotently, rather than written from a hook. T1 to T4 (PRs 535 to 538) are merged and verified live on development 2026-10-13. T5 (chatticus-10e4ad) is raised to P0 as next in the queue; T6 to T10 remain open.",
+      "created_at": "2026-10-13T14:11:40.668974Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:30:40.819440Z",
-  "updated_at": "2026-10-13T11:30:40.819477Z",
+  "updated_at": "2026-10-13T14:11:40.669001Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The team is building durable cost tracking, pricing, APIs, reports, and sub-agent metering.",
-  "right_now_updated_at": "2026-10-13T13:46:21.590376Z",
+  "right_now_summary": "Core cost tracking is merged and verified; metering, APIs, web views, and sub-agent support remain.",
+  "right_now_updated_at": "2026-10-13T14:11:51.249464Z",
   "custom": {}
 }

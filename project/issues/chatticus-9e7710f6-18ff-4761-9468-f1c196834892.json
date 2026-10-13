@@ -3,7 +3,7 @@
   "title": "T2 Spike: pi-durable afterResponse document write, pi.usage reads, child conversation enumeration",
   "description": "Plan: docs/COST_ACCOUNTING.md sections 3.2 and 4 (S0). Verify with throwaway code outside conversation/src: (1) can GenerationHooks.afterResponse (node_modules/@earendil-works/pi-durable/dist/harness/types.d.ts) write a defineDoc in the commit that records the response; (2) harness.usage() and the pi.usage document contents for aborted, errored and compaction calls; (3) enumerate task-owned child conversations and forks through IndexedStorage (conversation/src/storage/indexed-storage.ts l2 CT# and l3 CC# indexes); (4) decide channel-total design (GSI vs sibling item). Acceptance: findings appended to docs/COST_ACCOUNTING.md with the code shape that worked, ASSUMPTION labels resolved.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -36,17 +36,29 @@
         "model": "claude-sonnet-5-5",
         "name": "cost-t2"
       }
+    },
+    {
+      "id": "53855daf-a6ed-4227-a2fb-17fa513d9922",
+      "author": "home",
+      "text": "Merged as PR 536 (T2). Verified LIVE on development 2026-10-13. A computer-owner turn wrote 2 model-call cost records into the session (0.0001858 USD, price book openai@2026-10-13+pi-ai-1.0.2, per-turn index item owner_kind computer). A Lambda turn wrote 1 record (0.000092 USD, owner_kind lambda). The ledger row matches the session records, the earlier computer-owner double count is gone, and the owner role policy for the cost partition is deployed.",
+      "created_at": "2026-10-13T14:11:13.288202Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
     }
   ],
   "created_at": "2026-10-13T11:31:20.103258Z",
-  "updated_at": "2026-10-13T12:15:35.534748Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T14:11:18.024018Z",
+  "closed_at": "2026-10-13T14:11:18.023982Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The spike is complete, findings are documented, and PR 536 awaits merge.",
-  "right_now_updated_at": "2026-10-13T12:15:37.533517Z",
+  "right_now_summary": "PR 536 is merged and live; computer and Lambda turns now write matching cost records.",
+  "right_now_updated_at": "2026-10-13T14:11:20.365537Z",
   "custom": {}
 }

@@ -3,7 +3,7 @@
   "title": "T4 Call cost records in the session document, idempotent keyed writes, turn index; retire delta counters and gateway ledger writes",
   "description": "Pivot ticket. Depends on T1, T2, T3. Files: new conversation/src/ledger/call-cost.ts (ModelCallCost, chatticus.cost defineDoc like conversation/src/pi/channel-log.ts), conversation/src/turn/finalize.ts (measureTurnUsage, recordTurnSpend), conversation/src/turn/executor.ts (calls at conclude, fail, yield, park), conversation/src/gateway/model-gateway.ts (stop writing the ledger), conversation/src/store/turn-store.ts and conversation/src/domain/turns.ts (remove ledger_input_recorded and ledger_output_recorded), computer/host/src/owner-deps.ts (empty VendorPriceBook), turn index pk {tenant}#cost#{yyyy-mm} sk turn#{turnId} with bot_id, channel_id, prompt_author_id, prompt_message_seq, message_seq, owner_kind. Fixes F1, F3, F5(e). Acceptance: plan scenarios 1 to 5 and 20 pass; T1 scenario passes; vitest and cucumber-js green; no dual reader.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -36,17 +36,29 @@
         "model": "claude-sonnet-5-5",
         "name": "cost-t4"
       }
+    },
+    {
+      "id": "1c89fdb0-2f7e-4af8-8a9c-54e498a7447d",
+      "author": "home",
+      "text": "Merged as PR 538 (T4). Verified LIVE on development 2026-10-13. A computer-owner turn wrote 2 model-call cost records into the session (0.0001858 USD, price book openai@2026-10-13+pi-ai-1.0.2, per-turn index item owner_kind computer). A Lambda turn wrote 1 record (0.000092 USD, owner_kind lambda). The ledger row matches the session records, the earlier computer-owner double count is gone, and the owner role policy for the cost partition is deployed.",
+      "created_at": "2026-10-13T14:11:34.479804Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
     }
   ],
   "created_at": "2026-10-13T11:31:25.063806Z",
-  "updated_at": "2026-10-13T13:46:17.592979Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T14:11:37.409471Z",
+  "closed_at": "2026-10-13T14:11:37.409435Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "PR 538 implements idempotent call-cost records and monthly turn indexes; tests pass, but it is not merged.",
-  "right_now_updated_at": "2026-10-13T13:46:19.894010Z",
+  "right_now_summary": "T4 is merged and live, with session cost records and turn indexes verified for computer and Lambda turns.",
+  "right_now_updated_at": "2026-10-13T14:11:38.573278Z",
   "custom": {}
 }

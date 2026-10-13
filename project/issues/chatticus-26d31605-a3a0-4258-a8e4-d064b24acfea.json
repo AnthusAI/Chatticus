@@ -3,7 +3,7 @@
   "title": "T1 Failing scenario: a computer-owner turn is counted twice on the vendor ledger",
   "description": "Plan: docs/COST_ACCOUNTING.md finding F1. Files: features/cost_call_records.feature (new, add to features/cucumber-features.txt), steps in conversation/features-support/steps/ (reuse vendor-ledger and model-gateway steps). Scenario: one turn runs through the model gateway (recordVendorSpend per call) and then executeTurn finalizes (recordTurnSpend); assert ledger input_tokens equals the session total once. Expected today: FAILS (doubled). Also record the decision: the owner derives dollars from the session, the gateway stops writing the ledger. Acceptance: scenario exists, fails for the doubled count, cucumber-js lists it; no production code in this ticket.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -24,17 +24,29 @@
         "model": "claude-sonnet-5-5",
         "name": "cost-t1"
       }
+    },
+    {
+      "id": "e893c98b-a377-4b82-9b63-ef4a08ae4bca",
+      "author": "home",
+      "text": "Merged as PR 535 (T1). Verified LIVE on development 2026-10-13. A computer-owner turn wrote 2 model-call cost records into the session (0.0001858 USD, price book openai@2026-10-13+pi-ai-1.0.2, per-turn index item owner_kind computer). A Lambda turn wrote 1 record (0.000092 USD, owner_kind lambda). The ledger row matches the session records, the earlier computer-owner double count is gone, and the owner role policy for the cost partition is deployed.",
+      "created_at": "2026-10-13T14:11:04.348104Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
     }
   ],
   "created_at": "2026-10-13T11:31:17.382155Z",
-  "updated_at": "2026-10-13T11:52:30.138878Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T14:11:09.407683Z",
+  "closed_at": "2026-10-13T14:11:09.406959Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The double-counting bug is fixed, and tests now confirm the ledger records each turn once.",
-  "right_now_updated_at": "2026-10-13T11:52:34.108982Z",
+  "right_now_summary": "The double-counting bug is fixed, merged, and verified in development.",
+  "right_now_updated_at": "2026-10-13T14:11:10.382415Z",
   "custom": {}
 }

@@ -139,6 +139,24 @@ pushing the image to development before the Front Door IAM was proven broke
 every computer start there for about 40 minutes, because moto does not enforce
 IAM; a pre-deploy IAM check is tracked in `chatticus-d88a0f`.
 
+### Cost records on development (2026-10-13)
+
+Every model call a turn makes is priced and written into the durable Pi session
+as a cost record (tokens including cached input, the price book version, and the
+computed USD), keyed so a retry cannot double count. A per-turn index item sits
+beside the session with the owner kind (`computer` or `lambda`), and the vendor
+ledger row is projected from those records. Verified live on **development
+only**: a computer-owner turn wrote 2 records (0.0001858 USD) and a Lambda turn
+wrote 1 (0.000092 USD), the ledger row matched, and the earlier double count on
+the computer-owner path is gone. The price book is versioned
+(`openai@2026-10-13+pi-ai-1.0.2`). **Not built yet:** no customer-visible view
+or API, no per-session, bot or message screens; compaction, aborted and
+uncommitted calls are not metered; sub-agents are not built; old ledger rows are
+not migrated; rates come from the library's bundled catalog and have not been
+verified against the vendor's published page. Staging and production do not
+record this. See [Cost accounting](docs/COST_ACCOUNTING.md) and Kanbus epic
+`chatticus-8c857b`.
+
 ### Voice and turn failures on development (2026-10-04)
 
 On `develop` and deployed to development only; not on `main`.
