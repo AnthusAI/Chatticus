@@ -16,7 +16,8 @@ import {
 } from "../computer-file-live-support.ts";
 import { fileRoutesOf } from "../computer-snapshot-files-support.ts";
 import { overlayDependenciesOf } from "../edit-overlay-support.ts";
-import { bearerFor } from "../front-door.ts";
+import { loadIntegrationTestAuthConfig, mintIntegrationTestToken } from "../../src/auth/integration-test.ts";
+import { bearerFor, wireFrontDoor } from "../front-door.ts";
 import { STORY_TENANT } from "../computer-scenario.ts";
 import { ensureMember, memberHeadersFor } from "../turn-grant-support.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -29,6 +30,9 @@ const SIX_HUNDRED_SECONDS = 600;
 const workspaceFile = (relative: string): string => (relative.startsWith("/") ? relative : `/workspace/${relative}`);
 
 type Member = Record<string, string>;
+
+const INTEGRATION_INVOKE_KEY = "integration-test-key";
+const integrationSessionTokens = new WeakMap<ChatticusWorld, string>();
 
 const putHeaders = (headers: Member, precondition: Member): Member => ({ ...headers, "content-type": "application/json", ...precondition });
 
@@ -672,4 +676,51 @@ Then("the audit record expires in {int} days", async function (this: ChatticusWo
 	const [record] = await auditRecordsOfAll(this);
 	assert.ok(record);
 	assert.equal(record.expiresAt.getTime() - record.at.getTime(), days * 24 * 3600 * 1000);
+});
+
+Given(
+	"the development environment accepts an integration-test session of member {string} on the household computer",
+	async function (this: ChatticusWorld, userId: string) {
+		await ensureMember(this, TENANT, userId, "member");
+		const config = await loadIntegrationTestAuthConfig({
+			environment: "development",
+			invokeKey: INTEGRATION_INVOKE_KEY,
+			allowedRoleArn: "arn:aws:iam::123456789012:role/integration-test-runner",
+			tenantId: TENANT,
+			userId,
+			enabled: true,
+		});
+		assert.ok(config, "The integration-test configuration was not built.");
+		await wireFrontDoor(this, {
+			signupMode: "invitation_only",
+			cognitoVerifier: true,
+			environment: "development",
+			invokeKey: INTEGRATION_INVOKE_KEY,
+			integrationTest: config,
+		});
+		integrationSessionTokens.set(this, mintIntegrationTestToken(config));
+	},
+);
+
+When(
+	"the integration-test session replaces the computer file {string} with {string} if it still has the hash of {string}",
+	async function (this: ChatticusWorld, path: string, content: string, expectedText: string) {
+		const token = integrationSessionTokens.get(this);
+		assert.ok(token, "No integration-test session was accepted in this scenario.");
+		await sendFileRoute(this, {
+			method: "PUT",
+			path: `${FILES}/content?path=${encodeURIComponent(path)}`,
+			headers: putHeaders({ Authorization: `Bearer ${token}`, "X-Chatticus-Invoke-Key": INTEGRATION_INVOKE_KEY }, ifMatch(expectedText)),
+			body: { content },
+		});
+	},
+);
+
+When("the owner presents its supervisor token to replace the computer file {string} with {string}", async function (this: ChatticusWorld, path: string, content: string) {
+	await sendFileRoute(this, {
+		method: "PUT",
+		path: `${FILES}/content?path=${encodeURIComponent(path)}`,
+		headers: putHeaders({ Authorization: `Bearer ${ownerOf(this).wire.token}` }, ifNoneMatch),
+		body: { content },
+	});
 });
