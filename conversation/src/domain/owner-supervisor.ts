@@ -38,6 +38,7 @@ import type { MessagingStore } from "../store/messaging-store.ts";
 import { type ParkedWork, type ParkDependencies, actionDependenciesOf, computerWorkRefusal, parkedWork, resumeTurnForAction } from "../turn/park.ts";
 import { expireLostComputerActions } from "./actions.ts";
 import { denyOpenActionsOfTurn } from "./computer-start.ts";
+import { deliverLiveFileRequests, ownerFilePanelPace, recordLiveFileResult } from "./live-files.ts";
 
 /** A refusal of an owner route: the code the supervisor branches on and the status the code maps to. */
 export class OwnerRefusal extends Error {
@@ -141,7 +142,7 @@ export async function exchangeOwnerBootstrap(
 	if (consumed === null) {
 		return refuse("bootstrap_already_used", "bootstrap credential was already used or its generation has moved on");
 	}
-	const { pollSequence: _sequence, pollState: _state, ...fresh } = worker!;
+	const { pollSequence: _sequence, pollState: _state, pollPaceMilliseconds: _pace, ...fresh } = worker!;
 	await deps.store.putWorker({ ...fresh, lastHeartbeatAt: now });
 	log("owner_bootstrap_ok", { generation: claims.startGeneration, protocol_version: request.protocol_version });
 	return {
@@ -216,7 +217,10 @@ export async function pollOwner(deps: OwnerSupervisorDependencies, identity: Own
 	requireMatchingOwner(identity, request);
 	const now = deps.clock.now();
 	const log = logOf(identity);
-	if (!(await deps.store.recordOwnerPoll(identity.tenantId, identity.ownerId, { sequence: request.sequence, state: request.state, at: now }))) {
+	const computerBeforePoll = await requireLiveComputer(deps.store, identity);
+	const idleSecondsBeforePoll = computerBeforePoll.idleSinceAt === undefined ? 0 : secondsBetween(now, computerBeforePoll.idleSinceAt);
+	const pace = ownerFilePanelPace(request.state, ownerPollCadence(request.state, idleSecondsBeforePoll), computerBeforePoll.interactiveUntilAt, now);
+	if (!(await deps.store.recordOwnerPoll(identity.tenantId, identity.ownerId, { sequence: request.sequence, state: request.state, at: now, paceMilliseconds: pace }))) {
 		throw new OwnerRefusal("stale_poll", "a newer poll of this owner was already recorded");
 	}
 	if ((request.memory_used_percent ?? 0) >= 85) log("owner_memory_high", { memory_used_percent: request.memory_used_percent });
@@ -237,13 +241,12 @@ export async function pollOwner(deps: OwnerSupervisorDependencies, identity: Own
 		if (offered !== null) dispatches.push(offered);
 	}
 	if (request.protocol_version < OWNER_MINIMUM_PROTOCOL_VERSION) log("owner_protocol_version_low", { protocol_version: request.protocol_version });
-	const idleSeconds = computer.idleSinceAt === undefined ? 0 : secondsBetween(now, computer.idleSinceAt);
 	return {
 		dispatches,
-		file_requests: [],
+		file_requests: await deliverLiveFileRequests(deps, identity, request, computer),
 		drain,
 		...(drain ? { drain_reason: "lifetime" } : {}),
-		next_poll_ms: ownerPollCadence(request.state, idleSeconds),
+		next_poll_ms: pace,
 	};
 }
 
@@ -378,7 +381,7 @@ export async function judgeOwnerStop(deps: OwnerSupervisorDependencies, identity
 			log("owner_stop_decision", { reason: request.reason, approved: false, veto });
 			return { approved: false, reason: veto };
 		}
-		if (await deps.store.approveOwnerStop(identity.tenantId, identity.ownerId, computer.dispatchId ?? null, now)) {
+		if (await deps.store.approveOwnerStop(identity.tenantId, identity.ownerId, computer.dispatchId ?? null, computer.fileOperationId ?? null, now)) {
 			log("owner_stop_decision", { reason: request.reason, approved: true });
 			return { approved: true };
 		}
@@ -407,6 +410,7 @@ async function stopVeto(
 		);
 		return dispatched ? "dispatch_pending" : "work_pending";
 	}
+	if ((await deps.store.countOpenLiveFileOperations(identity.tenantId, now)) > 0) return "file_operation_pending";
 	if (request.active_turns.length > 0) return "turn_active";
 	if (computer.dispatchTurnId !== undefined) {
 		const turn = await deps.park.turns.store.getTurn(identity.tenantId, computer.dispatchTurnId);
@@ -415,4 +419,25 @@ async function stopVeto(
 		}
 	}
 	return null;
+}
+
+/**
+ * Record the owner's answer to one file request (docs/LIVE_FILES_PROTOCOL.md section 7.4).
+ *
+ * @param deps Stores and clock.
+ * @param identity The verified owner.
+ * @param request The body of the answer.
+ * @throws OwnerRefusal With `credential_mismatch` when the body names another owner or generation, `operation_closed` when
+ * the request is not this owner's delivered one, and `invalid_request` when the result is not the kind of the request.
+ */
+export async function recordOwnerFileResult(
+	deps: OwnerSupervisorDependencies,
+	identity: OwnerIdentity,
+	request: { owner_id: string; generation: number; operation_id: string; outcome: Parameters<typeof recordLiveFileResult>[2]["outcome"] },
+): Promise<{ recorded: true }> {
+	requireMatchingOwner(identity, request);
+	const decision = await recordLiveFileResult(deps, identity, request);
+	if (decision.kind === "closed") throw new OwnerRefusal("operation_closed", "the file request is not open for this owner");
+	if (decision.kind === "kind_mismatch") throw new OwnerRefusal("invalid_request", "the result is not the kind of the request");
+	return { recorded: true };
 }

@@ -5,9 +5,12 @@ import { Decimal } from "../src/budget/decimal.ts";
 import { InMemoryMessagingStore } from "../features-support/in-memory-messaging-store.ts";
 import type { Channel, ChannelMessageRecord } from "../src/domain/channels.ts";
 import type { Identity, Invitation, Membership, Organization } from "../src/domain/organizations.ts";
+import { recordHostHydrated, recordHostSnapshotPublished } from "../src/domain/computers.ts";
 import { DuplicateBotNameError } from "../src/http/errors.ts";
 import type { Bot } from "../src/store/codecs/bot.ts";
 import type { Computer } from "../src/store/codecs/computer.ts";
+import type { FileAuditRecord } from "../src/store/codecs/file-audit.ts";
+import type { LiveFileOperation } from "../src/store/codecs/live-file-operation.ts";
 import type { Task } from "../src/store/codecs/task.ts";
 import type { Worker } from "../src/store/codecs/worker.ts";
 import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
@@ -542,23 +545,249 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-ghost", dispatch("d-1"))).toBe(false);
 				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-1"))).toBe(true);
 				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-2"))).toBe(false);
-				expect(await store.approveOwnerStop("tenant-a", "owner-a", null, T0)).toBe(false);
+				expect(await store.approveOwnerStop("tenant-a", "owner-a", null, null, T0)).toBe(false);
 				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-1", dispatch("d-2", 2))).toBe(true);
-				expect(await store.approveOwnerStop("tenant-a", "owner-a", "d-2", T0)).toBe(true);
+				expect(await store.approveOwnerStop("tenant-a", "owner-a", "d-2", null, T0)).toBe(true);
 				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-2", dispatch("d-3", 3))).toBe(false);
 				expect(await store.getComputer("tenant-a")).toMatchObject({ dispatchId: "d-2", dispatchAttempt: 2, ownerStopApprovedAt: T0 });
+			});
+
+			const racingAfterFirstComputerRead = (store: MessagingStore, race: () => Promise<unknown>): MessagingStore => {
+				let raced = false;
+				return new Proxy(store, {
+					get(target, property) {
+						const value = Reflect.get(target, property) as unknown;
+						if (property === "getComputer") {
+							return async (tenantId: string) => {
+								const computer = await target.getComputer(tenantId);
+								if (!raced) {
+									raced = true;
+									await race();
+								}
+								return computer;
+							};
+						}
+						return typeof value === "function" ? value.bind(target) : value;
+					},
+				});
+			};
+
+			it("records a snapshot publish without reverting a field written between its read and its write", async () => {
+				const store = await makeStore();
+				await store.putComputer({ ...computerOnGeneration(1), snapshotUri: "s3://snapshots/tenant-a", snapshotChecksum: "checksum-1", snapshotGeneration: 1, diskDirty: true });
+				await store.putWorker({ workerId: "owner-a", tenantId: "tenant-a", costClass: "local", capabilities: ["cpu", "computer"], tokenHash: "hash", lastHeartbeatAt: T0, computerId: "c-1" });
+				await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				const racing = racingAfterFirstComputerRead(store, () => store.updateOwnerPresence("tenant-a", "owner-a", { idleSinceAt: T0 }));
+				const published = await recordHostSnapshotPublished("tenant-a", "owner-a", "checksum-2", null, { store: racing });
+				expect(published).toMatchObject({ snapshotChecksum: "checksum-2", snapshotGeneration: 2, diskDirty: false });
+				expect(await store.getComputer("tenant-a")).toMatchObject({ snapshotChecksum: "checksum-2", snapshotGeneration: 2, diskDirty: false, idleSinceAt: T0 });
+				expect((await store.getWorker("tenant-a", "owner-a"))?.hydratedSnapshotGeneration).toBe(2);
+			});
+
+			it("records a hydrate without reverting a field written between its read and its write", async () => {
+				const store = await makeStore();
+				await store.putComputer({ ...computerOnGeneration(1), snapshotUri: "s3://snapshots/tenant-a", snapshotGeneration: 3, hydrateRequired: true, diskDirty: true, intendedHostWorkerId: "owner-a" });
+				await store.putWorker({ workerId: "owner-a", tenantId: "tenant-a", costClass: "local", capabilities: ["cpu", "computer"], tokenHash: "hash", lastHeartbeatAt: T0, computerId: "c-1" });
+				await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				const racing = racingAfterFirstComputerRead(store, () => store.updateOwnerPresence("tenant-a", "owner-a", { idleSinceAt: T0 }));
+				await recordHostHydrated("tenant-a", "owner-a", { store: racing });
+				const after = await store.getComputer("tenant-a");
+				expect(after).toMatchObject({ hydrateRequired: false, diskDirty: false, idleSinceAt: T0 });
+				expect(after?.intendedHostWorkerId).toBeUndefined();
+				expect((await store.getWorker("tenant-a", "owner-a"))?.hydratedSnapshotGeneration).toBe(3);
 			});
 
 			it("records a poll only when its sequence is not older than the recorded one", async () => {
 				const store = await makeStore();
 				const worker: Worker = { workerId: "owner-a", tenantId: "tenant-a", costClass: "local", capabilities: ["computer", "cpu"], tokenHash: "hash", lastHeartbeatAt: T0 };
-				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 1, state: "idle", at: T0 })).toBe(false);
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 1, state: "idle", at: T0, paceMilliseconds: 1000 })).toBe(false);
 				await store.putWorker(worker);
 				const later = new Date(T0.getTime() + 5000);
-				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 4, state: "idle", at: later })).toBe(true);
-				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 4, state: "idle", at: later })).toBe(true);
-				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 3, state: "serving", at: later })).toBe(false);
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 4, state: "idle", at: later, paceMilliseconds: 1000 })).toBe(true);
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 4, state: "idle", at: later, paceMilliseconds: 1000 })).toBe(true);
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 3, state: "serving", at: later, paceMilliseconds: 5000 })).toBe(false);
 				expect(await store.getWorker("tenant-a", "owner-a")).toMatchObject({ pollSequence: 4, pollState: "idle", lastHeartbeatAt: later });
+			});
+		});
+
+		describe("file requests, the interactive window and the audit family", () => {
+			const at = (seconds: number): Date => new Date(T0.getTime() + seconds * 1000);
+			const liveComputer = async (store: MessagingStore): Promise<void> => {
+				await store.putComputer({
+					computerId: "c-1",
+					tenantId: "tenant-a",
+					policy: "prefer_local",
+					stopped: false,
+					modelReady: true,
+					workspaceReady: false,
+					browserReady: false,
+					hostStartGeneration: 1,
+					hostStartDispatchedGeneration: 1,
+					snapshotGeneration: 0,
+					diskDirty: false,
+					hydrateRequired: false,
+				});
+				await store.consumeOwnerBootstrap("tenant-a", { ownerId: "owner-a", generation: 1, protocolVersion: 2, startedAt: T0 });
+			};
+			const operation = (operationId: string, queuedSeconds = 0, overrides: Partial<LiveFileOperation> = {}): LiveFileOperation => ({
+				operationId,
+				tenantId: "tenant-a",
+				computerId: "c-1",
+				userId: "mia",
+				ownerId: "owner-a",
+				generation: 1,
+				kind: "read",
+				status: "pending",
+				request: JSON.stringify({ kind: "read", path: "/workspace/a", offset: 0, length: 10, mask: true }),
+				queuedAt: at(queuedSeconds),
+				expiresAt: at(queuedSeconds + 120),
+				...overrides,
+			});
+			const delivery = (sequence: number, seconds = 1) => ({ ownerId: "owner-a", generation: 1, sequence, at: at(seconds) });
+
+			it("queues a request with the computer record in one step, only for the live owner with no approved stop", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				expect(await store.queueLiveFileOperation({ ...operation("op-wrong-owner"), ownerId: "owner-b" }, at(45))).toBe(false);
+				expect(await store.queueLiveFileOperation({ ...operation("op-wrong-generation"), generation: 2 }, at(45))).toBe(false);
+				expect(await store.queueLiveFileOperation(operation("op-1"), at(45))).toBe(true);
+				expect(await store.queueLiveFileOperation(operation("op-1"), at(46))).toBe(false);
+				expect(await store.getComputer("tenant-a")).toMatchObject({ fileOperationId: "op-1", interactiveUntilAt: at(45) });
+				expect((await store.listLiveFileOperations("tenant-a", at(1))).map((entry) => entry.operationId)).toEqual(["op-1"]);
+				await store.approveOwnerStop("tenant-a", "owner-a", null, "op-1", at(2));
+				expect(await store.queueLiveFileOperation(operation("op-2"), at(45))).toBe(false);
+				expect(await store.getLiveFileOperation("tenant-a", "op-2", at(3))).toBeNull();
+			});
+
+			it("approves a stop only over the file operation id it was judged against", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				await store.queueLiveFileOperation(operation("op-1"), at(45));
+				expect(await store.approveOwnerStop("tenant-a", "owner-a", null, null, at(2))).toBe(false);
+				expect(await store.approveOwnerStop("tenant-a", "owner-a", null, "op-ghost", at(2))).toBe(false);
+				expect(await store.approveOwnerStop("tenant-a", "owner-a", null, "op-1", at(2))).toBe(true);
+			});
+
+			it("delivers a pending request once, to the owner it names, and not after it expired", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				await store.queueLiveFileOperation(operation("op-1"), at(45));
+				expect(await store.deliverLiveFileOperation("tenant-a", "op-1", { ...delivery(3), ownerId: "owner-b" })).toBe(false);
+				expect(await store.deliverLiveFileOperation("tenant-a", "op-1", delivery(3))).toBe(true);
+				expect(await store.deliverLiveFileOperation("tenant-a", "op-1", delivery(4))).toBe(false);
+				expect(await store.getLiveFileOperation("tenant-a", "op-1", at(2))).toMatchObject({ status: "delivered", deliveredSequence: 3, deliveredAt: at(1) });
+				await store.queueLiveFileOperation(operation("op-late", 0), at(45));
+				expect(await store.deliverLiveFileOperation("tenant-a", "op-late", delivery(5, 121))).toBe(false);
+			});
+
+			it("abandons only a pending request and removes its payload", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				await store.queueLiveFileOperation(operation("op-1"), at(45));
+				await store.queueLiveFileOperation(operation("op-2"), at(45));
+				expect(await store.abandonLiveFileOperation("tenant-a", "op-1", at(9))).toBe("abandoned");
+				expect((await store.getLiveFileOperation("tenant-a", "op-1", at(9)))?.request).toBeUndefined();
+				expect(await store.deliverLiveFileOperation("tenant-a", "op-1", delivery(3))).toBe(false);
+				await store.deliverLiveFileOperation("tenant-a", "op-2", delivery(3));
+				expect(await store.abandonLiveFileOperation("tenant-a", "op-2", at(9))).toBe("delivered");
+				expect(await store.abandonLiveFileOperation("tenant-a", "op-none", at(9))).toBe("absent");
+			});
+
+			it("completes only a delivered request, once, and marks a waiter that gave up", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				await store.queueLiveFileOperation(operation("op-1"), at(45));
+				expect(await store.completeLiveFileOperation("tenant-a", "op-1", "{}", at(2))).toBeNull();
+				expect(await store.markLiveFileOperationWaiterGone("tenant-a", "op-1")).toBe(false);
+				await store.deliverLiveFileOperation("tenant-a", "op-1", delivery(3));
+				expect(await store.markLiveFileOperationWaiterGone("tenant-a", "op-1")).toBe(true);
+				const done = await store.completeLiveFileOperation("tenant-a", "op-1", '{"status":"ok"}', at(2));
+				expect(done).toMatchObject({ status: "done", outcome: '{"status":"ok"}', waiterGone: true });
+				expect(await store.completeLiveFileOperation("tenant-a", "op-1", "{}", at(3))).toBeNull();
+				await store.deleteLiveFileOperation("tenant-a", "op-1");
+				await store.deleteLiveFileOperation("tenant-a", "op-1");
+				expect(await store.getLiveFileOperation("tenant-a", "op-1", at(3))).toBeNull();
+			});
+
+			it("treats an item past its expiry as absent to every reader and counts only open requests", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				await store.queueLiveFileOperation(operation("op-old", 0), at(45));
+				await store.queueLiveFileOperation(operation("op-new", 100), at(145));
+				await store.queueLiveFileOperation(operation("op-done", 100), at(145));
+				await store.deliverLiveFileOperation("tenant-a", "op-done", { ...delivery(1, 101) });
+				await store.completeLiveFileOperation("tenant-a", "op-done", "{}", at(102));
+				expect(await store.countOpenLiveFileOperations("tenant-a", at(110))).toBe(2);
+				expect(await store.countOpenLiveFileOperations("tenant-a", at(121))).toBe(1);
+				expect(await store.getLiveFileOperation("tenant-a", "op-old", at(121))).toBeNull();
+				expect((await store.listLiveFileOperations("tenant-a", at(121))).map((entry) => entry.operationId)).toEqual(["op-done", "op-new"]);
+				expect(await store.deliverLiveFileOperation("tenant-a", "op-old", delivery(9, 121))).toBe(false);
+				expect(await store.completeLiveFileOperation("tenant-a", "op-old", "{}", at(121))).toBeNull();
+				expect(await store.abandonLiveFileOperation("tenant-a", "op-old", at(121))).not.toBe("pending");
+			});
+
+			it("moves the interactive window of the live owner only, and not after a stop was approved", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				expect(await store.touchInteractiveWindow("tenant-a", "owner-b", 1, at(45))).toBe(false);
+				expect(await store.touchInteractiveWindow("tenant-a", "owner-a", 2, at(45))).toBe(false);
+				expect(await store.touchInteractiveWindow("tenant-a", "owner-a", 1, at(45))).toBe(true);
+				expect((await store.getComputer("tenant-a"))?.interactiveUntilAt).toEqual(at(45));
+				await store.approveOwnerStop("tenant-a", "owner-a", null, null, at(1));
+				expect(await store.touchInteractiveWindow("tenant-a", "owner-a", 1, at(90))).toBe(false);
+			});
+
+			it("clears the interactive window and the file operation id with the other owner fields", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				await store.queueLiveFileOperation(operation("op-1"), at(45));
+				const claimed = await store.claimHostStartGeneration("tenant-a", 1, at(60));
+				expect(claimed?.interactiveUntilAt).toBeUndefined();
+				expect(claimed?.fileOperationId).toBeUndefined();
+			});
+
+			it("writes an audit record once, finishes it, and hides it after its expiry", async () => {
+				const store = await makeStore();
+				const record: FileAuditRecord = {
+					tenantId: "tenant-a",
+					computerId: "c-1",
+					userId: "mia",
+					operationId: "op-1",
+					operation: "write",
+					path: "/workspace/a",
+					source: "live",
+					outcome: "pending",
+					at: at(5),
+					expiresAt: at(5 + 90 * 24 * 3600),
+					sha256After: "a".repeat(64),
+					secretName: false,
+				};
+				await store.putFileAudit(record);
+				await expect(store.putFileAudit(record)).rejects.toBeDefined();
+				expect(await store.finalizeFileAudit("tenant-a", at(99).getTime(), "op-1", { outcome: "ok", finishedAt: at(6) })).toBe(false);
+				const finish = { outcome: "conflict" as const, finishedAt: at(6), errorCode: "precondition_failed", resolvedPath: "/workspace/a", flags: ["integrity_mismatch"] };
+				expect(await store.finalizeFileAudit("tenant-a", at(5).getTime(), "op-1", finish)).toBe(true);
+				expect(await store.finalizeFileAudit("tenant-a", at(5).getTime(), "op-1", finish)).toBe(true);
+				expect(await store.getFileAudit("tenant-a", at(5).getTime(), "op-1", at(7))).toMatchObject({
+					outcome: "conflict",
+					errorCode: "precondition_failed",
+					resolvedPath: "/workspace/a",
+					flags: ["integrity_mismatch"],
+					sha256After: "a".repeat(64),
+					finishedAt: at(6),
+				});
+				expect((await store.listFileAuditRecords("tenant-a", at(7))).map((entry) => entry.operationId)).toEqual(["op-1"]);
+				expect(await store.listFileAuditRecords("tenant-a", at(5 + 91 * 24 * 3600))).toEqual([]);
+				expect(await store.getFileAudit("tenant-a", at(5).getTime(), "op-1", at(5 + 91 * 24 * 3600))).toBeNull();
+			});
+
+			it("counts rate classes of one user separately within a window", async () => {
+				const store = await makeStore();
+				expect(await store.incrementRateCounter("user-1", "file_rate#read", T0, 60)).toBe(1);
+				expect(await store.incrementRateCounter("user-1", "file_rate#read", at(30), 60)).toBe(2);
+				expect(await store.incrementRateCounter("user-1", "file_rate#write", at(30), 60)).toBe(1);
+				expect(await store.incrementRateCounter("user-2", "file_rate#read", at(30), 60)).toBe(1);
+				expect(await store.incrementRateCounter("user-1", "file_rate#read", at(60), 60)).toBe(1);
 			});
 		});
 

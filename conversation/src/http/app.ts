@@ -71,6 +71,7 @@ import type { OwnerCredentialBrokerPort } from "../computer/owner-credential-bro
 import {
 	ownerBootstrapHandler,
 	ownerErrorResponse,
+	ownerFileResultHandler,
 	ownerOverlayAppliedHandler,
 	ownerOverlaySealHandler,
 	ownerPollHandler,
@@ -456,6 +457,9 @@ export function createApp(deps: AppDeps): Hono {
 		);
 		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/stop-request", audience: "computer-owner" }, (c) =>
 			ownerStopRequestHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/file-results", audience: "computer-owner" }, (c) =>
+			ownerFileResultHandler(c, ownerRoutes),
 		);
 		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/overlay-seal", audience: "computer-owner" }, (c) =>
 			ownerOverlaySealHandler(c, overlayDependencies),

@@ -3,6 +3,10 @@
 # requirement to a scenario name below. Whoever builds a part writes the steps for the tag they own
 # (@server, @supervisor, @web, @end-to-end) and adds this file to the list together with those steps.
 # Scenario names are the contract: do not rename one without changing the table.
+# Moved to computer_file_live_owner.feature (run, with steps): the poll delivery, result route, fast poll, idle stop veto and
+# role policy scenarios of LF-15, LF-21, LF-28 to LF-31. The four scenarios that need the member routes (the stop race as a
+# member response, a result for an abandoned read, a result recorded once for a member read, and the hash disagreement as a
+# member write) stay here for part A2; their owner side is covered there under the names in that file.
 # The scenarios of LF-53 to LF-56 and the store-level halves of LF-57 (discard, seal, stale seal, clear, derived
 # conflicts) moved to features/computer_file_overlay.feature, which is registered and runs.
 
@@ -302,13 +306,6 @@ Feature: Members view and edit the files on the running computer
     And the file response error is "computer_stopping"
     And the file response says "retry_after_ms" is "5000"
     And the audit log has no records
-
-  @server
-  Scenario: An idle stop is vetoed while a file operation is pending
-    Given a live owner is polling for the household computer
-    And member "mia" has a file request pending that the owner has not taken
-    When the owner asks to stop because it has been idle
-    Then the stop is vetoed with reason "file_operation_pending"
 
   @server
   Scenario: A stop and a file operation cannot both win
@@ -840,17 +837,6 @@ Feature: Members view and edit the files on the running computer
     And no file request was left for the owner
 
   @server
-  Scenario: The owner cannot read the audit log
-    Then the per-turn role policy denies every DynamoDB action on the key family "anthus#computer#audit"
-    And the supervisor role policy denies every DynamoDB action
-    And no owner route returns an audit record
-
-  @server
-  Scenario: The owner cannot read or write the file operation records directly
-    Then the per-turn role policy denies every DynamoDB action on the key family "anthus#computer#fileops"
-    And the supervisor role policy denies every DynamoDB action
-
-  @server
   Scenario: An owner whose hashes disagree with what was sent is flagged in the audit record
     Given a live owner is polling for the household computer
     And the live disk of the owner holds workspace file "notes.md" containing "first draft"
@@ -1011,24 +997,6 @@ Feature: Members view and edit the files on the running computer
   # ---------------------------------------------------------------- the owner side of the protocol
 
   @server
-  Scenario: The poll delivers a file request once and again only when the poll is repeated
-    Given a live owner is polling for the household computer
-    And member "mia" has a file request pending that the owner has not taken
-    When the owner polls
-    Then the poll response carries one file request
-    When the owner polls with the next sequence number
-    Then the poll response carries no file request
-    When the owner repeats the poll it did not hear back
-    Then the poll response carries the same file request
-
-  @server
-  Scenario: A result from an owner that was not given the operation is refused
-    Given a live owner is polling for the household computer
-    And member "mia" has a file request pending that the owner has not taken
-    When another owner of the same organization posts a result for that operation
-    Then the result is refused with code "operation_closed"
-
-  @server
   Scenario: A result for an abandoned operation is refused
     Given a live owner is polling for the household computer
     When a member reads the computer file "/workspace/notes.md" and the owner does not answer for 8 seconds
@@ -1043,64 +1011,7 @@ Feature: Members view and edit the files on the running computer
     And the owner posts the same result again
     Then the result is acknowledged and nothing changes
 
-  @server
-  Scenario: A request is not handed to an owner that is stopping
-    Given a live owner is polling for the household computer
-    And member "mia" has a file request pending that the owner has not taken
-    When the owner polls in state "stopping"
-    Then the poll response carries no file request
-
-  @server
-  Scenario: A result that does not parse is refused
-    Given a live owner is polling for the household computer
-    And member "mia" has a file request pending that the owner has not taken
-    When the owner polls
-    And the owner posts a result that claims a read answered a write
-    Then the result is refused with code "invalid_request"
-
   # ---------------------------------------------------------------- fast poll
-
-  @server
-  Scenario: An open panel makes the owner poll every second
-    Given a live owner that has been idle for 10 minutes and polls every 10 seconds
-    When a member's Files panel tells the computer it is open
-    Then the response says the computer is live
-    And the next poll of the owner is answered with a pace of 1 second
-
-  @server
-  Scenario: The owner returns to its normal pace after the panel closes
-    Given a live owner that has been idle for 10 minutes and polls every 10 seconds
-    And a member's Files panel told the computer it is open
-    When 46 seconds go by without another message from the panel
-    Then the next poll of the owner is answered with a pace of 10 seconds
-
-  @server
-  Scenario: A panel that says it is closed ends the fast pace at once
-    Given a live owner that has been idle for 10 minutes and polls every 10 seconds
-    And a member's Files panel told the computer it is open
-    When the panel tells the computer it is closed
-    Then the next poll of the owner is answered with a pace of 10 seconds
-
-  @server
-  Scenario: A busy owner polls every second while a panel is open
-    Given a live owner that is serving a turn and polls every 5 seconds
-    When a member's Files panel tells the computer it is open
-    Then the next poll of the owner is answered with a pace of 1 second
-
-  @server
-  Scenario: A panel that is open does not keep the computer awake
-    Given a live owner that has been idle for 14 minutes
-    And a member's Files panel told the computer it is open 30 seconds ago
-    When the owner asks to stop because it has been idle
-    Then the stop is approved
-
-  @server
-  Scenario: A panel that is open when the computer is off learns it and starts nothing
-    Given no owner is running
-    When a member's Files panel tells the computer it is open
-    Then the response says the computer is off
-    And no file request was left for the owner
-    And no computer start job is queued
 
   # ---------------------------------------------------------------- the container
 
