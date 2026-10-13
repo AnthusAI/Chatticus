@@ -66,7 +66,8 @@ const WRITE_BODY_MAX_BYTES = LIVE_FILE_CONTENT_MAX_BYTES * 6 + 4096;
 
 const sha256Of = (bytes: Uint8Array | string): string => createHash("sha256").update(bytes).digest("hex");
 
-function memberFileDependencies(deps: ComputerFileRouteDependencies): MemberFileDependencies {
+/** The dependencies of the member file domain functions, taken from the route dependencies. */
+export function memberFileDependencies(deps: ComputerFileRouteDependencies): MemberFileDependencies {
 	return {
 		store: deps.store,
 		clock: deps.clock,
@@ -84,7 +85,8 @@ function liveFileDependencies(deps: ComputerFileRouteDependencies): LiveFileDepe
 
 type ErrorBody = { error: string; message: string; current_sha256?: string | null; retry_after_ms?: number; kept_as?: string };
 
-function respondWithError(c: Context, error: unknown): Response {
+/** Answer a refusal of the file domain with its code, status and details; any other error is the caller's to throw. */
+export function respondWithError(c: Context, error: unknown): Response {
 	c.header("X-Content-Type-Options", "nosniff");
 	c.header("Cache-Control", "private, no-store");
 	if (error instanceof SnapshotFileError) return c.json({ error: error.code, message: error.message }, error.status as 400);
@@ -114,18 +116,19 @@ function integerQuery(c: Context, name: string, fallback: number): number {
 }
 
 /** The path of a request, normalised; a path that is not under /workspace is `invalid_path` before anything else happens. */
-function requestedPathOf(raw: string | undefined): string {
+export function requestedPathOf(raw: string | undefined): string {
 	return `/${indexPathOf(raw)}`;
 }
 
-type Caller = { readonly principal: Principal; readonly member: FileMember };
+/** The authenticated caller of a file route and the member the domain functions act for. */
+export type Caller ={ readonly principal: Principal; readonly member: FileMember };
 
 function memberOf(principal: Principal): FileMember {
 	return { tenantId: principal.tenantId, userId: principal.userId ?? principal.workerId ?? "caller", role: principal.role };
 }
 
 /** Resolve the caller, answering the principal's own refusal as it is. A change needs a member with a user id (L24). */
-async function resolveCaller(c: Context, deps: ComputerFileRouteDependencies, options: { requireUser: boolean }): Promise<Caller | Response> {
+export async function resolveCaller(c: Context, deps: ComputerFileRouteDependencies, options: { requireUser: boolean }): Promise<Caller | Response> {
 	const principal = await resolveUserPrincipal(c, deps);
 	if (isRefusal(principal)) {
 		principal.headers.set("X-Content-Type-Options", "nosniff");
@@ -139,7 +142,7 @@ async function resolveCaller(c: Context, deps: ComputerFileRouteDependencies, op
 }
 
 /** The key a caller's requests are counted under: the member, or the organization for a caller that is not a user. */
-const rateKeyOf = (caller: Caller): string => caller.principal.userId ?? `tenant:${caller.principal.tenantId}`;
+export const rateKeyOf = (caller: Caller): string => caller.principal.userId ?? `tenant:${caller.principal.tenantId}`;
 
 async function overlayReadViewOf(deps: ComputerFileRouteDependencies, ctx: FileRoutingContext): Promise<OverlayReadView | null> {
 	const overlay = deps.overlay;
@@ -194,7 +197,8 @@ function snapshotComputerOf(ctx: FileRoutingContext) {
 	return ctx.computer;
 }
 
-const nowIso = (deps: ComputerFileRouteDependencies): string => deps.clock.now().toISOString();
+/** The clock's time as an ISO string, for the `as_of` of a response. */
+export const nowIso =(deps: ComputerFileRouteDependencies): string => deps.clock.now().toISOString();
 
 /** GET /orgs/{tenant_id}/computer/files?path=: list one directory, live when the owner can answer and from the saved copy otherwise. */
 export async function listComputerFilesHandler(c: Context, deps: ComputerFileRouteDependencies): Promise<Response> {
@@ -226,12 +230,25 @@ export async function listComputerFilesHandler(c: Context, deps: ComputerFileRou
 	});
 }
 
-/** GET /orgs/{tenant_id}/computer/files/stat?path=: one entry, as it is, without following a link. */
+/** The hash a delete or a rename must send back for an entry: a folder's tree hash, a link's or a file's own hash; null when the answer carries none. */
+function effectiveHashOfEntry(entry: { kind: string; sha256: string | null; tree_sha256: string | null }): string | null {
+	return entry.kind === "directory" ? entry.tree_sha256 : entry.sha256;
+}
+
+function etagHeadersOf(hash: string | null): Record<string, string> {
+	return hash === null ? { Vary: "Authorization" } : { ETag: `"${hash}"`, Vary: "Authorization" };
+}
+
+/**
+ * GET /orgs/{tenant_id}/computer/files/stat?path=: one entry, as it is, without following a link. The `ETag` is the hash a
+ * delete or a rename of the entry must give back: the tree hash of a folder, the link hash of a link, the content hash of a
+ * file (a running computer does not hash a file for a stat, so a live file has none; its content response carries it).
+ */
 export async function statComputerFileHandler(c: Context, deps: ComputerFileRouteDependencies): Promise<Response> {
 	return serveRead(c, deps, async (caller, ctx, path) => {
 		let fallback: { reason: LiveFileFallbackReason; retryAfterMs?: number } | null = null;
 		if (ctx.source.source === "live") {
-			const read = await readThroughOwner(memberFileDependencies(deps), ctx, caller.member, { kind: "stat", path, tree: false });
+			const read = await readThroughOwner(memberFileDependencies(deps), ctx, caller.member, { kind: "stat", path, tree: true });
 			if (read.kind === "answered") {
 				if (read.outcome.status === "error") throw refusalOfOwnerError(read.outcome);
 				const result = read.outcome.result;
@@ -244,13 +261,14 @@ export async function statComputerFileHandler(c: Context, deps: ComputerFileRout
 						fallback_reason: null,
 						entry: { ...result.entry, overlay: "none" },
 					}),
+					headers: etagHeadersOf(effectiveHashOfEntry(result.entry)),
 				};
 			}
 			fallback = { reason: read.reason, ...(read.retryAfterMs === undefined ? {} : { retryAfterMs: read.retryAfterMs }) };
 		}
 		const computer = snapshotComputerOf(ctx);
 		const stat = await deps.files!.stat(computer.tenantId, computer.computerId, path, await overlayReadViewOf(deps, ctx));
-		return { body: liveFileStatResponseSchema.parse({ ...stat, ...provenanceOf(ctx, fallback) }) };
+		return { body: liveFileStatResponseSchema.parse({ ...stat, ...provenanceOf(ctx, fallback) }), headers: etagHeadersOf(effectiveHashOfEntry(stat.entry)) };
 	});
 }
 
@@ -326,7 +344,8 @@ export async function readComputerFileContentHandler(c: Context, deps: ComputerF
 	});
 }
 
-async function readJsonBody(c: Context, maximumBytes: number): Promise<unknown> {
+/** Read a JSON body of at most `maximumBytes` (by `Content-Length`); anything else is `invalid_body` or `content_too_large`. */
+export async function readJsonBody(c: Context, maximumBytes: number): Promise<unknown> {
 	const declared = Number(c.req.header("content-length") ?? "0");
 	if (Number.isFinite(declared) && declared > maximumBytes) {
 		throw new MemberFileRefusal("content_too_large", `A save carries at most ${LIVE_FILE_CONTENT_MAX_BYTES} bytes of text.`);

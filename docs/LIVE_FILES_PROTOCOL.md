@@ -2106,6 +2106,14 @@ Revision 2 adds the overlay integration: `http/routes/computer-files.ts` routes 
 * The production composition now passes `editOverlay` (the S3 overlay store, the S3 snapshot store, `StoreOverlayAuditSink` over the messaging store); before it the overlay owner routes answered 503.
 * The `ETag` of `variant=mine` is the hash of the person's text.
 
+**A4 as built** (`features/computer_file_live_operations.feature`, steps in `features-support/steps/computer-file-operations.steps.ts`; `FakeLiveDisk` learned stat with a tree hash, delete, move and mkdir with the helper's precondition rules). Where the code differs from the text above:
+
+* The routes are `http/routes/computer-file-operations.ts` (`DELETE /files`, `POST /files/move`, `POST /files/directories`); `GET /files/overlay` stays with part A3. Each builds a `MemberFileChange` and calls `performMemberChange`.
+* The `ETag` of `stat` is the effective hash: the tree hash of a folder (also in `entry.tree_sha256`), the link hash of a link (also in `entry.sha256`), the content hash of a file. A live `stat` asks the owner with `tree: true`; a running computer does not hash a file for a stat, so a live file has no `ETag` on `stat` (its `content` response has one). A folder over 5000 descendants answers 413 `too_many_entries` on `stat`.
+* A person's `If-Match` does not say whether it is a content hash or a tree hash, and the owner's helper checks them differently, so on the live path a delete without `recursive` and a rename first ask the owner for a `stat` of the path (not audited, nothing changed) and send `if_match_tree` for a folder and `if_match` otherwise. A recursive delete is always a folder and skips that question. A path that is not there is 404 `not_found` from that question.
+* `recursive=true` needs the organization owner role whether or not the folder has children: one rule on both paths, checked before anything is queued or written. The refusal is audited as `refused` (7.8.8), not merely logged (7.8.1).
+* On the live path the Front Door cannot know that a `mkdir` finds the folder already there, so that idempotent call is audited (the overlay path does not audit it).
+
 ### C. Container: helper and the supervisor's file runner (needs F0)
 
 (Revision 3 adds to this part: the helper operations of 8.1 (`mkdir`, `unlink`, `rmtree`, `rename`, `stat` with `tree`), the runner's mapping of request kinds `delete`, `move`, `mkdir`, and the tree hash and symlink hash in `host-protocol/src/live-file-rules.ts` shared with the Front Door. Scenarios: LF-74.)

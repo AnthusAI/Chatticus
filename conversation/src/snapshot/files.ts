@@ -7,7 +7,7 @@ import zlib from "node:zlib";
 import { WORKSPACE_DIRNAME } from "../browser-profiles.ts";
 import { formatLogLine } from "../observability/log-line.ts";
 import { indexChecksumOf, parseIndex, type SnapshotIndexEntry } from "./index-format.ts";
-import { createEffectiveView, snapshotViewOfIndex, type EffectiveNode, type EffectiveView } from "./overlay-merge.ts";
+import { OverlayTreeTooLargeError, createEffectiveView, snapshotViewOfIndex, type EffectiveNode, type EffectiveView } from "./overlay-merge.ts";
 import { SnapshotObjectMissingError } from "./pack.ts";
 import type { SnapshotManifest, SnapshotReadStore } from "./store.ts";
 import { snapshotUri } from "./uri.ts";
@@ -44,6 +44,7 @@ export type SnapshotFileErrorCode =
 	| "range_too_large"
 	| "not_a_file"
 	| "not_a_directory"
+	| "too_many_entries"
 	| "too_many_symlinks"
 	| "corrupt_snapshot";
 
@@ -253,13 +254,27 @@ export class SnapshotFileService {
 		};
 	}
 
-	/** One entry, as it is, without following a symbolic link. */
+	/**
+	 * One entry, as it is, without following a symbolic link. A directory carries its tree hash and a symbolic link its link
+	 * hash (section 7.8.2), which are the hashes a delete or a rename must be given back.
+	 *
+	 * @throws SnapshotFileError `too_many_entries` for a directory with more than 5000 descendants.
+	 */
 	async stat(tenantId: string, computerId: string, rawPath: string | undefined, overlay?: OverlayReadView | null): Promise<FileStat> {
 		const path = `/${indexPathOf(rawPath)}`;
 		const snapshot = await this.open(tenantId, computerId, overlay);
-		const node = viewOf(snapshot, overlay).lookup(path);
+		const view = viewOf(snapshot, overlay);
+		const node = view.lookup(path);
 		if (node === undefined) throw new SnapshotFileError("not_found", "No such path in the snapshot.");
-		return { source: "snapshot", as_of: snapshot.manifest?.published_at ?? null, entry: payloadOf(node) };
+		const entry = payloadOf(node);
+		try {
+			if (node.kind === "directory") entry.tree_sha256 = view.hashOf(path);
+			else if (node.kind === "symlink") entry.sha256 = view.hashOf(path);
+		} catch (error) {
+			if (error instanceof OverlayTreeTooLargeError) throw new SnapshotFileError("too_many_entries", error.message);
+			throw error;
+		}
+		return { source: "snapshot", as_of: snapshot.manifest?.published_at ?? null, entry };
 	}
 
 	/**
