@@ -12,16 +12,29 @@
     "cost-accounting"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "640f30d5-0b20-4a52-ad12-897965a09300",
+      "author": "home",
+      "text": "Double count CONFIRMED and fixed in PR https://github.com/AnthusAI/Chatticus/pull/535. Scenario features/cost_call_records.feature failed before the fix (ledger input 2000 vs 1000 for one gateway call) and passes after. Decision: finalize (session-derived) is the only ledger writer; gateway only logs usage_observed. Container owner now uses defaultVendorPriceBook. Mutation check (second writer re-added) fails both scenarios. Interrupted-call estimates are no longer in the ledger (T4/T5).",
+      "created_at": "2026-10-13T11:52:30.138243Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t1"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:31:17.382155Z",
-  "updated_at": "2026-10-13T11:31:17.382190Z",
+  "updated_at": "2026-10-13T11:52:30.138878Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "A new test exposes that one owner turn is counted twice on the vendor ledger.",
-  "right_now_updated_at": "2026-10-13T11:31:19.046108Z",
+  "right_now_summary": "The double-counting bug is fixed, and tests now confirm the ledger records each turn once.",
+  "right_now_updated_at": "2026-10-13T11:52:34.108982Z",
   "custom": {}
 }
