@@ -249,7 +249,7 @@ no AWS resource.
    if "prevent self-review" is on, so leave it off for a one-person team. This also
    makes AGENTS.md true.
 2. **Neutralize push-to-main deploys in a PR into `develop`** (product PR with
-   sub-agent review, then merge): change the six production and six staging deploy
+   sub-agent review, then merge): change the staging and production deploy
    workflows (`deploy-web-*`, `deploy-thinturn-*`, `deploy-controlplane-*`) from
    `on: push: branches: [main]` to `workflow_dispatch` only, and make
    `deploy-auth-*` dispatch-only too. Also reconcile the account model: web, auth and
