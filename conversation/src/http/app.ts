@@ -68,7 +68,7 @@ import {
 	rememberOwnerHostPrincipal,
 } from "./owner-host-auth.ts";
 import type { OwnerCredentialBrokerPort } from "../computer/owner-credential-broker.ts";
-import { ownerBootstrapHandler, ownerErrorResponse, ownerPollHandler, ownerStopRequestHandler } from "./owner-supervisor.ts";
+import { ownerBootstrapHandler, ownerErrorResponse, ownerFileResultHandler, ownerPollHandler, ownerStopRequestHandler } from "./owner-supervisor.ts";
 import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
 
 export interface Clock {
@@ -432,6 +432,9 @@ export function createApp(deps: AppDeps): Hono {
 		);
 		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/stop-request", audience: "computer-owner" }, (c) =>
 			ownerStopRequestHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/file-results", audience: "computer-owner" }, (c) =>
+			ownerFileResultHandler(c, ownerRoutes),
 		);
 	}
 

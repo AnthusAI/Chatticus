@@ -48,6 +48,10 @@ export interface Computer {
 	dispatchActionId?: string;
 	dispatchAttempt?: number;
 	dispatchLeaseExpiresAt?: Date;
+	/** Until when the owner polls at the interactive pace: set by a Files panel ping or a queued file request. Removed with the owner fields. */
+	interactiveUntilAt?: Date;
+	/** The id of the last queued file request; an idle stop approval is conditional on it being unchanged. Removed with the owner fields. */
+	fileOperationId?: string;
 }
 
 /** The attribute names of the owner fields, removed together when an owner ends. `owner_generation` is not among them. */
@@ -62,6 +66,8 @@ export const OWNER_ATTRIBUTE_NAMES = [
 	"dispatch_action_id",
 	"dispatch_attempt",
 	"dispatch_lease_expires_at",
+	"interactive_until_at",
+	"file_operation_id",
 ] as const;
 
 /**
@@ -82,6 +88,8 @@ export function withoutOwner(computer: Computer): Computer {
 		dispatchActionId: _dispatchActionId,
 		dispatchAttempt: _dispatchAttempt,
 		dispatchLeaseExpiresAt: _dispatchLease,
+		interactiveUntilAt: _interactiveUntil,
+		fileOperationId: _fileOperationId,
 		...kept
 	} = computer;
 	return kept;
@@ -154,6 +162,8 @@ export function encode(value: Computer): Item {
 	if (value.dispatchActionId !== undefined) item.dispatch_action_id = { S: value.dispatchActionId };
 	if (value.dispatchAttempt !== undefined) item.dispatch_attempt = { N: String(value.dispatchAttempt) };
 	if (value.dispatchLeaseExpiresAt !== undefined) item.dispatch_lease_expires_at = epochSeconds(value.dispatchLeaseExpiresAt);
+	if (value.interactiveUntilAt !== undefined) item.interactive_until_at = epochSeconds(value.interactiveUntilAt);
+	if (value.fileOperationId !== undefined) item.file_operation_id = { S: value.fileOperationId };
 
 	return item;
 }
@@ -235,5 +245,7 @@ export function decode(item: Item): Computer {
 		...(item.dispatch_action_id?.S === undefined ? {} : { dispatchActionId: item.dispatch_action_id.S }),
 		...(item.dispatch_attempt?.N === undefined ? {} : { dispatchAttempt: Number(item.dispatch_attempt.N) }),
 		...optionalDate("dispatchLeaseExpiresAt", dateFromSeconds(item.dispatch_lease_expires_at)),
+		...optionalDate("interactiveUntilAt", dateFromSeconds(item.interactive_until_at)),
+		...(item.file_operation_id?.S === undefined ? {} : { fileOperationId: item.file_operation_id.S }),
 	};
 }

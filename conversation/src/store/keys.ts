@@ -241,3 +241,43 @@ export function turnActionIndexKey(tenantId: string, turnId: string, callId: str
 		sk: `act#${callId}`,
 	};
 }
+
+/**
+ * Partition of the file request items of one organization's computer. It is outside both owner role policies: only the
+ * Front Door reads and writes it.
+ * @param tenantId Organization tenant ID.
+ * @returns The partition key.
+ */
+export function liveFileOperationPartition(tenantId: string): string {
+	return `${tenantId}#computer#fileops`;
+}
+
+/**
+ * Build partition and sort keys for one file request item.
+ * @param tenantId Organization tenant ID.
+ * @param operationId Operation ID.
+ * @returns Partition and sort keys.
+ */
+export function liveFileOperationKey(tenantId: string, operationId: string): { pk: string; sk: string } {
+	return { pk: liveFileOperationPartition(tenantId), sk: `op#${operationId}` };
+}
+
+/**
+ * Partition of the file audit records of one organization's computer. It is outside both owner role policies.
+ * @param tenantId Organization tenant ID.
+ * @returns The partition key.
+ */
+export function fileAuditPartition(tenantId: string): string {
+	return `${tenantId}#computer#audit`;
+}
+
+/**
+ * Build partition and sort keys for one file audit record. The sort key orders records by time and ends in the operation id.
+ * @param tenantId Organization tenant ID.
+ * @param atMilliseconds The epoch milliseconds the record was written.
+ * @param operationId Operation ID.
+ * @returns Partition and sort keys.
+ */
+export function fileAuditKey(tenantId: string, atMilliseconds: number, operationId: string): { pk: string; sk: string } {
+	return { pk: fileAuditPartition(tenantId), sk: `at#${String(atMilliseconds).padStart(13, "0")}#${operationId}` };
+}

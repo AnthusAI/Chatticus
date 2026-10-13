@@ -19,6 +19,8 @@ export interface Worker {
 	pollSequence?: number;
 	/** The state the owner reported in its last accepted poll. */
 	pollState?: string;
+	/** The milliseconds the control plane told the owner to wait after its last accepted poll. */
+	pollPaceMilliseconds?: number;
 }
 
 export type Item = Record<string, AttributeValue>;
@@ -48,6 +50,9 @@ export function encode(value: Worker): Item {
 	}
 	if (value.pollState !== undefined) {
 		item.poll_state = { S: value.pollState };
+	}
+	if (value.pollPaceMilliseconds !== undefined) {
+		item.poll_pace_ms = { N: String(value.pollPaceMilliseconds) };
 	}
 	if (value.hydratedSnapshotGeneration !== undefined) {
 		item.hydrated_snapshot_generation = { N: String(value.hydratedSnapshotGeneration) };
@@ -112,5 +117,6 @@ export function decode(item: Item): Worker {
 		hydratedSnapshotGeneration: hydratedStr ? Number(hydratedStr) : undefined,
 		...(item.poll_sequence?.N === undefined ? {} : { pollSequence: Number(item.poll_sequence.N) }),
 		...(item.poll_state?.S === undefined ? {} : { pollState: item.poll_state.S }),
+		...(item.poll_pace_ms?.N === undefined ? {} : { pollPaceMilliseconds: Number(item.poll_pace_ms.N) }),
 	};
 }

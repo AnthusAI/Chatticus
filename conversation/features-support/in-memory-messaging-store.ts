@@ -4,8 +4,10 @@ import type { Bot } from "../src/store/codecs/bot.ts";
 import type { Task } from "../src/store/codecs/task.ts";
 import type { Worker } from "../src/store/codecs/worker.ts";
 import { withoutOwner, type Computer } from "../src/store/codecs/computer.ts";
+import type { FileAuditRecord } from "../src/store/codecs/file-audit.ts";
+import { isExpired, type LiveFileOperation, type LiveFileOperationStatus } from "../src/store/codecs/live-file-operation.ts";
 import { DuplicateBotNameError } from "../src/http/errors.ts";
-import type { MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "../src/store/messaging-store.ts";
+import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "../src/store/messaging-store.ts";
 
 /** In-memory messaging store for scenarios that do not need DynamoDB. */
 export class InMemoryMessagingStore implements MessagingStore {
@@ -13,7 +15,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 	private readonly organizations = new Map<string, Organization>();
 	private readonly memberships = new Map<string, Map<string, Membership>>();
 	private readonly invitations = new Map<string, Invitation>();
-	private readonly creationAttempts = new Map<string, Date[]>();
+	private readonly rateCounters = new Map<string, number>();
 	private readonly bots = new Map<string, Bot>();
 	private readonly botIdsByName = new Map<string, string>();
 	private readonly botIdempotency = new Map<string, string>();
@@ -23,6 +25,8 @@ export class InMemoryMessagingStore implements MessagingStore {
 	private readonly computers = new Map<string, Computer>();
 	private readonly workers = new Map<string, Worker>();
 	private readonly tasks = new Map<string, Task>();
+	private readonly liveFileOperations = new Map<string, LiveFileOperation>();
+	private readonly fileAudits = new Map<string, FileAuditRecord>();
 
 	async getIdentityByEmail(email: string): Promise<Identity | null> {
 		return this.identities.get(email) ?? null;
@@ -82,11 +86,14 @@ export class InMemoryMessagingStore implements MessagingStore {
 	}
 
 	async incrementOrganizationCreationAttempts(userId: string, now: Date, windowMilliseconds: number): Promise<number> {
-		const cutoff = now.getTime() - windowMilliseconds;
-		const attempts = (this.creationAttempts.get(userId) ?? []).filter((timestamp) => timestamp.getTime() > cutoff);
-		attempts.push(now);
-		this.creationAttempts.set(userId, attempts);
-		return attempts.length;
+		return this.incrementRateCounter(userId, "org_create_rate", now, Math.max(Math.floor(windowMilliseconds / 1000), 1));
+	}
+
+	async incrementRateCounter(userId: string, name: string, now: Date, windowSeconds: number): Promise<number> {
+		const key = `${userId}\u0000${name}\u0000${Math.floor(Math.floor(now.getTime() / 1000) / windowSeconds)}`;
+		const count = (this.rateCounters.get(key) ?? 0) + 1;
+		this.rateCounters.set(key, count);
+		return count;
 	}
 
 	async listPendingInvitationsForEmail(email: string): Promise<Invitation[]> {
@@ -383,11 +390,11 @@ export class InMemoryMessagingStore implements MessagingStore {
 		return structuredClone(consumed);
 	}
 
-	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date }): Promise<boolean> {
+	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date; paceMilliseconds: number }): Promise<boolean> {
 		const key = `${tenantId}\u0000${workerId}`;
 		const worker = this.workers.get(key);
 		if (worker === undefined || (worker.pollSequence !== undefined && worker.pollSequence > poll.sequence)) return false;
-		this.workers.set(key, { ...worker, lastHeartbeatAt: poll.at, pollSequence: poll.sequence, pollState: poll.state });
+		this.workers.set(key, { ...worker, lastHeartbeatAt: poll.at, pollSequence: poll.sequence, pollState: poll.state, pollPaceMilliseconds: poll.paceMilliseconds });
 		return true;
 	}
 
@@ -417,13 +424,161 @@ export class InMemoryMessagingStore implements MessagingStore {
 		return true;
 	}
 
-	async approveOwnerStop(tenantId: string, ownerId: string, expectedDispatchId: string | null, approvedAt: Date): Promise<boolean> {
+	async approveOwnerStop(
+		tenantId: string,
+		ownerId: string,
+		expectedDispatchId: string | null,
+		expectedFileOperationId: string | null,
+		approvedAt: Date,
+	): Promise<boolean> {
 		const computer = this.computers.get(tenantId);
 		if (computer === undefined || computer.ownerId !== ownerId || (computer.dispatchId ?? null) !== expectedDispatchId) return false;
+		if ((computer.fileOperationId ?? null) !== expectedFileOperationId) return false;
 		this.computers.set(tenantId, { ...computer, ownerStopApprovedAt: new Date(Math.floor(approvedAt.getTime() / 1000) * 1000) });
 		return true;
 	}
+
+	async touchInteractiveWindow(tenantId: string, ownerId: string, generation: number, until: Date): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.ownerId !== ownerId || computer.ownerGeneration !== generation || computer.ownerStopApprovedAt !== undefined) return false;
+		this.computers.set(tenantId, { ...computer, interactiveUntilAt: new Date(Math.floor(until.getTime() / 1000) * 1000) });
+		return true;
+	}
+
+	async queueLiveFileOperation(operation: LiveFileOperation, interactiveUntilAt: Date): Promise<boolean> {
+		const computer = this.computers.get(operation.tenantId);
+		if (
+			computer === undefined ||
+			computer.ownerId !== operation.ownerId ||
+			computer.ownerGeneration !== operation.generation ||
+			computer.ownerStopApprovedAt !== undefined
+		) {
+			return false;
+		}
+		const key = fileOperationKey(operation.tenantId, operation.operationId);
+		if (this.liveFileOperations.has(key)) return false;
+		this.computers.set(operation.tenantId, {
+			...computer,
+			interactiveUntilAt: new Date(Math.floor(interactiveUntilAt.getTime() / 1000) * 1000),
+			fileOperationId: operation.operationId,
+		});
+		this.liveFileOperations.set(key, wholeSecondExpiry(operation));
+		return true;
+	}
+
+	async getLiveFileOperation(tenantId: string, operationId: string, now: Date): Promise<LiveFileOperation | null> {
+		const operation = this.liveFileOperations.get(fileOperationKey(tenantId, operationId));
+		return operation === undefined || isExpired(operation, now) ? null : structuredClone(operation);
+	}
+
+	async listLiveFileOperations(tenantId: string, now: Date): Promise<LiveFileOperation[]> {
+		return Array.from(this.liveFileOperations.values())
+			.filter((operation) => operation.tenantId === tenantId && !isExpired(operation, now))
+			.map((operation) => structuredClone(operation))
+			.sort((left, right) => left.queuedAt.getTime() - right.queuedAt.getTime() || compareStrings(left.operationId, right.operationId));
+	}
+
+	async countOpenLiveFileOperations(tenantId: string, now: Date): Promise<number> {
+		return (await this.listLiveFileOperations(tenantId, now)).filter((operation) => operation.status === "pending" || operation.status === "delivered").length;
+	}
+
+	async deliverLiveFileOperation(
+		tenantId: string,
+		operationId: string,
+		delivery: { ownerId: string; generation: number; sequence: number; at: Date },
+	): Promise<boolean> {
+		const key = fileOperationKey(tenantId, operationId);
+		const operation = this.liveFileOperations.get(key);
+		if (
+			operation === undefined ||
+			operation.status !== "pending" ||
+			operation.ownerId !== delivery.ownerId ||
+			operation.generation !== delivery.generation ||
+			isExpired(operation, delivery.at)
+		) {
+			return false;
+		}
+		this.liveFileOperations.set(key, { ...operation, status: "delivered", deliveredAt: delivery.at, deliveredSequence: delivery.sequence });
+		return true;
+	}
+
+	async abandonLiveFileOperation(tenantId: string, operationId: string, now: Date): Promise<LiveFileOperationStatus | "absent"> {
+		const key = fileOperationKey(tenantId, operationId);
+		const operation = this.liveFileOperations.get(key);
+		if (operation === undefined) return "absent";
+		if (operation.status === "pending") {
+			const { request: _request, outcome: _outcome, ...kept } = operation;
+			this.liveFileOperations.set(key, { ...kept, status: "abandoned" });
+			return "abandoned";
+		}
+		return isExpired(operation, now) ? "absent" : operation.status;
+	}
+
+	async completeLiveFileOperation(tenantId: string, operationId: string, outcome: string, now: Date): Promise<LiveFileOperation | null> {
+		const key = fileOperationKey(tenantId, operationId);
+		const operation = this.liveFileOperations.get(key);
+		if (operation === undefined || operation.status !== "delivered" || isExpired(operation, now)) return null;
+		const done: LiveFileOperation = { ...operation, status: "done", outcome };
+		this.liveFileOperations.set(key, done);
+		return structuredClone(done);
+	}
+
+	async markLiveFileOperationWaiterGone(tenantId: string, operationId: string): Promise<boolean> {
+		const key = fileOperationKey(tenantId, operationId);
+		const operation = this.liveFileOperations.get(key);
+		if (operation === undefined || operation.status !== "delivered") return false;
+		this.liveFileOperations.set(key, { ...operation, waiterGone: true });
+		return true;
+	}
+
+	async deleteLiveFileOperation(tenantId: string, operationId: string): Promise<void> {
+		this.liveFileOperations.delete(fileOperationKey(tenantId, operationId));
+	}
+
+	async putFileAudit(record: FileAuditRecord): Promise<void> {
+		const key = fileAuditMapKey(record.tenantId, record.at.getTime(), record.operationId);
+		if (this.fileAudits.has(key)) throw new Error("the audit record already exists");
+		this.fileAudits.set(key, structuredClone(record));
+	}
+
+	async getFileAudit(tenantId: string, atMilliseconds: number, operationId: string, now: Date): Promise<FileAuditRecord | null> {
+		const record = this.fileAudits.get(fileAuditMapKey(tenantId, atMilliseconds, operationId));
+		return record === undefined || record.expiresAt.getTime() <= now.getTime() ? null : structuredClone(record);
+	}
+
+	async finalizeFileAudit(tenantId: string, atMilliseconds: number, operationId: string, finish: FileAuditFinish): Promise<boolean> {
+		const key = fileAuditMapKey(tenantId, atMilliseconds, operationId);
+		const record = this.fileAudits.get(key);
+		if (record === undefined) return false;
+		this.fileAudits.set(key, {
+			...record,
+			outcome: finish.outcome,
+			finishedAt: finish.finishedAt,
+			...(finish.errorCode === undefined ? {} : { errorCode: finish.errorCode }),
+			...(finish.resolvedPath === undefined ? {} : { resolvedPath: finish.resolvedPath }),
+			...(finish.keptAs === undefined ? {} : { keptAs: finish.keptAs }),
+			...(finish.sha256BeforeReported === undefined ? {} : { sha256BeforeReported: finish.sha256BeforeReported }),
+			...(finish.sha256AfterReported === undefined ? {} : { sha256AfterReported: finish.sha256AfterReported }),
+			...(finish.removed === undefined ? {} : { removed: finish.removed }),
+			...(finish.flags === undefined || finish.flags.length === 0 ? {} : { flags: [...finish.flags].sort() }),
+		});
+		return true;
+	}
+
+	async listFileAuditRecords(tenantId: string, now: Date): Promise<FileAuditRecord[]> {
+		return Array.from(this.fileAudits.values())
+			.filter((record) => record.tenantId === tenantId && record.expiresAt.getTime() > now.getTime())
+			.map((record) => structuredClone(record))
+			.sort((left, right) => left.at.getTime() - right.at.getTime() || compareStrings(left.operationId, right.operationId));
+	}
 }
+
+const fileOperationKey = (tenantId: string, operationId: string): string => `${tenantId}\u0000${operationId}`;
+const fileAuditMapKey = (tenantId: string, atMilliseconds: number, operationId: string): string => `${tenantId}\u0000${atMilliseconds}\u0000${operationId}`;
+const wholeSecondExpiry = (operation: LiveFileOperation): LiveFileOperation => ({
+	...structuredClone(operation),
+	expiresAt: new Date(Math.floor(operation.expiresAt.getTime() / 1000) * 1000),
+});
 
 function compareStrings(left: string, right: string): number {
 	return left < right ? -1 : left > right ? 1 : 0;

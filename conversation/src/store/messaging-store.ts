@@ -2,6 +2,8 @@ import type { Bot } from "./codecs/bot.ts";
 import type { Task } from "./codecs/task.ts";
 import type { Worker } from "./codecs/worker.ts";
 import type { Computer } from "./codecs/computer.ts";
+import type { FileAuditOutcome, FileAuditRecord } from "./codecs/file-audit.ts";
+import type { LiveFileOperation, LiveFileOperationStatus } from "./codecs/live-file-operation.ts";
 import type { Channel, ChannelMessageRecord } from "../domain/channels.ts";
 import type { Identity, Organization, Membership, Invitation, OrganizationStatus } from "../domain/organizations.ts";
 
@@ -23,6 +25,14 @@ export interface MessagingStore {
 	 * the user has made in the current window. The caller decides whether that count exceeds the limit.
 	 */
 	incrementOrganizationCreationAttempts(userId: string, now: Date, windowMilliseconds: number): Promise<number>;
+	/**
+	 * Count one event of a named rate class for the user and return how many events, this one included, the user has
+	 * caused in the current fixed window. The counter is a bucketed item that expires an hour after its window. The caller
+	 * decides whether the count exceeds its limit.
+	 *
+	 * @param name The rate class, the sort key stem: `org_create_rate` or `file_rate#read`.
+	 */
+	incrementRateCounter(userId: string, name: string, now: Date, windowSeconds: number): Promise<number>;
 	listPendingInvitationsForEmail(email: string): Promise<Invitation[]>;
 
 	/**
@@ -136,12 +146,12 @@ export interface MessagingStore {
 	 */
 	consumeOwnerBootstrap(tenantId: string, bootstrap: OwnerBootstrapRecord): Promise<Computer | null>;
 	/**
-	 * Record one poll of an owner on its worker item: the heartbeat, the sequence and the state, only while the stored
-	 * sequence is not newer than `sequence`. An equal sequence is a retry and proceeds.
+	 * Record one poll of an owner on its worker item: the heartbeat, the sequence, the state and the pace the owner is told,
+	 * only while the stored sequence is not newer than `sequence`. An equal sequence is a retry and proceeds.
 	 *
 	 * @returns false when a newer poll was already recorded (a delayed duplicate of an older poll), or the worker is missing.
 	 */
-	recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date }): Promise<boolean>;
+	recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date; paceMilliseconds: number }): Promise<boolean>;
 	/**
 	 * Change what the computer record says about the live owner, only while `ownerId` is still the owner: the protocol
 	 * version it reported, and when it became idle (a date sets the mark, null removes it).
@@ -158,12 +168,98 @@ export interface MessagingStore {
 	offerOwnerDispatch(tenantId: string, ownerId: string, expectedDispatchId: string | null, dispatch: OwnerDispatchRecord): Promise<boolean>;
 	/**
 	 * Approve the stop of the live owner, only while the stored dispatch id is still `expectedDispatchId` (null: none is
-	 * stored), so a dispatch offered after the stop was judged defeats the approval.
+	 * stored) and the stored file operation id is still `expectedFileOperationId` (null: none is stored), so a dispatch or a
+	 * file request queued after the stop was judged defeats the approval.
 	 *
-	 * @returns false when the owner changed or the dispatch moved.
+	 * @returns false when the owner changed, the dispatch moved or a file request was queued.
 	 */
-	approveOwnerStop(tenantId: string, ownerId: string, expectedDispatchId: string | null, approvedAt: Date): Promise<boolean>;
+	approveOwnerStop(
+		tenantId: string,
+		ownerId: string,
+		expectedDispatchId: string | null,
+		expectedFileOperationId: string | null,
+		approvedAt: Date,
+	): Promise<boolean>;
+	/**
+	 * Move the interactive window of the live owner (the time until which it polls at the interactive pace), only while
+	 * `ownerId` is the live owner of `generation` and no stop is approved.
+	 *
+	 * @returns false when the owner changed, a stop was approved, or there is no computer.
+	 */
+	touchInteractiveWindow(tenantId: string, ownerId: string, generation: number, until: Date): Promise<boolean>;
+	/**
+	 * Queue a file request in one transaction with the computer record: the record gets the interactive window and the id of
+	 * the request, only while the owner the request names is the live owner of its generation and no stop is approved; the
+	 * request item is put only if no item with its id exists. An approved stop and a queued request cannot both win.
+	 *
+	 * @returns false when the owner stopped, changed, or the operation id is taken.
+	 */
+	queueLiveFileOperation(operation: LiveFileOperation, interactiveUntilAt: Date): Promise<boolean>;
+	/** One file request, or null when there is none or it is past its expiry. A strongly consistent read. */
+	getLiveFileOperation(tenantId: string, operationId: string, now: Date): Promise<LiveFileOperation | null>;
+	/** Every file request of the organization that is not past its expiry, oldest first. */
+	listLiveFileOperations(tenantId: string, now: Date): Promise<LiveFileOperation[]>;
+	/** How many file requests of the organization are pending or delivered and not past their expiry. */
+	countOpenLiveFileOperations(tenantId: string, now: Date): Promise<number>;
+	/**
+	 * Hand a pending request to its owner, in one conditional write: it must still be pending, belong to this owner and
+	 * generation, and not be past its expiry.
+	 *
+	 * @returns false when another poll delivered it, it was abandoned, or it expired.
+	 */
+	deliverLiveFileOperation(
+		tenantId: string,
+		operationId: string,
+		delivery: { ownerId: string; generation: number; sequence: number; at: Date },
+	): Promise<boolean>;
+	/**
+	 * Give up on a request nobody took: pending becomes abandoned and the request and outcome attributes are removed, in
+	 * one conditional write.
+	 *
+	 * @returns "abandoned" when this call won, otherwise the status the item has, or "absent".
+	 */
+	abandonLiveFileOperation(tenantId: string, operationId: string, now: Date): Promise<LiveFileOperationStatus | "absent">;
+	/**
+	 * Record the owner's answer: delivered becomes done and the outcome is set, in one conditional write.
+	 *
+	 * @returns The item after the change, or null when it was not delivered (abandoned, answered already, absent or expired).
+	 */
+	completeLiveFileOperation(tenantId: string, operationId: string, outcome: string, now: Date): Promise<LiveFileOperation | null>;
+	/**
+	 * Note that the waiting handler gave up on a delivered request, so the result route deletes the item when the answer
+	 * comes.
+	 *
+	 * @returns false when the item is not delivered any more.
+	 */
+	markLiveFileOperationWaiterGone(tenantId: string, operationId: string): Promise<boolean>;
+	/** Delete a request item. Deleting an absent item is not an error. */
+	deleteLiveFileOperation(tenantId: string, operationId: string): Promise<void>;
+	/** Write an audit record. The record does not exist yet: an existing one is never replaced. */
+	putFileAudit(record: FileAuditRecord): Promise<void>;
+	/** One audit record, or null when there is none or it is past its expiry. */
+	getFileAudit(tenantId: string, atMilliseconds: number, operationId: string, now: Date): Promise<FileAuditRecord | null>;
+	/**
+	 * Finish an audit record, only while it exists. A repeated finish with the same values changes nothing.
+	 *
+	 * @returns false when the record does not exist.
+	 */
+	finalizeFileAudit(tenantId: string, atMilliseconds: number, operationId: string, finish: FileAuditFinish): Promise<boolean>;
+	/** Every audit record of the organization that is not past its expiry, oldest first. A `pending` outcome is stored as written. */
+	listFileAuditRecords(tenantId: string, now: Date): Promise<FileAuditRecord[]>;
 }
+
+/** What the result route adds to an audit record when the owner answers. */
+export type FileAuditFinish = {
+	readonly outcome: Exclude<FileAuditOutcome, "pending" | "unknown">;
+	readonly finishedAt: Date;
+	readonly errorCode?: string;
+	readonly resolvedPath?: string;
+	readonly keptAs?: string;
+	readonly sha256BeforeReported?: string;
+	readonly sha256AfterReported?: string;
+	readonly removed?: number;
+	readonly flags?: readonly string[];
+};
 
 /** What the bootstrap exchange records about the owner. */
 export type OwnerBootstrapRecord = {

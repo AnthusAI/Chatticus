@@ -5,6 +5,7 @@
 
 import {
 	ConditionalCheckFailedException,
+	DeleteItemCommand,
 	DynamoDBClient,
 	GetItemCommand,
 	PutItemCommand,
@@ -30,9 +31,13 @@ import type { Bot } from "./codecs/bot.ts";
 import * as channelCodec from "./codecs/channel.ts";
 import * as computerCodec from "./codecs/computer.ts";
 import type { Computer } from "./codecs/computer.ts";
+import * as fileAuditCodec from "./codecs/file-audit.ts";
+import type { FileAuditRecord } from "./codecs/file-audit.ts";
 import * as idempotencyCodec from "./codecs/idempotency.ts";
 import * as identityCodec from "./codecs/identity.ts";
 import * as invitationCodec from "./codecs/invitation.ts";
+import * as liveFileOperationCodec from "./codecs/live-file-operation.ts";
+import type { LiveFileOperation, LiveFileOperationStatus } from "./codecs/live-file-operation.ts";
 import * as membershipCodec from "./codecs/membership.ts";
 import * as organizationCodec from "./codecs/organization.ts";
 import * as taskCodec from "./codecs/task.ts";
@@ -40,8 +45,8 @@ import type { Task } from "./codecs/task.ts";
 import { formatIsoDateTime } from "./codecs/util.ts";
 import * as workerCodec from "./codecs/worker.ts";
 import type { Worker } from "./codecs/worker.ts";
-import { computerRecordKey, postIdempotencyKey } from "./keys.ts";
-import type { MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "./messaging-store.ts";
+import { computerRecordKey, fileAuditKey, fileAuditPartition, liveFileOperationKey, liveFileOperationPartition, postIdempotencyKey } from "./keys.ts";
+import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "./messaging-store.ts";
 import { retryTransient } from "./transient-retry.ts";
 
 type Item = Record<string, AttributeValue>;
@@ -218,13 +223,16 @@ export class DynamoMessagingStore implements MessagingStore {
 		now: Date,
 		windowMilliseconds: number,
 	): Promise<number> {
-		const windowSeconds = Math.max(Math.floor(windowMilliseconds / 1000), 1);
+		return this.incrementRateCounter(userId, "org_create_rate", now, Math.max(Math.floor(windowMilliseconds / 1000), 1));
+	}
+
+	async incrementRateCounter(userId: string, name: string, now: Date, windowSeconds: number): Promise<number> {
 		const bucket = Math.floor(Math.floor(now.getTime() / 1000) / windowSeconds);
 		const expiresAt = Math.floor(now.getTime() / 1000) + windowSeconds + ONE_HOUR_SECONDS;
 		const response = await this.client.send(
 			new UpdateItemCommand({
 				TableName: this.tableName,
-				Key: { pk: { S: userPartition(userId) }, sk: { S: `org_create_rate#${bucket}` } },
+				Key: { pk: { S: userPartition(userId) }, sk: { S: `${name}#${bucket}` } },
 				UpdateExpression: "SET attempt_count = if_not_exists(attempt_count, :zero) + :one, expires_at = :expires",
 				ExpressionAttributeValues: {
 					":zero": { N: "0" },
@@ -717,18 +725,19 @@ export class DynamoMessagingStore implements MessagingStore {
 		});
 	}
 
-	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date }): Promise<boolean> {
+	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date; paceMilliseconds: number }): Promise<boolean> {
 		try {
 			await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: `worker#${workerId}` } },
-					UpdateExpression: "SET last_heartbeat_at = :at, poll_sequence = :sequence, poll_state = :state",
+					UpdateExpression: "SET last_heartbeat_at = :at, poll_sequence = :sequence, poll_state = :state, poll_pace_ms = :pace",
 					ConditionExpression: "attribute_exists(pk) AND (attribute_not_exists(poll_sequence) OR poll_sequence <= :sequence)",
 					ExpressionAttributeValues: {
 						":at": { S: formatIsoDateTime(poll.at) },
 						":sequence": { N: String(poll.sequence) },
 						":state": { S: poll.state },
+						":pace": { N: String(poll.paceMilliseconds) },
 					},
 				}),
 			);
@@ -778,17 +787,291 @@ export class DynamoMessagingStore implements MessagingStore {
 		);
 	}
 
-	async approveOwnerStop(tenantId: string, ownerId: string, expectedDispatchId: string | null, approvedAt: Date): Promise<boolean> {
+	async approveOwnerStop(
+		tenantId: string,
+		ownerId: string,
+		expectedDispatchId: string | null,
+		expectedFileOperationId: string | null,
+		approvedAt: Date,
+	): Promise<boolean> {
 		const dispatchCondition = expectedDispatchId === null ? "attribute_not_exists(dispatch_id)" : "dispatch_id = :expectedDispatch";
+		const fileCondition = expectedFileOperationId === null ? "attribute_not_exists(file_operation_id)" : "file_operation_id = :expectedFileOperation";
 		const values: Item = { ":owner": { S: ownerId }, ":approvedAt": { N: String(Math.floor(approvedAt.getTime() / 1000)) } };
 		if (expectedDispatchId !== null) values[":expectedDispatch"] = { S: expectedDispatchId };
+		if (expectedFileOperationId !== null) values[":expectedFileOperation"] = { S: expectedFileOperationId };
 		return (
 			(await this.updateComputerWhere(tenantId, {
 				update: "SET owner_stop_approved_at = :approvedAt",
-				condition: `attribute_exists(pk) AND owner_id = :owner AND ${dispatchCondition}`,
+				condition: `attribute_exists(pk) AND owner_id = :owner AND ${dispatchCondition} AND ${fileCondition}`,
 				values,
 			})) !== null
 		);
+	}
+
+	async touchInteractiveWindow(tenantId: string, ownerId: string, generation: number, until: Date): Promise<boolean> {
+		return (
+			(await this.updateComputerWhere(tenantId, {
+				update: "SET interactive_until_at = :until",
+				condition: "attribute_exists(pk) AND owner_id = :owner AND owner_generation = :generation AND attribute_not_exists(owner_stop_approved_at)",
+				values: { ":until": { N: String(Math.floor(until.getTime() / 1000)) }, ":owner": { S: ownerId }, ":generation": { N: String(generation) } },
+			})) !== null
+		);
+	}
+
+	async queueLiveFileOperation(operation: LiveFileOperation, interactiveUntilAt: Date): Promise<boolean> {
+		const computerKey = computerRecordItemKey(operation.tenantId);
+		try {
+			await retryTransient(() =>
+				this.client.send(
+					new TransactWriteItemsCommand({
+						TransactItems: [
+							{
+								Update: {
+									TableName: this.tableName,
+									Key: computerKey,
+									UpdateExpression: "SET interactive_until_at = :until, file_operation_id = :operation",
+									ConditionExpression:
+										"attribute_exists(pk) AND owner_id = :owner AND owner_generation = :generation AND attribute_not_exists(owner_stop_approved_at)",
+									ExpressionAttributeValues: {
+										":until": { N: String(Math.floor(interactiveUntilAt.getTime() / 1000)) },
+										":operation": { S: operation.operationId },
+										":owner": { S: operation.ownerId },
+										":generation": { N: String(operation.generation) },
+									},
+								},
+							},
+							{
+								Put: {
+									TableName: this.tableName,
+									Item: liveFileOperationCodec.encode(operation),
+									ConditionExpression: "attribute_not_exists(pk)",
+								},
+							},
+						],
+					}),
+				),
+			);
+			return true;
+		} catch (error) {
+			if (
+				error instanceof TransactionCanceledException &&
+				(error.CancellationReasons ?? []).some((reason) => reason.Code === "ConditionalCheckFailed")
+			) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	async getLiveFileOperation(tenantId: string, operationId: string, now: Date): Promise<LiveFileOperation | null> {
+		const key = liveFileOperationKey(tenantId, operationId);
+		const item = await this.get(key.pk, key.sk);
+		if (item === null) return null;
+		const operation = liveFileOperationCodec.decode(item);
+		return liveFileOperationCodec.isExpired(operation, now) ? null : operation;
+	}
+
+	async listLiveFileOperations(tenantId: string, now: Date): Promise<LiveFileOperation[]> {
+		const rows = await this.queryPrefix(liveFileOperationPartition(tenantId), "op#");
+		return rows
+			.map((row) => liveFileOperationCodec.decode(row))
+			.filter((operation) => !liveFileOperationCodec.isExpired(operation, now))
+			.sort((left, right) => left.queuedAt.getTime() - right.queuedAt.getTime() || compareStrings(left.operationId, right.operationId));
+	}
+
+	async countOpenLiveFileOperations(tenantId: string, now: Date): Promise<number> {
+		let count = 0;
+		let exclusiveStartKey: Item | undefined;
+		do {
+			const response = await this.client.send(
+				new QueryCommand({
+					TableName: this.tableName,
+					KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+					FilterExpression: "#status IN (:pending, :delivered) AND expires_at > :now",
+					ExpressionAttributeNames: { "#status": "status" },
+					ExpressionAttributeValues: {
+						":pk": { S: liveFileOperationPartition(tenantId) },
+						":prefix": { S: "op#" },
+						":pending": { S: "pending" },
+						":delivered": { S: "delivered" },
+						":now": { N: String(Math.floor(now.getTime() / 1000)) },
+					},
+					Select: "COUNT",
+					ConsistentRead: true,
+					Limit: this.queryPageLimit,
+					ExclusiveStartKey: exclusiveStartKey,
+				}),
+			);
+			count += response.Count ?? 0;
+			exclusiveStartKey = response.LastEvaluatedKey;
+		} while (exclusiveStartKey !== undefined);
+		return count;
+	}
+
+	async deliverLiveFileOperation(
+		tenantId: string,
+		operationId: string,
+		delivery: { ownerId: string; generation: number; sequence: number; at: Date },
+	): Promise<boolean> {
+		const key = liveFileOperationKey(tenantId, operationId);
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+					UpdateExpression: "SET #status = :delivered, delivered_at = :at, delivered_sequence = :sequence",
+					ConditionExpression: "attribute_exists(pk) AND #status = :pending AND owner_id = :owner AND generation = :generation AND expires_at > :now",
+					ExpressionAttributeNames: { "#status": "status" },
+					ExpressionAttributeValues: {
+						":delivered": { S: "delivered" },
+						":pending": { S: "pending" },
+						":at": { S: delivery.at.toISOString() },
+						":sequence": { N: String(delivery.sequence) },
+						":owner": { S: delivery.ownerId },
+						":generation": { N: String(delivery.generation) },
+						":now": { N: String(Math.floor(delivery.at.getTime() / 1000)) },
+					},
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return false;
+			throw error;
+		}
+	}
+
+	async abandonLiveFileOperation(tenantId: string, operationId: string, now: Date): Promise<LiveFileOperationStatus | "absent"> {
+		const key = liveFileOperationKey(tenantId, operationId);
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+					UpdateExpression: "SET #status = :abandoned REMOVE #request, outcome",
+					ConditionExpression: "attribute_exists(pk) AND #status = :pending",
+					ExpressionAttributeNames: { "#status": "status", "#request": "request" },
+					ExpressionAttributeValues: { ":abandoned": { S: "abandoned" }, ":pending": { S: "pending" } },
+				}),
+			);
+			return "abandoned";
+		} catch (error) {
+			if (!(error instanceof ConditionalCheckFailedException)) throw error;
+			return (await this.getLiveFileOperation(tenantId, operationId, now))?.status ?? "absent";
+		}
+	}
+
+	async completeLiveFileOperation(tenantId: string, operationId: string, outcome: string, now: Date): Promise<LiveFileOperation | null> {
+		const key = liveFileOperationKey(tenantId, operationId);
+		try {
+			const response = await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+					UpdateExpression: "SET #status = :done, outcome = :outcome",
+					ConditionExpression: "attribute_exists(pk) AND #status = :delivered AND expires_at > :now",
+					ExpressionAttributeNames: { "#status": "status" },
+					ExpressionAttributeValues: {
+						":done": { S: "done" },
+						":delivered": { S: "delivered" },
+						":outcome": { S: outcome },
+						":now": { N: String(Math.floor(now.getTime() / 1000)) },
+					},
+					ReturnValues: "ALL_NEW",
+				}),
+			);
+			return liveFileOperationCodec.decode(response.Attributes!);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return null;
+			throw error;
+		}
+	}
+
+	async markLiveFileOperationWaiterGone(tenantId: string, operationId: string): Promise<boolean> {
+		const key = liveFileOperationKey(tenantId, operationId);
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+					UpdateExpression: "SET waiter_gone = :gone",
+					ConditionExpression: "attribute_exists(pk) AND #status = :delivered",
+					ExpressionAttributeNames: { "#status": "status" },
+					ExpressionAttributeValues: { ":gone": { BOOL: true }, ":delivered": { S: "delivered" } },
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return false;
+			throw error;
+		}
+	}
+
+	async deleteLiveFileOperation(tenantId: string, operationId: string): Promise<void> {
+		const key = liveFileOperationKey(tenantId, operationId);
+		await this.client.send(new DeleteItemCommand({ TableName: this.tableName, Key: { pk: { S: key.pk }, sk: { S: key.sk } } }));
+	}
+
+	async putFileAudit(record: FileAuditRecord): Promise<void> {
+		await this.client.send(
+			new PutItemCommand({ TableName: this.tableName, Item: fileAuditCodec.encode(record), ConditionExpression: "attribute_not_exists(pk)" }),
+		);
+	}
+
+	async getFileAudit(tenantId: string, atMilliseconds: number, operationId: string, now: Date): Promise<FileAuditRecord | null> {
+		const key = fileAuditKey(tenantId, atMilliseconds, operationId);
+		const item = await this.get(key.pk, key.sk);
+		if (item === null) return null;
+		const record = fileAuditCodec.decode(item);
+		return record.expiresAt.getTime() <= now.getTime() ? null : record;
+	}
+
+	async finalizeFileAudit(tenantId: string, atMilliseconds: number, operationId: string, finish: FileAuditFinish): Promise<boolean> {
+		const key = fileAuditKey(tenantId, atMilliseconds, operationId);
+		const sets = ["outcome = :outcome", "finished_at = :finishedAt"];
+		const values: Item = { ":outcome": { S: finish.outcome }, ":finishedAt": { S: finish.finishedAt.toISOString() } };
+		const texts: [string, string, string | undefined][] = [
+			["error_code", ":errorCode", finish.errorCode],
+			["resolved_path", ":resolvedPath", finish.resolvedPath],
+			["kept_as", ":keptAs", finish.keptAs],
+			["sha256_before_reported", ":beforeReported", finish.sha256BeforeReported],
+			["sha256_after_reported", ":afterReported", finish.sha256AfterReported],
+		];
+		for (const [attribute, placeholder, value] of texts) {
+			if (value === undefined) continue;
+			sets.push(`${attribute} = ${placeholder}`);
+			values[placeholder] = { S: value };
+		}
+		if (finish.removed !== undefined) {
+			sets.push("removed = :removed");
+			values[":removed"] = { N: String(finish.removed) };
+		}
+		if (finish.flags !== undefined && finish.flags.length > 0) {
+			sets.push("flags = :flags");
+			values[":flags"] = { SS: [...finish.flags] };
+		}
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+					UpdateExpression: `SET ${sets.join(", ")}`,
+					ConditionExpression: "attribute_exists(pk)",
+					ExpressionAttributeValues: values,
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return false;
+			throw error;
+		}
+	}
+
+	async listFileAuditRecords(tenantId: string, now: Date): Promise<FileAuditRecord[]> {
+		const rows = await this.queryPrefix(fileAuditPartition(tenantId), "at#");
+		return rows
+			.map((row) => fileAuditCodec.decode(row))
+			.filter((record) => record.expiresAt.getTime() > now.getTime())
+			.sort((left, right) => left.at.getTime() - right.at.getTime() || compareStrings(left.operationId, right.operationId));
 	}
 
 	private async updateComputerWhere(
