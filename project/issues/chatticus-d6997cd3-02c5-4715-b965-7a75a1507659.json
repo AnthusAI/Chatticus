@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "a3702754-0632-460c-9263-035db88d0f5d",
+      "author": "home",
+      "text": "D8 decided: the owner-computer (Pi) path ships to staging and production in this promotion, with no dual code paths (environments differ only by deployment). Still to do, not in PR 540: remove the development-only gates in infra/lib/computer-host-start.ts (computerHostStartEcsConfig, computerOwnerStartConfig) and the isDevelopment-only model gateway signing key in infra/lib/control-plane-stack.ts (needs RETAIN semantics outside development), then update infra/README.md and docs/TYPESCRIPT_CONTROL_PLANE.md \"development only\" statements. The integration-test principal half of D8 is in PR 540.\n",
+      "created_at": "2026-10-13T15:29:18.159085Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "promote-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-09T20:57:38.857926Z",
-  "updated_at": "2026-10-09T20:57:38.858972Z",
+  "updated_at": "2026-10-13T15:29:18.159109Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The TypeScript control plane and owner computer path still need promotion to staging and production.",
-  "right_now_updated_at": "2026-10-09T20:57:40.385825Z",
+  "right_now_summary": "The TypeScript control plane and owner-computer path still need promotion work for staging and production.",
+  "right_now_updated_at": "2026-10-13T15:29:20.025055Z",
   "custom": {}
 }

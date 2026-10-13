@@ -3,7 +3,7 @@
   "title": "Enable branch protection on main and required reviewers on staging and production environments",
   "description": "## Plan step 1 (owner or admin approval required)\nBranch protection on main: require a PR, one approval, required status checks infra, web, conversation, no force pushes. GitHub environments staging and production: required reviewer (the owner) and deployment branch policy main only. Leave prevent-self-review off for a one-person team. Today main has no protection (HTTP 404) and the environments have no rules, contradicting AGENTS.md.\n\n## Needs owner approval before any change (decision D2).\n## Acceptance\n- gh api shows protection on main with the three required checks and no force push.\n- staging and production environments list the owner as required reviewer and branch policy main.\n- A test dispatch of a deploy workflow waits for approval.\n- Rollback: revert the settings.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0db3a610-54ac-440a-84d3-0b5ef6d9a8a8",
+      "author": "home",
+      "text": "D2 decided: the OWNER enables these GitHub settings; agents must not change repository or environment settings. Nothing below has been run. Full text with verification and rollback is in PR 540's description (https://github.com/AnthusAI/Chatticus/pull/540). Run with an admin gh login, ideally before the develop to main promotion PR merges.\n\n1. Ruleset protecting main (PR + 1 approval, required checks infra, web, conversation, no force push or deletion; bypass for the GitHub Actions app so semantic-release can push its release commit, and for repo admins on pull requests):\n   gh api -X POST repos/AnthusAI/Chatticus/rulesets --input ruleset.json\n   (ruleset JSON is in the PR 540 description: bypass_actors Integration 15368 always, RepositoryRole 5 pull_request; rules deletion, non_fast_forward, pull_request with required_approving_review_count 1, required_status_checks infra/web/conversation.)\n   Note: a classic branch-protection rule would block semantic-release's push of CHANGELOG.md/package.json to main; use the ruleset.\n\n2. Environment reviewers and main-only deployment branch policy, once for staging and once for production:\n   OWNER_ID=$(gh api user --jq .id)\n   gh api -X PUT repos/AnthusAI/Chatticus/environments/ENV --input - <<EOF\n   {\"reviewers\":[{\"type\":\"User\",\"id\":$OWNER_ID}],\"prevent_self_review\":false,\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\n   EOF\n   gh api -X POST repos/AnthusAI/Chatticus/environments/ENV/deployment-branch-policies -f name=main -f type=branch\n\nVerify: gh api repos/AnthusAI/Chatticus/rulesets --jq '.[].name' ; gh api repos/AnthusAI/Chatticus/environments/production --jq '.protection_rules'\n",
+      "created_at": "2026-10-13T15:29:12.464343Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "promote-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:36:43.249484Z",
-  "updated_at": "2026-10-13T11:37:35.958133Z",
+  "updated_at": "2026-10-13T15:29:12.464380Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Owner approval is needed before enabling branch protection and deployment reviews.",
-  "right_now_updated_at": "2026-10-13T11:37:37.057114Z",
+  "right_now_summary": "The owner must apply branch and environment protections before the develop-to-main promotion.",
+  "right_now_updated_at": "2026-10-13T15:29:13.751432Z",
   "custom": {}
 }

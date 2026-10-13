@@ -19,7 +19,7 @@
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The team awaits the owner’s decisions before promoting the TypeScript control plane to main.",
-  "right_now_updated_at": "2026-10-13T11:38:24.649738Z",
+  "right_now_summary": "Promotion awaits owner decisions; no merge, release, or deployment has begun.",
+  "right_now_updated_at": "2026-10-13T15:29:41.004214Z",
   "custom": {}
 }

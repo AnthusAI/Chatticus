@@ -3,7 +3,7 @@
   "title": "Baseline tag so semantic-release proposes 0.44.0, and dry-run it",
   "description": "## Plan step 3\nAll 48 tags (latest v0.43.0) are on commits reachable from neither main nor develop, so the first semantic-release on main would compute 1.0.0, publish it, then fail guard-pre-1-0, leaving a public v1.0.0 tag and release. Tag main's head e68b5f4f as v0.43.1 (baseline, owner action, plain tag push). Verify with npx semantic-release --dry-run --no-ci on a scratch checkout of the merged result that it proposes 0.44.0. Optionally move the 0.* guard ahead of publishing.\n## Decision: D6.\n## Acceptance\n- Tag v0.43.1 is an ancestor of main.\n- The dry run on the merged result reports next release 0.44.0.\n- Rollback: delete the baseline tag.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5754feec-d78d-42ef-84e2-0fcef3530499",
+      "author": "home",
+      "text": "Semantic-release dry run done in a throwaway clone (nothing pushed, no tokens, plugins limited to commit-analyzer and release-notes-generator with the same preset and releaseRules as .releaserc.json). Merge of origin/develop into main (merge commit), dry run with --no-ci:\n\n- With only the existing tags (latest reachable v0.43.0): next release version is 0.44.0.\n- With a local baseline tag v0.43.1 on e68b5f4f added: next release version is 0.44.0. Never 1.0.0.\n\nTwo corrections to docs/PROMOTE_TO_MAIN.md:\n1. Section 3's trap does not reproduce on GitHub's real history: in a fresh clone all 48 tags are ancestors of origin/main (git tag --merged origin/main lists 48; v0.43.0 is 73dc5ed3, 6 commits behind main's head). The assessment was run against a clone with differing local tags. The baseline tag is therefore belt and braces, harmless, and D6 asks for it, so create it.\n2. The merge of develop into main is NOT clean: two modify/delete conflicts, python/pyproject.toml and python/src/chatticus/__init__.py (main's release commits bumped versions in files develop deleted). Resolution: delete both (git rm); the result tree is then byte-identical to origin/develop. The promotion PR must carry that resolved merge (merge locally or via a develop-based branch that merges main first).\n\nExact commands for the owner/orchestrator to create and push the baseline tag (annotated, plain tag push; no branch push):\n  git fetch origin\n  git tag -a v0.43.1 e68b5f4fe9ace0b5dcac0ebcea78bf8632d56158 -m \"Baseline: last Python-era release before the TypeScript promotion\"\n  git push origin refs/tags/v0.43.1\nVerify: git ls-remote --tags origin v0.43.1 ; git merge-base --is-ancestor v0.43.1 origin/main && echo reachable\nRollback: git push origin :refs/tags/v0.43.1 ; git tag -d v0.43.1\nLeft in progress until the tag is pushed.\n",
+      "created_at": "2026-10-13T15:29:06.638671Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "promote-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:36:49.438826Z",
-  "updated_at": "2026-10-13T11:37:40.650872Z",
+  "updated_at": "2026-10-13T15:29:06.638706Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The baseline tag and semantic-release dry run are still pending owner action.",
-  "right_now_updated_at": "2026-10-13T11:37:41.831822Z",
+  "right_now_summary": "A dry run proposes 0.44.0; the owner still needs to push the v0.43.1 baseline tag.",
+  "right_now_updated_at": "2026-10-13T15:29:07.781248Z",
   "custom": {}
 }
