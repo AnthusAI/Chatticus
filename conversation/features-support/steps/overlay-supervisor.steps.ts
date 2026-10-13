@@ -75,6 +75,12 @@ Given("the saved snapshot holds a symbolic link {string} to a file outside the w
 	seedSymlink(this, name, outsideFile);
 });
 
+Given("the system denies the file helper any write to {string}", function (this: ChatticusWorld, name: string) {
+	const deniedPath = join(workspaceOf(this), name);
+	supervisorScenarioOf(this).fileHelper.answerInstead = (request) =>
+		request.operation === "write" && request.path === deniedPath ? { ok: false, code: "permission_denied", message: "The system refused the file helper." } : null;
+});
+
 Given("the local cache already holds the published snapshot", function (this: ChatticusWorld) {
 	overlayWorldStateOf(this).cacheMatched = true;
 });

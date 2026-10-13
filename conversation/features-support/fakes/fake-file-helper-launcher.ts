@@ -21,6 +21,8 @@ export class ScenarioFileHelperLauncher implements FileHelperLauncher {
 	afterRun: (request: FileHelperRequest, response: FileHelperResponse) => void = () => undefined;
 	/** Called with each request the moment the supervisor hands it over, before any fake time passes. */
 	onRequest: (request: FileHelperRequest) => void = () => undefined;
+	/** Answers a request in place of the helper when it returns a response, as a container whose system refuses the unprivileged user would. */
+	answerInstead: (request: FileHelperRequest) => FileHelperResponse | null = () => null;
 	running = 0;
 	killedAtTimeout = 0;
 
@@ -43,6 +45,8 @@ export class ScenarioFileHelperLauncher implements FileHelperLauncher {
 				return { ok: false, code: "helper_timeout", message: "The file helper did not answer in time and was stopped." };
 			}
 			if (this.delayMilliseconds > 0) await this.clock.sleep(this.delayMilliseconds);
+			const instead = this.answerInstead(request);
+			if (instead !== null) return instead;
 			const response = this.useRealProcess ? await this.processLauncher.run(request, timeoutMilliseconds) : await runOwnerFileRequest(request);
 			this.afterRun(request, response);
 			return response;

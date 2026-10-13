@@ -124,6 +124,17 @@ Feature: The owner applies the edit overlay when it hydrates, and asks for it to
     Then the outside file is unchanged
     And the supervisor reported a conflict for "/workspace/leak"
 
+  Scenario: An entry the system denies the helper is a conflict and the rest of the overlay is still applied
+    Given the saved snapshot holds workspace file "notes.md" containing "first draft"
+    And the saved snapshot holds a symbolic link "leak" to a file outside the workspace
+    And the overlay holds "overwritten" for "/workspace/leak" with base hash of the link target
+    And the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
+    And the system denies the file helper any write to "leak"
+    When the supervisor starts and hydrates
+    Then the computer workspace file "notes.md" contains "second draft"
+    And the outside file is unchanged
+    And the supervisor reported a conflict for "/workspace/leak"
+
   Scenario: A seal that fails once is retried and the overlay is still applied
     Given the saved snapshot holds workspace file "notes.md" containing "first draft"
     And the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"

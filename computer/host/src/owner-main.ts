@@ -76,7 +76,7 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 			process.stdout.write(`overlay_probe_ok ${JSON.stringify(result)}\n`);
 			return 0;
 		} catch (error) {
-			process.stdout.write(`overlay_probe_error ${error instanceof Error ? error.name : "unknown"}\n`);
+			process.stdout.write(`overlay_probe_error ${error instanceof Error ? `${error.name} ${error.message}` : "unknown"}\n`);
 			return 1;
 		}
 	}
