@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-bf7fd299-b1cb-4d7d-9f0b-5f62175de002",
+  "title": "Files panel: check in a browser at 375 px and with a real signed-in user",
+  "description": "Phase 3 was proven live only at the API level and with fixtures. The Files panel (view, edit, conflict banner, source indicators, create folder, rename, delete) has not been exercised in a browser at 375 px width or by a real signed-in member on develop.chattic.us. Done when it has, with defects filed or fixed.",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T07:04:25.903817Z",
+  "updated_at": "2026-10-13T07:04:25.903847Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The Files panel still needs browser testing at 375 px and with a real signed-in user.",
+  "right_now_updated_at": "2026-10-13T07:04:27.527510Z",
+  "custom": {}
+}

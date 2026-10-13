@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e314187f-a563-4e52-9dd1-b35d8c12609a",
+      "author": "home",
+      "text": "Still open after Phase 3: customer-account computers remain view-only; the overlay lives in the Anthus snapshot bucket only.",
+      "created_at": "2026-10-13T07:08:58.436773Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-12T22:21:42.691653Z",
-  "updated_at": "2026-10-12T22:21:42.691693Z",
+  "updated_at": "2026-10-13T07:08:58.436799Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "Support is still limited to viewing files; customer-account editing awaits cross-account overlay support and",
-  "right_now_updated_at": "2026-10-12T22:21:43.849563Z",
+  "right_now_summary": "Customer-account computers remain view-only; enabling edits needs cross-account overlays and host-worker support.",
+  "right_now_updated_at": "2026-10-13T07:09:00.005859Z",
   "custom": {}
 }

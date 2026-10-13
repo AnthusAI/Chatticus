@@ -3,7 +3,7 @@
   "title": "Live files A3: the edit overlay core (store, merge, seal, clear) and its owner routes",
   "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 2) sections 3 (O1, L30 to L47), 5.5, 6.1, 7.7, 11.7, 12.8, 15 (A3). Gherkin first (features/computer_file_live.feature, tag @server, the overlay group).\n\nThe overlay lets a person view and edit files while the computer is off: objects overlay/index.json and overlay/blobs/<sha256> under tenants/T/computers/K/, written only by the Front Door with conditional S3 puts; the next owner seals, applies and (after a recorded publish) has the entries cleared.\n\nFIRST TASK (risk R10): write a contract test that PutObject IfNoneMatch '*' and IfMatch <etag> are honored by moto 5.2.3 (npm run moto:start) with @aws-sdk/client-s3 3.1146. Record the result in a Kanbus comment. If moto does not honor them, keep the contract test as a skipped-with-reason test against moto and run it against the real bucket in the live proof; the filesystem store implements the same semantics for scenarios.\n\nFiles:\n- conversation/src/snapshot/overlay-store.ts (new): port OverlayStore { getIndex(uri) -> {index, etag}|absent; putBlob(uri, sha256, bytes) with IfNoneMatch '*' (412 is fine); putIndex(uri, index, expectedEtag|null) with IfMatch / IfNoneMatch '*'; getBlob; deleteBlob }, the S3 implementation (S3SnapshotStore pattern) and a filesystem implementation with the same compare-and-swap semantics. Extend snapshot/store.ts accordingly.\n- conversation/src/snapshot/overlay-merge.ts (new, pure): the effective view of 7.7.2 over LoadedIndex: states applied / pending / conflict, list ordering and 2000 cap, effective hash, empty snapshot with only /workspace.\n- conversation/src/domain/edit-overlay.ts (new): write (7.7.3 steps 1 to 9 with the swap loop, 3 attempts, caps L41, path rules L40, audit intent first and fail closed), discard, seal (idempotent; replaces a stale seal; records snapshot_generation), clear (match path+revision+sha256, requires own valid seal and a recorded publish: computer.snapshotGeneration greater than the seal's, or the snapshot index already holds the entry hash; deletes unreferenced blobs; overlay_apply audit records), conflict marking, stale-seal rule (valid iff computer.ownerId/ownerGeneration match and liveOwnerOf).\n- conversation/src/http/owner-host-auth.ts: add { POST, '/owner/overlay-seal' } and { POST, '/owner/overlay-applied' } to OWNER_COMPUTER_ROUTES. conversation/src/http/owner-supervisor.ts: two handlers. conversation/src/http/app.ts: declare them (audience computer-owner) and POST /orgs/:tenant_id/computer/files/overlay/discard (audience user) via http/routes/computer-file-overlay.ts (new). A1 also edits owner-host-auth.ts and app.ts: expect a one-line merge conflict.\n- conversation/src/http/host.ts (stopped report handler): unseal the overlay (one swap, best effort).\n- Tests: test/overlay-merge.test.ts, test/overlay-store.contract.test.ts (both stores), test/edit-overlay-domain.test.ts (pure rules: seal validity, clear rules, effective hash, base_sha256 chain).\n- Steps: conversation/features-support/steps/edit-overlay.steps.ts; setup steps ('member replaced ... while the computer was off', 'the owner sealed the overlay', 'a host that does not know the overlay publishes a snapshot') call the domain functions directly so this part does not need A2.\n\nScenarios it owns: LF-53 to LF-56, the store-level halves of LF-57 ('A snapshot that moved under an edit shows a conflict and keeps both versions' needs the read route and is finished by A2), 'A clear that is not sealed by the caller is refused', 'An owner of an older generation cannot seal or clear', 'A seal left by an owner that died is replaced by the next edit' (via the domain function until A2).\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features with moto per AGENTS.md; both overlay stores pass the same contract test.\n\nDependencies: F0 merged; B for the IAM statements on development (not needed for scenarios). Blocks A2 and E.\n\nRules: no emojis, no line comments, TSDoc on public exports. The Front Door alone writes overlay objects. No path becomes an S3 key. Do not read or write project/.\n\n\nREVISION 3 (owner decision O5: delete, rename and new folders are required in Phase 3, also while the computer is off; contract sections 3 L48 to L66, 5.2, 5.5, 7.8, 8.1):\n- Pure core for all four operations: conversation/src/snapshot/overlay-merge.ts implements 7.8.3 (delete hides a path and a subtree, mkdir, file move read from the snapshot member of its source, directory move with path translation, derived applied/pending/conflict per operation, list ordering and cap) and the tree hash/symlink hash of 7.8.2; conversation/src/domain/edit-overlay.ts implements the write algebra of 7.8.4 as a pure function of (entries, request) with a table-driven test of every row, exclusivity (path_busy), collapse rules, the owner-role rule for recursive delete input (the role is checked by A4), the 5000-descendant cap, the clear shortcut of 7.8.5.\n- GET /orgs/:tenant_id/computer/files/overlay handler and discard by {path, revision} for every operation.\n- Scenarios it also owns (domain level, setup through the domain function): LF-69, and the store-level halves of LF-65, LF-66, LF-68.",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -27,17 +27,36 @@
         "model": "claude-sonnet-5-5",
         "name": "planner"
       }
+    },
+    {
+      "id": "eb5ad97a-5c66-47cd-a312-6f9c5752fecb",
+      "author": "home",
+      "text": "Merged to develop in PR 523 (A3), part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:06:47.018541Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "06a50eeb-f754-4fbb-ab03-6b218a4f7af1",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:06:51.349623Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-12T22:01:17.353332Z",
-  "updated_at": "2026-10-12T22:22:16.676988Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T07:07:04.724201Z",
+  "closed_at": "2026-10-13T07:07:04.724156Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "The scope now includes the overlay core, delete, rename, and new-folder operations.",
-  "right_now_updated_at": "2026-10-12T22:22:18.637362Z",
+  "right_now_summary": "Phase 3 is merged and proven live at the API level; browser and signed-in user testing remain.",
+  "right_now_updated_at": "2026-10-13T07:07:05.900223Z",
   "custom": {}
 }

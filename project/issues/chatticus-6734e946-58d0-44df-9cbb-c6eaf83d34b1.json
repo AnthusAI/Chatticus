@@ -3,7 +3,7 @@
   "title": "Live files A2: server member routes (live or snapshot, PUT, reveal, watch, audit)",
   "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 2) sections 3 (L1, L2, L4, L5, L14, L18, L21 to L29), 5.2, 6.2, 6.3, 7.2, 7.3, 7.5, 12, 15 (A2). Gherkin first (features/computer_file_live.feature, tag @server).\n\nOwns these scenarios: every @server scenario in the Reading, Writing, Audit, Secrets, \"Who may\" and \"editing while the computer is off\" groups that go through a member route: LF-1 to LF-14, LF-17 to LF-20, LF-22 to LF-27, LF-47 to LF-52, LF-54, LF-57 (member side), LF-58 of the traceability table in section 13, and the watch route scenarios of \"An open panel makes the owner poll every second\" family that need the route (shared with A1).\n\nFiles:\n- conversation/src/http/routes/computer-files.ts: choose live or snapshot with liveFileSourceOf; live GET list/stat/content with the 8 s wait loop (injected clock and sleep), abandon on timeout, fallback with fallback_reason, owner-warming short-circuit, too_busy count, mask re-check on resolved_path (L25); PUT content (7.3 steps 1 to 12, exact order); POST reveal; POST watch (7.5). Headers per 6.2. Error bodies and statuses per 6.3 (LIVE_FILE_ERROR_STATUS).\n- conversation/src/http/app.ts: declareRoute PUT /orgs/:tenant_id/computer/files/content, POST .../files/reveal, POST .../files/watch (audience user).\n- conversation/src/snapshot/files.ts: reveal option that skips masking, provenance fields (stale false, fallback_reason null), modified_at from the index mtime_ms, `revealed`/`editable` on content.\n- conversation/src/domain/file-audit.ts (new): write intent record, finalize, flags, 90 day expires_at, fail closed (503 audit_unavailable).\n- conversation/src/lambdas/front-door-composition.ts: wire the new store methods, clock and sleep.\n- Steps: conversation/features-support/steps/computer-file-live.steps.ts, reusing the Phase 1 snapshot file steps for the saved copy.\n- Existing scenarios that change: features/computer_snapshot_index.feature and computer-snapshot-files.steps.ts (responses gain stale, fallback_reason, modified_at; source stays \"snapshot\").\n- On development after merge: curl shows If-Match reaches the handler and ETag returns through CloudFront (contract 6.2 ASSUMPTION); record the result in a Kanbus comment.\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features green with the owned scenarios in features/cucumber-features.txt.\n\nDependencies: F0 and A1 merged. Blocks W integration and E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Writes are UTF-8 text only. Never log a path or content. Do not read or write project/.\n\nREVISION 2 (overlay integration, owner decision O1: files are viewed and edited while the computer is off; a write never returns computer_not_live and never starts a computer):\n- conversation/src/http/routes/computer-files.ts: the write route decision of section 7.3 step 4 in this order: customer-account organization -> 409 edit_unsupported; liveFileSourceOf live -> the live path; live owner with protocol below 2 -> 409 owner_too_old; stopping or stop approved and sealed by it -> 503 computer_stopping (retry_after_ms 5000); booting or hydrating and sealed by it -> 503 computer_starting (retry_after_ms 2000); otherwise the overlay path (calls the domain/edit-overlay.ts functions from A3). Every snapshot answer (list, stat, content, reveal) merges the overlay via snapshot/overlay-merge.ts (A3); a computer with no snapshot answers an empty /workspace plus the overlay. Response fields overlay, mine_sha256, variant=mine, source \"overlay\", backed_up.\n- conversation/src/snapshot/files.ts: accept the overlay for list/stat/content/reveal.\n- Existing: no live write returns 409 computer_not_live any more (section 6.3).\nDependencies (revision 2): F0, A1 and A3 merged.",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -31,17 +31,36 @@
         "model": "claude-sonnet-5-5",
         "name": "planner"
       }
+    },
+    {
+      "id": "970a819d-a79a-4485-8be3-16fa7d92c5c1",
+      "author": "home",
+      "text": "Merged to develop in PR 527 (A2), part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:06:05.745139Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "17acf626-1f38-4ca4-89aa-b2cd830c935e",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:06:11.445440Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-12T21:41:04.106086Z",
-  "updated_at": "2026-10-12T22:01:59.558342Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T07:06:28.763681Z",
+  "closed_at": "2026-10-13T07:06:28.763642Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "The contract now includes edit overlays, and work covers live, snapshot, write, reveal, watch, and audit routes.",
-  "right_now_updated_at": "2026-10-12T22:02:02.576553Z",
+  "right_now_summary": "The API works on development, but browser testing at 375 px and with a real user remains.",
+  "right_now_updated_at": "2026-10-13T07:06:41.363663Z",
   "custom": {}
 }

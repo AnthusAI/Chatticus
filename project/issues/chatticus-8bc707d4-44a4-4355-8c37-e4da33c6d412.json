@@ -3,7 +3,7 @@
   "title": "Live files A1: server store, domain, poll delivery and the file-results route",
   "description": "Contract: docs/LIVE_FILES_PROTOCOL.md sections 3 (L9 to L12, L19, L21, L22), 6.1, 7.1, 7.4, 7.6, 11.1, 15 (A1). Gherkin first: the scenarios are in features/computer_file_live.feature (draft, tag @server); move the ones this ticket owns into the real run (add the file to features/cucumber-features.txt together with its steps; keep the scenarios of A2 and the other tags out until their steps exist, e.g. split the file by tag or comment-free move per scenario).\n\nOwns these scenarios: \"An idle stop is vetoed while a file operation is pending\", \"A stop and a file operation cannot both win\", \"A request is not handed to an owner that is stopping\", \"The poll delivers a file request once and again only when the poll is repeated\", \"A result from an owner that was not given the operation is refused\", \"A result for an abandoned operation is refused\", \"A result is recorded once\", \"A result that does not parse is refused\", \"An open panel makes the owner poll every second\", \"The owner returns to its normal pace after the panel closes\", \"A panel that says it is closed ends the fast pace at once\", \"A busy owner polls every second while a panel is open\", \"A panel that is open does not keep the computer awake\", \"A panel that is open when the computer is off learns it\" (the watch route is A2; A1 covers the store and cadence parts through the poll), \"The owner cannot read the audit log\", \"The owner cannot read or write the file operation records directly\".\n\nFiles (in this order; the first commit is item 1):\n1. conversation/src/domain/computers.ts: recordHostSnapshotPublished and recordHostHydrated become targeted updates (SET snapshot_uri, snapshot_checksum, snapshot_generation + 1, disk_dirty false / hydrate_required false) instead of putComputer of a read copy (L19). Contract test proves a dispatch written between the read and the publish survives.\n2. conversation/src/store/codecs/computer.ts: interactiveUntilAt (interactive_until_at, epoch seconds) and fileOperationId (file_operation_id); add both to OWNER_ATTRIBUTE_NAMES and withoutOwner; encode/decode.\n3. conversation/src/store/codecs/live-file-operation.ts (new) and file-audit.ts (new): attributes exactly as section 7.1.\n4. conversation/src/store/messaging-store.ts, dynamo-messaging-store.ts, features-support/in-memory-messaging-store.ts: queueLiveFileOperation (TransactWriteItems: Update computer with condition owner_id/owner_generation match and attribute_not_exists(owner_stop_approved_at), SET interactive_until_at and file_operation_id; Put request item with attribute_not_exists(pk)), getLiveFileOperation (ConsistentRead), listPendingLiveFileOperations, countOpenLiveFileOperations, deliverLiveFileOperation (pending to delivered; idempotent for the same sequence), abandonLiveFileOperation, markLiveFileWaiterGone, completeLiveFileOperation (delivered to done; idempotent for identical outcome), deleteLiveFileOperation, putFileAudit, finalizeFileAudit, touchInteractiveWindow (conditional on a live owner), incrementRateCounter (re-express incrementOrganizationCreationAttempts through it), approveOwnerStop gains the file_operation_id guard (attribute_not_exists OR equals the value seen). Every reader ignores items past expires_at.\n5. conversation/src/domain/live-files.ts (new): liveFileSourceOf (7.2), expected pickup arithmetic (L27), ownerFilePanelPace, delivery for the poll (7.4), result recording and audit finalization (7.4).\n6. conversation/src/domain/owner-supervisor.ts: poll delivers file_requests per 7.4 (protocol_version >= 2, states idle/serving/publishing/draining, no approved stop, interactiveUntilAt in the future; expires_in_ms = max(0, 8000 - age)); next_poll_ms clamps to OWNER_POLL_INTERACTIVE_MILLISECONDS in the same states; stopVeto for reason \"idle\" vetoes file_operation_pending; judgeOwnerStop passes the seen file_operation_id to approveOwnerStop.\n7. conversation/src/http/owner-host-auth.ts: add { POST, \"/owner/file-results\" } to OWNER_COMPUTER_ROUTES. conversation/src/http/owner-supervisor.ts: ownerFileResultHandler (6.1, 7.4). conversation/src/http/app.ts: declareRoute for it with audience computer-owner.\n8. Steps: conversation/features-support/steps/live-files-owner.steps.ts and a FakeLiveOwner in conversation/features-support/fakes/ that polls with the real routes and answers with scripted outcomes. Policy scenarios use features-support/iam-policy-evaluator.ts against owner-role-policy.json and supervisor-role-policy.json.\n9. Tests: conversation/test/dynamo-messaging-store.contract.test.ts (transaction guard, deliver/abandon/complete races, expired items ignored, waiter_gone, rate counter), conversation/test/owner-supervisor-domain.test.ts, conversation/test/route-audience.test.ts.\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features; with moto for DynamoDB tests per AGENTS.md. Every existing owner supervisor scenario stays green.\n\nDependencies: F0 merged. Blocks A2 (store and domain interface) and E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -15,16 +15,36 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d05aace5-c090-41a3-b0e4-5272118f8b69",
+      "author": "home",
+      "text": "Merged to develop in PR 525 (A1), part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:05:36.056751Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "59caec15-c5df-4684-88fb-f4079b6b01f1",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:05:42.506873Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-10-12T21:40:58.730879Z",
-  "updated_at": "2026-10-12T21:41:36.663952Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T07:05:48.395107Z",
+  "closed_at": "2026-10-13T07:05:48.395073Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "The live-file store, polling, result route, and tests are being built.",
-  "right_now_updated_at": "2026-10-12T21:41:38.335760Z",
+  "right_now_summary": "A1 is merged and proven live at the API level; browser panel testing with a signed-in user remains.",
+  "right_now_updated_at": "2026-10-13T07:05:49.827874Z",
   "custom": {}
 }

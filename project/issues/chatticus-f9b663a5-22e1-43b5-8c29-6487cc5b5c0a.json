@@ -3,7 +3,7 @@
   "title": "Live files A4: server routes for delete, rename and new folders (overlay and live path)",
   "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 3) sections 3 (O5, L48 to L66), 6.2, 6.3, 7.8, 12.2, 15 (A4). Gherkin first (features/computer_file_live.feature, tag @server, the group 'delete, rename and new folders').\n\nDelete, rename and new folders are required in Phase 3, also while the computer is off. Any enabled member may delete a file or an empty folder, rename and create folders; only the organization owner role deletes a non-empty folder.\n\nFiles:\n- conversation/src/http/routes/computer-file-operations.ts (new): DELETE /orgs/:tenant_id/computer/files?path=&recursive= (header If-Match of the effective hash: file content hash, symlink hash, directory tree hash), POST .../files/move (body {from, to}, header If-Match of from), POST .../files/directories (idempotent), GET .../files/overlay (pending changes). Register in conversation/src/http/app.ts (audience user).\n- The route decision of 7.3 step 4 (customer-account -> 409 edit_unsupported; live owner able to serve -> live path; protocol 1 -> 409 owner_too_old; sealed and stopping/starting -> 503; otherwise the overlay path using A3's write algebra).\n- Role check: Principal.role === 'owner' for recursive; else 403 owner_role_required; a non-recursive delete of a non-empty directory is 409 directory_not_empty; missing If-Match is 428; rename onto an existing path 409 already_exists; into its own subtree 422 invalid_move; workspace root 403 path_refused; over 5000 descendants 413 too_many_entries; .git in path/from/to 403 path_refused (audited); excluded directory names 422 not_in_saved_copy (overlay only).\n- conversation/src/domain/live-files.ts: request kinds delete, move, mkdir through the same queue, wait, audit, dirty flag, abandon and outcome_unknown code as write; results mapped to the member codes of 6.3.\n- Audit operations delete, move (to_path), mkdir with recursive, removed, tree_sha256_before (7.8.8); rate class write; the idempotent mkdir of an existing directory writes no audit record.\n- Steps: conversation/features-support/steps/computer-file-operations.steps.ts.\n\nScenarios it owns: LF-65 to LF-72 (the @server scenarios of the delete, rename and new folder group).\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features green; every earlier scenario unchanged.\n\nDependencies: F0, A2 (shared handlers, live path) and A3 merged. Blocks E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -23,16 +23,36 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e6646a15-d0f9-45c2-ada8-4af1f2ba6593",
+      "author": "home",
+      "text": "Merged to develop in PR 528 (A4), part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:07:09.690833Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "4a0f0975-88d4-49ca-93cd-81afbc16b959",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:07:15.279524Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-10-12T22:21:37.583577Z",
-  "updated_at": "2026-10-12T22:21:57.648343Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T07:07:19.873843Z",
+  "closed_at": "2026-10-13T07:07:19.873802Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "Server routes for deleting, renaming, and creating folders are being added for live and overlay paths.",
-  "right_now_updated_at": "2026-10-12T22:21:58.738422Z",
+  "right_now_summary": "The API is merged and proven live, but browser testing and follow-up work remain.",
+  "right_now_updated_at": "2026-10-13T07:07:21.028328Z",
   "custom": {}
 }

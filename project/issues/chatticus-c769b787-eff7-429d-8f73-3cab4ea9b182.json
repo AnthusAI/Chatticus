@@ -3,7 +3,7 @@
   "title": "Live files C2: the supervisor applies the overlay at hydrate and asks to clear it",
   "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 2) sections 3 (L34 to L38, L42), 7.7.4, 9.4, 12.8, 15 (C2). Gherkin first (features/computer_file_live.feature, tag @supervisor, the overlay group).\n\nAt hydrate the supervisor extracts the snapshot, shares the workspace with the shell user, SEALS the overlay (POST /host/owner/overlay-seal), applies every entry through the file helper (uid 2000) before it leaves 'hydrating', so no turn runs first, and later asks the Front Door to CLEAR exactly the entries a recorded publish holds. The supervisor never writes or deletes overlay objects (its role is denied by B).\n\nFiles:\n- computer/host/src/overlay-applier.ts (new): OverlayApplier { applyAfterHydrate(); clearApplied(entries) } per section 9.4. Steps in order: seal; for each entry without a stored conflict read its blob from S3 (supervisor credentials), verify the bytes hash to entry.sha256, call the helper write with precondition if_match base_sha256 (if_none_match when base_sha256 is null) and refuseGitSegments; precondition_failed with current_sha256 equal to the entry sha256 means already applied; any other third hash is a conflict (not written, reported with POST overlay-applied { conflicts }). A blob that cannot be read or does not hash, or a helper failure other than those, throws OverlayApplyError, which fails the hydrate (exit 8). Budget OVERLAY_APPLY_BUDGET_SECONDS (30).\n- computer/host/src/host-disk-lifecycle.ts: hydrate() calls the applier after bootThroughWorkspace and afterHydrate; applies also when the local cache matched and when no snapshot was ever published.\n- computer/host/src/supervisor.ts: keep appliedAwaitingClear; after hydrate with applied entries set the first publish check to idle + OVERLAY_EARLY_PUBLISH_SECONDS (5) instead of 600; beginPublishCycle and the final publish capture the set before packing and call clearApplied after the publish is recorded; if needsPublish() is false right after the apply, clear at once; retry a failed clear every OVERLAY_CLEAR_RETRY_SECONDS (10) and up to 3 times before the stopped report (never blocking the stop). No publish while a child runs (unchanged).\n- computer/host/src/supervisor-ports.ts, protocol-client.ts (sealOverlay, postOverlayApplied with ownerOverlay*Schema), supervisor-main.ts (wire the applier with the launcher of part C and the S3 store).\n- Log lines without paths or content: overlay_sealed, overlay_applied, overlay_clear_requested, overlay_cleared, overlay_apply_failed.\n- computer/test_owner_container.sh (apply an overlay entry in a real container), conversation/test/computer-image-structure.test.ts (the supervisor bundle still imports no Pi).\n- Tests: test/overlay-applier.test.ts (fake launcher, fake plane, fake S3). Steps: conversation/features-support/steps/overlay-supervisor.steps.ts, fakes in features-support/fakes/.\n\nScenarios it owns: LF-60, LF-61, LF-62 and the supervisor half of LF-57 (the ten @supervisor scenarios of the overlay group).\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features green, computer_owner_supervisor.feature unchanged and green; the image builds.\n\nDependencies: F0 and C merged (the helper write with precondition and the launcher). Control plane side is faked; integration with A3 is proved by E. Deploy: after B (the deny) and A1/A3/A2.\n\nRules: no emojis, no line comments, TSDoc on public exports. The applier must never call stat/realpath/open on a workspace path. Do not read or write project/.\n\n\nREVISION 3 (owner decision O5: delete, rename and new folders are required in Phase 3, also while the computer is off; contract sections 3 L48 to L66, 5.2, 5.5, 7.8, 8.1):\n- overlay-applier.ts applies all four operations in the fixed order of 7.8.5: 1 mkdir shallowest first, 2 directory moves shallowest first, 3 file and symlink moves, 4 puts, 5 deletes of files and symlinks (including the sources of puts with from), 6 deletes of directories deepest first (a recursive delete is one rmtree). Outcome table: applied / already applied / conflict with reason (changed, collision, not_empty, kind_mismatch). Already applied is detected through the helper: stat (tree hash for directories, hash via read for files), not_found for deletes. A move onto an existing path is always a collision conflict, never an overwrite; a non-recursive delete of a directory that gained children is not_empty; a recursive delete with a different tree hash is changed. The overlay-applied post carries conflicts with their reason.\n- Scenarios: LF-73 (six @supervisor scenarios).",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -31,17 +31,36 @@
         "model": "claude-sonnet-5-5",
         "name": "planner"
       }
+    },
+    {
+      "id": "b39a834e-15db-43e8-b567-02133cb2f64c",
+      "author": "home",
+      "text": "Merged to develop in PR 526 (C2), part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:07:58.034512Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "bc2d478c-994f-4d4e-82bf-5e793bb6bd57",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:08:03.263579Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-12T22:01:22.404556Z",
-  "updated_at": "2026-10-12T22:22:28.514770Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T07:08:09.190664Z",
+  "closed_at": "2026-10-13T07:08:09.190618Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "The supervisor now applies and clears overlay changes, including creates, moves, deletes, and conflict checks.",
-  "right_now_updated_at": "2026-10-12T22:22:29.604792Z",
+  "right_now_summary": "Phase 3 is merged and proven live at the API level, with browser testing and follow-ups remaining.",
+  "right_now_updated_at": "2026-10-13T07:08:10.392552Z",
   "custom": {}
 }

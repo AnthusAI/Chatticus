@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-d88a0fee-17ed-426b-b299-62ea22db002c",
+  "title": "Incident follow-up: pre-deploy check of real IAM for new S3 access paths, and image tag flips only after server side is verified",
+  "description": "Incident 2026-10-13: the computer image was pushed to development before the Front Door IAM for the overlay was proven, and every computer start on development failed for about 40 minutes. Tests passed because moto does not enforce IAM. Add (1) a pre-deploy CI check that exercises real IAM for new S3 access paths, for example an IAM policy simulator check of the Front Door and supervisor roles against the keys they need; (2) a rule, in docs and the deploy scripts, that the image tag flips only after the server side is deployed and verified. Related fix: PR 531 (Front Door ListBucket).",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T07:04:45.040678Z",
+  "updated_at": "2026-10-13T07:04:45.040713Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The team is adding real IAM checks and delaying image tag changes until server verification.",
+  "right_now_updated_at": "2026-10-13T07:04:46.470499Z",
+  "custom": {}
+}

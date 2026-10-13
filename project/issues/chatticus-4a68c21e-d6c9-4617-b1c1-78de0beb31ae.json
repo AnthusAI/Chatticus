@@ -3,7 +3,7 @@
   "title": "Live files E: end-to-end scenarios and the live proof on development",
   "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 2) sections 13 (LF-46, LF-64), 15 (E) and 17. Whoever finishes last of A2 and C2 does this.\n\nWork: write the six @end-to-end scenarios of features/computer_file_live.feature (the three live ones and the three overlay ones: an edit made while off is applied on the next hydrate and the bot sees it; the overlay is empty after the publish that holds the edit; the overlay survives a crash of the owner before it publishes) in one steps file (conversation/features-support/steps/computer-file-live-end-to-end.steps.ts) using the real supervisor, the real file helper and real bot turns (see computer_owner_long_lived.feature for the shape); put them in features/cucumber-features.txt. Then run the live proof of section 17 on development (sections 17: the eight checks plus 6a to 6c for the overlay; record each result in a Kanbus comment, including the memory measurement and the CloudFront If-Match / ETag check). Then launch the Kanbus-and-README milestone sub-agent required by AGENTS.md: README \"What is live today\", this ticket and its siblings, a closing comment on chatticus-041a10.\n\nAcceptance: npm run test:features green with all tags of computer_file_live.feature in the list; live proof recorded; unwire blocked-by edges when closing (CONTRIBUTING_AGENT.md).\n\nDependencies: B, A1, A3, A2, C and C2 merged and deployed. Related: chatticus-c24177 (Phase 2a live proofs).\n\n\nREVISION 3 (owner decision O5: delete, rename and new folders are required in Phase 3, also while the computer is off; contract sections 3 L48 to L66, 5.2, 5.5, 7.8, 8.1):\n- Add the end-to-end scenario 'A file deleted and a file renamed while the computer is off are seen that way by the bot' (LF-76) and live proof step 6d and 6e of section 17. Dependencies now include A4.",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -51,17 +51,36 @@
         "model": "claude-sonnet-5-5",
         "name": "planner"
       }
+    },
+    {
+      "id": "a52e7446-e2f2-44dd-99bc-47c3f5103e31",
+      "author": "home",
+      "text": "Merged to develop in PR 529 (E fixups and end-to-end), with fixes in 530, 531 and 532, part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:08:29.583433Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "98d22201-782c-4378-851f-7cb255427b62",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:08:34.354366Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-12T21:41:22.431370Z",
-  "updated_at": "2026-10-12T22:22:42.397908Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T07:08:41.687715Z",
+  "closed_at": "2026-10-13T07:08:41.687665Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "planner"
   },
-  "right_now_summary": "The team must add end-to-end tests, run live proofs, and update project documentation.",
-  "right_now_updated_at": "2026-10-12T22:22:43.404804Z",
+  "right_now_summary": "Phase 3 is live on development; only browser Files panel proof and follow-up work remain.",
+  "right_now_updated_at": "2026-10-13T07:08:43.561636Z",
   "custom": {}
 }

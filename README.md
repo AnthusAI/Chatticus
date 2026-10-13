@@ -70,7 +70,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-09.** Git **`develop`** is ahead of **`main`**.
+**Last updated: 2026-10-13.** Git **`develop`** is ahead of **`main`**.
 
 ### The control plane is TypeScript on `develop`
 
@@ -111,6 +111,33 @@ definition and service still exist until a later infra PR.
 The development environment is **[develop.chattic.us](https://develop.chattic.us)**
 in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
 deployment; older proofs below that name it ran there.
+
+### Live file view and edit on development (Phase 3, 2026-10-13)
+
+Members can view and edit a computer's files whether or not the computer is
+running (Kanbus `chatticus-041a10`, PRs 519 to 532; contract in
+[Live files protocol](docs/LIVE_FILES_PROTOCOL.md)). With the computer off,
+edits, deletes, renames and new folders go to an edit overlay in the snapshot
+bucket (written only by the Front Door with conditional puts) and the next
+owner applies them at hydrate. With the computer on, the owner serves them
+through the unprivileged file helper. Saves carry If-Match; a stale hash is
+refused with 409. Proven live on development with API calls: offline folder
+and file create, rename and a stale 409; the next turn on a fresh computer
+sees the offline edit; online read, edit, bot read-back, delete, stat 404; a
+stale save after a bot edit is refused 409 and the bot's line survives;
+If-Match and ETag pass through CloudFront. **Not yet proven:** the Files panel
+in a browser at 375 px or with a real signed-in user (`chatticus-bf7fd2`);
+container memory at 512 MiB under two helpers, a Pi turn and a publish
+(`chatticus-7c6040`). **Known gaps:** a read of a pending offline edit labels
+its source snapshot where the contract says overlay (`chatticus-5dbb7e`); the
+live audit cannot tell file hashes from folder tree hashes (`chatticus-f9cfda`);
+files over the 8 MiB live limit and a 2000-entry listing in one table item are
+unmonitored (`chatticus-e7a52f`); customer-account computers remain view-only
+(`chatticus-ed8e4e`); staging also enables the integration test principal
+(`chatticus-80b17c`). Staging and production do not run this path. Incident:
+pushing the image to development before the Front Door IAM was proven broke
+every computer start there for about 40 minutes, because moto does not enforce
+IAM; a pre-deploy IAM check is tracked in `chatticus-d88a0f`.
 
 ### Voice and turn failures on development (2026-10-04)
 

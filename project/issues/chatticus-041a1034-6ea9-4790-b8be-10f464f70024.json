@@ -3,7 +3,7 @@
   "title": "Long-lived computer Phase 3: live file view and edit through the owner",
   "description": "Fileops items served by the owner through the unprivileged helper, PUT with If-Match, audit, conflicts. Depends on 2a (merged). Contract: docs/LIVE_FILES_PROTOCOL.md. Draft behavior: features/computer_file_live.feature. Sub-tasks: F0 chatticus-7fa35e, A1 chatticus-8bc707, A2 chatticus-6734e9, C chatticus-c658f2, W chatticus-4c646b, E chatticus-4a68c2.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -46,17 +46,36 @@
         "model": "claude-sonnet-5-5",
         "name": "planner"
       }
+    },
+    {
+      "id": "f2c5c843-4085-4ea9-a438-51455eacb0b2",
+      "author": "home",
+      "text": "Phase 3 complete: PRs 519 to 532 merged; proven live on development 2026-10-13 (offline create, rename, stale 409, hydrate-applied edit, live read/edit/delete/stat, conflict after bot edit, If-Match/ETag through CloudFront). Not proven: Files panel in a browser at 375 px or with a real user. Follow-ups filed: chatticus-bf7fd2, 5dbb7e, f9cfda, 7c6040, d88a0f, 80b17c, e7a52f; existing chatticus-ed8e4e (customer-account computers).",
+      "created_at": "2026-10-13T07:08:46.791880Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "c12fd17a-af72-4b86-9c27-c3fe3b780176",
+      "author": "home",
+      "text": "Phase 3 shipped on development; remaining work tracked in follow-up tickets.",
+      "created_at": "2026-10-13T07:08:50.326041Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-12T13:18:59.699384Z",
-  "updated_at": "2026-10-12T22:22:06.661733Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T07:08:54.871213Z",
+  "closed_at": "2026-10-13T07:08:54.871173Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is building offline file editing with overlays, moves, deletes, folders, routes, policies, and tests.",
-  "right_now_updated_at": "2026-10-12T22:22:45.204639Z",
+  "right_now_summary": "Phase 3 is live on development; browser testing and follow-up work remain.",
+  "right_now_updated_at": "2026-10-13T07:08:56.148502Z",
   "custom": {}
 }

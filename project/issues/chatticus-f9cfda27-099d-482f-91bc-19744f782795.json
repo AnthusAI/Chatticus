@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-f9cfda27-099d-482f-91bc-19744f782795",
+  "title": "Live audit cannot tell file hashes from folder tree hashes",
+  "description": "The live file audit records a hash for files and a tree hash for folders (folder tree hash is the ETag, chatticus-f9b663) but the audit entry does not say which kind it is. Add a kind field and a scenario.",
+  "type": "bug",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T07:04:37.902472Z",
+  "updated_at": "2026-10-13T07:04:37.902522Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The audit needs a kind field and a scenario to distinguish file hashes from folder tree hashes.",
+  "right_now_updated_at": "2026-10-13T07:04:39.477747Z",
+  "custom": {}
+}
