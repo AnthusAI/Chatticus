@@ -1,6 +1,6 @@
 # Live files protocol (Phase 3 contract)
 
-> **Status:** CONTRACT. Nothing on this page is built. It is the exact interface that
+> **Status:** CONTRACT, built in Phase 3 (the "as built" notes under section 15 say where the code differs). It is the exact interface that
 > several people build against in parallel for Phase 3 of
 > [Long-lived computer, file protocol and preview](LONG_LIVED_COMPUTER.md): the shared
 > schemas (F0), the server (A1, A2), the container (C) and the web app (W). It builds
@@ -12,7 +12,7 @@
 > `host-protocol/src/live-files.ts` and `host-protocol/src/live-file-rules.ts` by the
 > foundation step F0; until F0 merges, this page is the source. Once it merges, where
 > this page and those files disagree, fix the page. The draft behavior is in
-> [`features/computer_file_live.feature`](../features/computer_file_live.feature).
+> [`features/computer_file_live_member.feature`](../features/computer_file_live_member.feature) and the other `computer_file_*.feature` files.
 >
 > **Revision 2 (owner decisions).** The owner decided that a computer is needed only to *run*
 > things, never to view or edit files: a person reads and edits files while the computer is off,
@@ -1933,7 +1933,7 @@ it already has read and write on the whole bucket, and it is operator-trusted, o
 
 ## 13. Traceability
 
-Scenario names are those of `features/computer_file_live.feature`, except the `@web` ones, which live in `features/web_computer_files.feature` (registered, with steps) under the same names. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
+Scenario names are those of the registered `computer_file_*.feature` files and `web_computer_files.feature`: `computer_file_live_member` and `computer_file_live_operations` (server routes), `computer_file_live_owner` (the owner routes), `computer_file_overlay` and `computer_file_overlay_authority` (the overlay, store level and who may write it), `computer_file_live_supervisor` and `computer_file_overlay_supervisor` (the supervisor), `web_computer_files` (the panel) and `computer_file_live_end_to_end` (the whole path); the draft file that held them has been deleted. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
 `@end-to-end` (E). `vitest` is the unit-test exception of `AGENTS.md`: pure helpers only.
 
 | # | Requirement | Section | Scenarios | Tag |
@@ -2149,6 +2149,15 @@ Revision 2 adds: edit while the computer is off (`source: "overlay"`), the `Edit
 ### E. End to end and live proof (needs A2, A4 and C2)
 
 The `@end-to-end` scenarios (LF-46, LF-64, LF-76) in one steps file, the live proof (section 17), and the milestone sub-agent for Kanbus and README.
+
+**E as built** (`features/computer_file_live_end_to_end.feature`, steps in `features-support/steps/live-files-end-to-end.steps.ts` with `features-support/live-files-end-to-end-support.ts`; LF-59 is `features/computer_file_overlay_authority.feature`). Where the code differs from the text above:
+
+* The scenarios run the production routes with the real `OwnerSupervisor` loop (the long-lived harness of `owner-long-lived.steps.ts`, now parameterised by a wiring), the real `HostDiskLifecycle` over the scenario's bucket, the real `SealingOverlayApplier` and the real file helper run in the test process on a real directory. A bot's turn works in the same directory, so one disk is seen by the member, the helper and the bot. The `FakeLiveDisk` is not used here: it answers owner requests in memory and the bot's tools need a real workspace. Time, the child process of a turn, the model, the credential broker and the wait of the Front Door (`ScenarioFileWait`) are faked.
+* Time moves only by waking the supervisor's sleepers; work the supervisor does in real time (restore, publish, helper) is counted as in flight and finishes before time moves on. Each supervisor the scenario starts gets a fresh live disk, as each task of the computer does.
+* "A task that crashes" is a supervisor that is never woken again. The next owner can be started only after the heartbeat has lapsed (30 seconds) **and** the start lease of the dead task has run out (`HOST_START_LEASE_SECONDS`, 60), so the crash scenario lets 61 seconds go by, not 31.
+* LF-64 (empty after the publish): the scenario also lets the supervisor idle until it stops (reason `idle`) and then asserts the overlay is empty and not sealed, which is the state 17 step 6a promises "after the stop".
+* LF-59 second scenario: the first write of the index is create-only (`If-None-Match: *`); the `If-Match` of the entity tag that was read applies to every later write, so the scenario makes two edits and checks the chain of tags against moto's conditional writes.
+* The scenario that lists the workspace for the bot runs `ls` with `cwd` `/workspace` instead of `ls /workspace`, because the test shell has no `/workspace` directory.
 
 ### Order and dependencies
 

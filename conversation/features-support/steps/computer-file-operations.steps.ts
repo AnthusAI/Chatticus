@@ -221,18 +221,18 @@ Given("the live disk of the owner holds an empty folder {string}", function (thi
 	memberFilesOf(this).disk.putDirectory(workspaceFile(relative));
 });
 
-async function changeAs(world: ChatticusWorld, userId: string, request: OverlayMemberChange): Promise<void> {
+export async function changeAs(world: ChatticusWorld, userId: string, request: OverlayMemberChange): Promise<void> {
 	await changeOverlay(overlayDependenciesOf(world), { tenantId: TENANT, userId, request });
 }
 
-async function effectiveHashOf(world: ChatticusWorld, path: string): Promise<string> {
+export async function effectiveHashOf(world: ChatticusWorld, path: string): Promise<string> {
 	const { view } = await loadEffectiveOverlayView(overlayDependenciesOf(world), TENANT);
 	const hash = view.hashOf(path);
 	assert.ok(hash !== null, `There is nothing at ${path}.`);
 	return hash;
 }
 
-async function renameInOverlay(world: ChatticusWorld, userId: string, from: string, to: string): Promise<void> {
+export async function renameInOverlay(world: ChatticusWorld, userId: string, from: string, to: string): Promise<void> {
 	await changeAs(world, userId, { op: "move", from, to, ifMatchSha256: await effectiveHashOf(world, from) });
 }
 

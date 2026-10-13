@@ -12,7 +12,7 @@ Feature: The control plane hands file requests to the live owner and takes its a
   answer is accepted only from the owner that was given the request, once, and finishes the audit record the Front Door
   wrote first. An open Files panel makes the owner poll every second without keeping the computer awake, and a file
   request that is waiting or being served vetoes an idle stop. The member routes themselves are in
-  computer_file_live.feature.
+  computer_file_live_member.feature.
 
   Background:
     Given an empty control plane

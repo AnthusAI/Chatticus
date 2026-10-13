@@ -46,6 +46,11 @@ export class WorldSupervisorClock implements SupervisorClock {
 		return this.sleepers.length > 0;
 	}
 
+	/** The earliest deadline of any sleeper, or undefined when none sleeps. */
+	nextDeadlineMilliseconds(): number | undefined {
+		return this.sleepers.length === 0 ? undefined : Math.min(...this.sleepers.map((sleeper) => sleeper.deadline));
+	}
+
 	/** Move the shared clock to the earliest deadline, if it is in the future, and wake that sleeper. */
 	wakeNext(): void {
 		const next = [...this.sleepers].sort((first, second) => first.deadline - second.deadline)[0];

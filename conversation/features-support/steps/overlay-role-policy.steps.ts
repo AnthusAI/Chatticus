@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
-import { Then } from "@cucumber/cucumber";
+import { Given, Then } from "@cucumber/cucumber";
+import type { S3Client } from "@aws-sdk/client-s3";
 import { supervisorSessionTags } from "../../src/gateway/session-tags.ts";
+import { S3OverlayStore } from "../../src/snapshot/overlay-store.ts";
+import { createFileRoutesBucket, fileRoutesOf } from "../computer-snapshot-files-support.ts";
+import { createOverlayScenario } from "../edit-overlay-support.ts";
+import { wireFrontDoor } from "../front-door.ts";
+import { testS3Client } from "../pi-storage.ts";
+import { ownerServerOf } from "./owner-supervisor-server.steps.ts";
 import { policyAllows, supervisorRolePolicyStatements, type AuthorizedRequest } from "../iam-policy-evaluator.ts";
 import { FIXED_STORE_NAMES, ownerRoleFor, type OwnerRole } from "../owner-role-support.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -61,5 +68,63 @@ Then("the supervisor role policy denies every action on the overlay of another c
 		for (const action of OVERLAY_ACTIONS) {
 			assert.equal(policyAllows(role.statements, role.tags, objectRequest(action, key)), false, `${action} on ${key} was allowed`);
 		}
+	}
+});
+
+type RecordedPut = { readonly key: string; readonly ifMatch: string | undefined; readonly ifNoneMatch: string | undefined; readonly etag: string | undefined };
+
+const putsByWorld = new WeakMap<ChatticusWorld, RecordedPut[]>();
+
+function recordingOverlayClient(puts: RecordedPut[]): S3Client {
+	const client = testS3Client();
+	client.middlewareStack.add(
+		(next) => async (args) => {
+			const result = await next(args);
+			if (args.input !== undefined && "Key" in (args.input as object) && "Body" in (args.input as object)) {
+				const input = args.input as { Key: string; IfMatch?: string; IfNoneMatch?: string };
+				puts.push({ key: input.Key, ifMatch: input.IfMatch, ifNoneMatch: input.IfNoneMatch, etag: (result.output as { ETag?: string }).ETag });
+			}
+			return result;
+		},
+		{ step: "initialize", name: "recordOverlayPuts" },
+	);
+	return client;
+}
+
+Given("an edit overlay kept in the snapshot bucket itself", async function (this: ChatticusWorld) {
+	await createFileRoutesBucket(this);
+	const puts: RecordedPut[] = [];
+	putsByWorld.set(this, puts);
+	const bucket = fileRoutesOf(this).bucket;
+	assert.ok(bucket, "The scenario has no snapshot bucket.");
+	createOverlayScenario(this, new S3OverlayStore(bucket, recordingOverlayClient(puts)));
+	await wireFrontDoor(this, { signupMode: "invitation_only", cognitoVerifier: true });
+	ownerServerOf(this).frontDoorWired = true;
+});
+
+function overlayPutsOf(world: ChatticusWorld, kind: "blobs" | "index"): RecordedPut[] {
+	const puts = putsByWorld.get(world);
+	assert.ok(puts, "The overlay of this scenario is not kept in the snapshot bucket.");
+	return puts.filter((put) => (kind === "index" ? put.key.endsWith("/overlay/index.json") : put.key.includes("/overlay/blobs/")));
+}
+
+Then("the overlay blob was put with {string}", function (this: ChatticusWorld, header: string) {
+	assert.equal(header, "If-None-Match: *");
+	const blobs = overlayPutsOf(this, "blobs");
+	assert.ok(blobs.length >= 2, `Expected at least two blob writes, saw ${blobs.length}.`);
+	for (const put of blobs) {
+		assert.equal(put.ifNoneMatch, "*", `A blob was written without If-None-Match: ${put.key}`);
+		assert.equal(put.ifMatch, undefined);
+	}
+});
+
+Then("the overlay index was put with a condition on the entity tag it had read", function (this: ChatticusWorld) {
+	const indexes = overlayPutsOf(this, "index");
+	assert.ok(indexes.length >= 2, `Expected at least two index writes, saw ${indexes.length}.`);
+	assert.equal(indexes[0]!.ifNoneMatch, "*", "The first write of the index must be a create-only write.");
+	for (let position = 1; position < indexes.length; position += 1) {
+		assert.ok(indexes[position - 1]!.etag, "The previous write returned no entity tag.");
+		assert.equal(indexes[position]!.ifMatch, indexes[position - 1]!.etag, "A later write of the index must name the entity tag it had read.");
+		assert.equal(indexes[position]!.ifNoneMatch, undefined);
 	}
 });

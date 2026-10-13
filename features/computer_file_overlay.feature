@@ -13,7 +13,7 @@ Feature: Edits made while the computer is off are kept in an overlay that the ow
   silently. The contract is docs/LIVE_FILES_PROTOCOL.md (sections 7.7 and 7.8); the wire schemas are in
   host-protocol/src/edit-overlay.ts. This feature is the Front Door side of the overlay. The owner side (applying the
   set on the disk) is told in the supervisor features, and reading and writing through the file routes in
-  computer_file_live.feature.
+  computer_file_live_member.feature.
 
   Background:
     Given an empty control plane
