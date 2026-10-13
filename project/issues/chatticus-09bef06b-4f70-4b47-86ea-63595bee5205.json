@@ -12,16 +12,29 @@
     "cost-accounting"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0838fb29-c629-49c0-b83c-bd847bf0d012",
+      "author": "home",
+      "text": "T8 implemented in PR 541 (ts/cost-http-api): read-only cost API (turn, message, channel, org rollup by bot/channel/member/model/day/month, turn rows, compare, export), zod schemas in host-protocol/src/costs.ts, contract in docs/COST_ACCOUNTING.md 3.10. Decision: every enabled member of the org reads org cost; non-members and other tenants refused; no GSI. Gherkin cost_api.feature and cost_api_gateway_rows.feature (failed first, 4 mutation checks caught), vitest 1225 passed. No IAM change; verify with the IAM simulator and a real call after deploy. Awaiting review and CI.",
+      "created_at": "2026-10-13T16:13:12.772339Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t8"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:31:38.954210Z",
-  "updated_at": "2026-10-13T11:31:38.954257Z",
+  "updated_at": "2026-10-13T16:13:12.772813Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "Implement HTTP cost APIs for channel, turn, organization rollups, comparisons, and exports.",
-  "right_now_updated_at": "2026-10-13T11:31:40.069441Z",
+  "right_now_summary": "T8’s cost API is implemented and awaiting review, CI, and IAM verification.",
+  "right_now_updated_at": "2026-10-13T16:13:16.006609Z",
   "custom": {}
 }
