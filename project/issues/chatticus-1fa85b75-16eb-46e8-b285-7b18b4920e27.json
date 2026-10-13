@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-1fa85b75-16eb-46e8-b285-7b18b4920e27",
+  "title": "Decide where marketing waitlist and contact intake lives before the production cutover",
+  "description": "## Plan step 5 (gates production cutover, not the merge)\nchattic.us /api* proxies to the legacy production thin-turn Lambda Function URL and serves POST /api/waitlist/survey, /api/waitlist/confirm, /api/waitlist/invite and /api/contact. The TypeScript control plane does not implement them. When legacy production thin-turn is replaced, signups and contact submissions fail. Options: a small Lambda in the website repo reading and writing the existing WAITLIST and CONTACT items in the Messaging table, or a bounded bridge keeping legacy thin-turn only for those routes.\n## Decision: D4. Related: chatticus-574e4b, chatticus-8912d6.\n## Acceptance\n- The chosen option is recorded and built; waitlist and contact submissions succeed with legacy production thin-turn removed (verified on staging first).\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-0b3a0d16-717c-417d-a143-239dce50b9b0",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:36:56.225859Z",
+  "updated_at": "2026-10-13T11:37:46.515060Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The owner still needs to choose and build the waitlist and contact API before production cutover.",
+  "right_now_updated_at": "2026-10-13T11:37:48.771651Z",
+  "custom": {}
+}

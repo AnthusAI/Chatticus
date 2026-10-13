@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-5380d008-a85a-4fc2-a08c-13ccd85fd7ef",
+  "title": "Enable branch protection on main and required reviewers on staging and production environments",
+  "description": "## Plan step 1 (owner or admin approval required)\nBranch protection on main: require a PR, one approval, required status checks infra, web, conversation, no force pushes. GitHub environments staging and production: required reviewer (the owner) and deployment branch policy main only. Leave prevent-self-review off for a one-person team. Today main has no protection (HTTP 404) and the environments have no rules, contradicting AGENTS.md.\n\n## Needs owner approval before any change (decision D2).\n## Acceptance\n- gh api shows protection on main with the three required checks and no force push.\n- staging and production environments list the owner as required reviewer and branch policy main.\n- A test dispatch of a deploy workflow waits for approval.\n- Rollback: revert the settings.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-0b3a0d16-717c-417d-a143-239dce50b9b0",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:36:43.249484Z",
+  "updated_at": "2026-10-13T11:37:35.958133Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "Owner approval is needed before enabling branch protection and deployment reviews.",
+  "right_now_updated_at": "2026-10-13T11:37:37.057114Z",
+  "custom": {}
+}

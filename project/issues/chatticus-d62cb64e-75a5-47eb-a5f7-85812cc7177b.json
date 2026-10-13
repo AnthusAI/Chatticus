@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-d62cb64e-75a5-47eb-a5f7-85812cc7177b",
+  "title": "Pin the marketing website to the Python-era tarball and vendor the wiki publisher",
+  "description": "## Plan step 4 (private repo AnthusAI/Chattic.us-web, separate PR reviewed by the owner)\nThe website depends on the unpinned main tarball of Chatticus and its prebuild plus CI plus deploy-marketing-production run pip install -e node_modules/chatticus/python[wiki] and behave. python/ is deleted on develop, so the merge would break the next website build. Pin the dependency to the exact Python-era tarball (e68b5f4f), port or vendor wiki_publish (anthus-markus) into the website repo, drop the pip install and behave step, then return the dependency to main. The UI kit exports map is compatible.\n## Decision: D3.\n## Acceptance\n- Website build and deploy succeed with the pin before the develop-to-main merge.\n- After vendoring, the website builds against main with no python/ in the tarball.\n- Agents do not merge website PRs.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-0b3a0d16-717c-417d-a143-239dce50b9b0",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:36:53.033136Z",
+  "updated_at": "2026-10-13T11:37:42.976391Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "Nothing has changed; the owner must decide before the website dependency and wiki publisher work begins.",
+  "right_now_updated_at": "2026-10-13T11:37:45.038288Z",
+  "custom": {}
+}

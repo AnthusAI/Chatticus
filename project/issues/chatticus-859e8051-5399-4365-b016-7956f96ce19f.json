@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-859e8051-5399-4365-b016-7956f96ce19f",
+  "title": "Baseline tag so semantic-release proposes 0.44.0, and dry-run it",
+  "description": "## Plan step 3\nAll 48 tags (latest v0.43.0) are on commits reachable from neither main nor develop, so the first semantic-release on main would compute 1.0.0, publish it, then fail guard-pre-1-0, leaving a public v1.0.0 tag and release. Tag main's head e68b5f4f as v0.43.1 (baseline, owner action, plain tag push). Verify with npx semantic-release --dry-run --no-ci on a scratch checkout of the merged result that it proposes 0.44.0. Optionally move the 0.* guard ahead of publishing.\n## Decision: D6.\n## Acceptance\n- Tag v0.43.1 is an ancestor of main.\n- The dry run on the merged result reports next release 0.44.0.\n- Rollback: delete the baseline tag.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-0b3a0d16-717c-417d-a143-239dce50b9b0",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:36:49.438826Z",
+  "updated_at": "2026-10-13T11:37:40.650872Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The baseline tag and semantic-release dry run are still pending owner action.",
+  "right_now_updated_at": "2026-10-13T11:37:41.831822Z",
+  "custom": {}
+}

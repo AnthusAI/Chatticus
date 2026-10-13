@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-18fe1457-f858-4673-abbe-e5865fdefc3a",
+  "title": "Update the cost page when per-session/bot/message cost views ship",
+  "description": "Follow-up. When the web cost views ship, move the corresponding 'Coming soon' items on the cost page to live descriptions, citing what shipped. Blocked by chatticus-f65e89 (T9 Web: channel cost chip, per-message cost markers, organization Costs page) under cost epic chatticus-8c857b.\n## Acceptance\n- Page reflects exactly the shipped views; nothing beyond them.\nRepo: AnthusAI/Chattic.us-web (private). Branch marketing/durability-and-cost; PR not yet opened. Owner reviews and merges; agents never merge.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4582a4f5-f451-4f46-b5da-c0bbe17fec38",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-f65e89d2-66e0-42ff-be5d-bf85614f3f18",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:38:53.676186Z",
+  "updated_at": "2026-10-13T11:39:01.674383Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "This follow-up waits for the web cost views to ship before updating the cost page.",
+  "right_now_updated_at": "2026-10-13T11:39:03.382447Z",
+  "custom": {}
+}

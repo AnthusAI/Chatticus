@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-c2862836-01f5-41d3-b103-d8cbc712b40f",
+  "title": "Marketing page: pi-durable and durable sessions",
+  "description": "Write the pi-durable / durability page: the Pi session is the only transcript, parked turns, leases and fencing, recovery after a killed host, per-turn streams. Source of truth: docs/TYPESCRIPT_CONTROL_PLANE.md, docs/PI_SESSION_HANDOFF.md and README 'What is live today'.\n## Acceptance\n- Every claim traces to a feature or doc on develop; unproven items (staging, production) stated as development only.\n- Renders at 375 px; no emojis.\nRepo: AnthusAI/Chattic.us-web (private). Branch marketing/durability-and-cost; PR not yet opened. Owner reviews and merges; agents never merge.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4582a4f5-f451-4f46-b5da-c0bbe17fec38",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:38:39.530033Z",
+  "updated_at": "2026-10-13T11:38:39.530075Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The durability page is being prepared on its branch, but no pull request has been opened yet.",
+  "right_now_updated_at": "2026-10-13T11:38:41.248006Z",
+  "custom": {}
+}

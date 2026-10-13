@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-f4d14205-970d-4b51-b003-606f61600098",
+  "title": "Merge docs PR 394, close stale PRs 347 and 348, prune stale ts/owner-supervisor* branches",
+  "description": "## Plan step 6 (decision D9)\nMerge PR 394 (docs-only session namespace design, clean). Close PR 347 (README-only, conflicting) and PR 348 (draft, conflicts with reorganized conversation/; note AGENTS.md says v1 LLM is OpenAI) with a comment. Verify each branch is merged or abandoned, then prune ts/owner-supervisor, -container, -infra, -server, claude/session-namespace-design, codex/real-workspace-live-readme, cursor/turn-model-selection. Finish or defer chatticus-52d238 (TS-69).\n## Acceptance\n- PRs 347 and 348 closed with a comment; 394 merged or consciously kept.\n- Listed branches deleted after verification.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-0b3a0d16-717c-417d-a143-239dce50b9b0",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:36:59.284683Z",
+  "updated_at": "2026-10-13T11:37:50.117973Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "No work has started; the owner must decide before merging, closing PRs, and pruning branches.",
+  "right_now_updated_at": "2026-10-13T11:37:51.417098Z",
+  "custom": {}
+}

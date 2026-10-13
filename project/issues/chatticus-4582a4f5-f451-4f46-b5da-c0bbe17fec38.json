@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-4582a4f5-f451-4f46-b5da-c0bbe17fec38",
+  "title": "Marketing: pi-durable, durability and cost pages",
+  "description": "## Intent\nPublish marketing pages on chattic.us (private repo AnthusAI/Chattic.us-web) explaining durable sessions on pi-durable and the cost accountability that exists today. Website PRs are reviewed and merged by the owner only; agents never merge them. The marketing agent's PR is on branch marketing/durability-and-cost (no PR exists yet as of 2026-10-13; reference it here once it does, find with gh pr list --repo AnthusAI/Chattic.us-web --head marketing/durability-and-cost).\n\n## Rules\n- Describe only what exists today. The vision is labelled 'Coming soon'.\n- Any later cost claim depends on cost epic chatticus-8c857b.\n- No third-party product names for Chatticus parts; v1 LLM is OpenAI.\n\n## Definition of done\nPages, navigation and the updates entry are merged by the owner, truthful against develop, and the cost page follow-up is tracked.",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:38:30.058193Z",
+  "updated_at": "2026-10-13T11:38:30.058231Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The marketing pages are being prepared on a branch, but no pull request has been opened yet.",
+  "right_now_updated_at": "2026-10-13T11:39:08.479171Z",
+  "custom": {}
+}
