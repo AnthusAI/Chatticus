@@ -98,6 +98,28 @@ its tokens, carries `unpriced_calls` greater than zero and has no `cost_usd`,
 which means unknown. A typical turn (about 4,700 input and 220 output tokens on
 `gpt-6-luna`) costs about $0.00058 when none of the input is cached.
 
+### Where the ledger row of a turn comes from
+
+A turn's ledger row is not counted; it is a projection of the turn's cost records. Each model call of a
+turn is one keyed record (`chatticus.cost`, key `entry-<entryId>`) in the durable Pi session of the bot
+and channel, derived from the assistant entry that answered the call and priced from the book above (see
+`docs/COST_ACCOUNTING.md`, section 3). The owner derives the records and then writes the turn's ledger
+row, and its turn index item, from the sum of those records, as absolute totals rather than additions.
+It does this when a turn concludes or fails, when it is handed on (yield) or parked on the computer, and
+when an owner resumes a turn. The same calls therefore give the same row from a Lambda owner or from the
+computer owner, a retry or takeover writes the same figures again, and the model gateway writes nothing
+to the ledger; it only logs the usage it saw. The old per-turn counters
+(`ledger_input_recorded`, `ledger_output_recorded`) no longer exist.
+
+The ledger row keeps its shape (`input_tokens` counts cached tokens too, `cost_usd` is the sum of the
+calls' own dollars, `price_book_id`, `priced_with`, `models`, `unpriced_calls`, plus `record_count`, the
+number of call records it was written from; a write with fewer records than the row already holds is
+refused). The row at `{tenant}#cost#{yyyy-mm}` / `turn#{turnId}` is the turn index item: the same totals
+with `bot_id`, `channel_id`, `prompt_author_id`, `prompt_message_seq`, `message_seq`, `owner_kind` and a
+per-model breakdown. Until the rollup moves to the turn index (Kanbus `chatticus-0d265c`, T7) the daily
+rollup still sums the ledger rows, so budget alerts and the computer-work meter are unchanged. Voice
+understanding calls still write their own `voice:` ledger rows directly (T5 moves them).
+
 Dollars in the ledger feed the daily rollup's `vendor_cost_usd` and
 `combined_report_usd`, and so the month-to-date meter that the per-organization
 computer-work ceiling reads.

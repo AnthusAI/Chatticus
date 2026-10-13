@@ -4,6 +4,7 @@ import type { Context } from "@earendil-works/chord";
 import type { Extension } from "@earendil-works/pi-durable";
 import type { Models } from "@earendil-works/pi-ai/models";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { TurnCostOwnerKind } from "../ledger/turn-cost.ts";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { TurnDependencies } from "../domain/turns.ts";
@@ -72,6 +73,8 @@ export type ExecutorDeps = {
 	readonly models: Models;
 	readonly model: TurnModel;
 	readonly ledger: VendorLedgerDependencies;
+	/** Which kind of owner this is; the turn index names the owner kind that last recorded a turn's cost. */
+	readonly ownerKind: TurnCostOwnerKind;
 	/** Recorded as `claimed_by` on the turn. */
 	readonly workerLabel?: string;
 	readonly tuning?: Partial<ExecutorTuning>;

@@ -64,8 +64,6 @@ export type Turn = {
 	nextEventSeq: number;
 	terminalReason: string | null;
 	messageSeq: number | null;
-	ledgerInputRecorded: number;
-	ledgerOutputRecorded: number;
 };
 
 /** The sanitized arguments of a `tool.call` event: short strings and numbers only. */

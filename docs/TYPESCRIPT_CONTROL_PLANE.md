@@ -393,8 +393,7 @@ and `ComputerTurnJobs` empty, no host start in flight.
 `turn_id, tenant_id, channel_id, bot_id, status (active|completed|failed|reconciling),
 prompt_message_seq, attempt_id, attempt (int), claimed_by, lease_expires_at,
 deadline_at, recovery_attempts, waiting_for, storage_fence, next_event_seq,
-terminal_reason, message_seq, ledger_input_recorded, ledger_output_recorded,
-logical_enqueue_ids`. "Waiting" is still `active` with `waiting_for` set,
+terminal_reason, message_seq, logical_enqueue_ids`. "Waiting" is still `active` with `waiting_for` set,
 as today.
 
 ### 3.2 Claim and fence
@@ -573,14 +572,14 @@ depends on). The model id and prompt are unchanged.
 
 ### 3.7 Spend recording
 
-Pi already meters (`pi.usage`, per model, with token counts). The ledger keeps
-its frozen schema and its own write-time prices (`vendor_prices`), so the
-rollup's `input_price_per_million_usd` and `cost_usd` stay consistent. At
-finalize and at every terminal failure the executor reads `pi.usage` for the
-session, takes the delta over `ledger_input_recorded`/`ledger_output_recorded`
-on the turn record, writes the ledger row (`accumulate`), and advances those
-two fields in one conditional update. A recovered attempt therefore never
-double-counts. Computer-work pausing by spend ceiling is checked when a
+Each model call is a keyed cost record (`chatticus.cost`, key `entry-<entryId>`)
+in the Pi session, derived from the assistant entry that answered it and priced
+from the versioned price book. At conclude, fail, yield, park and when an owner
+resumes a turn, the executor derives the records not yet written and then writes
+the turn's ledger row and monthly turn index item as absolute totals summed from
+those records. A recovered attempt, a takeover or a retry therefore never
+double-counts and never loses a committed call; there are no delta counters on
+the turn record. See `docs/COST_ACCOUNTING.md` section 3.8. Computer-work pausing by spend ceiling is checked when a
 computer action is created (4.4), as in Python's `prepare_computer_tool`.
 
 ## 4. The computer

@@ -5,6 +5,10 @@
 > [Live files protocol](LIVE_FILES_PROTOCOL.md) but shorter. Anything not verified by reading code or running it is
 > labelled INFERRED or ASSUMPTION. No production code changed in this task. The Kanbus epic and tickets that carry the
 > work are listed in section 6.
+>
+> **As built (T4, Kanbus `chatticus-49aa88`):** sections 1 and 2 describe the code BEFORE T4. Section 3.8 describes what T4 built and
+> which findings it closed (F1, F3, F5(e)); where 3.2 and 3.3 differ from 3.8, 3.8 is the code. The spike decision (no `afterResponse`
+> hook, derive from entries) is folded into 3.8; `COST_SPIKE_PI_DURABLE.md` stays as the record of the library contract.
 
 ## 0. The owner's vision, and the short answer
 
@@ -17,13 +21,13 @@ The owner's suspicion was "it probably is stored, but this needs checking". Chec
 
 | Owner expectation | Today | Evidence |
 | --- | --- | --- |
-| Model token usage is recorded per turn | TRUE | `recordTurnSpend` in `conversation/src/turn/finalize.ts`; ledger row in `conversation/src/ledger/vendor-ledger.ts` |
+| Model token usage is recorded per turn | TRUE | After T4: `recordTurnCost` in `conversation/src/turn/finalize.ts`, which derives per-call records in the session and projects the ledger row from them |
 | Dollars come from published vendor prices | PARTLY TRUE | A frozen price table (`vendor-prices.ts`) sourced from LiteLLM's catalog, a third-party list, not OpenAI's page. Cached input and the long-context tier are not modelled |
-| Cost is recorded the same way on a Lambda worker and on a computer owner | FALSE | The computer owner is metered twice by two writers (section 2, finding F1). Lambda is metered once, from the session |
-| Cost survives crash, retry and takeover without double counting or loss | TRUE on the Lambda path, FALSE on the computer-owner path, and calls whose answer never arrived are lost | `recordTurnSpendOnce` fence (Lambda); F1 (owner); F5 (lost calls) |
-| Cost is stored together with the durable session | FALSE for dollars, TRUE for raw tokens | The dollar ledger is a separate messaging-table row keyed by turn. The session itself does persist per-response tokens and pi-ai's own cost estimate (`message.usage`, and the `pi.usage` document), but nothing in Chatticus reads or exposes them |
+| Cost is recorded the same way on a Lambda worker and on a computer owner | TRUE after T1 and T4 | One writer (the owner, from the session); the gateway only logs. Scenario `cost_session_records_owners.feature` |
+| Cost survives crash, retry and takeover without double counting or loss | TRUE after T4 for every call whose answer the session committed; a call the provider answered but the session never committed is still unrecorded (needs the T5 gateway observation) | Keyed idempotent records; `cost_session_records.feature` |
+| Cost is stored together with the durable session | TRUE after T4 (a `chatticus.cost` record per call in the session). Before T4: FALSE for dollars, TRUE for raw tokens | The dollar ledger is a separate messaging-table row keyed by turn. The session itself does persist per-response tokens and pi-ai's own cost estimate (`message.usage`, and the `pi.usage` document), but nothing in Chatticus reads or exposes them |
 | Cost per session / channel | FALSE | No row, route or screen sums by channel. The ledger row holds only tenant and turn |
-| Cost per bot | FALSE | Same: ledger row has no `bot_id` |
+| Cost per bot | Stored after T4 (turn index item has `bot_id`); no API or screen yet (T8, T9) | Before T4 the ledger row had no `bot_id` |
 | Cost per message / turn | PARTLY TRUE | Per turn exists in storage (one row per turn). No API route and no screen shows it |
 | Cost per tool call or loop | FALSE | One row per turn; no per-model-call or per-round data is kept in the ledger |
 | Cost per sub-agent | FALSE | Chatticus has no sub-agent tool yet. When it does, `measureTurnUsage` reads only the root conversation, so a child's spend would be missed |
@@ -288,6 +292,46 @@ New feature files, added to `features/cucumber-features.txt`: `cost_call_records
 25. Migration of legacy ledger rows preserves totals.
 26. Adding a model caller without metering fails the parity guard (vitest, structural).
 
+### 3.8 As built (T4)
+
+**One writer.** `deriveCostRecordsFromEntries` (`conversation/src/ledger/call-cost.ts`) is the only code that turns a model call into a
+cost. It scans the assistant entries of one conversation from the turn's prompt entry on, skips entries whose `conversationId` is not
+that conversation (a fork's scan returns its parent's entries), and writes one record per entry in a single commit, skipping keys that are
+already filled. A record is a pure function of the entry and the price book, so any owner derives the same record.
+
+**Where it lives.** The `chatticus.cost` document family of the Pi session (`defineDocFamily`, scope conversation, history latest,
+`fork: "initial"`, so a fork starts with no records), key `entry-<entryId>`. It moves with the session partition: a fresh reader handle that
+replays nothing and a new owner under a new fence both read the same records. Each record holds the raw counters (uncached input, cache
+read, cache write, output with reasoning as a subset, context size), provider, model, response id, turn id, round (the ordinal of the call in
+the turn), price book id, tier, labels, the applied rates, `costUsd` (decimal text, null with `unpriced` for a model the book lacks), pi-ai's
+own estimate as a cross-check, and the time it was derived. Kind is `turn_round`; T5 adds compaction and other kinds to the same family.
+
+**When it runs** (`recordTurnCost` in `turn/finalize.ts`, called from `turn/executor.ts`): at conclude (after the reply is committed), at fail,
+at yield, at park (before the turn is parked on the computer), and when an owner resumes a turn that an earlier attempt began (before its
+first model call). A takeover by the computer owner is the same executor, so the same points apply. The prompt entry is found from the
+session itself (the submission with request id `turn:<turnId>`), not from in-memory state, so a new owner needs nothing from its predecessor.
+
+**The projection.** After deriving, the owner reads the turn's records back and sums them (`summarizeTurnCost`, `ledger/turn-cost.ts`). That
+one summary is written, as absolute totals, to two items in one transaction: the vendor ledger row `{tenant}#vendor_ledger / turn#{turnId}`
+(kept in its existing shape because the daily rollup and budget alerts still sum it until T7) and the turn index item
+`{tenant}#cost#{yyyy-mm} / turn#{turnId}` with `bot_id`, `channel_id`, `prompt_author_id`, `prompt_message_seq`, `message_seq`, `owner_kind`
+(the kind of owner that last wrote it), `status` (`running`, `yielded`, `parked`, `completed`, `failed`), per-model subtotals, `price_book_id`,
+`cost_usd`, `unpriced_calls` and `record_count`. Both items carry the number of records they were written from and refuse a write with fewer, so a slow
+older writer cannot shrink a row. There is no second counting path: nothing adds a delta anywhere.
+
+**Removed.** `recordTurnSpendOnce`, `TurnSpendProgress` and the frozen-first-write delta arithmetic in `ledger/vendor-ledger.ts`; the turn record
+fields `ledger_input_recorded` / `ledger_output_recorded` (`domain/turns.ts`, `store/turn-store.ts`); `measureTurnUsage` and `recordTurnSpend` in
+`turn/finalize.ts`. The gateway already stopped writing the ledger in T1 and only logs `usage_observed`. `recordVendorSpend` remains for the voice
+understanding call only (T5 moves it). The container's empty price book was replaced by the default book in T3.
+
+**Findings closed.** F1 (double count) by T1 and T4. F3 (one model per turn): every record carries its own model and is priced by it. F5(e)
+(nothing recorded at yield, park or while the turn is unresolved): records are written at those points. Still open: F5(a) (a call with no committed
+entry), F5(b) compaction, F5(c) aborted calls without entries (T5), F4 children and forks beyond the `fork: "initial"` and conversation-filter
+guards (T6), F6 voice.
+
+**Proof.** `features/cost_session_records.feature`, `cost_session_records_owners.feature`, `cost_session_records_handoff.feature`; mutation
+checks on the entry key, the conversation filter and the fork mode each fail a named scenario (see the pull request).
+
 ## 4. Work split and dependencies
 
 | Id | Work | Depends on | Files (principal) |
@@ -295,7 +339,7 @@ New feature files, added to `features/cucumber-features.txt`: `cost_call_records
 | T1 | Failing scenario for F1 (computer owner counted twice) plus decision record: single writer | none | `features/cost_call_records.feature`, steps under `conversation/features-support/steps/` |
 | T2 | S0 spike: pi-durable `afterResponse` document write, `pi.usage` reading, child-conversation enumeration; write findings to this doc | none | `docs/COST_ACCOUNTING.md` (spike notes), throwaway code outside `conversation/src` |
 | T3 | Versioned price book with cache, tiers, source; fail-closed unpriced; supersedes `chatticus-12ba7f` | none | `conversation/src/ledger/vendor-prices.ts`, `ledger/vendor-ledger.ts`, `gateway/model-gateway.ts`, `turn/openai-models.ts` |
-| T4 | Call records in the session (`chatticus.cost` doc), idempotent keyed writes, turn index, retire delta counters and gateway ledger writes (fixes F1, F3, F5) | T1, T2, T3 | new `conversation/src/ledger/call-cost.ts`, `turn/finalize.ts`, `turn/executor.ts`, `gateway/model-gateway.ts`, `store/turn-store.ts`, `computer/host/src/owner-deps.ts` |
+| T4 (done, section 3.8) | Call records in the session (`chatticus.cost` doc), idempotent keyed writes, turn index, retire delta counters and gateway ledger writes (fixes F1, F3, F5) | T1, T2, T3 | new `conversation/src/ledger/call-cost.ts`, `turn/finalize.ts`, `turn/executor.ts`, `gateway/model-gateway.ts`, `store/turn-store.ts`, `computer/host/src/owner-deps.ts` |
 | T5 | Complete metering: compaction, aborted, voice with member and channel, gateway observations and reconciliation job | T4 | `voice/understanding.ts`, `domain/voice-messages.ts`, `gateway/model-gateway.ts`, new `conversation/src/ledger/reconcile.ts` |
 | T6 | Sub-agent and fork accounting plus parity guard and AGENTS.md rule | T4 (spike T2) | `conversation/src/turn/finalize.ts`, `storage/indexed-storage.ts` queries, guard test under `conversation/test`, `AGENTS.md` |
 | T7 | Migrate legacy ledger rows to the turn index; rollup reads the new shape | T4 | `conversation/src/budget/runner.ts`, `budget/budget-store.ts`, `conversation/src/migration/` |

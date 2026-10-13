@@ -195,6 +195,7 @@ export async function executorDepsFor(
 		models,
 		model: { provider: "openai", modelId: scenario.scripted.modelId, thinkingLevel: "minimal" },
 		ledger: ledgerDependenciesFor(world),
+		ownerKind: "lambda",
 		tuning: { ...TEST_TUNING, ...options.tuning },
 		turnRuns: runQueueOf(world),
 		turnProbes: probeQueueOf(world),
