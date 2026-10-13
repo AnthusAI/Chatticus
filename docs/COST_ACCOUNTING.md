@@ -242,7 +242,7 @@ A **session or channel** total is a query over `channel_id` (GSI or a sibling it
 * A model absent from the price book is refused at the gateway (already true) **and** at the Lambda owner (new): the turn fails closed with a clear reason rather than metering zero.
 * Voice understanding records the call (with `cacheRead`) into the new index with member and channel, and a failure to record is logged at error level and counted, not swallowed.
 
-### 3.4 API (all under the member principal; an organization owner sees everyone, a member sees own prompts and channels they belong to: Q4)
+### 3.4 API (all under the member principal; proposed: an organization owner sees everyone, a member sees own prompts and channels they belong to: Q4. As built in section 3.10, every enabled member sees the organization's cost until Q4 is answered)
 
 * `GET /orgs/{t}/channels/{c}/cost` : session total, per-turn list, per-bot split, per-model split.
 * `GET /orgs/{t}/turns/{turnId}/cost` : the call tree: rounds, tool calls, child conversations, tokens and dollars, `unpriced` markers, price book id.
@@ -417,6 +417,90 @@ observation can add its estimate. Compaction spend is attributed to the turn tha
 scenarios in `voice_messages.feature` and `daily_budget_rollup.feature`, and the policy rows in `owner_role_policy.feature`. Mutation checks are in the
 pull request.
 
+### 3.10 As built (T8)
+
+**What it is.** A read-only HTTP API over the cost index of section 3.8 and 3.9, for the web view of T9. It adds no table, no GSI, no
+sibling aggregate item and no scheduled job. The wire schemas are zod in `host-protocol/src/costs.ts` (export `@chatticus/host-protocol/costs`),
+which the Front Door code and the web both import; the read model is `conversation/src/domain/costs.ts` and the handlers are
+`conversation/src/http/routes/costs.ts`. The turn index item gained two attributes for it: `recorded_at` (the time of the turn's first call,
+the same instant that picks its month partition, so a date range can be applied) and, on the gateway rows, `cached_input_tokens` (so the cached
+share of a call only the gateway saw can be shown).
+
+**Who may read (the answer to open question 4, as decided here).** Every enabled member of the organization, owner or ordinary member, may
+read all of the organization's cost, including the per-member split: it is the organization's own spend. A caller who is not an enabled
+member of the organization in the path is refused with 403, whatever other organization they belong to; a request with no credential is
+refused the same way. The check is the existing `resolveUserPrincipal` (the same one every `/orgs/{tenant_id}/...` user route uses), so
+the tenant in the path is the only tenant any read touches: every query names the partition `{tenant}#cost#{yyyy-mm}` of the path's
+tenant. A turn or channel id of another organization is simply not found in this one (404). Narrowing this to "owners see everyone,
+members see their own prompts" is a change to `resolveReader` and the filters, not to the data; it is left to the owner's decision on
+question 4. Every response carries `Cache-Control: private, no-store`, and `X-Content-Type-Options: nosniff`.
+
+**Routes** (all `GET`, all audience `user`, all under `/orgs/{tenant_id}`):
+
+| Route | Answers |
+| --- | --- |
+| `/costs?from=&to=&bot_id=&channel_id=&member_id=&group_by=&limit=&cursor=` | The organization's totals for the range (the month so far by default) and, with `group_by` of `bot`, `channel`, `member`, `model`, `day` or `month`, the groups, ordered by key (the null group last), one page at a time. |
+| `/costs/turns?...same filters...&limit=&cursor=` | The rows of the range, newest first (ties by id), each with its own totals, one page at a time, plus the totals of the whole range. |
+| `/channels/{channel_id}/cost?from=&to=&bot_id=&member_id=&limit=&cursor=` | The session total of a channel (the whole lookback by default), its split by bot, and its rows newest first. |
+| `/channels/{channel_id}/messages/{seq}/cost` | `triggered` (the rows whose `prompt_message_seq` is the message: what a member message caused) and `produced` (the rows whose `message_seq` is the message: what a bot reply cost), each with totals and rows. |
+| `/turns/{turn_id}/cost` | The turn's index row and, as the drill-down, every call the session recorded for it: round, model, provider, response id, the five token counters, price book id, tier, applied rates, labels, dollars, `unpriced`. |
+| `/costs/export?format=csv\|ndjson&grain=turn\|call&from=&to=&filters` | The rows of a range as a download. The call grain is one line per model call, read from the sessions; more than 200 turns is refused with `export_too_large` (422). The header row, or each JSON line, carries the price book id, and the response header `X-Cost-Price-Book-Ids` lists them. |
+| `/costs/compare?channel_id=a&channel_id=b` (or `turn_id=`) | Two to six channels or turns side by side, in the order asked: totals and normalized metrics (cost per turn, cost per call, calls per turn, cached input ratio). The plan's `channel=`/`turn=` spelling became `channel_id=`/`turn_id=` to match the rest of the API. |
+
+Errors are `{ "error": code, "message": text }` with `invalid_query` (400: a malformed or impossible date, an inverted range, a start before
+the lookback, an unknown `group_by`, a `limit` of zero or above the page maximum, a cursor this route did not issue, a bad format, a compare of
+fewer than two or more than six, or both or neither of `channel_id` and `turn_id`), `channel_not_found` and `turn_not_found` (404), and
+`export_too_large` (422). A refusal of the caller keeps the `{ "detail": text }` body of every user route. Limits: rows 50 by default and 200 at
+most, groups 100 and 500, a lookback of 36 months, a date range of whole UTC days (`yyyy-mm-dd`, both ends included, the day of the row's `recorded_at`).
+
+**The shape of a figure.** One `totals` object is used at every level (a turn, a message, a channel, a bot, the organization, a month):
+`rows`, `turns`, `calls`, the four token counters (`input_tokens` is uncached input, as in the records), `priced_cost_usd`, `cost_usd`,
+`unpriced_calls`, `complete`, `gateway_rows`, `estimated_rows`, `open_turns`, `price_book_ids` and `by_model` (calls, tokens, dollars
+and unpriced calls per model). Dollars are plain decimal text with no trailing zeros and are added exactly (decimal, never floating point).
+`priced_cost_usd` is the dollars of the calls that have a price and is the only dollar field that adds up across parts: the groups of any
+`group_by` sum to the total of the same filters, the rows of a channel sum to its total, and the calls of a turn sum to the turn.
+`cost_usd` is that same figure when every call was priced, and **null when `unpriced_calls` is positive**, with `complete` false, because the true
+total is then not known; an unpriced call is never counted as zero dollars. The model subtotal of a turn that has an unpriced call of that
+model has no dollars at all (the index keeps one subtotal per model per turn), so the priced dollars of that model within that turn are not in
+the sum; `unpriced_calls` is what tells the reader to look. Grouping by `model` splits a row across the models that served its calls, so the dollars,
+tokens and calls still add up and only the `rows` counts overlap. A row that is `running`, `yielded` or `parked` is counted in `open_turns`
+and its figures may still grow.
+
+**Labels.** Every row says `source` (`session`, derived from the session's call records, or `gateway`, a call only the gateway observed),
+`estimated` (a gateway row whose figures are the gateway's estimate of an interrupted stream), `row_kind` (`turn`, `voice_understanding` or
+`gateway_call`), `status` and `owner_kind` (the last writer of the turn). The totals carry `gateway_rows` and `estimated_rows`, and the price
+book ids that priced the rows, so a change of price book inside a range is visible. A gateway row has no bot, channel or member; it appears in
+the null group of `bot`, `channel` and `member` groupings and is excluded by any bot, channel or member filter. The wording the web uses is the
+plan's: model token cost at published list prices, not a bill.
+
+**How reads are bounded (the decision of the section 3.2 open point).** A range reads the month partitions it touches, one consistent
+`Query` per month, no scan, in parallel; filters, grouping, sorting and paging happen over those rows in the Lambda. There is no GSI by channel
+or bot and no sibling aggregate item: at household scale a month holds hundreds of turn items, a channel total reads at most the 36 partitions of
+the lookback (empty months are one empty query), and a sibling aggregate would have to be added to the single transaction of `projectTurnCost`
+and kept exact under retries for no measured gain. This is the thing to revisit if a deployment ever has a month with tens of thousands of turn items:
+the sign is a `/costs/turns` or channel request that takes seconds, and the fix is a sibling item `{tenant}#cost#channel#{channelId}` written in that same
+transaction. A turn's drill-down probes the month partitions back from the current one with point reads (the month is not on the turn) and reads the call
+records from the bot's session for the channel without owning it. The session read needs the Front Door's read access to the Conversations table and the
+PiSessions bucket, which it already has for the message listing.
+
+**The same dedupe rule as the rollup.** A gateway row whose call a session row of the same months lists among its response ids is dropped on
+read (`withoutAccountedGatewayRows`), so a call is never counted twice even before the reconciliation has deleted the gateway row. A session row in
+the previous month than its gateway row would not be seen as the match; that is rare (a call across midnight of the last day of a month) and the reconciliation
+withdraws such a row anyway.
+
+**What is not here yet.** Cost per tool call and per sub-agent in the compare metrics wait for T6 (the records carry no tool call ids and there is no
+sub-agent accounting yet); the drill-down reads the root conversation of the bot's session only. The legacy ledger rows are not read (T7 migrates them); this API
+reads only the cost index.
+
+**IAM.** No change. The Front Door function already has `grantReadWriteData` on the messaging table (which covers the `{tenant}#cost#*` partitions
+for a `Query` and `GetItem`) and read on the Conversations table and the PiSessions bucket (`infra/lib/control-plane-stack.ts`). Moto does not enforce IAM,
+so the first real call after deploy is the check.
+
+**Proof.** `features/cost_api.feature` and `features/cost_api_gateway_rows.feature` (the steps are `conversation/features-support/steps/cost-api.steps.ts`) create
+turns through the real executor path and read them back over HTTP; `conversation/test/cost-read-model.test.ts` covers the pure helpers (decimal text, accumulation,
+grouping, dedupe, windows, cursors, metrics, CSV). Mutation checks on the member check, the tenant partition, the unpriced handling and the gateway dedupe each fail a
+named scenario (see the pull request).
+
 ## 4. Work split and dependencies
 
 | Id | Work | Depends on | Files (principal) |
@@ -428,7 +512,7 @@ pull request.
 | T5 (done, section 3.9) | Complete metering: compaction, aborted, voice with member and channel, gateway observations and reconciliation job | T4 | `voice/understanding.ts`, `domain/voice-messages.ts`, `gateway/model-gateway.ts`, new `conversation/src/ledger/reconcile.ts` |
 | T6 | Sub-agent and fork accounting plus parity guard and AGENTS.md rule | T4 (spike T2) | `conversation/src/turn/finalize.ts`, `storage/indexed-storage.ts` queries, guard test under `conversation/test`, `AGENTS.md` |
 | T7 | Migrate legacy ledger rows to the turn index; rollup reads the new shape | T4 | `conversation/src/budget/runner.ts`, `budget/budget-store.ts`, `conversation/src/migration/` |
-| T8 | HTTP cost API (channel, turn, org rollup, compare, export) | T4, T7 | `conversation/src/http/routes/costs.ts`, `http/app.ts`, `domain/costs.ts` |
+| T8 (done, section 3.10) | HTTP cost API (channel, turn, org rollup, compare, export) | T4, T7 | `conversation/src/http/routes/costs.ts`, `http/app.ts`, `domain/costs.ts` |
 | T9 | Web: channel chip, message markers, Costs page | T8 | `web/lib/costs.ts`, `web/components/ChannelCostChip.tsx`, `web/app/chat/` page, `web/lib/api.ts` |
 | T10 | Web: compare view and export | T8, T9 | `web/components/CostCompare.tsx`, `web/lib/api.ts` |
 

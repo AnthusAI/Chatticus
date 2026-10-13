@@ -8,6 +8,7 @@
     "./workspace-edit": "./src/workspace-edit.ts",
     "./supervisor": "./src/supervisor.ts",
     "./live-files": "./src/live-files.ts",
+    "./costs": "./src/costs.ts",
     "./live-file-rules": "./src/live-file-rules.ts",
     "./edit-overlay": "./src/edit-overlay.ts"
   },
