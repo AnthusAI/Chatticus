@@ -1,8 +1,10 @@
-import { accessSync, constants } from "node:fs";
+import { accessSync, constants, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { consoleLogEmitter, errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
 import { createOwnerExecutionEnv, WORKSPACE_VIRTUAL_ROOT, workspaceFileToolRunners } from "../../../conversation/src/pi/local-computer-tools.ts";
+import { overlayEntrySchema } from "@chatticus/host-protocol/edit-overlay";
 import type { LiveFileOutcome, OwnerFileRequest as LiveFileRequest } from "@chatticus/host-protocol/live-files";
 import { scrubbedShellEnvironment } from "../../../conversation/src/pi/shell-environment.ts";
 import { takeOverTurn, type TurnTakeoverOutcome } from "../../../conversation/src/turn/computer-owner.ts";
@@ -10,6 +12,8 @@ import type { ExecutorDeps, TurnExecutionJob } from "../../../conversation/src/t
 import { ProcessFileHelperLauncher } from "./live-file-helper-launcher.ts";
 import { helperRequestOf, outcomeFromHelperResponse } from "./live-file-operations.ts";
 import { OwnerConfigurationError } from "./owner-configuration.ts";
+import { SealingOverlayApplier, type OverlayApplyResult } from "./overlay-applier.ts";
+import { runtimeSupervisorClock } from "./supervisor-ports.ts";
 
 /** The directory of the computer's workspace as the model sees it and as the container has it. */
 export const DEFAULT_WORKSPACE_ROOT = "/workspace";
@@ -175,6 +179,45 @@ export async function runLiveFileProbe(
 		environment: scrubbedShellEnvironment(options.workspaceRoot),
 	});
 	return outcomeFromHelperResponse(request, await launcher.run(helperRequestOf(request, options.workspaceRoot), 6000));
+}
+
+/**
+ * Apply an overlay entry file exactly as the supervisor applies the sealed overlay after a hydrate: the same applier, the same
+ * launcher, so every path is touched by the file helper as the unprivileged user and not by this process. The control plane and
+ * the bucket are replaced by the files given: the entries as a JSON array and one file per blob named by its hash. It exists so an
+ * image can show an overlay entry applied by a real container, and a conflict left unapplied.
+ *
+ * @param entriesFile A JSON array of overlay entries.
+ * @param blobsDirectory A directory holding each blob in a file named by its SHA-256.
+ * @param options Workspace, launcher and the helper command.
+ * @returns What the applier left on the disk and what it reported as conflicts.
+ */
+export async function runOverlayProbe(
+	entriesFile: string,
+	blobsDirectory: string,
+	options: Pick<OwnerEntryPointOptions, "workspaceRoot" | "shellLauncherPath" | "fileHelperCommand">,
+): Promise<OverlayApplyResult> {
+	assertShellLauncherUsable(options.shellLauncherPath);
+	const entries = (JSON.parse(readFileSync(entriesFile, "utf8")) as unknown[]).map((entry) => overlayEntrySchema.parse(entry));
+	const applier = new SealingOverlayApplier({
+		ownerId: "overlay-probe",
+		generation: 1,
+		plane: {
+			sealOverlay: async () => ({ entries }),
+			postOverlayApplied: async () => ({ remaining: 0 }),
+		},
+		launcher: new ProcessFileHelperLauncher({
+			launcherPath: options.shellLauncherPath,
+			helperCommand: options.fileHelperCommand ?? [],
+			workingDirectory: options.workspaceRoot,
+			environment: scrubbedShellEnvironment(options.workspaceRoot),
+		}),
+		workspaceRoot: options.workspaceRoot,
+		blobs: { read: async (sha256) => readFileSync(join(blobsDirectory, sha256)) },
+		clock: runtimeSupervisorClock,
+		log: () => undefined,
+	});
+	return applier.applyAfterHydrate();
 }
 
 /** Who an owner is on its log lines: the tenant, the turn and the owner id. None of them is a secret. */

@@ -64,10 +64,17 @@ describe("computer image structure", () => {
 		}
 	});
 
-	it("keeps the supervisor from opening a workspace path: the file runner modules import no file system module", () => {
-		for (const name of ["live-file-operations.ts", "live-file-helper-launcher.ts"]) {
+	it("keeps the supervisor from opening a workspace path: the file runner and overlay applier modules import no file system module", () => {
+		for (const name of ["live-file-operations.ts", "live-file-helper-launcher.ts", "overlay-applier.ts"]) {
 			const source = readFileSync(resolve(repositoryRoot, "computer", "host", "src", name), "utf-8");
 			expect(source, name).not.toMatch(/from "node:(fs|fs\/promises)"/);
+		}
+	});
+
+	it("reads the overlay with the supervisor role and never writes or deletes in it: the blob reader and the applier call no put or delete", () => {
+		for (const name of ["overlay-blob-reader.ts", "overlay-applier.ts"]) {
+			const source = readFileSync(resolve(repositoryRoot, "computer", "host", "src", name), "utf-8");
+			expect(source, name).not.toMatch(/\.(putIfAbsent|putIfMatch|delete)\(|PutObjectCommand|DeleteObjectCommand/);
 		}
 	});
 

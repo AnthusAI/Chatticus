@@ -8,6 +8,8 @@ import { scrubbedShellEnvironment } from "../../../conversation/src/pi/shell-env
 import { S3SnapshotStore } from "../../../conversation/src/snapshot/s3.ts";
 import { HostDiskLifecycle } from "./host-disk-lifecycle.ts";
 import { ProcessFileHelperLauncher } from "./live-file-helper-launcher.ts";
+import { SealingOverlayApplier } from "./overlay-applier.ts";
+import { S3OverlayBlobReader } from "./overlay-blob-reader.ts";
 import { OwnerConfigurationError } from "./owner-configuration.ts";
 import { ProcessChildSpawner } from "./process-child-spawner.ts";
 import { OwnerSupervisorClient } from "./protocol-client.ts";
@@ -91,29 +93,47 @@ export async function supervisorMain(environment: NodeJS.ProcessEnv = process.en
 		bootstrapToken: configuration.bootstrapToken,
 		requestTimeoutMilliseconds: CONTROL_PLANE_REQUEST_TIMEOUT_MILLISECONDS,
 	});
+	const fileHelperLauncher = new ProcessFileHelperLauncher({
+		launcherPath: configuration.shellLauncherPath,
+		helperCommand: [process.execPath, join(dirname(fileURLToPath(import.meta.url)), "file-helper.mjs")],
+		workingDirectory: configuration.workspaceRoot,
+		environment: scrubbedShellEnvironment(configuration.workspaceRoot, environment),
+	});
 	const supervisor = new OwnerSupervisor({
 		identity: { tenantId: configuration.tenantId, ownerId: configuration.ownerId, generation: configuration.generation },
 		environment,
 		plane,
-		openDisk: (credentials) =>
-			new HostDiskLifecycle(plane, {
+		openDisk: (credentials) => {
+			const s3Client = new S3Client({
+				credentials: {
+					accessKeyId: credentials.access_key_id,
+					secretAccessKey: credentials.secret_access_key,
+					sessionToken: credentials.session_token,
+					expiration: new Date(credentials.expires_at),
+				},
+			});
+			return new HostDiskLifecycle(plane, {
 				tenantId: configuration.tenantId,
 				ownerId: configuration.ownerId,
 				liveRoot: configuration.liveRoot,
-				store: new S3SnapshotStore(
-					configuration.snapshotBucket,
-					new S3Client({
-						credentials: {
-							accessKeyId: credentials.access_key_id,
-							secretAccessKey: credentials.secret_access_key,
-							sessionToken: credentials.session_token,
-							expiration: new Date(credentials.expires_at),
-						},
-					}),
-				),
+				store: new S3SnapshotStore(configuration.snapshotBucket, s3Client),
 				log,
 				afterHydrate: () => shareWorkspaceWithShell(configuration.workspaceRoot),
-			}),
+				overlayApplier: new SealingOverlayApplier({
+					ownerId: configuration.ownerId,
+					generation: configuration.generation,
+					plane,
+					launcher: fileHelperLauncher,
+					workspaceRoot: configuration.workspaceRoot,
+					blobs: new S3OverlayBlobReader(configuration.snapshotBucket, s3Client, async () => ({
+						tenantId: configuration.tenantId,
+						computerId: (await plane.getComputer()).computer_id,
+					})),
+					clock: runtimeSupervisorClock,
+					log,
+				}),
+			});
+		},
 		spawner: new ProcessChildSpawner({
 			command: process.execPath,
 			bundlePath: join(dirname(fileURLToPath(import.meta.url)), "owner.mjs"),
@@ -123,12 +143,7 @@ export async function supervisorMain(environment: NodeJS.ProcessEnv = process.en
 		clock: runtimeSupervisorClock,
 		log,
 		memoryUsedPercent: containerMemoryUsedPercent,
-		fileHelperLauncher: new ProcessFileHelperLauncher({
-			launcherPath: configuration.shellLauncherPath,
-			helperCommand: [process.execPath, join(dirname(fileURLToPath(import.meta.url)), "file-helper.mjs")],
-			workingDirectory: configuration.workspaceRoot,
-			environment: scrubbedShellEnvironment(configuration.workspaceRoot, environment),
-		}),
+		fileHelperLauncher,
 		workspaceRoot: configuration.workspaceRoot,
 	});
 	process.once("SIGTERM", () => supervisor.requestTermination());

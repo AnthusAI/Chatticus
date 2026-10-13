@@ -1,5 +1,7 @@
 import type { HostComputer } from "@chatticus/host-protocol";
+import type { OverlayEntry, ownerOverlayAppliedRequestSchema, ownerOverlaySealRequestSchema } from "@chatticus/host-protocol/edit-overlay";
 import type { OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
+import type { z } from "zod";
 import type {
 	OwnerBootstrapRequest,
 	OwnerBootstrapResponse,
@@ -30,6 +32,9 @@ export const FAKE_SUPERVISOR_SECRETS = {
 /** One request the supervisor sent, with the fake time it arrived. */
 export type Recorded<T> = { readonly request: T; readonly atMilliseconds: number };
 
+/** One request the supervisor sent, with the fake time it arrived and its place in the order of every request that reached the control plane. */
+export type Ordered<T> = Recorded<T> & { readonly order: number };
+
 /** What a scenario can ask of a dispatch the fake control plane offers. */
 export type FakeDispatchSpec = {
 	readonly turnId: string;
@@ -59,7 +64,10 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	readonly stopRequests: Array<Recorded<OwnerStopRequest>> = [];
 	readonly fileResults: Array<Recorded<OwnerFileResultRequest>> = [];
 	readonly computerCalls: string[] = [];
-	readonly stoppedReports: Array<{ readonly generation: number | undefined; readonly atMilliseconds: number }> = [];
+	readonly stoppedReports: Array<{ readonly generation: number | undefined; readonly atMilliseconds: number; readonly order: number }> = [];
+	readonly overlaySeals: Array<Ordered<z.input<typeof ownerOverlaySealRequestSchema>>> = [];
+	readonly overlayAppliedPosts: Array<Ordered<z.input<typeof ownerOverlayAppliedRequestSchema>>> = [];
+	readonly publishOrders: number[] = [];
 	readonly pollFailures: Array<{ readonly sequence: number; readonly error: unknown }> = [];
 
 	bootstrapScript: Array<Error | "ok"> = [];
@@ -74,9 +82,24 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	stoppedReportScript: Array<Error | "ok"> = [];
 	heldRunningReport: { readonly promise: Promise<void>; release: () => void } | null = null;
 	defaultNextPollMilliseconds = 1000;
+	/** The entries the overlay holds; every seal answers with them. */
+	overlayEntries: OverlayEntry[] = [];
+	overlaySealScript: Array<Error | "ok"> = [];
+	/** Every seal fails with this error. */
+	overlaySealFailsWith: Error | null = null;
+	/** The answer to each report of cleared or conflicting entries, taken in turn; `ok` once the script is used up. */
+	overlayAppliedScript: Array<Error | "ok"> = [];
+	/** Every report that clears entries fails with this error; a report of conflicts alone is answered. */
+	overlayClearsFailWith: Error | null = null;
+	/** A dispatch the control plane offers in every poll that has nothing scripted, until the supervisor serves it. */
+	parkedDispatch: OwnerPollResponse | null = null;
+	snapshotUri: string | undefined;
+	snapshotChecksum: string | undefined;
+	snapshotGeneration = 0;
 
 	private readonly clock: SupervisorClock;
 	private stopRequestedSincePoll = false;
+	private requestOrder = 0;
 
 	constructor(clock: SupervisorClock) {
 		this.clock = clock;
@@ -137,6 +160,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 			this.stopRequestedSincePoll = false;
 			return offered;
 		}
+		if (this.parkedDispatch !== null) return this.parkedDispatch;
 		return emptyPollAnswer(this.defaultNextPollMilliseconds);
 	}
 
@@ -167,15 +191,17 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 			model_ready: true,
 			workspace_ready: true,
 			browser_ready: false,
-			snapshot_generation: 0,
+			snapshot_generation: this.snapshotGeneration,
 			disk_dirty: false,
 			hydrate_required: false,
+			...(this.snapshotUri === undefined ? {} : { snapshot_uri: this.snapshotUri }),
+			...(this.snapshotChecksum === undefined ? {} : { snapshot_checksum: this.snapshotChecksum }),
 		};
 	}
 
 	async setComputerStopped(stopped: boolean, startGeneration?: number): Promise<HostComputer> {
 		if (stopped) {
-			this.stoppedReports.push({ generation: startGeneration, atMilliseconds: this.clock.nowMilliseconds() });
+			this.stoppedReports.push({ generation: startGeneration, atMilliseconds: this.clock.nowMilliseconds(), order: this.nextOrder() });
 			const outcome = this.stoppedReportScript.shift() ?? "ok";
 			if (outcome !== "ok") throw outcome;
 			this.computerCalls.push(`stopped:true:${startGeneration ?? "none"}`);
@@ -200,8 +226,35 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 		this.computerCalls.push("hydrated");
 	}
 
-	async publishComputerSnapshot(): Promise<void> {
+	async publishComputerSnapshot(_workerId?: string, checksum?: string, snapshotUri?: string): Promise<void> {
 		this.computerCalls.push("published");
+		this.publishOrders.push(this.nextOrder());
+		this.snapshotGeneration += 1;
+		if (checksum !== undefined) this.snapshotChecksum = checksum;
+		if (snapshotUri !== undefined) this.snapshotUri = snapshotUri;
+	}
+
+	async sealOverlay(request: z.input<typeof ownerOverlaySealRequestSchema>): Promise<{ readonly entries: OverlayEntry[] }> {
+		this.overlaySeals.push({ request, atMilliseconds: this.clock.nowMilliseconds(), order: this.nextOrder() });
+		if (this.overlaySealFailsWith !== null) throw this.overlaySealFailsWith;
+		const outcome = this.overlaySealScript.shift() ?? "ok";
+		if (outcome !== "ok") throw outcome;
+		return { entries: this.overlayEntries };
+	}
+
+	async postOverlayApplied(request: z.input<typeof ownerOverlayAppliedRequestSchema>): Promise<{ readonly remaining: number }> {
+		this.overlayAppliedPosts.push({ request, atMilliseconds: this.clock.nowMilliseconds(), order: this.nextOrder() });
+		const outcome = this.overlayAppliedScript.shift() ?? "ok";
+		if (outcome !== "ok") throw outcome;
+		if (this.overlayClearsFailWith !== null && (request.cleared ?? []).length > 0) throw this.overlayClearsFailWith;
+		const cleared = request.cleared ?? [];
+		this.overlayEntries = this.overlayEntries.filter((entry) => !cleared.some((reference) => reference.path === entry.path && reference.revision === entry.revision));
+		return { remaining: this.overlayEntries.length };
+	}
+
+	private nextOrder(): number {
+		this.requestOrder += 1;
+		return this.requestOrder;
 	}
 }
 

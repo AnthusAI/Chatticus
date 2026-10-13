@@ -145,3 +145,4 @@ features/owner_credential_broker.feature
 features/computer_owner_long_lived.feature
 features/web_computer_files.feature
 features/computer_file_live_supervisor.feature
+features/computer_file_overlay_supervisor.feature

@@ -1,4 +1,5 @@
 import type { LogEmitter } from "../../src/observability/log-line.ts";
+import type { OverlayEntryReference } from "../../../computer/host/src/overlay-applier.ts";
 import type { SupervisorClock, SupervisorDisk } from "../../../computer/host/src/supervisor-ports.ts";
 
 /**
@@ -21,9 +22,14 @@ export class FakeSupervisorDisk implements SupervisorDisk {
 		this.log = log;
 	}
 
-	async hydrate(): Promise<void> {
+	async hydrate(): Promise<readonly OverlayEntryReference[]> {
 		if (this.restoreFails) throw new Error("the download failed");
 		this.log("workspace_hydrated", { generation: null, reason: "no_snapshot" });
+		return [];
+	}
+
+	async clearApplied(): Promise<boolean> {
+		return true;
 	}
 
 	async needsPublish(): Promise<boolean> {
