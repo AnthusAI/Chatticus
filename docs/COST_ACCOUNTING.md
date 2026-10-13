@@ -501,6 +501,50 @@ turns through the real executor path and read them back over HTTP; `conversation
 grouping, dedupe, windows, cursors, metrics, CSV). Mutation checks on the member check, the tenant partition, the unpriced handling and the gateway dedupe each fail a
 named scenario (see the pull request).
 
+### 3.11 As built (T9)
+
+**Where it lives.** The workspace is one static-export page (`/chat`), so the cost view is not a route. It is a third tab of the inspector,
+`Context | Files | Costs` (`web/lib/inspector-tabs.ts`), which is already a right-hand column on wide screens and a sheet on narrow ones, so
+the view works at 375 px with no new layout. Two things outside the tab open it: a **cost chip** in the conversation header (the open
+conversation's total; it opens the tab scoped to that conversation) and a **cost marker** under each message in the thread (`Triggered $x` under a
+member message, `Took $x` under a bot reply; it opens the model calls of the turn behind it, or a list of turns when several are behind it).
+
+**What it shows.** Whole organization for a month (the current month so far by default; the previous and next month buttons read a whole month with
+explicit `from` and `to`, back to the 36-month lookback): the headline total with its turn and call counts, the notes (turns still running, estimated
+rows, rows only the gateway saw, more than one price book), the breakdown by bot, by conversation and by model, the recent turns newest first with a
+page at a time (`Show more turns`, using the API's cursor), and two downloads (`Download turns as CSV`, `Download calls as CSV`). `This conversation`
+switches the same view to the open conversation's route (`/channels/{c}/cost`: all-time total, split by bot and model, its turns). A turn row opens the
+drill-down: the turn total and one card per model call (model, tokens in, cached read, cache write, out, reasoning when present, tier, price book id, round
+or kind, dollars or `unpriced`). The export is an authenticated fetch handed to the browser as a file (a bearer-token route cannot be a plain link); the
+file name is the API's `Content-Disposition`. Compare is not built here: that is T10.
+
+**Honest states.** A total is written as a plain amount only when the API says `complete` and gives a `cost_usd`. Otherwise it reads `at least $x` and carries
+`incomplete: N unpriced call(s)`, in the headline, in every breakdown line, in a turn row, in the chip and in the markers. An unpriced call shows the word
+`unpriced` where dollars would be, never zero. Rows are labelled `estimated`, `gateway`, `voice`, `running`, `yielded`, `parked` or `failed`. A turn whose
+session could not be read says `The model calls of this turn could not be read.` and keeps its total. A month with no rows says `No model spend recorded for <month>.`.
+A refusal (401 or 403) says `Only members of this organization can see its costs.` and shows no figure; any other failure says `Could not load the costs. Try again.`
+with a retry; an API error code with its own message (a 4xx the read model words) shows that message. The basis is always on screen: `Model token cost at published list prices. This is not a bill.`
+
+**The money rule** (`formatUsd` in `web/lib/costs.ts`, decimal text only, never a float):
+
+* a call or a turn row is exact to seven places, trailing zeros dropped down to four: `$0.0001852`, `$0.5000`;
+* a total (headline, breakdown line, chip) is rounded half up to cents from one dollar up (`$1,234.57`), to four places from `$0.0001` to under a dollar (`$0.0134`),
+  and to three significant digits below `$0.0001` with at most seven places (`$0.0000185`), so spend that exists is never shown as `$0.00`;
+* only an exact zero reads `$0.00`; a nonzero amount under a ten-millionth of a dollar reads `less than $0.0000001`;
+* a marker adds its rows exactly in decimal (`addDecimalTexts`) and uses the call precision.
+
+**Per-message cost** costs one request, not one per message: the chip loads `/channels/{c}/cost?limit=200`, and the markers are worked out from the rows' `prompt_message_seq`
+(what a member message triggered) and `message_seq` (what a bot reply took). A conversation with more than 200 turns marks only the loaded rows until `Show more` is chosen
+in the tab. The `/messages/{seq}/cost` route is not used by the web.
+
+**Code.** `web/lib/costs.ts` (pure: money, figures, notes, months, breakdown lines, markers), `web/lib/costs-api.ts` (the routes; types only from `@chatticus/host-protocol/costs`),
+`web/lib/costs-controller.ts` (no React), `web/components/workspace/CostsPanelView.tsx`, `CostsPanel.tsx`, `CostMarkers.tsx`, wired in `EnabledWorkspace.tsx` and `ChatticusAssistantThread.tsx`.
+
+**Proof.** `features/web_costs.feature` (26 scenarios; steps `conversation/features-support/steps/web-costs.steps.ts`, harness `web/test-support/costs-harness.ts`) runs the real controller and views
+against `web/test-support/costs-fake.ts`, a fake of the cost routes that parses everything it sends with the zod schemas of `host-protocol/src/costs.ts`. `web/lib/costs.test.ts` covers the pure helpers.
+Mutation checks (show an incomplete total as complete; show an unpriced call as zero; drop the 403 wording; round totals to cents; swap triggered and produced; drop the estimated label; drop the cursor)
+each fail a named scenario (see the pull request).
+
 ## 4. Work split and dependencies
 
 | Id | Work | Depends on | Files (principal) |
@@ -513,7 +557,7 @@ named scenario (see the pull request).
 | T6 | Sub-agent and fork accounting plus parity guard and AGENTS.md rule | T4 (spike T2) | `conversation/src/turn/finalize.ts`, `storage/indexed-storage.ts` queries, guard test under `conversation/test`, `AGENTS.md` |
 | T7 | Migrate legacy ledger rows to the turn index; rollup reads the new shape | T4 | `conversation/src/budget/runner.ts`, `budget/budget-store.ts`, `conversation/src/migration/` |
 | T8 (done, section 3.10) | HTTP cost API (channel, turn, org rollup, compare, export) | T4, T7 | `conversation/src/http/routes/costs.ts`, `http/app.ts`, `domain/costs.ts` |
-| T9 | Web: channel chip, message markers, Costs page | T8 | `web/lib/costs.ts`, `web/components/ChannelCostChip.tsx`, `web/app/chat/` page, `web/lib/api.ts` |
+| T9 (done, section 3.11) | Web: channel chip, message markers, Costs tab | T8 | `web/lib/costs.ts`, `web/lib/costs-controller.ts`, `web/components/workspace/CostsPanelView.tsx`, `CostMarkers.tsx` |
 | T10 | Web: compare view and export | T8, T9 | `web/components/CostCompare.tsx`, `web/lib/api.ts` |
 
 T1, T2, T3 start in parallel. T4 is the pivot. T5, T6, T7, T8 fan out after T4. T9 then T10 follow T8. Each ticket in Kanbus carries its exact files and acceptance check.

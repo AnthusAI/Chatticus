@@ -11,6 +11,7 @@ import { AlertTriangle, Clock3, RotateCcw, Send } from "lucide-react";
 import { createContext, useContext, type FC, type ReactNode } from "react";
 
 import { Button } from "../ui/button";
+import { MessageCostSlot } from "../workspace/CostMarkers";
 import { MarkdownText } from "./MarkdownText";
 import { TurnActivityBody, WorkingIndicator } from "./TurnActivityView";
 import { EMPTY_TURN_ACTIVITY, type TurnActivity } from "@/lib/turn-activity";
@@ -28,6 +29,7 @@ const ChatticusUserMessage: FC = () => {
   const createdAt = useAuiState(
     (state) => (state.message.metadata?.custom?.createdAt as string | undefined) ?? state.message.createdAt,
   );
+  const seq = useAuiState((state) => state.message.metadata?.custom?.seq as number | undefined);
 
   return (
     <MessagePrimitive.Root
@@ -41,6 +43,7 @@ const ChatticusUserMessage: FC = () => {
             {formatTime(createdAt)}
           </time>
         ) : null}
+        <MessageCostSlot seq={seq} />
       </div>
     </MessagePrimitive.Root>
   );
@@ -101,6 +104,7 @@ const ChatticusAssistantMessage: FC = () => {
       (state.message.metadata?.custom?.activity as TurnActivity | undefined) ?? EMPTY_TURN_ACTIVITY,
   );
   const slow = useAuiState((state) => Boolean(state.message.metadata?.custom?.slow));
+  const seq = useAuiState((state) => state.message.metadata?.custom?.seq as number | undefined);
   const showWorkingIndicator = isStreamingShell && isRunning && activity.showWorkingIndicator;
 
   if (failed) {
@@ -132,6 +136,7 @@ const ChatticusAssistantMessage: FC = () => {
             {formatTime(createdAt)}
           </time>
         ) : null}
+        {!isStreaming ? <MessageCostSlot seq={seq} /> : null}
       </article>
     </MessagePrimitive.Root>
   );

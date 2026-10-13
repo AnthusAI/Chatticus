@@ -164,6 +164,7 @@ export function convertChatticusThreadMessage(
         custom: {
           authorBotName,
           createdAt: message.created_at,
+          seq: message.seq,
           activity: item.activity ?? undefined,
           isStreaming: false,
         },
