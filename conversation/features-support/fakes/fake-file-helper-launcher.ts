@@ -19,6 +19,8 @@ export class ScenarioFileHelperLauncher implements FileHelperLauncher {
 	useRealProcess = true;
 	/** Called after the helper answered a request, before the supervisor sees the answer. */
 	afterRun: (request: FileHelperRequest, response: FileHelperResponse) => void = () => undefined;
+	/** Called with each request the moment the supervisor hands it over, before any fake time passes. */
+	onRequest: (request: FileHelperRequest) => void = () => undefined;
 	running = 0;
 	killedAtTimeout = 0;
 
@@ -32,6 +34,7 @@ export class ScenarioFileHelperLauncher implements FileHelperLauncher {
 
 	async run(request: FileHelperRequest, timeoutMilliseconds: number): Promise<FileHelperResponse> {
 		this.requests.push(request);
+		this.onRequest(request);
 		this.running += 1;
 		try {
 			if (this.hangs) {

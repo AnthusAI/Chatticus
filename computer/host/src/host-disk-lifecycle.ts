@@ -2,6 +2,7 @@ import type { LogEmitter } from "../../../conversation/src/observability/log-lin
 import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { ComputerHostBootDriver, type HostBootPlane } from "./boot.ts";
 import { diskChangedSincePublish, publishChangedDisk } from "./disk-lifecycle.ts";
+import type { OverlayApplier, OverlayEntryReference } from "./overlay-applier.ts";
 import type { SupervisorDisk } from "./supervisor-ports.ts";
 
 /** Where the computer's disk lives and as whom the supervisor reports it. */
@@ -14,11 +15,14 @@ export type HostDiskLifecycleOptions = {
 	readonly log: LogEmitter;
 	/** Runs after the snapshot is hydrated, for example to share the hydrated workspace with the unprivileged shell. */
 	readonly afterHydrate?: () => Promise<void>;
+	/** Seals the edit overlay after the hydrate and applies its entries through the file helper; also asked to clear them after a publish. */
+	readonly overlayApplier: OverlayApplier;
 };
 
 /**
  * The computer's disk driven by the supervisor: the host boot driver for the model and workspace gates and the hydrate, and
- * the disk lifecycle for the change scan and the publish, all over the supervisor's own Front Door plane.
+ * the disk lifecycle for the change scan and the publish, all over the supervisor's own Front Door plane. After every hydrate
+ * (also when the local cache matched, and also when no snapshot was ever published) it applies the edit overlay.
  */
 export class HostDiskLifecycle implements SupervisorDisk {
 	private readonly plane: HostBootPlane;
@@ -29,7 +33,7 @@ export class HostDiskLifecycle implements SupervisorDisk {
 		this.options = options;
 	}
 
-	async hydrate(): Promise<void> {
+	async hydrate(): Promise<readonly OverlayEntryReference[]> {
 		await new ComputerHostBootDriver(this.plane, {
 			tenantId: this.options.tenantId,
 			workerId: this.options.ownerId,
@@ -38,6 +42,11 @@ export class HostDiskLifecycle implements SupervisorDisk {
 			log: this.options.log,
 		}).bootThroughWorkspace();
 		await this.options.afterHydrate?.();
+		return (await this.options.overlayApplier.applyAfterHydrate()).applied;
+	}
+
+	async clearApplied(entries: readonly OverlayEntryReference[]): Promise<boolean> {
+		return this.options.overlayApplier.clearApplied(entries);
 	}
 
 	async needsPublish(): Promise<boolean> {

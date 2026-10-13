@@ -1,3 +1,4 @@
+import { OVERLAY_CLEAR_RETRY_SECONDS, OVERLAY_EARLY_PUBLISH_SECONDS } from "@chatticus/host-protocol/edit-overlay";
 import {
 	OWNER_CHILD_FAILURE_LIMIT,
 	OWNER_DRAIN_GRACE_SECONDS,
@@ -18,7 +19,8 @@ import type { LiveFileOutcome } from "@chatticus/host-protocol/live-files";
 import { errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
 import { LiveFileOperations } from "./live-file-operations.ts";
 import type { FileHelperLauncher } from "./live-file-helper-launcher.ts";
-import { HostProtocolError } from "./protocol-client.ts";
+import { OverlayApplyError, type OverlayEntryReference } from "./overlay-applier.ts";
+import { HostProtocolError, refusalEndsOwnership } from "./protocol-client.ts";
 import { buildOwnerChildEnvironment } from "./supervisor-child-environment.ts";
 import {
 	SUPERVISOR_EXIT_BOOTSTRAP_FAILED,
@@ -47,7 +49,8 @@ const CREDENTIAL_STOP_MARGIN_MILLISECONDS = 180_000;
 const IDLE_LOG_INTERVAL_MILLISECONDS = 300_000;
 const POLLING_LOG_INTERVAL_MILLISECONDS = 60_000;
 
-const SUPERSEDING_CODES: ReadonlySet<string> = new Set(["stale_generation", "not_current_owner", "wrong_organization", "credential_mismatch"]);
+const CLEAR_ATTEMPTS_BEFORE_STOPPED_REPORT = 3;
+const CLEAR_ATTEMPT_PAUSE_MILLISECONDS = 1000;
 
 /** Who the supervisor is. */
 export type OwnerSupervisorIdentity = {
@@ -130,6 +133,10 @@ export class OwnerSupervisor {
 	private stopping = false;
 	private sigtermRequested = false;
 	private readonly servedDispatchIds = new Set<string>();
+	private entriesAwaitingPublish: readonly OverlayEntryReference[] = [];
+	private entriesAwaitingClear: readonly OverlayEntryReference[] = [];
+	private nextClearAttemptAtMilliseconds = 0;
+	private clearInFlight: Promise<boolean> | null = null;
 	private readonly files: LiveFileOperations;
 
 	constructor(options: OwnerSupervisorOptions) {
@@ -270,6 +277,7 @@ export class OwnerSupervisor {
 		if (this.canAskToStopForIdleness()) deadlines.push(Math.max(this.idleDeadline(), this.stopRetryAtMilliseconds));
 		if (this.currentState === "idle" && this.idleStartedAtMilliseconds !== null) deadlines.push(this.nextIdleLogAtMilliseconds);
 		if (this.canPublish() && this.nextPublishCheckAtMilliseconds !== null) deadlines.push(this.nextPublishCheckAtMilliseconds);
+		if (!this.stopping && this.entriesAwaitingClear.length > 0 && this.clearInFlight === null) deadlines.push(this.nextClearAttemptAtMilliseconds);
 		if (this.draining && this.child !== null && !this.drainKillStarted) deadlines.push(this.drainStartedAtMilliseconds + OWNER_DRAIN_GRACE_SECONDS * 1000);
 		if (this.draining && this.child === null && this.activity === null && !this.stopping) deadlines.push(this.stopRetryAtMilliseconds);
 		await this.sleepUntilWoken(Math.min(...deadlines) - this.now());
@@ -306,6 +314,7 @@ export class OwnerSupervisor {
 			this.nextPollingLogAtMilliseconds = now + POLLING_LOG_INTERVAL_MILLISECONDS;
 		}
 		if (this.stopping) return;
+		if (this.entriesAwaitingClear.length > 0 && this.clearInFlight === null && now >= this.nextClearAttemptAtMilliseconds) this.beginClear();
 		if (now >= this.credentialsStopAtMilliseconds && now >= this.stopRetryAtMilliseconds) {
 			this.log("owner_credentials_expiring");
 			await this.askToStop("unhealthy");
@@ -398,7 +407,7 @@ export class OwnerSupervisor {
 	}
 
 	private refusalEndsOwnership(error: HostProtocolError): boolean {
-		return error.status === 401 || (error.status === 403 && error.code !== undefined && SUPERSEDING_CODES.has(error.code));
+		return refusalEndsOwnership(error);
 	}
 
 	private endAsSuperseded(): void {
@@ -453,17 +462,78 @@ export class OwnerSupervisor {
 		if (disk === null) return;
 		this.currentState = "hydrating";
 		this.activity = (async () => {
+			let applied: readonly OverlayEntryReference[];
 			try {
-				await disk.hydrate();
+				applied = await disk.hydrate();
 			} catch (error) {
-				this.log("snapshot_skipped", { reason: "boot_failed", error_name: errorNameOf(error) });
+				if (error instanceof HostProtocolError && this.refusalEndsOwnership(error)) {
+					this.endAsSuperseded();
+					return;
+				}
+				this.log("snapshot_skipped", { reason: error instanceof OverlayApplyError ? "overlay_failed" : "boot_failed", error_name: errorNameOf(error) });
 				this.finish(SUPERVISOR_EXIT_BOOT_FAILED);
 				return;
 			}
 			this.hydrated = true;
-			this.nextPublishCheckAtMilliseconds = this.now() + OWNER_PERIODIC_PUBLISH_SECONDS * 1000;
+			this.entriesAwaitingPublish = applied;
+			const publishCheckSeconds = applied.length > 0 ? OVERLAY_EARLY_PUBLISH_SECONDS : OWNER_PERIODIC_PUBLISH_SECONDS;
+			this.nextPublishCheckAtMilliseconds = this.now() + publishCheckSeconds * 1000;
+			if (applied.length > 0) await this.clearAtOnceWhenDiskEqualsPublished(disk);
 			this.activityEnded();
 		})();
+	}
+
+	private async clearAtOnceWhenDiskEqualsPublished(disk: SupervisorDisk): Promise<void> {
+		try {
+			if (!(await disk.needsPublish())) this.promoteToAwaitingClear(this.entriesAwaitingPublish);
+		} catch (error) {
+			this.log("snapshot_check_failed", { error_name: errorNameOf(error) });
+		}
+	}
+
+	private promoteToAwaitingClear(captured: readonly OverlayEntryReference[]): void {
+		if (captured.length === 0) return;
+		const same = (left: OverlayEntryReference, right: OverlayEntryReference): boolean => left.path === right.path && left.revision === right.revision;
+		this.entriesAwaitingPublish = this.entriesAwaitingPublish.filter((entry) => !captured.some((candidate) => same(candidate, entry)));
+		this.entriesAwaitingClear = [...this.entriesAwaitingClear, ...captured.filter((entry) => !this.entriesAwaitingClear.some((candidate) => same(candidate, entry)))];
+		this.nextClearAttemptAtMilliseconds = this.now();
+	}
+
+	private beginClear(): void {
+		this.clearInFlight = this.attemptClear().finally(() => {
+			this.clearInFlight = null;
+			this.wake();
+		});
+	}
+
+	private async attemptClear(): Promise<boolean> {
+		const disk = this.disk;
+		const batch = this.entriesAwaitingClear;
+		if (disk === null || batch.length === 0) return true;
+		let acknowledged = false;
+		try {
+			acknowledged = await disk.clearApplied(batch);
+		} catch (error) {
+			if (error instanceof HostProtocolError && this.refusalEndsOwnership(error)) {
+				this.endAsSuperseded();
+				return false;
+			}
+			this.log("overlay_clear_failed", { error_name: errorNameOf(error) });
+		}
+		if (acknowledged) {
+			this.entriesAwaitingClear = this.entriesAwaitingClear.filter((entry) => !batch.some((cleared) => cleared.path === entry.path && cleared.revision === entry.revision));
+		} else {
+			this.nextClearAttemptAtMilliseconds = this.now() + OVERLAY_CLEAR_RETRY_SECONDS * 1000;
+		}
+		return acknowledged;
+	}
+
+	private async clearBeforeStoppedReport(): Promise<void> {
+		await this.clearInFlight;
+		for (let attempt = 1; attempt <= CLEAR_ATTEMPTS_BEFORE_STOPPED_REPORT && this.entriesAwaitingClear.length > 0 && this.exitCode === undefined; attempt += 1) {
+			if (await this.attemptClear()) return;
+			if (attempt < CLEAR_ATTEMPTS_BEFORE_STOPPED_REPORT) await this.options.clock.sleep(CLEAR_ATTEMPT_PAUSE_MILLISECONDS);
+		}
 	}
 
 	private activityEnded(): void {
@@ -486,9 +556,11 @@ export class OwnerSupervisor {
 		if (disk === null) return;
 		this.currentState = "publishing";
 		this.quietPublishDueAtMilliseconds = null;
+		const captured = this.entriesAwaitingPublish;
 		this.activity = (async () => {
 			try {
 				if (await disk.needsPublish()) await disk.publish();
+				this.promoteToAwaitingClear(captured);
 			} catch (error) {
 				this.log("snapshot_check_failed", { error_name: errorNameOf(error) });
 			}
@@ -643,11 +715,15 @@ export class OwnerSupervisor {
 		if (this.exitCode !== undefined) return;
 		const disk = this.disk;
 		if (disk !== null && this.hydrated) {
+			const captured = this.entriesAwaitingPublish;
 			try {
 				if (await disk.needsPublish()) await disk.publish();
+				this.promoteToAwaitingClear(captured);
 			} catch (error) {
 				this.log("snapshot_check_failed", { error_name: errorNameOf(error) });
 			}
+			await this.clearBeforeStoppedReport();
+			if (this.exitCode !== undefined) return;
 		}
 		for (let attempt = 1; attempt <= STOPPED_REPORT_ATTEMPTS; attempt += 1) {
 			try {
