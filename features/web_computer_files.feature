@@ -93,7 +93,7 @@ Feature: Members view and edit the computer's files in the web panel
     Then the panel tells the computer it is open
     And the panel tells the computer again every 15 seconds
     When the member switches to another tab
-    Then the panel tells the computer it is closed
+    Then the panel tells the computer that it is closed
     And the panel stops telling the computer
 
   @web

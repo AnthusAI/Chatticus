@@ -409,7 +409,7 @@ Then("the panel tells the computer again every {int} seconds", async function (t
 	}
 });
 
-Then("the panel tells the computer it is closed", async function (this: ChatticusWorld) {
+Then("the panel tells the computer that it is closed", async function (this: ChatticusWorld) {
 	const watches = (await scenarioOf(this).process.fakeState()).requests.filter((request) => request.route === "/watch");
 	assert.deepEqual(watches.at(-1)?.body, { open: false });
 	assert.equal(watches.at(-1)?.keepalive, true);
