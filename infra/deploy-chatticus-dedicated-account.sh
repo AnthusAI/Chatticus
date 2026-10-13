@@ -39,7 +39,11 @@ case "$ENVIRONMENT:$2" in
 esac
 
 INTEGRATION_TEST_CDK_CONTEXT=""
-if [ "${ENVIRONMENT}" = "development" ] && [ "${STACK}" = "ChatticusControlPlane" ] && [ -n "${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN:-}" ]; then
+if [ "${ENVIRONMENT}" = "production" ] && [ -n "${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN:-}" ]; then
+  echo "CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN must not be set for production; the integration-test principal never exists there." >&2
+  exit 1
+fi
+if { [ "${ENVIRONMENT}" = "development" ] || [ "${ENVIRONMENT}" = "staging" ]; } && [ "${STACK#ChatticusControlPlane}" != "${STACK}" ] && [ -n "${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN:-}" ]; then
   if ! printf '%s' "${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN}" | grep -Eq '^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$'; then
     echo "CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN must be an IAM role ARN (arn:aws:iam::<12 digits>:role/...)." >&2
     exit 1

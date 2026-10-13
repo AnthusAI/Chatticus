@@ -11,7 +11,7 @@ const workflowsDir = join(
 
 const EXPECTED_DEPLOY_WORKFLOWS: Record<
   string,
-  { environment: string; script: string; pushBranch: string }
+  { environment: string; script: string; pushBranch: string | null }
 > = {
   "deploy-auth-development.yml": {
     environment: "development",
@@ -20,13 +20,13 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
   },
   "deploy-auth-staging.yml": {
     environment: "staging",
-    script: "deploy-chatticus-auth-staging.sh",
-    pushBranch: "main",
+    script: "deploy-chatticus-dedicated-account.sh staging auth",
+    pushBranch: null,
   },
   "deploy-auth-production.yml": {
     environment: "production",
-    script: "deploy-chatticus-auth-production.sh",
-    pushBranch: "main",
+    script: "deploy-chatticus-dedicated-account.sh production auth",
+    pushBranch: null,
   },
   "deploy-controlplane-development.yml": {
     environment: "development",
@@ -36,12 +36,12 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
   "deploy-controlplane-staging.yml": {
     environment: "staging",
     script: "deploy-chatticus-dedicated-account.sh staging control-plane",
-    pushBranch: "main",
+    pushBranch: null,
   },
   "deploy-controlplane-production.yml": {
     environment: "production",
     script: "deploy-chatticus-dedicated-account.sh production control-plane",
-    pushBranch: "main",
+    pushBranch: null,
   },
   "deploy-thinturn-development.yml": {
     environment: "development",
@@ -50,13 +50,13 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
   },
   "deploy-thinturn-staging.yml": {
     environment: "staging",
-    script: "deploy-chatticus-thinturn-staging.sh",
-    pushBranch: "main",
+    script: "deploy-chatticus-dedicated-account.sh staging thin-turn",
+    pushBranch: null,
   },
   "deploy-thinturn-production.yml": {
     environment: "production",
-    script: "deploy-chatticus-thinturn-production.sh",
-    pushBranch: "main",
+    script: "deploy-chatticus-dedicated-account.sh production thin-turn",
+    pushBranch: null,
   },
   "deploy-web-development.yml": {
     environment: "development",
@@ -65,13 +65,13 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
   },
   "deploy-web-staging.yml": {
     environment: "staging",
-    script: "deploy-chatticus-web-staging.sh",
-    pushBranch: "main",
+    script: "deploy-chatticus-dedicated-account.sh staging web",
+    pushBranch: null,
   },
   "deploy-web-production.yml": {
     environment: "production",
-    script: "deploy-chatticus-web-production.sh",
-    pushBranch: "main",
+    script: "deploy-chatticus-dedicated-account.sh production web",
+    pushBranch: null,
   },
 };
 
@@ -90,11 +90,16 @@ describe("deploy workflow YAML", () => {
     describe(fileName, () => {
       const contents = readFileSync(join(workflowsDir, fileName), "utf8");
 
-      it("triggers on push to its deploy branch, with workflow_dispatch as a manual fallback", () => {
-        assert.match(
-          contents,
-          new RegExp(`^on:\\n  workflow_dispatch:\\n  push:\\n    branches: \\[${expected.pushBranch}\\]\\n`, "m"),
-        );
+      it(expected.pushBranch === null ? "is manual dispatch only, with no push trigger" : "triggers on push to its deploy branch, with workflow_dispatch as a manual fallback", () => {
+        if (expected.pushBranch === null) {
+          assert.match(contents, /^on:\n  workflow_dispatch:\n\npermissions:/m);
+          assert.doesNotMatch(contents, /^  push:/m);
+        } else {
+          assert.match(
+            contents,
+            new RegExp(`^on:\\n  workflow_dispatch:\\n  push:\\n    branches: \\[${expected.pushBranch}\\]\\n`, "m"),
+          );
+        }
         assert.doesNotMatch(contents, /^  pull_request:/m);
         assert.doesNotMatch(contents, /^  release:/m);
       });
@@ -126,12 +131,15 @@ describe("deploy workflow YAML", () => {
     });
   }
 
-  it("passes the integration test role variable to every development workflow that deploys control-plane, and no other", () => {
+  it("passes the integration test role variable to every development and staging workflow that deploys control-plane, and never to production or auth", () => {
     const pattern = /CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: \$\{\{ vars\.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN \}\}/;
     const carriers = [
       "deploy-controlplane-development.yml",
       "deploy-web-development.yml",
       "deploy-thinturn-development.yml",
+      "deploy-controlplane-staging.yml",
+      "deploy-web-staging.yml",
+      "deploy-thinturn-staging.yml",
     ];
     for (const fileName of deployWorkflowFiles()) {
       const contents = readFileSync(join(workflowsDir, fileName), "utf8");
@@ -140,16 +148,8 @@ describe("deploy workflow YAML", () => {
     }
   });
 
-  const THIN_TURN_SCRIPT: Record<string, string> = {
-    development: "deploy-chatticus-dedicated-account.sh development thin-turn",
-    staging: "deploy-chatticus-thinturn-staging.sh",
-    production: "deploy-chatticus-thinturn-production.sh",
-  };
-  const WEB_SCRIPT: Record<string, string> = {
-    development: "deploy-chatticus-dedicated-account.sh development web",
-    staging: "deploy-chatticus-web-staging.sh",
-    production: "deploy-chatticus-web-production.sh",
-  };
+  const THIN_TURN_SCRIPT = (environment: string): string => `deploy-chatticus-dedicated-account.sh ${environment} thin-turn`;
+  const WEB_SCRIPT = (environment: string): string => `deploy-chatticus-dedicated-account.sh ${environment} web`;
 
   function deployRunLines(fileName: string): string[] {
     return readFileSync(join(workflowsDir, fileName), "utf8")
@@ -159,16 +159,24 @@ describe("deploy workflow YAML", () => {
       .map((line) => line.slice("run: sh ".length));
   }
 
+  it("no workflow bound to the staging or production GitHub environment has a push, pull_request or schedule trigger", () => {
+    for (const fileName of readdirSync(workflowsDir).filter((name) => name.endsWith(".yml"))) {
+      const contents = readFileSync(join(workflowsDir, fileName), "utf8");
+      if (!/^\s+environment: (staging|production)\s*$/m.test(contents)) continue;
+      assert.doesNotMatch(contents, /^  (push|pull_request|pull_request_target|schedule|workflow_run):/m, fileName);
+    }
+  });
+
   for (const environment of ["development", "staging", "production"]) {
     const controlPlane = `deploy-chatticus-dedicated-account.sh ${environment} control-plane`;
 
     it(`${environment}: consumers deploy before producers, control-plane then web then thin-turn`, () => {
       assert.deepEqual(deployRunLines(`deploy-controlplane-${environment}.yml`), [controlPlane]);
-      assert.deepEqual(deployRunLines(`deploy-web-${environment}.yml`), [controlPlane, WEB_SCRIPT[environment]]);
+      assert.deepEqual(deployRunLines(`deploy-web-${environment}.yml`), [controlPlane, WEB_SCRIPT(environment)]);
       assert.deepEqual(deployRunLines(`deploy-thinturn-${environment}.yml`), [
         controlPlane,
-        WEB_SCRIPT[environment],
-        THIN_TURN_SCRIPT[environment],
+        WEB_SCRIPT(environment),
+        THIN_TURN_SCRIPT(environment),
       ]);
     });
 

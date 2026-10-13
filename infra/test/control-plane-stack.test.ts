@@ -459,10 +459,16 @@ describe("ControlPlaneStack", () => {
       assert.equal(parameterCount(synthControlPlane("development", { ...withRole, integrationTestAllowedRoleArn: "" })), 0);
     });
 
-    it("is never created in staging or production", () => {
-      for (const environmentName of ["staging", "production"] as const) {
-        assert.equal(parameterCount(synthControlPlane(environmentName, withRole)), 0, environmentName);
-      }
+    it("is created in staging when the context value is set", () => {
+      const template = synthControlPlane("staging", withRole);
+      template.hasResourceProperties("AWS::SSM::Parameter", {
+        Name: "/chatticus/staging/integration-test/allowed-role-arn",
+        Value: roleArn,
+      });
+    });
+
+    it("is never created in production", () => {
+      assert.equal(parameterCount(synthControlPlane("production", withRole)), 0);
     });
   });
 

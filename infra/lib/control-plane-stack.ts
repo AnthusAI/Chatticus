@@ -198,7 +198,7 @@ export class ControlPlaneStack extends cdk.Stack {
 
     const integrationTestAllowedRoleArn = this.node.tryGetContext("integrationTestAllowedRoleArn");
     if (
-      environmentName === "development" &&
+      integrationTestEnabled &&
       typeof integrationTestAllowedRoleArn === "string" &&
       integrationTestAllowedRoleArn !== ""
     ) {
