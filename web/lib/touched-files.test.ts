@@ -29,9 +29,19 @@ function item(tool: string, args: Record<string, unknown>, ok: boolean | null = 
 describe("collectTouchedFiles", () => {
   it("returns distinct paths newest first with the strongest action", () => {
     assert.deepEqual(collectTouchedFiles(touchingCards), [
-      { path: "/workspace/src/index.ts", action: "wrote" },
-      { path: "/workspace/notes.txt", action: "edited" },
+      { path: "/workspace/src/index.ts", action: "wrote", lastWriteSignature: "write_workspace:/workspace/src/index.ts:ok:ok" },
+      { path: "/workspace/notes.txt", action: "edited", lastWriteSignature: "edit_workspace:/workspace/notes.txt:ok:ok" },
     ]);
+  });
+
+  it("signs the latest write so a second call, or a call that finishes, is a change", () => {
+    const running: ToolCardModel = { ...touchingCards[1], status: "running" };
+    const finished: ToolCardModel = { ...touchingCards[1], status: "ok" };
+    const again: ToolCardModel = { ...touchingCards[1], callId: "second" };
+    const signature = (cards: ToolCardModel[]) => collectTouchedFiles(cards)[0].lastWriteSignature;
+    assert.notEqual(signature([running]), signature([finished]));
+    assert.notEqual(signature([finished]), signature([finished, again]));
+    assert.equal(collectTouchedFiles([touchingCards[0]])[0].lastWriteSignature, null);
   });
 
   it("orders by the last touch even when a weaker action came last", () => {
@@ -78,9 +88,9 @@ describe("touchedFilesFromActivity", () => {
     ];
     const live = [touchingCards[1]];
     assert.deepEqual(touchedFilesFromActivity(committed, live), [
-      { path: "/workspace/src/index.ts", action: "wrote" },
-      { path: "/workspace/new.txt", action: "wrote" },
-      { path: "/workspace/old.txt", action: "read" },
+      { path: "/workspace/src/index.ts", action: "wrote", lastWriteSignature: "write_workspace:/workspace/src/index.ts:ok:ok" },
+      { path: "/workspace/new.txt", action: "wrote", lastWriteSignature: `${committed[0].activity?.[0].call_id}:ok` },
+      { path: "/workspace/old.txt", action: "read", lastWriteSignature: null },
     ]);
   });
 

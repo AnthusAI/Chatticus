@@ -4,13 +4,24 @@ import type { ToolCardModel } from "./turn-activity";
 export const FIXTURE_AS_OF = "2026-10-12T09:55:00.000Z";
 
 function entry(partial: Partial<FileEntry> & Pick<FileEntry, "name" | "path" | "kind">): FileEntry {
-  return { size: null, mode: null, sha256: null, link_target: null, ...partial };
+  return {
+    size: null,
+    mode: null,
+    sha256: null,
+    link_target: null,
+    modified_at: null,
+    overlay: "none",
+    tree_sha256: null,
+    ...partial,
+  };
 }
 
 /** A /workspace listing with folders, files and a link, deliberately unsorted. */
 export const workspaceListing: FileListing = {
   source: "snapshot",
   as_of: FIXTURE_AS_OF,
+  stale: false,
+  fallback_reason: null,
   path: "/workspace",
   truncated: false,
   entries: [
@@ -30,6 +41,12 @@ function range(partial: Partial<FileContentRange> & Pick<FileContentRange, "path
   return {
     source: "snapshot",
     as_of: FIXTURE_AS_OF,
+    stale: false,
+    fallback_reason: null,
+    revealed: false,
+    editable: true,
+    modified_at: FIXTURE_AS_OF,
+    overlay: "none",
     size: partial.content.length,
     sha256: "a".repeat(64),
     encoding: "utf8",
