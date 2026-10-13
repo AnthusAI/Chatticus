@@ -19,7 +19,7 @@
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The marketing pages are being prepared on their branch, but no pull request has been opened yet.",
-  "right_now_updated_at": "2026-10-13T16:15:26.004948Z",
+  "right_now_summary": "Marketing pages are being prepared; the branch is ready, but no pull request has been opened yet.",
+  "right_now_updated_at": "2026-10-13T16:23:08.184198Z",
   "custom": {}
 }
