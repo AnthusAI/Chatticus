@@ -1,5 +1,4 @@
 import type { GatewayLogEvent, ModelGatewayDependencies } from "../src/gateway/model-gateway.ts";
-import { ledgerDependenciesFor } from "./executor-harness.ts";
 import { startFakeResponsesVendor, type FakeResponsesVendor } from "./fakes/fake-responses-vendor.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -53,7 +52,6 @@ export function modelGatewayFor(world: ChatticusWorld): ModelGatewayDependencies
 		signingKey: SCENARIO_GATEWAY_SIGNING_KEY,
 		clock: world.clock,
 		turns: world.turnControlStore(),
-		ledger: ledgerDependenciesFor(world),
 		upstream: {
 			get baseUrl() {
 				return scenario.vendor?.baseUrl ?? "http://127.0.0.1:1/v1";

@@ -1,13 +1,8 @@
 import type { Context } from "hono";
-import { BILLED_VIA_VENDOR } from "../budget/models.ts";
 import type { TurnControlStore } from "../domain/turns.ts";
-import { recordVendorSpend, type VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import { OPENAI_MODEL_PRICES } from "../ledger/vendor-prices.ts";
 import { errorNameOf } from "../observability/log-line.ts";
 import { verifySessionToken } from "./session-token.ts";
-
-/** The vendor name spend is recorded under, matching the turn executor's ledger rows. */
-export const GATEWAY_VENDOR = "openai";
 
 /** The largest request body the gateway forwards, in bytes. A real replay of a long conversation is a few tens of kilobytes. */
 export const GATEWAY_MAXIMUM_BODY_BYTES = 2 * 1024 * 1024;
@@ -27,7 +22,7 @@ const ESTIMATED_CHARACTERS_PER_TOKEN = 4;
  * trusted enough to log.
  */
 export type GatewayLogEvent = {
-	readonly event: "refused" | "upstream_failed" | "spend_recorded" | "spend_unavailable";
+	readonly event: "refused" | "upstream_failed" | "usage_observed" | "usage_unavailable";
 	readonly reason: string;
 	readonly tenantId?: string;
 	readonly turnId?: string;
@@ -35,6 +30,9 @@ export type GatewayLogEvent = {
 	readonly status?: number;
 	/** The name of the error that ended an upstream request, never its message. */
 	readonly errorName?: string;
+	/** Tokens the vendor reported, or the gateway estimated after an interruption, for one call; an observation, never a ledger write. */
+	readonly inputTokens?: number;
+	readonly outputTokens?: number;
 };
 
 /** The vendor the gateway forwards to, and the real key it holds. */
@@ -53,7 +51,6 @@ export type ModelGatewayDependencies = {
 	readonly signingKey: string;
 	readonly clock: { now(): Date };
 	readonly turns: Pick<TurnControlStore, "getTurn">;
-	readonly ledger: VendorLedgerDependencies;
 	readonly upstream: GatewayUpstream;
 	readonly log: (event: GatewayLogEvent) => void;
 };
@@ -96,14 +93,13 @@ function usageFromEvent(block: string): Usage | null {
 	return null;
 }
 
-function spendRecorderFor(deps: ModelGatewayDependencies, tenantId: string, turnId: string, model: string) {
+function usageObserverFor(deps: ModelGatewayDependencies, tenantId: string, turnId: string) {
 	return async (usage: Usage | null, reason: string): Promise<void> => {
 		if (usage === null) {
-			deps.log({ event: "spend_unavailable", reason: "the answer carried no final usage", tenantId, turnId });
+			deps.log({ event: "usage_unavailable", reason: "the answer carried no final usage", tenantId, turnId });
 			return;
 		}
-		await recordVendorSpend(deps.ledger, tenantId, turnId, { vendor: GATEWAY_VENDOR, model, ...usage }, BILLED_VIA_VENDOR);
-		deps.log({ event: "spend_recorded", reason, tenantId, turnId });
+		deps.log({ event: "usage_observed", reason, tenantId, turnId, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
 	};
 }
 
@@ -111,8 +107,8 @@ type StreamAccount = { final: Usage | null; outputCharacters: number };
 
 /**
  * Pass an event stream through unchanged, chunk by chunk, while watching for the final usage event. When the stream
- * ends, the spend is recorded once, before the client sees the end of its answer. When the client drops the connection
- * or the upstream breaks first, the spend is still recorded once, as an estimate: the input is counted from the request
+ * ends, the usage is observed once, before the client sees the end of its answer. When the client drops the connection
+ * or the upstream breaks first, the usage is still observed once, as an estimate: the input is counted from the request
  * and the output from the text already sent.
  */
 function meteredStream(
@@ -238,15 +234,16 @@ function admittedBody(bodyText: string): AdmittedBody | RefusedBody {
  *
  * The caller proves itself with a session token, not a key: the token must verify, name the organization in the path,
  * and name the owner that claimed the current attempt of a running turn of that organization and bot. The request body is sent
- * to the vendor with the real key, and the answer streams back as it arrives. The spend is recorded once, from the
- * final usage event, or as an estimate when the client drops the connection first.
+ * to the vendor with the real key, and the answer streams back as it arrives. The usage is logged once, from the
+ * final usage event, or as an estimate when the client drops the connection first. The gateway never writes the vendor
+ * ledger: the finalize step of the turn is the only writer, from the session the container's Pi wrote.
  *
  * The caller does not get the whole vendor API. The body must be at most `GATEWAY_MAXIMUM_BODY_BYTES`, name a model on
  * the price book, offer only function tools and ask for neither `store` nor `background`; `max_output_tokens` is clamped
  * to `GATEWAY_MAXIMUM_OUTPUT_TOKENS` and `store` is forced off. The vendor's own error text is never passed on, because a vendor can echo part of a key.
  *
  * @param c The request context.
- * @param deps The signing key, turn store, ledger, vendor and log.
+ * @param deps The signing key, turn store, vendor and log.
  */
 export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewayDependencies): Promise<Response> {
 	const token = bearerTokenOf(c);
@@ -297,7 +294,7 @@ export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewa
 		return c.json({ detail: "model provider request failed", upstream_status: upstreamResponse.status }, 502);
 	}
 
-	const record = spendRecorderFor(deps, claims.tenantId, claims.turnId, model);
+	const record = usageObserverFor(deps, claims.tenantId, claims.turnId);
 	const contentType = upstreamResponse.headers.get("content-type") ?? "application/json";
 	if (contentType.startsWith("text/event-stream")) {
 		return new Response(meteredStream(upstreamResponse.body, record, estimatedInputTokens), {

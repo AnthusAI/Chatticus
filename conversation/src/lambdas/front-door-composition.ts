@@ -205,7 +205,6 @@ export async function composeFrontDoorApp(
 					signingKey: gatewaySigningKey,
 					clock,
 					turns: new DynamoTurnControlStore(client, messagingTableName),
-					ledger: { client, tableName: messagingTableName, prices, now: () => new Date() },
 					upstream: {
 						baseUrl: environment["CHATTICUS_MODEL_GATEWAY_UPSTREAM_URL"] || DEFAULT_MODEL_GATEWAY_UPSTREAM_URL,
 						apiKey: requiredIn(environment, "OPENAI_API_KEY"),
