@@ -19,6 +19,7 @@ import {
 } from "../../computer/host/src/supervisor-ports.ts";
 import { consoleLogEmitter } from "../src/observability/log-line.ts";
 import type { SnapshotObjectStore } from "../src/snapshot/store.ts";
+import { UNUSED_FILE_HELPER_LAUNCHER } from "./fakes/fake-file-helper-launcher.ts";
 import { dispatchPollAnswer, emptyPollAnswer, FAKE_SUPERVISOR_SECRETS } from "./fakes/fake-supervisor-plane.ts";
 import { ensureHostWorker, hostClientFor, hostDiskOf, LIFECYCLE_TENANT } from "./host-lifecycle-support.ts";
 import type { ChatticusWorld } from "./world.ts";
@@ -79,6 +80,10 @@ class DiskScenarioPlane implements SupervisorPlane {
 
 	async stopRequest(_request: OwnerStopRequest): Promise<OwnerStopResponse> {
 		return { approved: true };
+	}
+
+	async postFileResult(): Promise<{ readonly recorded: true }> {
+		return { recorded: true };
 	}
 
 	getComputer(): Promise<HostComputer> {
@@ -171,6 +176,8 @@ export async function startSupervisedOwner(
 		openDisk: () => new HostDiskLifecycle(plane, { tenantId: LIFECYCLE_TENANT, ownerId, liveRoot: disk.liveRoot, store, log }),
 		spawner: new InProcessChildSpawner(`${disk.liveRoot}/workspace`, turn ?? { work: async () => 0 }),
 		sweeper: noProcessesToSweep,
+		fileHelperLauncher: UNUSED_FILE_HELPER_LAUNCHER,
+		workspaceRoot: `${disk.liveRoot}/workspace`,
 		clock: runtimeSupervisorClock,
 		log: (event, fields) => {
 			log(event, fields);

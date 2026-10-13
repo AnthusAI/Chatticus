@@ -5,6 +5,12 @@
 			"Effect": "Allow",
 			"Action": ["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"],
 			"Resource": ["{{snapshotBucketArn}}/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/*"]
+		},
+		{
+			"Sid": "OverlayIsWrittenByTheFrontDoorOnly",
+			"Effect": "Deny",
+			"Action": ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:PutObjectTagging", "s3:AbortMultipartUpload"],
+			"Resource": ["{{snapshotBucketArn}}/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/overlay/*"]
 		}
 	]
 }

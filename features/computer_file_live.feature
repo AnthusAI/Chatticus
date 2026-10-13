@@ -7,6 +7,8 @@
 # role policy scenarios of LF-15, LF-21, LF-28 to LF-31. The four scenarios that need the member routes (the stop race as a
 # member response, a result for an abandoned read, a result recorded once for a member read, and the hash disagreement as a
 # member write) stay here for part A2; their owner side is covered there under the names in that file.
+# The scenarios of LF-53 to LF-56 and the store-level halves of LF-57 (discard, seal, stale seal, clear, derived
+# conflicts) moved to features/computer_file_overlay.feature, which is registered and runs.
 
 Feature: Members view and edit the files on the running computer
   As a member of an organization
@@ -262,13 +264,6 @@ Feature: Members view and edit the files on the running computer
       | /workspace/app/.git/hooks/pre-commit |
       | /workspace/.git                   |
 
-  @supervisor
-  Scenario: A link inside the workspace to a .git file is refused by the helper as well
-    Given the workspace has a symbolic link "sneaky" to the workspace file ".git/config"
-    When the helper is asked to create "/workspace/sneaky" with "[core]" as a live file operation
-    Then the helper answers "path_refused"
-    And the workspace file ".git/config" is unchanged
-
   @server
   Scenario: A write to an owner that will not poll soon is refused with a retry time
     Given a live owner that polls every 10 seconds and last polled 1 second ago
@@ -488,146 +483,6 @@ Feature: Members view and edit the files on the running computer
       | field     | value  |
       | operation | reveal |
       | source    | overlay |
-
-  @server
-  Scenario: A member discards their own pending edit
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
-    When member "mia" discards the pending edit of "/workspace/notes.md"
-    Then the file response status is 200
-    And the overlay holds no entry for "/workspace/notes.md"
-    And a member reads the computer file "/workspace/notes.md" and gets "first draft"
-    And the audit log has a record for member "mia" with operation "discard"
-
-  @server
-  Scenario: An edit made while the owner extracts the snapshot is in the set the owner seals
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And a live owner is polling for the household computer in state "hydrating"
-    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
-    Then the file response says "source" is "overlay"
-    When the owner seals the overlay
-    Then the sealed entries are exactly:
-      | path                | sha256                     |
-      | /workspace/notes.md | the hash of "second draft" |
-
-  @server
-  Scenario: An edit made after the owner sealed the overlay waits for the owner
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And a live owner is polling for the household computer in state "hydrating"
-    And the owner sealed the overlay
-    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
-    Then the file response status is 503
-    And the file response error is "computer_starting"
-    And the file response says "retry_after_ms" is "2000"
-    And the overlay holds no entry for "/workspace/notes.md"
-    And the audit log has no records
-
-  @server
-  Scenario: A seal and an edit that race leave exactly one of them in charge
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And a live owner is polling for the household computer in state "hydrating"
-    When the owner seals the overlay at the same instant as member "mia" edits "/workspace/notes.md"
-    Then either the sealed entries hold the edit or the edit was answered "computer_starting"
-    And never both and never neither
-
-  @server
-  Scenario: A seal left by an owner that died is replaced by the next edit
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And the overlay was sealed by an owner whose heartbeat then lapsed
-    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
-    Then the file response status is 200
-    And the overlay is not sealed
-    And the overlay holds "second draft" for "/workspace/notes.md"
-
-  @server
-  Scenario: An owner of an older generation cannot seal or clear
-    Given the overlay was sealed by an owner of generation 1
-    And a newer owner of generation 2 has bootstrapped
-    When the owner of generation 1 asks to seal the overlay
-    Then the request is refused with code "stale_generation"
-    When the owner of generation 1 asks to clear "/workspace/notes.md"
-    Then the request is refused with code "stale_generation"
-
-  @server
-  Scenario: A clear that is not sealed by the caller is refused
-    Given the computer disk is published
-    And a live owner is polling for the household computer
-    When the owner asks to clear "/workspace/notes.md" before it sealed the overlay
-    Then the request is refused with code "overlay_not_sealed"
-
-  @server
-  Scenario: Clearing removes only the entries that were applied
-    Given member "mia" replaced "/workspace/a.md" with "a2" and "/workspace/b.md" with "b2" while the computer was off
-    And the owner sealed the overlay
-    When the owner asks to clear "/workspace/a.md" at the revision and hash it applied
-    Then the overlay holds no entry for "/workspace/a.md"
-    And the overlay holds "b2" for "/workspace/b.md"
-    And the blob of "a2" is deleted and the blob of "b2" is kept
-
-  @server
-  Scenario: A clear that names an entry that changed since is ignored
-    Given member "mia" replaced "/workspace/a.md" with "a2" while the computer was off
-    And the owner sealed the overlay
-    When the owner asks to clear "/workspace/a.md" at revision 99
-    Then the overlay still holds "a2" for "/workspace/a.md"
-
-  @server
-  Scenario: A clear before any publish is recorded is refused
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
-    And a live owner is polling for the household computer
-    And the owner sealed the overlay
-    When the owner asks to clear "/workspace/notes.md" at the revision and hash it applied
-    Then the overlay still holds "second draft" for "/workspace/notes.md"
-    When the owner publishes a snapshot and the control plane records it
-    And the owner asks to clear "/workspace/notes.md" at the revision and hash it applied
-    Then the overlay holds no entry for "/workspace/notes.md"
-
-  @server
-  Scenario: A snapshot that moved under an edit shows a conflict and keeps both versions
-    Given the computer disk holds workspace file "plan.md" containing "v1"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
-    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
-    When a member reads the computer file "/workspace/plan.md"
-    Then the content response holds "from the host"
-    And the file response says "overlay" is "conflict"
-    And the file response says "mine_sha256" is the hash of "from Mia"
-    When a member reads the computer file "/workspace/plan.md" as the "mine" variant
-    Then the content response holds "from Mia"
-
-  @server
-  Scenario: An edit made on both sides conflicts and is never applied silently
-    Given the computer disk holds workspace file "plan.md" containing "v1"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
-    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
-    When member "ryan" replaces the computer file "/workspace/plan.md" with "from Ryan" if it still has the hash of "v1"
-    Then the file response status is 409
-    And the file response says "current_sha256" is the hash of "from the host"
-    When member "mia" replaces the computer file "/workspace/plan.md" with "from Mia again" if it still has the hash of "from the host"
-    Then the file response status is 200
-    And the overlay holds "from Mia again" for "/workspace/plan.md" with base hash of "from the host"
-
-  @server
-  Scenario: A conflict can be dropped explicitly
-    Given the computer disk holds workspace file "plan.md" containing "v1"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
-    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
-    When member "mia" discards the pending edit of "/workspace/plan.md"
-    Then the overlay holds no entry for "/workspace/plan.md"
-    And a member reads the computer file "/workspace/plan.md" and gets "from the host"
 
   @server
   Scenario: A computer in a customer account cannot be edited while it is off
@@ -1161,99 +1016,6 @@ Feature: Members view and edit the files on the running computer
   # ---------------------------------------------------------------- the container
 
   @supervisor
-  Scenario: The helper lists a directory with kinds, sizes and link targets
-    Given the workspace holds a file "a.txt" of 3 bytes, a directory "src" and a symbolic link "latest" to "a.txt"
-    When the supervisor is given a list request for "/workspace"
-    Then the result lists these entries in order:
-      | name   | kind      | size | link_target |
-      | src    | directory |      |             |
-      | latest | symlink   |      | a.txt       |
-      | a.txt  | file      | 3    |             |
-
-  @supervisor
-  Scenario: A planted link to a file outside the workspace is not read
-    Given a file "owner-only.txt" outside the workspace containing "owner-secret-value"
-    And the workspace has a symbolic link "leak" to the outside file "owner-only.txt"
-    When the supervisor is given a read request for "/workspace/leak"
-    Then the result is the error "outside_workspace"
-    And the result does not contain "owner-secret-value"
-
-  @supervisor
-  Scenario: A planted link to a file outside the workspace is not overwritten
-    Given a file "owner-only.txt" outside the workspace containing "owner-secret-value"
-    And the workspace has a symbolic link "leak" to the outside file "owner-only.txt"
-    When the supervisor is given a write request for "/workspace/leak" with "overwritten" and the hash of "owner-secret-value"
-    Then the result is the error "outside_workspace"
-    And the outside file "owner-only.txt" still contains "owner-secret-value"
-
-  @supervisor
-  Scenario: A link inside the workspace is written through and stays a link
-    Given the workspace holds a file "real.txt" containing "one"
-    And the workspace has a symbolic link "alias.txt" to "real.txt"
-    When the supervisor is given a write request for "/workspace/alias.txt" with "two" and the hash of "one"
-    Then the result is ok
-    And the workspace file "real.txt" contains "two"
-    And "alias.txt" is still a symbolic link to "real.txt"
-
-  @supervisor
-  Scenario: A pipe in the workspace does not hang a read
-    Given the workspace holds a named pipe "fifo"
-    When the supervisor is given a read request for "/workspace/fifo"
-    Then the result is the error "not_a_file" within 2 seconds
-
-  @supervisor
-  Scenario: A helper that hangs is killed at its timeout
-    Given the file helper never answers
-    When the supervisor is given a read request for "/workspace/notes.md"
-    And 7 seconds go by
-    Then the result is the error "helper_timeout"
-    And no helper process is left running
-
-  @supervisor
-  Scenario: A request that waited too long in the supervisor is answered expired without touching the disk
-    Given two file operations are running that take 5 seconds each
-    When the supervisor is given a write request that expires in 2 seconds
-    And 6 seconds go by
-    Then the result is the error "expired"
-    And the workspace was not written
-
-  @supervisor
-  Scenario: A file operation in flight is not killed by the sweep after a turn
-    Given a turn's child has just exited
-    And a file operation is running that takes 2 seconds
-    When the supervisor sweeps the processes of the shell user
-    Then the file operation finishes with its own result
-    And the sweep ran after it finished
-
-  @supervisor
-  Scenario: A stopping supervisor finishes the operation in flight and refuses the rest
-    Given a write operation is running
-    And another file request is waiting
-    When the supervisor begins to stop
-    Then the write finishes and its result is posted
-    And the waiting request is answered "owner_stopping"
-    And the final publish includes the written file
-
-  @supervisor
-  Scenario: An edit schedules a quiet publish and counts as activity
-    Given the supervisor is idle with its idle clock at 10 minutes
-    When a write request is answered ok
-    Then the idle clock starts again
-    And a publish is due in 30 seconds
-
-  @supervisor
-  Scenario: The file operation line carries no path and no content
-    When the supervisor answers a read of "/workspace/secret-plans.md"
-    Then the log line "file_operation" has the fields "kind", "bytes", "path_hash", "outcome" and "duration_ms"
-    And no log line contains "secret-plans"
-
-  @supervisor
-  Scenario: An owner that is told it is no longer the owner stops when it posts a result
-    Given a file operation is running
-    When the control plane answers the result with 403 "not_current_owner"
-    Then the supervisor ends as superseded
-
-  @supervisor
   Scenario: The owner applies the overlay after extraction and before any turn
     Given the saved snapshot holds workspace file "notes.md" containing "first draft"
     And the overlay holds "second draft" for "/workspace/notes.md" with base hash of "first draft"
@@ -1398,40 +1160,6 @@ Feature: Members view and edit the files on the running computer
     When the supervisor starts and hydrates
     Then the helper was asked for exactly one rename
     And the workspace has 300 files in "large" and no folder "big"
-
-  @supervisor
-  Scenario: The helper deletes a link and not its target
-    Given the workspace holds a file "real.txt" containing "one"
-    And the workspace has a symbolic link "alias.txt" to "real.txt"
-    When the supervisor is given a delete request for "/workspace/alias.txt" with the symlink hash
-    Then the result is ok
-    And the workspace file "real.txt" contains "one"
-    And "alias.txt" does not exist
-
-  @supervisor
-  Scenario: The helper refuses a rename that would leave the workspace
-    Given the workspace holds a file "a.txt" containing "a"
-    And the workspace has a symbolic link "out" to a folder outside the workspace
-    When the supervisor is given a move request from "/workspace/a.txt" to "/workspace/out/a.txt" with the hash of "a"
-    Then the result is the error "outside_workspace"
-    And the workspace file "a.txt" contains "a"
-
-  @supervisor
-  Scenario: The helper removes a folder tree only when its tree hash is the one seen
-    Given the workspace holds files "tree/a.txt" and "tree/sub/b.txt"
-    When the supervisor is given a recursive delete request for "/workspace/tree" with another tree hash
-    Then the result is the error "precondition_failed" with the current tree hash
-    And the workspace still holds "tree/sub/b.txt"
-    When the supervisor is given a recursive delete request for "/workspace/tree" with the current tree hash
-    Then the result is ok with 4 entries removed
-    And "tree" does not exist
-
-  @supervisor
-  Scenario: The helper renames without replacing
-    Given the workspace holds files "a.txt" containing "a" and "b.txt" containing "b"
-    When the supervisor is given a move request from "/workspace/a.txt" to "/workspace/b.txt" with the hash of "a"
-    Then the result is the error "already_exists"
-    And the workspace file "b.txt" contains "b"
 
   # ---------------------------------------------------------------- the web app
 

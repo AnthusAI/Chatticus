@@ -32,6 +32,8 @@ export const OWNER_COMPUTER_ROUTES: readonly OwnerComputerRoute[] = [
 	{ method: "POST", suffix: "/owner/poll" },
 	{ method: "POST", suffix: "/owner/stop-request" },
 	{ method: "POST", suffix: "/owner/file-results" },
+	{ method: "POST", suffix: "/owner/overlay-seal" },
+	{ method: "POST", suffix: "/owner/overlay-applied" },
 ];
 
 /** The route that exchanges a bootstrap token. It is matched separately because it takes another audience. */

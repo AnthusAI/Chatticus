@@ -18,6 +18,7 @@ import type { TurnTakeoverOutcome } from "../../src/turn/computer-owner.ts";
 import { actionStoreOf } from "../computer-support.ts";
 import { computerOwnerScenarioOf, startComputerOwner, type HeldOwner } from "../computer-owner.ts";
 import { computerScenarioOf, deliverStartJob, STORY_BOT, STORY_TENANT, STORY_USER, workTurn } from "../computer-scenario.ts";
+import { UNUSED_FILE_HELPER_LAUNCHER } from "../fakes/fake-file-helper-launcher.ts";
 import { FakeHostStartDriver } from "../fakes/fake-host-start-driver.ts";
 import { FakeProcessTable } from "../fakes/fake-process-table.ts";
 import { FakeSupervisorDisk } from "../fakes/fake-supervisor-disk.ts";
@@ -279,6 +280,8 @@ Given("a supervisor is running for the household computer", async function (this
 		sweeper: new ShellUserProcessSweeper(new FakeProcessTable()),
 		clock,
 		log: emit,
+		fileHelperLauncher: UNUSED_FILE_HELPER_LAUNCHER,
+		workspaceRoot: computerOwnerScenarioOf(this).workspace,
 	});
 	scenario = {
 		clock,
