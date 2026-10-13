@@ -201,7 +201,8 @@ export async function presentBootstrap(world: ChatticusWorld, token: string, bod
 	return answer;
 }
 
-async function bootstrapOwner(world: ChatticusWorld): Promise<void> {
+/** Start an owner for the next host start generation and exchange its bootstrap token, leaving its supervisor token in the scenario. */
+export async function bootstrapOwner(world: ChatticusWorld): Promise<void> {
 	await startOwner(world, { registerOwnerWorker: true });
 	const answer = await presentBootstrap(world, ownerServerOf(world).bootstrapToken);
 	assert.equal(answer.status, 200, JSON.stringify(answer.body));

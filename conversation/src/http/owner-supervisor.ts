@@ -8,10 +8,11 @@ import {
 	ownerStopRequestSchema,
 	type OwnerErrorCode,
 } from "@chatticus/host-protocol/supervisor";
+import { ownerFileResultRequestSchema } from "@chatticus/host-protocol/live-files";
 import { ownerOverlayAppliedRequestSchema, ownerOverlaySealRequestSchema } from "@chatticus/host-protocol/edit-overlay";
 import { parseBearerToken, PrincipalHttpError } from "../auth/principal.ts";
 import { EditOverlayRefusal, clearOverlay, sealOverlay, type EditOverlayDependencies } from "../domain/edit-overlay.ts";
-import { exchangeOwnerBootstrap, judgeOwnerStop, OwnerRefusal, pollOwner, type OwnerIdentity, type OwnerSupervisorDependencies } from "../domain/owner-supervisor.ts";
+import { exchangeOwnerBootstrap, judgeOwnerStop, OwnerRefusal, pollOwner, recordOwnerFileResult, type OwnerIdentity, type OwnerSupervisorDependencies } from "../domain/owner-supervisor.ts";
 import { verifyOwnerBootstrapToken } from "../gateway/session-token.ts";
 import { ownerHostPrincipalOf } from "./owner-host-auth.ts";
 import { pathParameter } from "./user-principal.ts";
@@ -143,5 +144,23 @@ export async function ownerStopRequestHandler(c: Context, deps: OwnerSupervisorR
 		const body = await parseOwnerBody(c, ownerStopRequestSchema);
 		if ("refusal" in body) return body.refusal;
 		return c.json(await judgeOwnerStop(deps, owner, body.value), 200);
+	});
+}
+
+/**
+ * POST /orgs/{tenant_id}/host/owner/file-results: the supervisor posts the answer to one file request. A store failure is a
+ * 503 the supervisor retries; the write that records the answer is idempotent.
+ */
+export async function ownerFileResultHandler(c: Context, deps: OwnerSupervisorRouteDependencies): Promise<Response> {
+	return guarded(c, async () => {
+		const owner = ownerOf(c);
+		const body = await parseOwnerBody(c, ownerFileResultRequestSchema);
+		if ("refusal" in body) return body.refusal;
+		try {
+			return c.json(await recordOwnerFileResult(deps, owner, body.value), 200);
+		} catch (error) {
+			if (error instanceof OwnerRefusal) throw error;
+			return c.json({ detail: "the file result could not be recorded; send it again" }, 503);
+		}
 	});
 }

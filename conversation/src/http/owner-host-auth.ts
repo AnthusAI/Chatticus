@@ -31,6 +31,7 @@ export const OWNER_COMPUTER_ROUTES: readonly OwnerComputerRoute[] = [
 	{ method: "POST", suffix: "/snapshot/published" },
 	{ method: "POST", suffix: "/owner/poll" },
 	{ method: "POST", suffix: "/owner/stop-request" },
+	{ method: "POST", suffix: "/owner/file-results" },
 	{ method: "POST", suffix: "/owner/overlay-seal" },
 	{ method: "POST", suffix: "/owner/overlay-applied" },
 ];

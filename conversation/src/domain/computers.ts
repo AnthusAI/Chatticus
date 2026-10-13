@@ -354,15 +354,16 @@ export async function recordHostSnapshotPublished(
 		);
 	}
 	await requireHost(computer, workerId, deps);
-	const published: Computer = {
-		...computer,
+	const published = await deps.store.recordComputerSnapshotPublished(tenantId, {
 		snapshotUri: snapshotUriOverride ?? snapshotUri(computer.tenantId, computer.computerId),
 		snapshotChecksum: checksum,
-		snapshotGeneration: computer.snapshotGeneration + 1,
-		diskDirty: false,
-	};
+	});
+	if (published === null) {
+		throw new ComputerNotHydratedError(
+			`Computer ${pythonRepr(computer.computerId)} must be hydrated before the live disk can be published.`,
+		);
+	}
 	await markWorkerHydrated(published, workerId, deps);
-	await deps.store.putComputer(published);
 	return published;
 }
 
@@ -387,10 +388,11 @@ export async function recordHostHydrated(tenantId: string, workerId: string, dep
 			`Worker ${pythonRepr(workerId)} is not the intended host ${pythonRepr(computer.intendedHostWorkerId)} for computer ${pythonRepr(computer.computerId)}.`,
 		);
 	}
-	const { intendedHostWorkerId: _cleared, ...rest } = computer;
-	const hydrated: Computer = { ...rest, hydrateRequired: false, diskDirty: false };
+	const hydrated = await deps.store.recordComputerHydrated(tenantId);
+	if (hydrated === null) {
+		throw new ComputerNotFoundError(`Organization ${JSON.stringify(tenantId)} has no computer.`);
+	}
 	await markWorkerHydrated(hydrated, workerId, deps);
-	await deps.store.putComputer(hydrated);
 	return hydrated;
 }
 
