@@ -54,6 +54,7 @@ export const DEFAULT_EXECUTOR_TUNING: ExecutorTuning = {
 	tokenFlushBytes: DEFAULT_TOKEN_FLUSH_BYTES,
 	tokenFlushMilliseconds: DEFAULT_TOKEN_FLUSH_MILLISECONDS,
 	retry: { maxRetries: 2, baseDelayMilliseconds: 1000 },
+	compaction: { keepRecentTokens: 20_000 },
 };
 
 /** The longest the executor waits for Pi to deliver the events of the batch that settled the turn's last input. */
@@ -211,6 +212,7 @@ class TurnAttempt {
 			env: this.deps.env,
 			settings: {
 				retry: { maxRetries: this.tuning.retry.maxRetries, baseDelayMs: this.tuning.retry.baseDelayMilliseconds },
+				compaction: { keepRecentTokens: this.tuning.compaction.keepRecentTokens },
 			},
 		});
 		this.session = session;

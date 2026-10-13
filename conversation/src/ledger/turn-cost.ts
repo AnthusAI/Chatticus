@@ -13,10 +13,19 @@ import type { VendorLedgerDependencies } from "./vendor-ledger.ts";
 
 type Item = Record<string, AttributeValue>;
 
-/** The partition of the turn index of one calendar month: `{tenant}#cost#{yyyy-mm}`. */
-export const costTurnIndexKey = (tenantId: string, month: string, turnId: string): { pk: string; sk: string } => ({
-	pk: `${tenantId}#cost#${month}`,
-	sk: `turn#${turnId}`,
+/** The partition of the cost index of one calendar month: `{tenant}#cost#{yyyy-mm}`. */
+export const costIndexPartitionOf = (tenantId: string, month: string): string => `${tenantId}#cost#${month}`;
+
+/** The prefix of the id a voice understanding call carries where a turn id would be. */
+export const VOICE_COST_ROW_PREFIX = "voice:";
+
+/** Whether a cost row id names a voice understanding call and not a turn. */
+export const isVoiceCostRowId = (rowId: string): boolean => rowId.startsWith(VOICE_COST_ROW_PREFIX);
+
+/** The turn index item of a turn, or the voice index item of a voice understanding call: `turn#{id}` or `voice#{uuid}`. */
+export const costTurnIndexKey = (tenantId: string, month: string, rowId: string): { pk: string; sk: string } => ({
+	pk: costIndexPartitionOf(tenantId, month),
+	sk: isVoiceCostRowId(rowId) ? `voice#${rowId.slice(VOICE_COST_ROW_PREFIX.length)}` : `turn#${rowId}`,
 });
 
 /** Which kind of owner wrote the projection; the last writer of a turn names itself. */
@@ -55,6 +64,15 @@ export type TurnCostSummary = {
 	readonly outputRatePerMillionUsd: Decimal | null;
 	readonly firstRecordedAt: string;
 	readonly byModel: ReadonlyMap<string, ModelCostSubtotal>;
+	/**
+	 * The provider response ids of the records that carry tokens. A gateway observation of the same response is the same
+	 * call and is never counted again. A record without tokens (an aborted or errored response) lists nothing, because it
+	 * does not account for what the vendor billed.
+	 */
+	readonly responseIds: readonly string[];
+	/** Context input and output tokens of the compaction records, which carry no response id; they absorb the gateway observations of summarization calls. */
+	readonly compactionContextTokens: number;
+	readonly compactionOutputTokens: number;
 };
 
 /**
@@ -77,6 +95,9 @@ export function summarizeTurnCost(records: readonly ModelCallCost[]): TurnCostSu
 	let outputTokens = 0;
 	const labels = new Set<string>();
 	const models = new Set<string>();
+	const responseIds = new Set<string>();
+	let compactionContextTokens = 0;
+	let compactionOutputTokens = 0;
 	const subtotals = new Map<string, { -readonly [Key in keyof ModelCostSubtotal]: ModelCostSubtotal[Key] }>();
 	for (const record of ordered) {
 		inputTokens += record.inputTokens;
@@ -84,6 +105,12 @@ export function summarizeTurnCost(records: readonly ModelCallCost[]): TurnCostSu
 		cacheWriteTokens += record.cacheWriteTokens;
 		outputTokens += record.outputTokens;
 		models.add(record.model);
+		const recordTokens = record.contextTokens + record.outputTokens;
+		if (record.responseId !== null && recordTokens > 0) responseIds.add(record.responseId);
+		if (record.kind === "compaction") {
+			compactionContextTokens += record.contextTokens;
+			compactionOutputTokens += record.outputTokens;
+		}
 		for (const label of record.pricedWith) labels.add(label);
 		const subtotal = subtotals.get(record.model) ?? {
 			inputTokens: 0,
@@ -129,6 +156,9 @@ export function summarizeTurnCost(records: readonly ModelCallCost[]): TurnCostSu
 		outputRatePerMillionUsd: first.outputRatePerMillionUsd === null ? null : Decimal.parse(first.outputRatePerMillionUsd),
 		firstRecordedAt: ordered.map((record) => record.recordedAt).sort()[0]!,
 		byModel: subtotals,
+		responseIds: [...responseIds].sort(),
+		compactionContextTokens,
+		compactionOutputTokens,
 	};
 }
 
@@ -136,7 +166,8 @@ export function summarizeTurnCost(records: readonly ModelCallCost[]): TurnCostSu
 export type TurnCostDimensions = {
 	readonly tenantId: string;
 	readonly turnId: string;
-	readonly botId: string;
+	readonly kind: "turn" | "voice_understanding";
+	readonly botId: string | null;
 	readonly channelId: string;
 	readonly promptAuthorId: string | null;
 	readonly promptMessageSeq: number | null;
@@ -144,6 +175,9 @@ export type TurnCostDimensions = {
 	readonly ownerKind: TurnCostOwnerKind;
 	readonly status: TurnCostStatus;
 };
+
+/** The `source` of a row written from the session's cost records; the other source is `gateway`. */
+export const COST_SOURCE_SESSION = "session";
 
 const text = (value: string): AttributeValue => ({ S: value });
 const number = (value: number): AttributeValue => ({ N: String(value) });
@@ -214,6 +248,10 @@ function ledgerRowAssignments(dimensions: TurnCostDimensions, summary: TurnCostS
 	row.put("input_price_per_million_usd", summary.inputRatePerMillionUsd === null ? null : { N: summary.inputRatePerMillionUsd.toString() });
 	row.put("output_price_per_million_usd", summary.outputRatePerMillionUsd === null ? null : { N: summary.outputRatePerMillionUsd.toString() });
 	row.put("record_count", number(summary.recordCount));
+	row.put("source", text(COST_SOURCE_SESSION));
+	row.put("response_ids", summary.responseIds.length === 0 ? null : { SS: [...summary.responseIds] });
+	row.put("compaction_context_tokens", number(summary.compactionContextTokens));
+	row.put("compaction_output_tokens", number(summary.compactionOutputTokens));
 	return row;
 }
 
@@ -221,7 +259,8 @@ function turnIndexAssignments(dimensions: TurnCostDimensions, summary: TurnCostS
 	const row = assignment();
 	row.put("tenant_id", text(dimensions.tenantId));
 	row.put("turn_id", text(dimensions.turnId));
-	row.put("bot_id", text(dimensions.botId));
+	row.put("kind", text(dimensions.kind));
+	row.put("bot_id", dimensions.botId === null ? null : text(dimensions.botId));
 	row.put("channel_id", text(dimensions.channelId));
 	row.put("prompt_author_id", dimensions.promptAuthorId === null ? null : text(dimensions.promptAuthorId));
 	row.put("prompt_message_seq", dimensions.promptMessageSeq === null ? null : number(dimensions.promptMessageSeq));
@@ -239,6 +278,8 @@ function turnIndexAssignments(dimensions: TurnCostDimensions, summary: TurnCostS
 	row.put("cost_usd", summary.costUsd === null ? null : { N: summary.costUsd.toString() });
 	row.put("unpriced_calls", number(summary.unpricedCalls));
 	row.put("record_count", number(summary.recordCount));
+	row.put("source", text(COST_SOURCE_SESSION));
+	row.put("response_ids", summary.responseIds.length === 0 ? null : { SS: [...summary.responseIds] });
 	row.put("updated_at", text(now));
 	return row;
 }

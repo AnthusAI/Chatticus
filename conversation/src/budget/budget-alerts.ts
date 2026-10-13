@@ -8,6 +8,8 @@ export interface ThresholdCrossing {
 	readonly vendorMtdUsd: Decimal;
 	readonly monthlyLimitUsd: Decimal;
 	readonly rollupDate: string;
+	/** Month-to-date model calls the price book could not price; their dollars are missing from `vendorMtdUsd`. */
+	readonly unpricedCalls: number;
 }
 
 /** Publish rollup threshold alerts to the budgets SNS topic. */
@@ -23,6 +25,7 @@ export interface ThresholdAlertPayload {
 	readonly vendor_mtd_usd: string;
 	readonly monthly_limit_usd: string;
 	readonly rollup_date: string;
+	readonly unpriced_calls: number;
 }
 
 export function thresholdAlertPayload(crossing: ThresholdCrossing): ThresholdAlertPayload {
@@ -34,6 +37,7 @@ export function thresholdAlertPayload(crossing: ThresholdCrossing): ThresholdAle
 		vendor_mtd_usd: crossing.vendorMtdUsd.toString(),
 		monthly_limit_usd: crossing.monthlyLimitUsd.toString(),
 		rollup_date: crossing.rollupDate,
+		unpriced_calls: crossing.unpricedCalls,
 	};
 }
 

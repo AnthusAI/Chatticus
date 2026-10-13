@@ -12,6 +12,8 @@ export type ScriptedUsage = {
 	readonly cacheRead?: number;
 	readonly cacheWrite?: number;
 	readonly servedBy?: string;
+	/** The provider response id the message carries, which a gateway observation of the same call also names. */
+	readonly responseId?: string;
 };
 
 /** The default usage every scripted answer reports unless a step says otherwise. */
@@ -31,6 +33,13 @@ type ScriptedStep =
 	  }
 	| { readonly kind: "providerError"; readonly status: number; readonly code: string | null; readonly message: string | null }
 	| { readonly kind: "streamedError"; readonly message: string }
+	| {
+			readonly kind: "failedWithUsage";
+			readonly status: number;
+			readonly code: string;
+			readonly usage: ScriptedUsage;
+	  }
+	| { readonly kind: "abortedWithUsage"; readonly partialText: string; readonly usage: ScriptedUsage }
 	| { readonly kind: "networkError" };
 
 /** A pause the provider holds before answering its next request, released by the scenario. */
@@ -133,6 +142,18 @@ export class ScriptedProvider {
 	/** Queue a failure the way the OpenAI SDK reports an HTTP error, with or without the provider's error code and message. */
 	providerError(status: number, code: string | null, message: string | null = null): this {
 		this.steps.push({ kind: "providerError", status, code, message });
+		return this;
+	}
+
+	/** Queue a failure the provider reports after it already counted tokens, as it does when it rejects a call late. */
+	providerErrorWithUsage(status: number, code: string, usage: ScriptedUsage): this {
+		this.steps.push({ kind: "failedWithUsage", status, code, usage });
+		return this;
+	}
+
+	/** Queue a response that was cut off after some text, with the usage the provider had counted by then. */
+	abortedWithUsage(partialText: string, usage: ScriptedUsage): this {
+		this.steps.push({ kind: "abortedWithUsage", partialText, usage });
 		return this;
 	}
 
@@ -249,6 +270,35 @@ export class ScriptedProvider {
 					outer.end(failed);
 					return;
 				}
+				if (step.kind === "failedWithUsage" || step.kind === "abortedWithUsage") {
+					const counted = {
+						input: step.usage.input,
+						output: step.usage.output,
+						cacheRead: step.usage.cacheRead ?? 0,
+						cacheWrite: step.usage.cacheWrite ?? 0,
+						totalTokens: step.usage.input + step.usage.output + (step.usage.cacheRead ?? 0) + (step.usage.cacheWrite ?? 0),
+						cost: ZERO_COST,
+					};
+					const ended =
+						step.kind === "failedWithUsage"
+							? {
+									...blank,
+									usage: counted,
+									stopReason: "error" as const,
+									errorMessage: providerErrorText(step.status, step.code, null),
+								}
+							: {
+									...blank,
+									content: [{ type: "text" as const, text: step.partialText }],
+									usage: counted,
+									stopReason: "aborted" as const,
+									errorMessage: "Request was aborted",
+								};
+					if (step.usage.responseId !== undefined) Object.assign(ended, { responseId: step.usage.responseId });
+					outer.push({ type: "error", reason: step.kind === "failedWithUsage" ? "error" : "aborted", error: ended });
+					outer.end(ended);
+					return;
+				}
 				const usage = {
 					input: step.usage.input,
 					output: step.usage.output,
@@ -258,6 +308,7 @@ export class ScriptedProvider {
 					cost: ZERO_COST,
 				};
 				if (step.usage.servedBy !== undefined) blank.model = step.usage.servedBy;
+				if (step.usage.responseId !== undefined) blank.responseId = step.usage.responseId;
 				outer.push({ type: "start", partial: { ...blank } });
 				const thinkingPieces = step.thinking ?? [];
 				const thinkingBlocks: AssistantMessage["content"] =

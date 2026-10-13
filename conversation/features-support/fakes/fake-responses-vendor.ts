@@ -9,8 +9,8 @@ export type VendorRequest = {
 	readonly body: string;
 };
 
-/** Token counts the fake vendor reports in the final event of its answers. */
-export type VendorUsage = { readonly inputTokens: number; readonly outputTokens: number };
+/** Token counts the fake vendor reports in the final event of its answers; the cached part is inside `inputTokens`. */
+export type VendorUsage = { readonly inputTokens: number; readonly outputTokens: number; readonly cachedTokens?: number };
 
 /** A fake OpenAI Responses endpoint on a loopback port, answering with a valid server-sent event stream. */
 export type FakeResponsesVendor = {
@@ -39,11 +39,12 @@ const event = (type: string, data: Record<string, unknown>): string => `event: $
  * @param text The answer text.
  * @param usage Token counts of the call.
  * @param model Model the answer claims to come from.
+ * @param responseId The vendor response id the stream names.
  * @returns The stream chunks, one per event; the text arrives in two deltas.
  */
-export function responsesAnswerEvents(text: string, usage: VendorUsage, model: string): string[] {
+export function responsesAnswerEvents(text: string, usage: VendorUsage, model: string, responseId = "resp_fake"): string[] {
 	const half = Math.max(1, Math.floor(text.length / 2));
-	const response = { id: "resp_fake", object: "response", model, status: "in_progress", output: [] as unknown[] };
+	const response = { id: responseId, object: "response", model, status: "in_progress", output: [] as unknown[] };
 	const message = { id: "msg_fake", type: "message", role: "assistant", status: "in_progress", content: [] as unknown[] };
 	const part = { type: "output_text", text: "", annotations: [] as unknown[] };
 	const finishedPart = { ...part, text };
@@ -67,7 +68,7 @@ export function responsesAnswerEvents(text: string, usage: VendorUsage, model: s
 					input_tokens: usage.inputTokens,
 					output_tokens: usage.outputTokens,
 					total_tokens: usage.inputTokens + usage.outputTokens,
-					input_tokens_details: { cached_tokens: 0 },
+					input_tokens_details: { cached_tokens: usage.cachedTokens ?? 0 },
 					output_tokens_details: { reasoning_tokens: 0 },
 				},
 			},
@@ -89,6 +90,7 @@ export async function startFakeResponsesVendor(model = "gpt-5-nano"): Promise<Fa
 		usage: { inputTokens: 11, outputTokens: 7 },
 	};
 	let hold: { afterEvents: number; gate: Promise<void> } | null = null;
+	let answered = 0;
 	const server: Server = createServer(async (incoming, outgoing) => {
 		const headers: Record<string, string> = {};
 		for (const [name, value] of Object.entries(incoming.headers)) {
@@ -101,7 +103,8 @@ export async function startFakeResponsesVendor(model = "gpt-5-nano"): Promise<Fa
 			return;
 		}
 		outgoing.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
-		const chunks = responsesAnswerEvents(script.text, script.usage, model);
+		answered += 1;
+		const chunks = responsesAnswerEvents(script.text, script.usage, model, `resp_fake_${answered}`);
 		for (const [index, chunk] of chunks.entries()) {
 			outgoing.write(chunk);
 			await new Promise((resolve) => setTimeout(resolve, 2));

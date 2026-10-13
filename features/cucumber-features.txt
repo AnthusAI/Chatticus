@@ -152,6 +152,9 @@ features/computer_file_overlay_authority.feature
 features/computer_file_live_end_to_end.feature
 features/front_door_snapshot_role_policy.feature
 features/cost_call_records.feature
-cost_session_records.feature
-cost_session_records_owners.feature
-cost_session_records_handoff.feature
+features/cost_session_records.feature
+features/cost_session_records_owners.feature
+features/cost_session_records_handoff.feature
+features/cost_complete_metering.feature
+features/cost_gateway_observations.feature
+features/cost_gateway_reconciliation.feature

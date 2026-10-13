@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
+import { QueryCommand } from "@aws-sdk/client-dynamodb";
+import { Decimal } from "../../src/budget/decimal.ts";
+import { costIndexPartitionOf } from "../../src/ledger/turn-cost.ts";
 import { getVendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
 import { UNDERSTANDING_VENDOR } from "../../src/voice/understanding.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
 import { ledgerDependenciesFor } from "../executor-harness.ts";
 import { memberGet, memberPost } from "../org-user-client.ts";
 import type { ChatticusWorld } from "../world.ts";
+import { breakVoiceCostRecording, voiceCostFailuresOf } from "../voice-cost-support.ts";
 import { post } from "./message.steps.ts";
 
 const UNDERSTANDING_MODEL = "gpt-5-nano";
@@ -56,7 +60,7 @@ function voiceLineResponseOf(world: ChatticusWorld): RecordedResponse {
 }
 
 function scriptedUsage(inputTokens: number, outputTokens: number) {
-	return { vendor: UNDERSTANDING_VENDOR, model: UNDERSTANDING_MODEL, inputTokens, outputTokens };
+	return { vendor: UNDERSTANDING_VENDOR, model: UNDERSTANDING_MODEL, inputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens, reasoningTokens: 0 };
 }
 
 Given(
@@ -220,6 +224,71 @@ Then(
 		assert.equal(entry.vendor, UNDERSTANDING_VENDOR);
 	},
 );
+
+Given(
+	"the understand-the-user step hears {string} as {string} using {int} uncached input, {int} cache read and {int} output tokens",
+	function (this: ChatticusWorld, transcript: string, meaning: string, inputTokens: number, cacheReadTokens: number, outputTokens: number) {
+		this.scriptedUnderstanding.meanings.set(transcript, meaning);
+		this.scriptedUnderstanding.usages.set(transcript, { ...scriptedUsage(inputTokens, outputTokens), cacheReadTokens });
+	},
+);
+
+Given("recording the cost of voice understanding calls fails", function (this: ChatticusWorld) {
+	breakVoiceCostRecording(this);
+});
+
+async function voiceIndexItem(world: ChatticusWorld) {
+	const channel = openChannelOf(world);
+	const month = world.clock.now().toISOString().slice(0, 7);
+	const result = await world.messagingTable.client.send(
+		new QueryCommand({
+			TableName: world.messagingTable.tableName,
+			KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+			ExpressionAttributeValues: { ":pk": { S: costIndexPartitionOf(channel.tenantId, month) }, ":prefix": { S: "voice#" } },
+			ConsistentRead: true,
+		}),
+	);
+	assert.equal(result.Items?.length, 1, `The month holds ${String(result.Items?.length)} voice cost index items`);
+	return result.Items![0]!;
+}
+
+Then(
+	"the voice understanding cost record names member {string} and the channel and no bot, with {int} uncached input, {int} cache read and {int} output tokens costing {word} dollars",
+	async function (this: ChatticusWorld, memberId: string, input: number, cacheRead: number, output: number, costUsd: string) {
+		const item = await voiceIndexItem(this);
+		assert.equal(item.kind?.S, "voice_understanding");
+		assert.equal(item.prompt_author_id?.S, memberId);
+		assert.equal(item.channel_id?.S, openChannelOf(this).channelId);
+		assert.equal(item.bot_id, undefined);
+		assert.equal(item.input_tokens?.N, String(input));
+		assert.equal(item.cache_read_tokens?.N, String(cacheRead));
+		assert.equal(item.output_tokens?.N, String(output));
+		assert.ok(item.cost_usd?.N !== undefined && Decimal.parse(item.cost_usd.N).equals(Decimal.parse(costUsd)), `cost is ${String(item.cost_usd?.N)}, expected ${costUsd}`);
+		assert.equal(item.unpriced_calls?.N, "0");
+	},
+);
+
+Then("the cost failure of the voice line of member {string} was reported", function (this: ChatticusWorld, memberId: string) {
+	const failures = voiceCostFailuresOf(this);
+	assert.equal(failures.length, 1, JSON.stringify(failures));
+	assert.equal(failures[0]!.memberId, memberId);
+	assert.equal(failures[0]!.channelId, openChannelOf(this).channelId);
+	assert.equal(failures[0]!.tenantId, openChannelOf(this).tenantId);
+});
+
+Then("no voice understanding cost record exists", async function (this: ChatticusWorld) {
+	const channel = openChannelOf(this);
+	const rows = (await this.store.listVendorLedgerRowsForTenant(channel.tenantId)).filter((row) => row.turnId.startsWith("voice:"));
+	assert.equal(rows.length, 0);
+});
+
+Then("the voice understanding spend entry has null cost_usd and {int} unpriced call", async function (this: ChatticusWorld, count: number) {
+	const channel = openChannelOf(this);
+	const voiceRows = (await this.store.listVendorLedgerRowsForTenant(channel.tenantId)).filter((row) => row.turnId.startsWith("voice:"));
+	assert.equal(voiceRows.length, 1, JSON.stringify(voiceRows));
+	assert.equal(voiceRows[0]!.costUsd, null);
+	assert.equal(voiceRows[0]!.unpricedCalls, count);
+});
 
 Then("the turn for that message has no spend from the understanding call", async function (this: ChatticusWorld) {
 	const channel = openChannelOf(this);

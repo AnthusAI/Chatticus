@@ -1,4 +1,5 @@
 import type { GatewayLogEvent, ModelGatewayDependencies } from "../src/gateway/model-gateway.ts";
+import { DynamoGatewayObservationSink } from "../src/ledger/gateway-observation.ts";
 import { startFakeResponsesVendor, type FakeResponsesVendor } from "./fakes/fake-responses-vendor.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -63,5 +64,6 @@ export function modelGatewayFor(world: ChatticusWorld): ModelGatewayDependencies
 			scenario.logEvents.push(event);
 			scenario.consoleLines.push(JSON.stringify(event));
 		},
+		observations: new DynamoGatewayObservationSink({ client: world.messagingTable.client, tableName: world.messagingTable.tableName }),
 	};
 }

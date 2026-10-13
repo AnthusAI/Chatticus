@@ -18,41 +18,6 @@ Feature: Vendor spend ledger
     And the vendor ledger row for the turn has frozen output price 4.00 per million
     And the vendor ledger row for the turn has cost_usd 0.00004
 
-  Scenario: A gpt-6-luna call is costed at the default list price
-    Given the default vendor prices of the production compositions are in force
-    When vendor spend is recorded for turn "luna-turn" with model "gpt-6-luna" and tokens 4700 in 220 out
-    Then the vendor ledger row for turn "luna-turn" has frozen input price 0.10 per million
-    And the vendor ledger row for turn "luna-turn" has frozen output price 0.50 per million
-    And the vendor ledger row for turn "luna-turn" has cost_usd 0.00058
-
-  Scenario: A gpt-5-nano call is costed at the default list price
-    Given the default vendor prices of the production compositions are in force
-    When vendor spend is recorded for turn "nano-turn" with model "gpt-5-nano" and tokens 4700 in 220 out
-    Then the vendor ledger row for turn "nano-turn" has cost_usd 0.000323
-
-  Scenario: A gpt-5-mini call is costed at the default list price
-    Given the default vendor prices of the production compositions are in force
-    When vendor spend is recorded for turn "mini-turn" with model "gpt-5-mini" and tokens 1000000 in 1000000 out
-    Then the vendor ledger row for turn "mini-turn" has cost_usd 2.25
-
-  Scenario: AWS-billed inference keeps cost_usd null even when a price exists
-    Given vendor price for model "chatticus-test-model" is 2.00 input and 4.00 output per million tokens
-    When bot "Helper" is asked "hello aws billed"
-    And vendor spend is recorded for the turn with model "chatticus-test-model" and billed_via "aws"
-    Then the vendor ledger row for the turn has billed_via "aws"
-    And the vendor ledger row for the turn has null cost_usd
-
-  Scenario: A second model call on the same turn sums tokens using frozen first-write rates
-    Given vendor price for model "chatticus-test-model" is 2.00 input and 4.00 output per million tokens
-    When vendor spend is recorded for turn "ledger-retry-turn" with model "chatticus-test-model" and tokens 10 in 5 out
-    And vendor price for model "chatticus-test-model" is 99.00 input and 99.00 output per million tokens
-    And vendor spend is recorded for turn "ledger-retry-turn" with model "chatticus-test-model" and tokens 3 in 2 out
-    Then the vendor ledger row for turn "ledger-retry-turn" has input tokens 13
-    And the vendor ledger row for turn "ledger-retry-turn" has output tokens 7
-    And the vendor ledger row for turn "ledger-retry-turn" has frozen input price 2.00 per million
-    And the vendor ledger row for turn "ledger-retry-turn" has frozen output price 4.00 per million
-    And the vendor ledger row for turn "ledger-retry-turn" has cost_usd 0.000054
-
   Scenario: A recovered attempt does not record the same spend twice
     Given vendor price for model "chatticus-test-model" is 2.00 input and 4.00 output per million tokens
     And the model "chatticus-test-model" answers "Recovered answer"

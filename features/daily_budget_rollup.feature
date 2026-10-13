@@ -137,6 +137,35 @@ Feature: Daily budget rollup
     Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has aws_cost_usd 12.50
     And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "ok"
 
+  Scenario: Model calls the price book could not price are counted on the rollup instead of vanishing
+    Given Cost Explorer reports 1.00 USD for tenant "anthus" on 2026-08-31
+    And vendor spend for tenant "anthus" on 2026-08-31 includes 1.00 USD billed_via vendor
+    And vendor spend for tenant "anthus" on 2026-08-31 includes a turn with 2 unpriced calls and no dollars
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 1.00
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has unpriced_calls 2
+
+  Scenario: The threshold alert says how many calls its dollars leave out
+    Given vendor spend for tenant "anthus" on 2026-08-31 includes 50.00 USD billed_via vendor
+    And vendor spend for tenant "anthus" on 2026-08-31 includes a turn with 3 unpriced calls and no dollars
+    When the daily budget rollup runs for 2026-08-31
+    Then exactly 1 budget threshold alert was published
+    And the budget threshold alert reports 3 unpriced calls
+
+  Scenario: A call only the gateway saw is in the day's vendor dollars exactly once
+    Given the default vendor prices of the production compositions are in force
+    And the gateway observed response "resp_lost" for turn "turn-lost" of tenant "anthus" at 2026-08-31T01:00:00+00:00 with 1000000 input and 1000000 output tokens
+    When the daily budget rollup runs for 2026-08-31
+    And the daily budget rollup runs for 2026-08-31 again
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 0.45
+
+  Scenario: A gateway observation of a call a session row already accounts for is not added again
+    Given the default vendor prices of the production compositions are in force
+    And vendor spend for tenant "anthus" on 2026-08-31 includes 0.45 USD billed_via vendor for response "resp_seen"
+    And the gateway observed response "resp_seen" for turn "turn-seen" of tenant "anthus" at 2026-08-31T01:00:00+00:00 with 1000000 input and 1000000 output tokens
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 0.45
+
   Scenario: An active tenant cost tag with no spend for a hosted organization reads as zero
     Given Cost Explorer returns zero attributed AWS spend on 2026-08-31
     When the daily budget rollup runs for 2026-08-31

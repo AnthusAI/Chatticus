@@ -11,6 +11,8 @@ import {
 	hostedCostExplorerApi,
 } from "./cost-explorer.ts";
 import { Decimal } from "./decimal.ts";
+import { DynamoObservationReconciler } from "../ledger/reconcile.ts";
+import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
 import { runDailyRollup } from "./runner.ts";
 
 function requiredEnvironmentValue(name: string): string {
@@ -30,8 +32,10 @@ export async function handler(): Promise<void> {
 	const now = new Date();
 	const rollupDate = addDays(utcDayOf(now), -1);
 	console.log(`daily_rollup_start environment=${environment} rollup_date=${rollupDate}`);
+	const dynamo = new DynamoDBClient({});
 	await runDailyRollup({
-		store: new DynamoBudgetStore(new DynamoDBClient({}), tableName),
+		store: new DynamoBudgetStore(dynamo, tableName),
+		reconciler: new DynamoObservationReconciler({ client: dynamo, tableName, prices: defaultVendorPriceBook(), now: () => new Date() }),
 		costExplorer: new AwsCostExplorerReader(hostedCostExplorerApi()),
 		accountSpend: new AwsAccountSpendReader(new STSClient({}), costExplorerApiForCredentials),
 		alerts: topicArn === "" ? null : new SnsBudgetAlertsPublisher(topicArn, new SNSClient({})),

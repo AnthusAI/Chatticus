@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import type { Context } from "hono";
 import type { TurnControlStore } from "../domain/turns.ts";
+import type { GatewayObservationSink } from "../ledger/gateway-observation.ts";
 import { OPENAI_MODEL_PRICES } from "../ledger/vendor-prices.ts";
 import { errorNameOf } from "../observability/log-line.ts";
 import { verifySessionToken } from "./session-token.ts";
@@ -22,7 +24,7 @@ const ESTIMATED_CHARACTERS_PER_TOKEN = 4;
  * trusted enough to log.
  */
 export type GatewayLogEvent = {
-	readonly event: "refused" | "upstream_failed" | "usage_observed" | "usage_unavailable";
+	readonly event: "refused" | "upstream_failed" | "usage_observed" | "usage_unavailable" | "observation_not_recorded";
 	readonly reason: string;
 	readonly tenantId?: string;
 	readonly turnId?: string;
@@ -53,9 +55,20 @@ export type ModelGatewayDependencies = {
 	readonly turns: Pick<TurnControlStore, "getTurn">;
 	readonly upstream: GatewayUpstream;
 	readonly log: (event: GatewayLogEvent) => void;
+	/** Where what the gateway saw of each answered call is kept, as evidence for reconciliation; never a ledger write. */
+	readonly observations: GatewayObservationSink;
 };
 
-type Usage = { inputTokens: number; outputTokens: number };
+type Usage = { inputTokens: number; cachedInputTokens: number; outputTokens: number; reasoningTokens: number };
+
+type Observed = {
+	/** The vendor's final usage, or the gateway's estimate after an interruption, or null when the answer carried none. */
+	readonly usage: Usage | null;
+	/** What the gateway estimates the call used from the request and the text it saw; used when the answer carried no usage. */
+	readonly estimate: Usage;
+	readonly reason: string;
+	readonly responseId: string | null;
+};
 
 const refusal = (c: Context, deps: ModelGatewayDependencies, status: 400 | 401 | 403 | 413 | 422, detail: string, reason: string, scope: Partial<GatewayLogEvent> = {}): Response => {
 	deps.log({ event: "refused", reason, ...scope });
@@ -72,9 +85,35 @@ function usageFrom(response: unknown): Usage | null {
 	if (typeof response !== "object" || response === null) return null;
 	const usage = (response as { usage?: unknown }).usage;
 	if (typeof usage !== "object" || usage === null) return null;
-	const { input_tokens: input, output_tokens: output } = usage as Record<string, unknown>;
+	const { input_tokens: input, output_tokens: output, input_tokens_details: inputDetails, output_tokens_details: outputDetails } =
+		usage as Record<string, unknown>;
 	if (typeof input !== "number" || typeof output !== "number") return null;
-	return { inputTokens: input, outputTokens: output };
+	const cached = (inputDetails as { cached_tokens?: unknown } | undefined)?.cached_tokens;
+	const reasoning = (outputDetails as { reasoning_tokens?: unknown } | undefined)?.reasoning_tokens;
+	return {
+		inputTokens: input,
+		cachedInputTokens: typeof cached === "number" ? cached : 0,
+		outputTokens: output,
+		reasoningTokens: typeof reasoning === "number" ? reasoning : 0,
+	};
+}
+
+function responseIdFrom(response: unknown): string | null {
+	if (typeof response !== "object" || response === null) return null;
+	const id = (response as { id?: unknown }).id;
+	return typeof id === "string" && id !== "" ? id : null;
+}
+
+function responseIdFromEvent(block: string): string | null {
+	for (const line of block.split("\n")) {
+		if (!line.startsWith("data:")) continue;
+		try {
+			return responseIdFrom((JSON.parse(line.slice("data:".length).trim()) as { response?: unknown }).response);
+		} catch {
+			return null;
+		}
+	}
+	return null;
 }
 
 function usageFromEvent(block: string): Usage | null {
@@ -93,17 +132,48 @@ function usageFromEvent(block: string): Usage | null {
 	return null;
 }
 
-function usageObserverFor(deps: ModelGatewayDependencies, tenantId: string, turnId: string) {
-	return async (usage: Usage | null, reason: string): Promise<void> => {
-		if (usage === null) {
+function usageObserverFor(deps: ModelGatewayDependencies, scope: { tenantId: string; turnId: string; ownerId: string }, model: string) {
+	const requestId = randomUUID();
+	return async (observed: Observed): Promise<void> => {
+		const { tenantId, turnId } = scope;
+		if (observed.usage === null) {
 			deps.log({ event: "usage_unavailable", reason: "the answer carried no final usage", tenantId, turnId });
-			return;
+		} else {
+			deps.log({
+				event: "usage_observed",
+				reason: observed.reason,
+				tenantId,
+				turnId,
+				inputTokens: observed.usage.inputTokens,
+				outputTokens: observed.usage.outputTokens,
+			});
 		}
-		deps.log({ event: "usage_observed", reason, tenantId, turnId, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
+		const used = observed.usage ?? observed.estimate;
+		try {
+			await deps.observations.record({
+				tenantId,
+				turnId,
+				ownerId: scope.ownerId,
+				callId: observed.responseId ?? requestId,
+				responseId: observed.responseId,
+				requestId,
+				vendor: "openai",
+				model,
+				inputTokens: used.inputTokens,
+				cachedInputTokens: used.cachedInputTokens,
+				outputTokens: used.outputTokens,
+				reasoningTokens: used.reasoningTokens,
+				estimated: observed.usage === null || observed.reason !== "recorded",
+				reason: observed.usage === null ? "estimated_without_final_usage" : observed.reason,
+				observedAt: deps.clock.now().toISOString(),
+			});
+		} catch (error) {
+			deps.log({ event: "observation_not_recorded", reason: "the observation could not be kept", errorName: errorNameOf(error), tenantId, turnId });
+		}
 	};
 }
 
-type StreamAccount = { final: Usage | null; outputCharacters: number };
+type StreamAccount = { final: Usage | null; outputCharacters: number; responseId: string | null };
 
 /**
  * Pass an event stream through unchanged, chunk by chunk, while watching for the final usage event. When the stream
@@ -113,27 +183,28 @@ type StreamAccount = { final: Usage | null; outputCharacters: number };
  */
 function meteredStream(
 	upstream: ReadableStream<Uint8Array>,
-	record: (usage: Usage | null, reason: string) => Promise<void>,
+	record: (observed: Observed) => Promise<void>,
 	estimatedInputTokens: number,
 ): ReadableStream<Uint8Array> {
 	const reader = upstream.getReader();
 	const decoder = new TextDecoder();
-	const account: StreamAccount = { final: null, outputCharacters: 0 };
+	const account: StreamAccount = { final: null, outputCharacters: 0, responseId: null };
+	const estimate = (): Usage => ({
+		inputTokens: estimatedInputTokens,
+		cachedInputTokens: 0,
+		outputTokens: Math.ceil(account.outputCharacters / ESTIMATED_CHARACTERS_PER_TOKEN),
+		reasoningTokens: 0,
+	});
 	let pending = "";
 	let recorded = false;
 	let cancelled = false;
 	const recordOnce = async (usage: Usage | null, reason: string): Promise<void> => {
 		if (recorded) return;
 		recorded = true;
-		await record(usage, reason);
+		await record({ usage, estimate: estimate(), reason, responseId: account.responseId });
 	};
 	const recordEstimate = (): Promise<void> =>
-		account.final === null
-			? recordOnce(
-					{ inputTokens: estimatedInputTokens, outputTokens: Math.ceil(account.outputCharacters / ESTIMATED_CHARACTERS_PER_TOKEN) },
-					"estimated_after_interruption",
-				)
-			: recordOnce(account.final, "recorded");
+		account.final === null ? recordOnce(estimate(), "estimated_after_interruption") : recordOnce(account.final, "recorded");
 	const scan = (text: string, final: boolean): void => {
 		pending += text;
 		const blocks = pending.split("\n\n");
@@ -142,6 +213,7 @@ function meteredStream(
 		for (const block of blocks) {
 			account.outputCharacters += deltaCharactersOf(block);
 			account.final = usageFromEvent(block) ?? account.final;
+			account.responseId = account.responseId ?? responseIdFromEvent(block);
 		}
 	};
 	return new ReadableStream<Uint8Array>({
@@ -234,9 +306,11 @@ function admittedBody(bodyText: string): AdmittedBody | RefusedBody {
  *
  * The caller proves itself with a session token, not a key: the token must verify, name the organization in the path,
  * and name the owner that claimed the current attempt of a running turn of that organization and bot. The request body is sent
- * to the vendor with the real key, and the answer streams back as it arrives. The usage is logged once, from the
- * final usage event, or as an estimate when the client drops the connection first. The gateway never writes the vendor
- * ledger: the finalize step of the turn is the only writer, from the session the container's Pi wrote.
+ * to the vendor with the real key, and the answer streams back as it arrives. The usage is observed once, from the
+ * final usage event, or as an estimate when the client drops the connection first or the answer carries no usage: it is
+ * logged and kept as a gateway observation (keyed by the vendor's response id, so it is one item per call). The gateway
+ * never writes the vendor ledger: the finalize step of the turn is the only writer of the cost of a call the session
+ * committed, and reconciliation counts an observation only when no session record accounts for the same call.
  *
  * The caller does not get the whole vendor API. The body must be at most `GATEWAY_MAXIMUM_BODY_BYTES`, name a model on
  * the price book, offer only function tools and ask for neither `store` nor `background`; `max_output_tokens` is clamped
@@ -294,7 +368,7 @@ export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewa
 		return c.json({ detail: "model provider request failed", upstream_status: upstreamResponse.status }, 502);
 	}
 
-	const record = usageObserverFor(deps, claims.tenantId, claims.turnId);
+	const record = usageObserverFor(deps, scope, model);
 	const contentType = upstreamResponse.headers.get("content-type") ?? "application/json";
 	if (contentType.startsWith("text/event-stream")) {
 		return new Response(meteredStream(upstreamResponse.body, record, estimatedInputTokens), {
@@ -304,11 +378,24 @@ export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewa
 	}
 	const answerText = await upstreamResponse.text();
 	let answerUsage: Usage | null = null;
+	let answerResponseId: string | null = null;
 	try {
-		answerUsage = usageFrom(JSON.parse(answerText));
+		const parsedAnswer: unknown = JSON.parse(answerText);
+		answerUsage = usageFrom(parsedAnswer);
+		answerResponseId = responseIdFrom(parsedAnswer);
 	} catch {
 		answerUsage = null;
 	}
-	await record(answerUsage, "recorded");
+	await record({
+		usage: answerUsage,
+		estimate: {
+			inputTokens: estimatedInputTokens,
+			cachedInputTokens: 0,
+			outputTokens: Math.ceil(answerText.length / ESTIMATED_CHARACTERS_PER_TOKEN),
+			reasoningTokens: 0,
+		},
+		reason: "recorded",
+		responseId: answerResponseId,
+	});
 	return new Response(answerText, { status: 200, headers: { "content-type": contentType, "cache-control": "no-store" } });
 }

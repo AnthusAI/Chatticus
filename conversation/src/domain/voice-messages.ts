@@ -1,6 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { BILLED_VIA_VENDOR } from "../budget/models.ts";
-import { recordVendorSpend, type VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
+import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
+import { recordVoiceUnderstandingCost } from "../ledger/voice-cost.ts";
 import {
 	RECENT_LINES_FOR_UNDERSTANDING,
 	type RecentLine,
@@ -11,11 +10,35 @@ import {
 import { requireChannelTenant } from "./channels.ts";
 import { listMessages, type Message, type MessageDependencies, postMessage, requireParticipant } from "./messages.ts";
 
+/** A voice understanding call whose cost could not be recorded. It names the organization and the error, never the line. */
+export type VoiceCostRecordingFailure = {
+	readonly tenantId: string;
+	readonly channelId: string;
+	readonly memberId: string;
+	readonly errorName: string;
+};
+
+/** Report a voice cost that was not recorded, as one error line an alarm can count. */
+export const reportVoiceCostFailureToLog = (failure: VoiceCostRecordingFailure): void => {
+	console.error(
+		JSON.stringify({
+			component: "voice",
+			event: "voice_cost_not_recorded",
+			tenant_id: failure.tenantId,
+			channel_id: failure.channelId,
+			member_id: failure.memberId,
+			error_name: failure.errorName,
+		}),
+	);
+};
+
 /** What a voice line needs beyond message admission: the understanding step and the ledger its spend goes to. */
 export type VoiceMessageDependencies = {
 	readonly messages: MessageDependencies;
 	readonly understanding: UserUnderstanding;
 	readonly ledger: VendorLedgerDependencies;
+	/** Told when the understanding call's cost could not be recorded; defaults to an error log line. */
+	readonly reportCostFailure?: (failure: VoiceCostRecordingFailure) => void;
 };
 
 /** One spoken line to understand and post. */
@@ -40,8 +63,10 @@ export type VoiceMessageResult = {
  * Understand a spoken line and post what the member most likely said as an ordinary message.
  *
  * The participant checks run before the paid model call. A replay by Idempotency-Key answers the earlier result with
- * `degraded` false and calls nothing. The understanding call's spend is recorded on its own ledger row under
- * `voice:<uuid>` whether or not anything is posted. A line with no message (filler only) posts nothing and starts no
+ * `degraded` false and calls nothing. The understanding call's cost is recorded as a `voice_understanding` cost
+ * record (the same record shape and price book as a bot's model call) with the member and the channel, whether or not
+ * anything is posted. A cost that cannot be recorded is reported through `reportCostFailure`, never dropped silently, and
+ * never blocks the line. A line with no message (filler only) posts nothing and starts no
  * turn.
  *
  * @throws ChannelNotFoundError If the channel is unknown.
@@ -73,11 +98,19 @@ export async function postVoiceMessage(
 	const understanding = await understandOrTakeAsHeard(deps.understanding, request.transcript, recent);
 	if (understanding.usage !== null) {
 		try {
-			await recordVendorSpend(deps.ledger, request.tenantId, `voice:${randomUUID()}`, understanding.usage, BILLED_VIA_VENDOR);
+			await recordVoiceUnderstandingCost(deps.ledger, {
+				tenantId: request.tenantId,
+				channelId: request.channelId,
+				memberId: request.authorId,
+				usage: understanding.usage,
+			});
 		} catch (error) {
-			console.warn(
-				`voice_understanding_spend_not_recorded tenant_id=${request.tenantId} error=${error instanceof Error ? error.name : typeof error}`,
-			);
+			(deps.reportCostFailure ?? reportVoiceCostFailureToLog)({
+				tenantId: request.tenantId,
+				channelId: request.channelId,
+				memberId: request.authorId,
+				errorName: error instanceof Error ? error.name : typeof error,
+			});
 		}
 	}
 	const heardWordCount = wordCount(request.transcript);

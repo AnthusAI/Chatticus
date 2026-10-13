@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { Decimal } from "../../src/budget/decimal.ts";
-import { getVendorLedgerEntry, recordVendorSpend, type VendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
+import { getVendorLedgerEntry, type VendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
 import { SimulatedCrash } from "../../src/turn/fault-plan.ts";
 import { recordResponse } from "../api.ts";
 import { ledgerDependenciesFor, modelScenarioOf, priceBookOf, runBotTurn, useDefaultPriceBook } from "../executor-harness.ts";
@@ -10,9 +10,6 @@ import { passTimeUntilSettled } from "../turn-recovery.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { post } from "./message.steps.ts";
 import { currentTurnOf, readTurn } from "./model.steps.ts";
-
-const FAKE_COMPLETION_INPUT_TOKENS = 10;
-const FAKE_COMPLETION_OUTPUT_TOKENS = 5;
 
 export async function ledgerRow(world: ChatticusWorld, turnId: string): Promise<VendorLedgerEntry> {
 	const tenantId = world.lastChannel?.tenantId ?? "anthus";
@@ -46,28 +43,6 @@ When(
 	"bot {string} runs one vendor-ledger computerless worker turn with model {string}",
 	async function (this: ChatticusWorld, name: string, model: string) {
 		assert.equal(await runBotTurn(this, name, model), "done");
-	},
-);
-
-When(
-	"vendor spend is recorded for the turn with model {string} and billed_via {string}",
-	async function (this: ChatticusWorld, model: string, billedVia: string) {
-		const tenantId = this.lastChannel?.tenantId ?? "anthus";
-		await recordVendorSpend(
-			ledgerDependenciesFor(this),
-			tenantId,
-			currentTurnOf(this),
-			{ vendor: "openai", model, inputTokens: FAKE_COMPLETION_INPUT_TOKENS, outputTokens: FAKE_COMPLETION_OUTPUT_TOKENS },
-			billedVia,
-		);
-	},
-);
-
-When(
-	"vendor spend is recorded for turn {string} with model {string} and tokens {int} in {int} out",
-	async function (this: ChatticusWorld, turnId: string, model: string, inputTokens: number, outputTokens: number) {
-		const tenantId = this.lastChannel?.tenantId ?? "anthus";
-		await recordVendorSpend(ledgerDependenciesFor(this), tenantId, turnId, { vendor: "openai", model, inputTokens, outputTokens }, "vendor");
 	},
 );
 

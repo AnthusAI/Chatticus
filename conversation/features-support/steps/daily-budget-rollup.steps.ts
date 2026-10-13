@@ -12,6 +12,7 @@ import {
 	ROLLUP_ALERT_SOURCE,
 } from "../../src/budget/models.ts";
 import { runDailyRollup } from "../../src/budget/runner.ts";
+import { reconcilerOf } from "../cost-reconciliation-support.ts";
 import { DEPLOYMENT_AWS_ACCOUNT_ID } from "../messaging-table.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -104,7 +105,15 @@ async function clearVendorSpendForDay(world: ChatticusWorld, tenantId: string, d
 
 async function recordVendorSpend(
 	world: ChatticusWorld,
-	request: { tenantId: string; day: string; amount: Decimal; billedVia: string; turnSuffix?: string },
+	request: {
+		tenantId: string;
+		day: string;
+		amount: Decimal | null;
+		billedVia: string;
+		turnSuffix?: string;
+		unpricedCalls?: number;
+		responseIds?: readonly string[];
+	},
 ): Promise<void> {
 	await world.messagingTable.putVendorLedgerRow({
 		tenantId: request.tenantId,
@@ -112,6 +121,8 @@ async function recordVendorSpend(
 		billedVia: request.billedVia,
 		costUsd: request.billedVia === BILLED_VIA_VENDOR ? request.amount : null,
 		recordedAt: `${request.day}T12:00:00+00:00`,
+		...(request.unpricedCalls === undefined ? {} : { unpricedCalls: request.unpricedCalls }),
+		...(request.responseIds === undefined ? {} : { responseIds: request.responseIds }),
 	});
 }
 
@@ -127,6 +138,34 @@ Given(
 	"vendor spend for tenant {string} on {word} includes {word} USD billed_via vendor",
 	async function (this: ChatticusWorld, tenantId: string, day: string, amount: string) {
 		await recordVendorSpend(this, { tenantId, day, amount: Decimal.parse(amount), billedVia: BILLED_VIA_VENDOR });
+	},
+);
+
+Given(
+	"vendor spend for tenant {string} on {word} includes {word} USD billed_via vendor for response {string}",
+	async function (this: ChatticusWorld, tenantId: string, day: string, amount: string, response: string) {
+		await recordVendorSpend(this, {
+			tenantId,
+			day,
+			amount: Decimal.parse(amount),
+			billedVia: BILLED_VIA_VENDOR,
+			turnSuffix: `-${response}`,
+			responseIds: [response],
+		});
+	},
+);
+
+Given(
+	"vendor spend for tenant {string} on {word} includes a turn with {int} unpriced calls and no dollars",
+	async function (this: ChatticusWorld, tenantId: string, day: string, unpricedCalls: number) {
+		await recordVendorSpend(this, {
+			tenantId,
+			day,
+			amount: null,
+			billedVia: BILLED_VIA_VENDOR,
+			turnSuffix: "-unpriced",
+			unpricedCalls,
+		});
 	},
 );
 
@@ -149,6 +188,7 @@ async function runRollup(world: ChatticusWorld, day: string): Promise<void> {
 		costExplorer: world.costExplorer,
 		accountSpend: world.accountSpend,
 		alerts: world.budgetAlerts,
+		reconciler: reconcilerOf(world),
 		environment: world.budgetEnvironment,
 		rollupDate: day,
 		monthlyLimitUsd: world.monthlyLimitUsd,
@@ -236,6 +276,19 @@ Then(
 		assertDecimalEquals((await rollupRow(this, tenantId, environment, day)).vendorCostUsd, amount);
 	},
 );
+
+Then(
+	"the budget rollup for tenant {string} environment {string} on {word} has unpriced_calls {int}",
+	async function (this: ChatticusWorld, tenantId: string, environment: string, day: string, count: number) {
+		assert.equal((await rollupRow(this, tenantId, environment, day)).unpricedCalls, count);
+	},
+);
+
+Then("the budget threshold alert reports {int} unpriced calls", function (this: ChatticusWorld, count: number) {
+	const payload = this.budgetAlerts.published.at(-1);
+	assert.ok(payload !== undefined, "no budget threshold alert was published");
+	assert.equal(payload.unpriced_calls, count);
+});
 
 Then(
 	"the budget rollup for tenant {string} environment {string} on {word} has combined_report_usd {word}",

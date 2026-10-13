@@ -60,8 +60,8 @@ OpenAI vendor project and key so vendor spend is attributable.
 ## Vendor model prices
 
 The ledger prices each model call from a versioned `VendorPriceBook`. Both
-production compositions (the turn executor and the front door, whose model
-gateway and voice understanding also write the ledger) use
+production compositions (the turn executor and the front door, whose voice understanding
+and model gateway observations are priced from it too) use
 `defaultVendorPriceBook()` from `conversation/src/ledger/vendor-prices.ts`,
 a table of OpenAI list prices in USD per million tokens. The book's id is
 `openai@2026-10-13+pi-ai-1.0.2`, and every ledger row records the id of the
@@ -117,8 +117,31 @@ number of call records it was written from; a write with fewer records than the 
 refused). The row at `{tenant}#cost#{yyyy-mm}` / `turn#{turnId}` is the turn index item: the same totals
 with `bot_id`, `channel_id`, `prompt_author_id`, `prompt_message_seq`, `message_seq`, `owner_kind` and a
 per-model breakdown. Until the rollup moves to the turn index (Kanbus `chatticus-0d265c`, T7) the daily
-rollup still sums the ledger rows, so budget alerts and the computer-work meter are unchanged. Voice
-understanding calls still write their own `voice:` ledger rows directly (T5 moves them).
+rollup still sums the ledger rows, so budget alerts and the computer-work meter are unchanged.
+
+### Every other model call, and calls the session never saw
+
+Three more kinds of spend reach the ledger, all as projections of cost records (`docs/COST_ACCOUNTING.md`, section 3.9), never as
+additions:
+
+* **Compaction.** The summarization Pi runs to shrink a long conversation is a model call with no assistant entry. Its tokens are
+  recovered from the session's own usage ledger and recorded as `compaction` cost records, so they are in the turn's row and totals.
+* **Voice understanding.** The call that repairs a spoken line is a `voice_understanding` cost record, priced from the same book
+  (cache reads included) and projected to the ledger row `voice:<uuid>` and a cost index item `voice#<uuid>` that names the
+  member and the channel and no bot. If the record cannot be written the front door logs `voice_cost_not_recorded` and the line
+  still goes through.
+* **Calls only the gateway saw.** The model gateway keeps an observation of each call a container made (`{tenant}#cost#observed`,
+  35 days). The daily rollup reconciles them first: a call whose response id is on the turn's session row is the same call and adds
+  nothing; a call nothing in the session accounts for after two hours (the vendor answered, the session never committed) becomes a
+  ledger row `turn#gateway:<id>` with `source: gateway`, marked `estimated` when the stream was interrupted. A gateway row whose
+  call a session row lists is skipped in the sum, so no call is counted twice.
+
+### What the rollup does with calls it cannot price
+
+A ledger row with unpriced calls has no `cost_usd` (unknown, never zero). The daily rollup no longer drops such rows silently: it
+adds their `unpriced_calls` to the rollup row (`unpriced_calls`, beside `vendor_cost_usd`, whose dollars leave those calls out),
+logs `vendor_cost_unpriced_calls` for the day, and carries the month-to-date count in the threshold alert payload
+(`unpriced_calls`). Read `vendor_cost_usd` as "known dollars" whenever `unpriced_calls` is positive.
 
 Dollars in the ledger feed the daily rollup's `vendor_cost_usd` and
 `combined_report_usd`, and so the month-to-date meter that the per-organization

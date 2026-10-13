@@ -2,7 +2,7 @@ import type { Context } from "@earendil-works/chord";
 import { type Conversation, ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable";
 import type { Channel } from "../domain/channels.ts";
 import type { Turn } from "../domain/turns.ts";
-import { deriveCostRecordsFromEntries, readCallCostRecords } from "../ledger/call-cost.ts";
+import { deriveCostRecords, readCallCostRecords } from "../ledger/call-cost.ts";
 import { projectTurnCost, summarizeTurnCost, type TurnCostStatus } from "../ledger/turn-cost.ts";
 import { appendLine, ChannelLogDoc, readEntryBody } from "../pi/channel-log.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxStore } from "../pi/mailbox.ts";
@@ -38,8 +38,9 @@ export const promptRequestIdFor = (turnId: string): string => `turn:${turnId}`;
 
 /**
  * Record the cost of the turn so far, from the session. This is the only path from model calls to dollars: the cost
- * records are derived from the assistant entries of the root conversation, keyed by entry, so doing it again, on this
- * owner or a later one, after a retry, a takeover or a crash, writes each call once and loses none the session
+ * records are derived from the assistant entries of the root conversation, keyed by entry (successful, errored and aborted
+ * responses alike), plus the compaction spend the session's usage ledger holds beyond its entries, so doing it again, on
+ * this owner or a later one, after a retry, a takeover or a crash, writes each call once and loses none the session
  * committed. Then the turn's ledger row and turn index item are written from those same records.
  *
  * @param inputs The running attempt.
@@ -51,7 +52,7 @@ export async function recordTurnCost(inputs: FinalizeInputs, point: CostRecordin
 	const prompt = await session.harness.commit((tx) => tx.submissionByRequest(root.id, promptRequestIdFor(turn.turnId)), context);
 	const promptEntryId = prompt?.entry;
 	if (promptEntryId === undefined) return;
-	await deriveCostRecordsFromEntries(
+	await deriveCostRecords(
 		session.harness,
 		session.storage,
 		{ conversationId: root.id, turnId: turn.turnId, promptEntryId: Number(promptEntryId), prices: deps.ledger.prices, now: deps.ledger.now },
@@ -67,6 +68,7 @@ export async function recordTurnCost(inputs: FinalizeInputs, point: CostRecordin
 		{
 			tenantId: turn.tenantId,
 			turnId: turn.turnId,
+			kind: "turn",
 			botId: turn.botId,
 			channelId: turn.channelId,
 			promptAuthorId: turn.promptAuthorId,

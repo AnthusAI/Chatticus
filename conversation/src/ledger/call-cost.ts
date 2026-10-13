@@ -7,8 +7,10 @@ import {
 	type EntryId,
 	type Session,
 	type Storage,
+	UsageDoc,
 } from "@earendil-works/pi-durable";
 import {
+	contextTokensOf,
 	PRICED_WITH_LONG_CONTEXT_TIER,
 	priceCall,
 	type PricedCallSubject,
@@ -29,6 +31,17 @@ export const CALL_COST_RECORD_VERSION = 1;
 export type CallCostTier = "standard" | "long_context";
 
 /**
+ * What a cost record is the cost of. `turn_round` is one model call of a turn, derived from the assistant entry that
+ * answered it (a successful, errored or aborted response alike). `compaction` is the summarization spend of a
+ * conversation, which has no entry and is recovered from the session's own usage ledger. `voice_understanding` is the
+ * call that repairs a spoken line; it has no session and lives only in the messaging table.
+ */
+export type CostRecordKind = "turn_round" | "compaction" | "voice_understanding";
+
+/** One model call's usage and who served it, in the counters the Pi session stores. */
+export type ModelCallUsage = PricedCallSubject & { readonly reasoningTokens: number };
+
+/**
  * The cost of one model call, derived from the assistant entry that answered it and priced from a versioned price book.
  * `inputTokens` excludes cached tokens and `outputTokens` includes reasoning tokens, exactly as the Pi session stores
  * them. `reasoningTokens` is the part of `outputTokens` spent reasoning (0 when the vendor reports none). `costUsd` is
@@ -39,7 +52,7 @@ export type ModelCallCost = {
 	filled: boolean;
 	conversationId: string;
 	entryId: number;
-	kind: "turn_round";
+	kind: CostRecordKind;
 	turnId: string;
 	round: number;
 	provider: string;
@@ -153,32 +166,10 @@ async function assistantCallsOf(
 	return calls.sort((left, right) => left.entryId - right.entryId);
 }
 
-function fillRecord(
-	draft: ModelCallCost,
-	call: AssistantCall,
-	round: number,
-	turnId: string,
-	prices: VendorPriceBook,
-	recordedAt: string,
-): void {
-	draft.filled = true;
-	draft.entryId = call.entryId;
-	draft.turnId = turnId;
-	draft.round = round;
-	draft.provider = call.subject.vendor;
-	draft.model = call.subject.model;
-	draft.responseId = call.responseId;
-	draft.inputTokens = call.subject.inputTokens;
-	draft.cacheReadTokens = call.subject.cacheReadTokens;
-	draft.cacheWriteTokens = call.subject.cacheWriteTokens;
-	draft.outputTokens = call.subject.outputTokens;
-	draft.reasoningTokens = call.reasoningTokens;
-	draft.contextTokens = call.subject.inputTokens + call.subject.cacheReadTokens + call.subject.cacheWriteTokens;
+function priceInto(draft: ModelCallCost, subject: PricedCallSubject, prices: VendorPriceBook): void {
 	draft.priceBookId = prices.priceBookId;
-	draft.providerCostEstimateUsd = call.providerCostEstimateUsd;
-	draft.recordedAt = recordedAt;
 	try {
-		const priced = priceCall(prices, call.subject);
+		const priced = priceCall(prices, subject);
 		draft.costUsd = priced.costUsd.toString();
 		draft.pricedWith = [...priced.pricedWith];
 		draft.tier = priced.pricedWith.includes(PRICED_WITH_LONG_CONTEXT_TIER) ? "long_context" : "standard";
@@ -189,6 +180,78 @@ function fillRecord(
 		if (!(error instanceof UnpricedModelError)) throw error;
 		draft.unpriced = true;
 	}
+}
+
+/** Everything that identifies and measures one cost record before it is priced. */
+export type CostRecordFacts = {
+	readonly kind: CostRecordKind;
+	readonly conversationId: string;
+	readonly entryId: number;
+	readonly turnId: string;
+	readonly round: number;
+	readonly usage: ModelCallUsage;
+	readonly responseId: string | null;
+	readonly providerCostEstimateUsd: number;
+	readonly recordedAt: string;
+};
+
+function fillFacts(draft: ModelCallCost, facts: CostRecordFacts, prices: VendorPriceBook): void {
+	draft.filled = true;
+	draft.kind = facts.kind;
+	draft.entryId = facts.entryId;
+	draft.turnId = facts.turnId;
+	draft.round = facts.round;
+	draft.provider = facts.usage.vendor;
+	draft.model = facts.usage.model;
+	draft.responseId = facts.responseId;
+	draft.inputTokens = facts.usage.inputTokens;
+	draft.cacheReadTokens = facts.usage.cacheReadTokens;
+	draft.cacheWriteTokens = facts.usage.cacheWriteTokens;
+	draft.outputTokens = facts.usage.outputTokens;
+	draft.reasoningTokens = facts.usage.reasoningTokens;
+	draft.contextTokens = contextTokensOf(facts.usage);
+	draft.providerCostEstimateUsd = facts.providerCostEstimateUsd;
+	draft.recordedAt = facts.recordedAt;
+	priceInto(draft, facts.usage, prices);
+}
+
+/**
+ * A priced cost record for a call that has no session, such as the voice understanding call. It is the same record, priced
+ * by the same function, as the ones the session holds, so every consumer of cost records reads it alike.
+ *
+ * @param facts What identifies and measures the call.
+ * @param prices The price book.
+ * @returns The filled record.
+ */
+export function buildModelCallCost(facts: CostRecordFacts, prices: VendorPriceBook): ModelCallCost {
+	const record = emptyCallCost({ conversationId: facts.conversationId });
+	fillFacts(record, facts, prices);
+	return record;
+}
+
+function fillRecord(
+	draft: ModelCallCost,
+	call: AssistantCall,
+	round: number,
+	turnId: string,
+	prices: VendorPriceBook,
+	recordedAt: string,
+): void {
+	fillFacts(
+		draft,
+		{
+			kind: "turn_round",
+			conversationId: draft.conversationId,
+			entryId: call.entryId,
+			turnId,
+			round,
+			usage: { ...call.subject, reasoningTokens: call.reasoningTokens },
+			responseId: call.responseId,
+			providerCostEstimateUsd: call.providerCostEstimateUsd,
+			recordedAt,
+		},
+		prices,
+	);
 }
 
 /** What deriving the cost records of one turn of one conversation needs to know. */
@@ -235,6 +298,203 @@ export async function deriveCostRecordsFromEntries(
 		}
 		return written;
 	}, context);
+}
+
+type TokenCounters = {
+	input: number;
+	cacheRead: number;
+	cacheWrite: number;
+	output: number;
+	reasoning: number;
+	estimateUsd: number;
+};
+
+const zeroCounters = (): TokenCounters => ({ input: 0, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0, estimateUsd: 0 });
+
+const hasTokens = (counters: TokenCounters): boolean =>
+	counters.input + counters.cacheRead + counters.cacheWrite + counters.output > 0;
+
+const positiveDifference = (left: TokenCounters, right: TokenCounters): TokenCounters => ({
+	input: Math.max(0, left.input - right.input),
+	cacheRead: Math.max(0, left.cacheRead - right.cacheRead),
+	cacheWrite: Math.max(0, left.cacheWrite - right.cacheWrite),
+	output: Math.max(0, left.output - right.output),
+	reasoning: Math.max(0, left.reasoning - right.reasoning),
+	estimateUsd: Math.max(0, left.estimateUsd - right.estimateUsd),
+});
+
+function addCounters(total: TokenCounters, part: TokenCounters): void {
+	total.input += part.input;
+	total.cacheRead += part.cacheRead;
+	total.cacheWrite += part.cacheWrite;
+	total.output += part.output;
+	total.reasoning += part.reasoning;
+	total.estimateUsd += part.estimateUsd;
+}
+
+const modelKeyOf = (provider: string, model: string): string => `${provider}/${model}`;
+
+async function usageLedgerOfConversation(
+	session: Pick<Session, "snapshot">,
+	conversationId: ConversationId,
+	context: Context,
+): Promise<Map<string, TokenCounters>> {
+	const state = await session.snapshot(UsageDoc, conversationId, context);
+	const byModel = new Map<string, TokenCounters>();
+	for (const [key, usage] of Object.entries(state?.models ?? {})) {
+		byModel.set(key, {
+			input: usage.input,
+			cacheRead: usage.cacheRead,
+			cacheWrite: usage.cacheWrite,
+			output: usage.output,
+			reasoning: usage.reasoning ?? 0,
+			estimateUsd: usage.cost.total,
+		});
+	}
+	return byModel;
+}
+
+async function entryUsageOfConversation(
+	storage: Pick<Storage, "scanEntries">,
+	conversationId: ConversationId,
+	context: Context,
+): Promise<{ byModel: Map<string, TokenCounters>; newestEntryId: number }> {
+	const byModel = new Map<string, TokenCounters>();
+	let newestEntryId = 0;
+	let cursor: Cursor | undefined;
+	do {
+		const page = await storage.scanEntries({ conversationId }, ENTRY_PAGE_SIZE, cursor, context);
+		for (const entry of page.items) {
+			if (entry.conversationId !== conversationId) continue;
+			newestEntryId = Math.max(newestEntryId, Number(entry.id));
+			if (entry.kind !== AssistantEntry.kind) continue;
+			const message = entry.model?.[0];
+			if (message?.role !== "assistant") continue;
+			const key = modelKeyOf(message.provider, message.model);
+			const total = byModel.get(key) ?? zeroCounters();
+			addCounters(total, {
+				input: message.usage.input,
+				cacheRead: message.usage.cacheRead,
+				cacheWrite: message.usage.cacheWrite,
+				output: message.usage.output,
+				reasoning: message.usage.reasoning ?? 0,
+				estimateUsd: message.usage.cost.total,
+			});
+			byModel.set(key, total);
+		}
+		cursor = page.next;
+	} while (cursor !== undefined);
+	return { byModel, newestEntryId };
+}
+
+/** The key of a compaction record; it names the cumulative spend it brings the conversation's records up to. */
+export const compactionCostKeyOf = (provider: string, model: string, cumulative: TokenCounters): string =>
+	`compaction-${provider}-${model}-${cumulative.input}-${cumulative.cacheRead}-${cumulative.cacheWrite}-${cumulative.output}`;
+
+/**
+ * Record the summarization spend of compaction, which has no assistant entry. The session's own usage ledger
+ * (`pi.usage`) counts every response and every compaction summary of a conversation, per model; the entries hold every
+ * response. What the ledger holds beyond the entries is the compaction spend so far, and what the conversation's
+ * compaction records already hold is subtracted, so only the new spend becomes a new record. The ledger is read before
+ * the entries, so a response committed between the two reads makes the remainder smaller, never larger, and is then
+ * counted as its own entry and not as compaction. Running this again with nothing new writes nothing.
+ *
+ * @param session The owner's session; the commit is fenced by its storage.
+ * @param storage The session's storage.
+ * @param request The conversation, the turn the spend is attributed to, the price book and the clock.
+ * @param context Cancellation context.
+ * @returns How many records this call wrote.
+ */
+export async function deriveCompactionCostRecords(
+	session: Pick<Session, "commit" | "snapshot">,
+	storage: Pick<Storage, "scanEntries" | "scanDocuments">,
+	request: Pick<DeriveCallCostRequest, "conversationId" | "turnId" | "prices" | "now">,
+	context: Context,
+): Promise<number> {
+	const ledger = await usageLedgerOfConversation(session, request.conversationId, context);
+	if (ledger.size === 0) return 0;
+	const entries = await entryUsageOfConversation(storage, request.conversationId, context);
+	const remainders = new Map<string, TokenCounters>();
+	for (const [key, counters] of ledger) {
+		const remainder = positiveDifference(counters, entries.byModel.get(key) ?? zeroCounters());
+		if (hasTokens(remainder)) remainders.set(key, remainder);
+	}
+	if (remainders.size === 0) return 0;
+	const recorded = new Map<string, TokenCounters>();
+	for (const record of await readCallCostRecords(session, storage, request.conversationId, context)) {
+		if (record.kind !== "compaction") continue;
+		const key = modelKeyOf(record.provider, record.model);
+		const total = recorded.get(key) ?? zeroCounters();
+		addCounters(total, {
+			input: record.inputTokens,
+			cacheRead: record.cacheReadTokens,
+			cacheWrite: record.cacheWriteTokens,
+			output: record.outputTokens,
+			reasoning: record.reasoningTokens,
+			estimateUsd: record.providerCostEstimateUsd,
+		});
+		recorded.set(key, total);
+	}
+	const recordedAt = request.now().toISOString();
+	return session.commit(async (tx) => {
+		let written = 0;
+		for (const [key, cumulative] of remainders) {
+			const fresh = positiveDifference(cumulative, recorded.get(key) ?? zeroCounters());
+			if (!hasTokens(fresh)) continue;
+			const separator = key.indexOf("/");
+			const provider = key.slice(0, separator);
+			const model = key.slice(separator + 1);
+			const draft = await tx.doc(CallCostDoc, request.conversationId, compactionCostKeyOf(provider, model, cumulative), {
+				conversationId: String(request.conversationId),
+			});
+			if (draft.filled) continue;
+			fillFacts(
+				draft,
+				{
+					kind: "compaction",
+					conversationId: String(request.conversationId),
+					entryId: entries.newestEntryId,
+					turnId: request.turnId,
+					round: 0,
+					usage: {
+						vendor: provider,
+						model,
+						inputTokens: fresh.input,
+						cacheReadTokens: fresh.cacheRead,
+						cacheWriteTokens: fresh.cacheWrite,
+						outputTokens: fresh.output,
+						reasoningTokens: fresh.reasoning,
+					},
+					responseId: null,
+					providerCostEstimateUsd: fresh.estimateUsd,
+					recordedAt,
+				},
+				request.prices,
+			);
+			written += 1;
+		}
+		return written;
+	}, context);
+}
+
+/**
+ * Derive every cost record a conversation owes at this moment: one per assistant entry from the turn's prompt on, and the
+ * compaction spend the session's usage ledger holds beyond its entries. Both are keyed and idempotent.
+ *
+ * @param session The owner's session.
+ * @param storage The session's storage.
+ * @param request The conversation, the turn, its prompt entry, the price book and the clock.
+ * @param context Cancellation context.
+ * @returns How many records this call wrote.
+ */
+export async function deriveCostRecords(
+	session: Pick<Session, "commit" | "snapshot">,
+	storage: Pick<Storage, "scanEntries" | "scanDocuments">,
+	request: DeriveCallCostRequest,
+	context: Context,
+): Promise<number> {
+	const fromEntries = await deriveCostRecordsFromEntries(session, storage, request, context);
+	return fromEntries + (await deriveCompactionCostRecords(session, storage, request, context));
 }
 
 /**

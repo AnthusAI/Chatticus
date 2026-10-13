@@ -28,6 +28,8 @@ export interface BudgetRollupRow {
 	readonly rollupDate: string;
 	readonly awsCostUsd: Decimal | null;
 	readonly vendorCostUsd: Decimal;
+	/** Model calls that day with no price in the book: counted, never silently zero. Their dollars are not in `vendorCostUsd`. */
+	readonly unpricedCalls: number;
 	readonly combinedReportUsd: Decimal | null;
 	readonly ceStatus: string;
 	readonly alertEvents: readonly BudgetAlertEvent[];
@@ -55,4 +57,12 @@ export interface VendorLedgerRow {
 	readonly billedVia: string;
 	readonly costUsd: Decimal | null;
 	readonly recordedAt: string;
+	/** Model calls on the row that the price book could not price; their dollars are missing from `costUsd`. */
+	readonly unpricedCalls: number;
+	/** `session` for a row written from the session's cost records, `gateway` for a call only the gateway observed. */
+	readonly source: string;
+	/** For a gateway row, the id of the call; the session row of the same call lists it among its response ids. */
+	readonly callId: string | null;
+	/** The provider response ids the row's session records account for. */
+	readonly responseIds: readonly string[];
 }

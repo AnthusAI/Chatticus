@@ -81,6 +81,26 @@ Feature: Understanding what the member meant before a voice line is sent
     Then no message is posted for that line
     And the organization has a voice understanding spend entry of 120 input and 4 output tokens
 
+  Scenario: The understanding call is a voice_understanding cost record with the member and the channel, cache included
+    Given the default vendor prices of the production compositions are in force
+    And the understand-the-user step hears "status please" as "Status, please." using 200 uncached input, 4000 cache read and 10 output tokens
+    When user "ryan" of tenant "anthus" says "status please" to bot "Ping" on the channel
+    Then the voice understanding cost record names member "ryan" and the channel and no bot, with 200 uncached input, 4000 cache read and 10 output tokens costing 0.000034 dollars
+
+  Scenario: A voice understanding call on a model the price book does not know is recorded as unpriced, not as zero
+    Given the understand-the-user step hears "status please" as "Status, please." using 300 input and 12 output tokens
+    When user "ryan" of tenant "anthus" says "status please" to bot "Ping" on the channel
+    Then the voice understanding spend entry has null cost_usd and 1 unpriced call
+
+  Scenario: A cost that cannot be recorded is reported and the spoken line still goes through
+    Given the default vendor prices of the production compositions are in force
+    And the understand-the-user step hears "status please" as "Status, please." using 300 input and 12 output tokens
+    And recording the cost of voice understanding calls fails
+    When user "ryan" of tenant "anthus" says "status please" to bot "Ping" on the channel
+    Then the latest message on the channel is "Status, please." from user "ryan"
+    And the cost failure of the voice line of member "ryan" was reported
+    And no voice understanding cost record exists
+
   Scenario: A line for a bot outside the channel is refused before understanding
     Given tenant "anthus" user "ryan" has a bot named "Outsider"
     When user "ryan" of tenant "anthus" tries to say "hello" to bot "Outsider" on the channel
