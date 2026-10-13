@@ -12,16 +12,29 @@
     "cost-accounting"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d2ac76aa-215f-47ef-ad70-0592eabdd79d",
+      "author": "home",
+      "text": "Started T4. Design: one writer deriveCostRecordsFromEntries (conversation/src/ledger/call-cost.ts) writes chatticus.cost keyed records entry-<entryId> (fork initial, filter on conversationId) at conclude, fail, yield, park and when a resumed owner starts; the ledger row and the monthly turn index item are projected from those records in one transaction (turn-cost.ts); delta counters removed. Spike decision applied: no afterResponse hook.",
+      "created_at": "2026-10-13T13:29:47.622550Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t4"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:31:25.063806Z",
-  "updated_at": "2026-10-13T11:31:25.063842Z",
+  "updated_at": "2026-10-13T13:29:47.622578Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "Implement idempotent call-cost records in session documents and remove legacy ledger and delta-counter writes.",
-  "right_now_updated_at": "2026-10-13T11:31:26.267485Z",
+  "right_now_summary": "T4 is adding idempotent call-cost records and turn indexes while removing delta counters and gateway ledger writes.",
+  "right_now_updated_at": "2026-10-13T13:29:50.575143Z",
   "custom": {}
 }
