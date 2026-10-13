@@ -131,6 +131,14 @@ describe("convertChatticusThreadMessage", () => {
     assert.equal(converted.metadata?.custom?.isStreaming, false);
   });
 
+  it("carries the message sequence so the thread can attach its cost marker", () => {
+    const converted = convertChatticusThreadMessage(
+      { kind: "committed", message: sampleMessage({ seq: 7 }) },
+      botNames,
+    );
+    assert.equal(converted.metadata?.custom?.seq, 7);
+  });
+
   it("maps bot messages with author metadata and createdAt", () => {
     const converted = convertChatticusThreadMessage(
       {

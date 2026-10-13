@@ -164,10 +164,11 @@ describe("InspectorTabs", () => {
 
   it("moves between tabs with arrow, Home and End keys", () => {
     assert.equal(nextInspectorTab("context", "ArrowRight"), "files");
-    assert.equal(nextInspectorTab("files", "ArrowRight"), "context");
-    assert.equal(nextInspectorTab("context", "ArrowLeft"), "files");
+    assert.equal(nextInspectorTab("files", "ArrowRight"), "costs");
+    assert.equal(nextInspectorTab("costs", "ArrowRight"), "context");
+    assert.equal(nextInspectorTab("context", "ArrowLeft"), "costs");
     assert.equal(nextInspectorTab("files", "Home"), INSPECTOR_TABS[0].id);
-    assert.equal(nextInspectorTab("context", "End"), "files");
+    assert.equal(nextInspectorTab("context", "End"), "costs");
     assert.equal(nextInspectorTab("context", "a"), null);
   });
 });

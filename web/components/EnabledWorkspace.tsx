@@ -11,7 +11,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { ChatticusAssistantRuntime } from "./assistant-ui/ChatticusAssistantRuntime";
 import { BotAvatarView } from "./BotAvatarView";
@@ -21,6 +21,8 @@ import { Sheet } from "./ui/sheet";
 import { ComputerPausedNotice } from "./ComputerPausedNotice";
 import { TurnGrantPanel } from "./TurnGrantPanel";
 import { ComputerFilesPanel } from "./workspace/ComputerFilesPanel";
+import { ChannelCostChip, MessageCostContext, type MessageCostContextValue } from "./workspace/CostMarkers";
+import { CostsPanel } from "./workspace/CostsPanel";
 import { InspectorTabs, inspectorPanelDomId, inspectorTabDomId } from "./workspace/InspectorTabs";
 import { useVoiceControl, type VoiceControl } from "./useVoiceControl";
 import {
@@ -44,6 +46,9 @@ import {
   type TurnEvent,
 } from "../lib/api";
 import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
+import { costsApiFor } from "../lib/costs-api";
+import { CostsController } from "../lib/costs-controller";
+import { downloadTextFile } from "../lib/download-text-file";
 import type { ActiveOrg } from "../lib/membership-state";
 import type { MeOrganization } from "../lib/me";
 import { openTurnStream } from "../lib/sse";
@@ -165,6 +170,7 @@ export function EnabledWorkspace({
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTabId>("context");
   const [filesTabVisited, setFilesTabVisited] = useState(false);
+  const [costsTabVisited, setCostsTabVisited] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"bot" | "channel">("bot");
   const [createName, setCreateName] = useState("");
@@ -200,6 +206,53 @@ export function EnabledWorkspace({
     [selectedMessages, retainedActivity, turnEvents],
   );
   const inspector = buildInspectorModel({ computer, tasks, selectedItem, bots });
+  const costs = useMemo(
+    () =>
+      new CostsController({
+        api: costsApiFor({ tenantId: activeOrg.tenantId, userId: activeOrg.userId }),
+        now: () => new Date(),
+        deliverFile: downloadTextFile,
+      }),
+    [activeOrg.tenantId, activeOrg.userId],
+  );
+  const costsSnapshot = useSyncExternalStore(costs.subscribe, costs.getSnapshot, costs.getSnapshot);
+  const costLabels = useMemo(() => {
+    const channelLabels = new Map(
+      roster.flatMap((item) => (item.channel ? [[item.channel.channel_id, item.label] as const] : [])),
+    );
+    return {
+      botName: (botId: string) => botNameById.get(botId) ?? botId,
+      channelName: (channelId: string) => channelLabels.get(channelId) ?? "Conversation",
+    };
+  }, [roster, botNameById]);
+  useEffect(() => {
+    void costs.selectChannel(selectedChannelId);
+  }, [costs, selectedChannelId]);
+  const turnWasActiveRef = useRef(false);
+  useEffect(() => {
+    if (turn) {
+      turnWasActiveRef.current = true;
+    } else if (turnWasActiveRef.current) {
+      turnWasActiveRef.current = false;
+      void costs.refreshChannel();
+    }
+  }, [costs, turn]);
+  const showCostsTab = useCallback(() => {
+    setCostsTabVisited(true);
+    setInspectorTab("costs");
+    setInspectorOpen(true);
+    setInspectorCollapsed(false);
+  }, []);
+  const messageCostContext = useMemo<MessageCostContextValue>(
+    () => ({
+      markers: costsSnapshot.markers,
+      onOpen: (seq) => {
+        void costs.openMessage(seq);
+        showCostsTab();
+      },
+    }),
+    [costs, costsSnapshot.markers, showCostsTab],
+  );
   const rosterViewState = resolveRosterViewState({
     loading,
     failed: Boolean(error),
@@ -825,6 +878,7 @@ export function EnabledWorkspace({
         selected={inspectorTab}
         onSelect={(tab) => {
           if (tab === "files") setFilesTabVisited(true);
+          if (tab === "costs") setCostsTabVisited(true);
           setInspectorTab(tab);
         }}
       />
@@ -845,7 +899,18 @@ export function EnabledWorkspace({
           />
         </div>
       ) : null}
-      {inspectorTab === "files" ? null : (
+      {costsTabVisited ? (
+        <div
+          role="tabpanel"
+          id={inspectorPanelDomId("costs")}
+          aria-labelledby={inspectorTabDomId("costs")}
+          hidden={inspectorTab !== "costs"}
+          className="min-h-0 flex-1 overflow-y-auto pb-4"
+        >
+          <CostsPanel key={activeOrg.tenantId} controller={costs} labels={costLabels} active={inspectorTab === "costs"} />
+        </div>
+      ) : null}
+      {inspectorTab !== "context" ? null : (
       <div
         role="tabpanel"
         id={inspectorPanelDomId("context")}
@@ -908,6 +973,14 @@ export function EnabledWorkspace({
             {selectedItem ? <p className="truncate font-mono text-[0.62rem] text-surface-foreground/45">{selectedItem.kind === "channel" ? `${selectedItem.bots.length} bot channel` : "Direct conversation"}</p> : null}
             {visibleTurnState ? <p className="font-mono text-[0.62rem] text-surface-foreground/55" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
           </div>
+          <ChannelCostChip
+            phase={costsSnapshot.channel}
+            onOpen={() => {
+              costs.setScope("channel");
+              costs.closeDrilldown();
+              showCostsTab();
+            }}
+          />
           <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.openInspector} onClick={() => { setInspectorOpen(true); setInspectorCollapsed(false); }}><PanelRight size={19} aria-hidden="true" /></Button>
         </header>
         <ComputerPausedNotice organization={activeOrganization} activeOrg={activeOrg} onCeilingRaised={onReloadMembership} />
@@ -928,6 +1001,7 @@ export function EnabledWorkspace({
             />
           </div>
         ) : (
+          <MessageCostContext.Provider value={messageCostContext}>
           <ChatticusAssistantRuntime
             className="min-h-0 flex-1"
             messages={selectedMessages}
@@ -979,6 +1053,7 @@ export function EnabledWorkspace({
                   : undefined,
             }}
           />
+          </MessageCostContext.Provider>
         )}
       </section>
       {!inspectorCollapsed ? <div className="workspace-inspector hidden min-h-0 xl:block">{inspectorPane}</div> : null}

@@ -1,8 +1,9 @@
-export type InspectorTabId = "context" | "files";
+export type InspectorTabId = "context" | "files" | "costs";
 
 export const INSPECTOR_TABS: ReadonlyArray<{ id: InspectorTabId; label: string }> = [
   { id: "context", label: "Context" },
   { id: "files", label: "Files" },
+  { id: "costs", label: "Costs" },
 ];
 
 /** The tab an arrow, Home or End key moves to; null for any other key. */
