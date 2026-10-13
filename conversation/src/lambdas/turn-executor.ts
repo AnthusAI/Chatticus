@@ -57,6 +57,7 @@ async function executorDeps(): Promise<SharedDeps> {
 		models: createOpenAiModels(),
 		model: DEFAULT_TURN_MODEL,
 		ledger: { client, tableName: messagingTableName, prices: defaultVendorPriceBook(), now: () => new Date() },
+		ownerKind: "lambda",
 		workerLabel: "turn-executor-lambda",
 		turnRuns: new SqsTurnRunQueue(sqs, cachedRunsQueueUrl),
 		turnProbes: new SqsTurnProbeQueue(sqs, requiredEnvironment("CHATTICUS_TURN_PROBES_QUEUE_URL")),

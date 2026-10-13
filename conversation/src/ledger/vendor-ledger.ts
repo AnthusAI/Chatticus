@@ -4,18 +4,12 @@ import {
 	type DynamoDBClient,
 	GetItemCommand,
 	PutItemCommand,
-	TransactionCanceledException,
-	TransactWriteItemsCommand,
-	type TransactWriteItem,
 	UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { vendorLedgerKey } from "../budget/budget-store.ts";
 import { Decimal } from "../budget/decimal.ts";
 import { BILLED_VIA_VENDOR } from "../budget/models.ts";
-import { StaleAttemptError } from "../http/errors.ts";
-import { retryTransient } from "../store/transient-retry.ts";
-import { turnItemPartitionKey } from "../store/turn-events.ts";
-import { type PricedCalls, type PricedCallSubject, priceCalls, type VendorPriceBook } from "./price-book.ts";
+import { type PricedCalls, priceCalls, type VendorPriceBook } from "./price-book.ts";
 
 const MILLION_EXPONENT = 6;
 const COST_SCALE = 8;
@@ -166,30 +160,6 @@ function insertItem(
 const pricingOfSingleCall = (deps: VendorLedgerDependencies, usage: SpendUsage): PricedCalls =>
 	priceCalls(deps.prices, [{ ...usage, cacheReadTokens: 0, cacheWriteTokens: 0 }]);
 
-/**
- * The update that makes a turn row's dollars equal the priced total of every call of the turn, so a re-run that
- * recomputes the same calls writes the same figures.
- */
-function turnPricingUpdate(deps: VendorLedgerDependencies, pricing: PricedCalls): { set: string; remove: string; values: Item } {
-	const attributes = pricingAttributes(pricing, deps.prices.priceBookId, true);
-	const values: Item = {
-		":priceBookId": attributes.price_book_id!,
-		":models": attributes.models!,
-		":unpricedCalls": attributes.unpriced_calls!,
-	};
-	let set = "price_book_id = :priceBookId, models = :models, unpriced_calls = :unpricedCalls";
-	let remove = "";
-	if (attributes.priced_with !== undefined) {
-		set += ", priced_with = :pricedWith";
-		values[":pricedWith"] = attributes.priced_with;
-	} else remove += "priced_with";
-	if (attributes.cost_usd !== undefined) {
-		set += ", cost_usd = :costUsd";
-		values[":costUsd"] = attributes.cost_usd;
-	} else remove += `${remove === "" ? "" : ", "}cost_usd`;
-	return { set, remove, values };
-}
-
 function accumulateUpdate(
 	existing: VendorLedgerEntry,
 	usage: SpendUsage,
@@ -221,7 +191,8 @@ function accumulateUpdate(
 /**
  * Record one model call on the turn's vendor ledger row. The first call inserts the row and freezes the model's price at
  * that moment; a later call on the same turn adds its tokens and its dollars at the frozen rates. A call billed through
- * AWS keeps `cost_usd` null.
+ * AWS keeps `cost_usd` null. This is the ledger path of calls made outside a turn (the voice understanding call); the
+ * ledger row of a turn is written only by `projectTurnCost` from the turn's session cost records, never by this function.
  *
  * @param deps Table, prices and clock.
  * @param tenantId Organization.
@@ -268,112 +239,4 @@ export async function recordVendorSpend(
 		return stored;
 	}
 	throw new Error(`Vendor ledger row for turn ${turnId} could not be written after ${TRANSACTION_ATTEMPTS} attempts.`);
-}
-
-/** Tokens a turn has used in total, and how many of them its record already shows as written to the ledger. */
-export type TurnSpendProgress = {
-	readonly inputTotal: number;
-	readonly outputTotal: number;
-	readonly inputRecorded: number;
-	readonly outputRecorded: number;
-};
-
-/**
- * Record the part of a turn's usage that the ledger does not hold yet, and advance the turn record's
- * `ledger_input_recorded` and `ledger_output_recorded` in the same transaction under the attempt's fence. A recovered
- * attempt that recomputes the same totals therefore finds nothing left to write, and a stale attempt writes nothing.
- *
- * Dollars are not summed from deltas: every call of the turn is priced by its own model at its own context size, and the
- * row's `cost_usd` is set to that total, so a recovered attempt recomputing the same calls writes the same figure. The
- * row's `model` is the model of the turn's first call; `models` lists every model that served a call. A call whose model
- * the price book lacks is counted in `unpriced_calls` and leaves `cost_usd` absent, which means unknown, never zero.
- *
- * @param deps Table, prices and clock.
- * @param request The turn, its attempt, every call of the turn so far and the token totals.
- * @returns Whether anything was written.
- * @throws StaleAttemptError When the attempt no longer owns the turn or the turn is no longer active.
- */
-export async function recordTurnSpendOnce(
-	deps: VendorLedgerDependencies,
-	request: {
-		readonly tenantId: string;
-		readonly turnId: string;
-		readonly attemptId: string;
-		readonly calls: readonly PricedCallSubject[];
-		readonly progress: TurnSpendProgress;
-	},
-): Promise<boolean> {
-	const inputDelta = request.progress.inputTotal - request.progress.inputRecorded;
-	const outputDelta = request.progress.outputTotal - request.progress.outputRecorded;
-	if (inputDelta <= 0 && outputDelta <= 0) return false;
-	const first = request.calls[0];
-	if (first === undefined) return false;
-	const usage: SpendUsage = { vendor: first.vendor, model: first.model, inputTokens: inputDelta, outputTokens: outputDelta };
-	const pricing = priceCalls(deps.prices, request.calls);
-	const pricingUpdate = turnPricingUpdate(deps, pricing);
-	const turnKey = { pk: { S: turnItemPartitionKey(request.tenantId, request.turnId) }, sk: { S: "meta" } };
-	const key = vendorLedgerKey(request.tenantId, request.turnId);
-	for (let attempt = 0; attempt < TRANSACTION_ATTEMPTS; attempt += 1) {
-		const existing = await getVendorLedgerEntry(deps, request.tenantId, request.turnId);
-		const ledgerWrite: TransactWriteItem =
-			existing === null
-				? {
-						Put: {
-							TableName: deps.tableName,
-							Item: insertItem(deps, request.tenantId, request.turnId, usage, BILLED_VIA_VENDOR, pricing),
-							ConditionExpression: "attribute_not_exists(sk)",
-						},
-					}
-				: {
-						Update: {
-							TableName: deps.tableName,
-							Key: { pk: { S: key.pk }, sk: { S: key.sk } },
-							ConditionExpression: "attribute_exists(pk)",
-							UpdateExpression: `SET ${pricingUpdate.set}${pricingUpdate.remove === "" ? "" : ` REMOVE ${pricingUpdate.remove}`} ADD input_tokens :inputDelta, output_tokens :outputDelta`,
-							ExpressionAttributeValues: {
-								...pricingUpdate.values,
-								":inputDelta": { N: String(usage.inputTokens) },
-								":outputDelta": { N: String(usage.outputTokens) },
-							},
-						},
-					};
-		try {
-			await retryTransient(() => deps.client.send(
-				new TransactWriteItemsCommand({
-					TransactItems: [
-						ledgerWrite,
-						{
-							Update: {
-								TableName: deps.tableName,
-								Key: turnKey,
-								UpdateExpression: "SET ledger_input_recorded = :inputTotal, ledger_output_recorded = :outputTotal",
-								ConditionExpression:
-									"attempt_id = :attemptId AND #status = :active AND (attribute_not_exists(ledger_input_recorded) OR ledger_input_recorded = :inputRecorded) AND (attribute_not_exists(ledger_output_recorded) OR ledger_output_recorded = :outputRecorded)",
-								ExpressionAttributeNames: { "#status": "status" },
-								ExpressionAttributeValues: {
-									":inputTotal": { N: String(request.progress.inputTotal) },
-									":outputTotal": { N: String(request.progress.outputTotal) },
-									":inputRecorded": { N: String(request.progress.inputRecorded) },
-									":outputRecorded": { N: String(request.progress.outputRecorded) },
-									":attemptId": { S: request.attemptId },
-									":active": { S: "active" },
-								},
-							},
-						},
-					],
-				}),
-			));
-			return true;
-		} catch (error) {
-			if (error instanceof TransactionCanceledException) {
-				const turnCondition = error.CancellationReasons?.[1]?.Code === "ConditionalCheckFailed";
-				if (turnCondition) {
-					throw new StaleAttemptError(`Turn ${request.turnId} no longer belongs to attempt ${request.attemptId}.`);
-				}
-				continue;
-			}
-			throw error;
-		}
-	}
-	throw new Error(`Spend of turn ${request.turnId} could not be recorded after ${TRANSACTION_ATTEMPTS} attempts.`);
 }

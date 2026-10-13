@@ -61,7 +61,7 @@ export const secretValueOf = (name: string): string => `secret-of-${name.toLower
 export async function computerOwnerDepsFor(world: ChatticusWorld, renewalGate?: Promise<void>): Promise<ExecutorDeps> {
 	const shared = await executorDepsFor(world, modelScenarioOf(world), renewalGate === undefined ? {} : { renewalGate });
 	const { remainingMilliseconds: _lambdaOnly, ...rest } = shared;
-	const owner = { ...rest, turnRuns: NO_OP_TURN_RUNS, turnProbes: NO_OP_TURN_PROBES, runVisibility: NO_OP_RUN_VISIBILITY };
+	const owner = { ...rest, ownerKind: "computer" as const, turnRuns: NO_OP_TURN_RUNS, turnProbes: NO_OP_TURN_PROBES, runVisibility: NO_OP_RUN_VISIBILITY };
 	return isRecordingOwnerRequests(world) ? withRecordedOwnerRequests(world, owner, renewalGate) : owner;
 }
 

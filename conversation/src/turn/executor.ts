@@ -39,7 +39,7 @@ import { formatLogLine } from "../observability/log-line.ts";
 import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoalescer } from "./coalescer.ts";
 import { AgentEventDelivery, createAgentEventListener, TurnEventWriter, writeToolCallOnce } from "./event-stream.ts";
 import { redactSecrets } from "./tool-event-fields.ts";
-import { commitFinalAnswer, type FinalizeInputs, recordTurnSpend } from "./finalize.ts";
+import { commitFinalAnswer, type FinalizeInputs, recordTurnCost } from "./finalize.ts";
 import { armProbe } from "./probes.ts";
 import { computerToolUnavailableText, computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
 import { buildSystemPrompt } from "./prompt.ts";
@@ -236,6 +236,7 @@ class TurnAttempt {
 	}
 
 	private async drive(session: OwnerSession, root: Conversation): Promise<TurnExecutionOutcome> {
+		if (this.turn.attempt > 1) await recordTurnCost(this.finalizeInputs(session, root), "resumed");
 		this.deps.faults?.maybeCrash("model_acceptance", "before");
 		await this.pumpMailbox(session, root);
 		if (!this.inputs.some((input) => input.isPrompt)) {
@@ -281,7 +282,7 @@ class TurnAttempt {
 		const inputs = this.finalizeInputs(session, root);
 		this.deps.faults?.maybeCrash("completion_append", "before");
 		const reply = await commitFinalAnswer(inputs, last.answer);
-		await recordTurnSpend(inputs, this.promptEntryId());
+		await recordTurnCost(inputs, "completed", reply.messageSeq);
 		this.deps.faults?.maybeCrash("completion_append", "after");
 		await completeTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, reply.messageSeq, reply.body);
 		return "done";
@@ -373,6 +374,7 @@ class TurnAttempt {
 		}
 		await this.writer.idle();
 		this.writer.throwIfFailed();
+		await recordTurnCost(this.finalizeInputs(this.session!, this.root!), "parked");
 		await parkOnComputerAction(this.parkDependencies(), this.turn, this.attemptId, call);
 		return "parked";
 	}
@@ -391,6 +393,7 @@ class TurnAttempt {
 	private async yieldTurn(): Promise<TurnExecutionOutcome> {
 		await this.flushStreams();
 		this.writer.throwIfFailed();
+		await recordTurnCost(this.finalizeInputs(this.session!, this.root!), "yielded");
 		await yieldAttempt(this.deps, this.job.tenantId, this.job.turnId, this.attemptId);
 		return "yielded";
 	}
@@ -399,7 +402,7 @@ class TurnAttempt {
 		await this.flushStreams();
 		this.writer.throwIfFailed();
 		if (this.session !== null && this.root !== null) {
-			await recordTurnSpend(this.finalizeInputs(this.session, this.root), this.promptEntryId());
+			await recordTurnCost(this.finalizeInputs(this.session, this.root), "failed");
 		}
 		await failTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, reason);
 		return "failed";
@@ -416,12 +419,6 @@ class TurnAttempt {
 			root,
 			context: this.context,
 		};
-	}
-
-	private promptEntryId(): number | null {
-		const prompt = this.inputs.find((input) => input.isPrompt);
-		const entry = prompt?.settled?.entry;
-		return entry === undefined ? null : entry;
 	}
 
 	private async settleError(thrown: unknown): Promise<TurnExecutionOutcome> {
@@ -596,7 +593,7 @@ export async function claimTurnAttempt(
  * Run one queued turn to its end: claim it, take the Pi storage fence, open the bot's session, bring the session up to
  * the channel from the mailbox, run the model with Pi, forward Pi's events as coalesced turn events, steer messages
  * posted to the same bot while it works, and finish. A finished turn commits only the final assistant text to the
- * channel at the next sequence, records its spend on the vendor ledger and completes; a failed model call fails the
+ * channel at the next sequence, records the cost of its model calls in the session and on the ledger and completes; a failed model call fails the
  * turn with a reason the member can read. Whatever happens, the attempt writes nothing once another attempt owns the
  * turn.
  *

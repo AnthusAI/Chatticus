@@ -88,8 +88,6 @@ export function turnFromItem(item: Record<string, AttributeValue>): Turn {
 		nextEventSeq: optionalNumber(item, "next_event_seq") ?? 1,
 		terminalReason: optionalString(item, "terminal_reason"),
 		messageSeq: optionalNumber(item, "message_seq"),
-		ledgerInputRecorded: optionalNumber(item, "ledger_input_recorded") ?? 0,
-		ledgerOutputRecorded: optionalNumber(item, "ledger_output_recorded") ?? 0,
 	};
 }
 

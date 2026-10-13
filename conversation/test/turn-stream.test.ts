@@ -27,8 +27,6 @@ function turnRecord(overrides: Partial<Turn>): Turn {
 		nextEventSeq: 9,
 		terminalReason: null,
 		messageSeq: 7,
-		ledgerInputRecorded: 0,
-		ledgerOutputRecorded: 0,
 		...overrides,
 	};
 }

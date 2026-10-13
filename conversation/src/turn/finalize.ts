@@ -1,17 +1,14 @@
 import type { Context } from "@earendil-works/chord";
-import { type Conversation, type Cursor, type EntryId, ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable";
+import { type Conversation, ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable";
 import type { Channel } from "../domain/channels.ts";
 import type { Turn } from "../domain/turns.ts";
-import type { PricedCallSubject } from "../ledger/price-book.ts";
-import { recordTurnSpendOnce } from "../ledger/vendor-ledger.ts";
+import { deriveCostRecordsFromEntries, readCallCostRecords } from "../ledger/call-cost.ts";
+import { projectTurnCost, summarizeTurnCost, type TurnCostStatus } from "../ledger/turn-cost.ts";
 import { appendLine, ChannelLogDoc, readEntryBody } from "../pi/channel-log.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxStore } from "../pi/mailbox.ts";
 import type { OwnerSession } from "../pi/session.ts";
 import type { Bot } from "../store/codecs/bot.ts";
-import { getTurn } from "../domain/turns.ts";
 import type { ExecutorDeps } from "./types.ts";
-
-const ENTRY_PAGE_SIZE = 200;
 
 /** What finalizing needs to know about the running attempt. */
 export type FinalizeInputs = {
@@ -31,75 +28,55 @@ export type CommittedReply = { readonly messageSeq: number; readonly body: strin
 /** The id of the log line of a turn's reply; stable, so a re-run of finalize finds the line it already wrote. */
 export const replyMessageIdFor = (turnId: string): string => `reply-${turnId}`;
 
-/** The model calls of a turn, one per assistant message, in order, and their token totals. */
-export type TurnUsage = { readonly calls: readonly PricedCallSubject[]; readonly inputTotal: number; readonly outputTotal: number };
+/** Where in the life of a turn its cost is being recorded; it becomes the status of the turn index item. */
+export type CostRecordingPoint = "resumed" | "yielded" | "parked" | "completed" | "failed";
+
+const statusOfPoint = (point: CostRecordingPoint): TurnCostStatus => (point === "resumed" ? "running" : point);
+
+/** The request id under which a turn's prompt is submitted to the session; the submission names the prompt entry. */
+export const promptRequestIdFor = (turnId: string): string => `turn:${turnId}`;
 
 /**
- * Collect the model calls of a turn: every assistant message from the turn's prompt entry on, steered messages and tool
- * rounds included, each with the model that served it and its stored counters (uncached input, cache reads, cache
- * writes, output with reasoning inside it). The input total counts cached tokens too, because the ledger has one input
- * counter.
- *
- * @param root The root conversation.
- * @param promptEntryId The entry of the turn's prompt.
- * @param context Cancellation context.
- * @returns The calls and totals, or null when the model never answered.
- */
-export async function measureTurnUsage(
-	root: Conversation,
-	promptEntryId: number,
-	context: Context,
-): Promise<TurnUsage | null> {
-	const calls: PricedCallSubject[] = [];
-	let inputTotal = 0;
-	let outputTotal = 0;
-	let cursor: Cursor | undefined;
-	do {
-		const page = await root.entries({ minEntryId: promptEntryId as EntryId }, ENTRY_PAGE_SIZE, cursor, context);
-		for (const entry of page.items) {
-			const message = entry.model?.[0];
-			if (message?.role !== "assistant") continue;
-			const { input, cacheRead, cacheWrite, output } = message.usage;
-			calls.push({
-				vendor: message.provider,
-				model: message.model,
-				inputTokens: input,
-				cacheReadTokens: cacheRead,
-				cacheWriteTokens: cacheWrite,
-				outputTokens: output,
-			});
-			inputTotal += input + cacheRead + cacheWrite;
-			outputTotal += output;
-		}
-		cursor = page.next;
-	} while (cursor !== undefined);
-	return calls.length === 0 ? null : { calls, inputTotal, outputTotal };
-}
-
-/**
- * Write the part of the turn's usage that the vendor ledger does not hold yet. The ledger row and the turn record's
- * recorded counters move in one transaction under the attempt's fence, so a recovered attempt never counts twice.
+ * Record the cost of the turn so far, from the session. This is the only path from model calls to dollars: the cost
+ * records are derived from the assistant entries of the root conversation, keyed by entry, so doing it again, on this
+ * owner or a later one, after a retry, a takeover or a crash, writes each call once and loses none the session
+ * committed. Then the turn's ledger row and turn index item are written from those same records.
  *
  * @param inputs The running attempt.
- * @param promptEntryId The entry of the turn's prompt, or null when the prompt was never placed.
+ * @param point Where in the turn's life this is called.
+ * @param messageSeq The sequence of the reply, when the turn has just committed one.
  */
-export async function recordTurnSpend(inputs: FinalizeInputs, promptEntryId: number | null): Promise<void> {
-	if (promptEntryId === null) return;
-	const totals = await measureTurnUsage(inputs.root, promptEntryId, inputs.context);
-	if (totals === null) return;
-	const recorded = await getTurn(inputs.deps.turns, inputs.turn.tenantId, inputs.turn.turnId);
-	await recordTurnSpendOnce(inputs.deps.ledger, {
-		tenantId: inputs.turn.tenantId,
-		turnId: inputs.turn.turnId,
-		attemptId: inputs.attemptId,
-		calls: totals.calls,
-		progress: {
-			inputTotal: totals.inputTotal,
-			outputTotal: totals.outputTotal,
-			inputRecorded: recorded.ledgerInputRecorded,
-			outputRecorded: recorded.ledgerOutputRecorded,
+export async function recordTurnCost(inputs: FinalizeInputs, point: CostRecordingPoint, messageSeq: number | null = null): Promise<void> {
+	const { deps, turn, session, root, context } = inputs;
+	const prompt = await session.harness.commit((tx) => tx.submissionByRequest(root.id, promptRequestIdFor(turn.turnId)), context);
+	const promptEntryId = prompt?.entry;
+	if (promptEntryId === undefined) return;
+	await deriveCostRecordsFromEntries(
+		session.harness,
+		session.storage,
+		{ conversationId: root.id, turnId: turn.turnId, promptEntryId: Number(promptEntryId), prices: deps.ledger.prices, now: deps.ledger.now },
+		context,
+	);
+	const records = (await readCallCostRecords(session.harness, session.storage, root.id, context)).filter(
+		(record) => record.turnId === turn.turnId,
+	);
+	const summary = summarizeTurnCost(records);
+	if (summary === null) return;
+	await projectTurnCost(
+		deps.ledger,
+		{
+			tenantId: turn.tenantId,
+			turnId: turn.turnId,
+			botId: turn.botId,
+			channelId: turn.channelId,
+			promptAuthorId: turn.promptAuthorId,
+			promptMessageSeq: turn.promptMessageSeq,
+			messageSeq: messageSeq ?? turn.messageSeq,
+			ownerKind: deps.ownerKind,
+			status: statusOfPoint(point),
 		},
-	});
+		summary,
+	);
 }
 
 /**

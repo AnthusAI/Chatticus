@@ -74,6 +74,7 @@ export function createContainerOwnerDeps(config: OwnerStoresConfig, log?: LogEmi
 		models: createGatewayModels(config.gateway, log),
 		model: DEFAULT_TURN_MODEL,
 		ledger: { client, tableName: config.messagingTableName, prices: defaultVendorPriceBook(), now: () => new Date() },
+		ownerKind: "computer",
 		workerLabel: "computer-host-owner",
 		turnRuns: NO_OP_TURN_RUNS,
 		turnProbes: NO_OP_TURN_PROBES,

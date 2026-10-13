@@ -49,6 +49,7 @@
 						"${aws:PrincipalTag/tenant}#computer#actions",
 						"${aws:PrincipalTag/tenant}#computer#record",
 						"${aws:PrincipalTag/tenant}#vendor_ledger",
+						"${aws:PrincipalTag/tenant}#cost#*",
 						"MB#${aws:PrincipalTag/tenant}#${aws:PrincipalTag/bot}#${aws:PrincipalTag/channel}"
 					]
 				}
