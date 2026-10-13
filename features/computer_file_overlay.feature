@@ -241,3 +241,14 @@ Feature: Edits made while the computer is off are kept in an overlay that the ow
     Then the owner request is answered with 1 entry remaining
     And the effective view shows "/workspace/plan.md" with the hash of "v1" marked "conflict" and the person's hash of "from Mia"
     And the overlay audit trail has a record with operation "overlay_apply" and outcome "conflict" for "/workspace/plan.md"
+
+  @server
+  Scenario: The reason the owner gives for a conflict is the one that is stored
+    Given the computer disk holds workspace file "plan.md" containing "v1"
+    And the computer disk is published
+    And member "mia" saved "/workspace/plan.md" as "from Mia" in the overlay
+    And an owner of the household computer is hydrating
+    And the owner sealed the overlay
+    When the owner reports a conflict for "/workspace/plan.md" because of a collision with the disk hash of "from the host"
+    Then the owner request is answered with 1 entry remaining
+    And the stored conflict of "/workspace/plan.md" has the reason "collision"

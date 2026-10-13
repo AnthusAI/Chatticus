@@ -709,6 +709,29 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				expect(await store.getLiveFileOperation("tenant-a", "op-1", at(3))).toBeNull();
 			});
 
+			it("keeps an answer of 2000 listing entries, which is more than a table item holds as text", async () => {
+				const store = await makeStore();
+				await liveComputer(store);
+				await store.queueLiveFileOperation(operation("op-big"), at(45));
+				await store.deliverLiveFileOperation("tenant-a", "op-big", delivery(3));
+				const entries = Array.from({ length: 2000 }, (_, number) => ({
+					name: `file-${number}.txt`,
+					path: `/workspace/many/file-${number}.txt`,
+					kind: "file",
+					size: number,
+					mode: "664",
+					sha256: null,
+					link_target: null,
+					modified_at: "2026-01-01T00:00:00.000Z",
+					overlay: "none",
+					tree_sha256: null,
+				}));
+				const outcome = JSON.stringify({ status: "ok", result: { kind: "list", resolved_path: "/workspace/many", entries, truncated: false } });
+				expect(outcome.length).toBeGreaterThan(400_000);
+				expect((await store.completeLiveFileOperation("tenant-a", "op-big", outcome, at(2)))?.outcome).toBe(outcome);
+				expect((await store.getLiveFileOperation("tenant-a", "op-big", at(3)))?.outcome).toBe(outcome);
+			});
+
 			it("treats an item past its expiry as absent to every reader and counts only open requests", async () => {
 				const store = await makeStore();
 				await liveComputer(store);

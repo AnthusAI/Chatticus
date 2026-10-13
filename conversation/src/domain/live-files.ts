@@ -11,7 +11,10 @@ import {
 	LIVE_FILE_INTERACTIVE_WINDOW_SECONDS,
 	LIVE_FILE_MAX_REQUESTS_PER_POLL,
 	LIVE_FILE_OPERATION_TTL_SECONDS,
+	LIVE_FILE_OUTCOME_GRACE_MILLISECONDS,
+	LIVE_FILE_RESULT_CHECK_MILLISECONDS,
 	LIVE_FILE_WAIT_MILLISECONDS,
+	liveFileOutcomeSchema,
 	ownerFileRequestSchema,
 	type LiveFileFallbackReason,
 	type LiveFileOutcome,
@@ -359,4 +362,85 @@ export async function watchFilePanel(
 		((worker !== null && liveOwnerOf(computer, worker, now, deps.heartbeatTimeoutSeconds) && (worker.pollState === "booting" || worker.pollState === "hydrating")) ||
 			(computer.hostStartLeaseExpiresAt !== undefined && computer.hostStartLeaseExpiresAt.getTime() > now.getTime()));
 	return { state: starting ? "starting" : "off", interactive_until: null, poll_interval_ms: null };
+}
+
+/** How the Front Door sleeps between looks at a request. A deployed Front Door sleeps for real; scenarios drive it by hand. */
+export interface FileWaitPort {
+	sleep(milliseconds: number): Promise<void>;
+}
+
+/** The sleep of a deployed Front Door. */
+export const realFileWait: FileWaitPort = { sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) };
+
+/** How a wait for the owner's answer ended. */
+export type LiveFileWaitResult =
+	| { readonly kind: "done"; readonly outcome: LiveFileOutcome }
+	| { readonly kind: "abandoned" }
+	| { readonly kind: "unknown" };
+
+/** What a wait is for. */
+export type LiveFileWaitTarget = {
+	readonly tenantId: string;
+	readonly operationId: string;
+	readonly queuedAt: Date;
+	/** A write the owner took is waited for 7 seconds more, because it may still land; a read gives up at once. */
+	readonly graceForDelivered: boolean;
+};
+
+type LookResult = { readonly kind: "done"; readonly outcome: LiveFileOutcome } | { readonly kind: "gone" } | { readonly kind: "open" };
+
+async function lookAtRequest(deps: Pick<LiveFileDependencies, "store" | "clock">, target: LiveFileWaitTarget): Promise<LookResult> {
+	const operation = await deps.store.getLiveFileOperation(target.tenantId, target.operationId, deps.clock.now());
+	if (operation === null) return { kind: "gone" };
+	if (operation.status === "done" && operation.outcome !== undefined) {
+		await deps.store.deleteLiveFileOperation(target.tenantId, target.operationId);
+		return { kind: "done", outcome: liveFileOutcomeSchema.parse(JSON.parse(operation.outcome)) };
+	}
+	return operation.status === "abandoned" ? { kind: "gone" } : { kind: "open" };
+}
+
+/**
+ * Wait for the owner's answer to a queued request: look at the request every 250 milliseconds for up to 8 seconds from the
+ * moment it was queued. At the deadline exactly one of two things is true. Still pending: the request is abandoned in one
+ * conditional write and will never be delivered. Already delivered: the owner has it. A read stops there and leaves the
+ * request marked so that the result route deletes it when the late answer comes. A write waits 7 more seconds, because it
+ * may still land, and is then reported as unknown. The answer is deleted once read, so the table does not keep content.
+ *
+ * @param deps Store and clock.
+ * @param wait How to sleep between looks.
+ * @param target The request and when it was queued.
+ * @returns The answer; abandoned (the owner never took it and never will); or unknown (the owner took it and did not answer in time).
+ */
+export async function awaitLiveFileOutcome(
+	deps: Pick<LiveFileDependencies, "store" | "clock">,
+	wait: FileWaitPort,
+	target: LiveFileWaitTarget,
+): Promise<LiveFileWaitResult> {
+	const deadline = target.queuedAt.getTime() + LIVE_FILE_WAIT_MILLISECONDS;
+	for (;;) {
+		const look = await lookAtRequest(deps, target);
+		if (look.kind === "done") return look;
+		if (look.kind === "gone") return { kind: "abandoned" };
+		if (deps.clock.now().getTime() >= deadline) break;
+		await wait.sleep(LIVE_FILE_RESULT_CHECK_MILLISECONDS);
+	}
+	const abandoned = await deps.store.abandonLiveFileOperation(target.tenantId, target.operationId, deps.clock.now());
+	if (abandoned === "abandoned" || abandoned === "absent") return { kind: "abandoned" };
+	if (abandoned === "done") {
+		const look = await lookAtRequest(deps, target);
+		return look.kind === "done" ? look : { kind: "abandoned" };
+	}
+	if (target.graceForDelivered) {
+		const graceDeadline = deadline + LIVE_FILE_OUTCOME_GRACE_MILLISECONDS;
+		for (;;) {
+			await wait.sleep(LIVE_FILE_RESULT_CHECK_MILLISECONDS);
+			const look = await lookAtRequest(deps, target);
+			if (look.kind === "done") return look;
+			if (look.kind === "gone") return { kind: "abandoned" };
+			if (deps.clock.now().getTime() >= graceDeadline) break;
+		}
+	}
+	if (await deps.store.markLiveFileOperationWaiterGone(target.tenantId, target.operationId)) return { kind: "unknown" };
+	const last = await lookAtRequest(deps, target);
+	return last.kind === "done" ? last : { kind: "unknown" };
 }

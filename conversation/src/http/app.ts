@@ -43,7 +43,15 @@ import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { registerWorkerHandler } from "./routes/workers.ts";
 import { getComputerHandler, resumeTurnHandler } from "./routes/computers.ts";
-import { listComputerFilesHandler, readComputerFileContentHandler, statComputerFileHandler } from "./routes/computer-files.ts";
+import {
+	listComputerFilesHandler,
+	readComputerFileContentHandler,
+	revealComputerFileHandler,
+	statComputerFileHandler,
+	watchComputerFilesHandler,
+	writeComputerFileContentHandler,
+} from "./routes/computer-files.ts";
+import { realFileWait, type FileWaitPort } from "../domain/live-files.ts";
 import type { SnapshotFileService } from "../snapshot/files.ts";
 import {
 	hostActionResultHandler,
@@ -118,6 +126,8 @@ export interface AppDeps {
 	snapshotFiles?: SnapshotFileService | null;
 	/** The edit overlay of file changes made while the computer is off: its store, the snapshot it merges over and its audit sink. Absent where the deployment has none. */
 	editOverlay?: EditOverlayRuntime | null;
+	/** How a file route sleeps while it waits for the running owner's answer; defaults to real time. */
+	fileWait?: FileWaitPort;
 	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
 	budgetRollups: BudgetRollupReader;
 	/** The invoke keys CloudFront may present, read on every request from a source that caches; null turns the gate off. */
@@ -396,7 +406,19 @@ export function createApp(deps: AppDeps): Hono {
 		resumeTurnHandler(c, computerRoutes),
 	);
 
-	const computerFileRoutes = { ...userRoutes, files: deps.snapshotFiles ?? null };
+	const overlayDependencies: EditOverlayDependencies | null =
+		deps.editOverlay === undefined || deps.editOverlay === null
+			? null
+			: { ...deps.editOverlay, store, clock: deps.clock, ids: deps.ids, heartbeatTimeoutSeconds: deps.computer.heartbeatTimeoutSeconds };
+	const computerFileRoutes = {
+		...userRoutes,
+		files: deps.snapshotFiles ?? null,
+		overlay: overlayDependencies,
+		clock: deps.clock,
+		heartbeatTimeoutSeconds: deps.computer.heartbeatTimeoutSeconds,
+		deploymentAwsAccountId: deps.deploymentAwsAccountId,
+		wait: deps.fileWait ?? realFileWait,
+	};
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files", audience: "user" }, (c) =>
 		listComputerFilesHandler(c, computerFileRoutes),
 	);
@@ -406,11 +428,16 @@ export function createApp(deps: AppDeps): Hono {
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/content", audience: "user" }, (c) =>
 		readComputerFileContentHandler(c, computerFileRoutes),
 	);
+	declareRoute(app, { method: "PUT", path: "/orgs/:tenant_id/computer/files/content", audience: "user" }, (c) =>
+		writeComputerFileContentHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/reveal", audience: "user" }, (c) =>
+		revealComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/watch", audience: "user" }, (c) =>
+		watchComputerFilesHandler(c, computerFileRoutes),
+	);
 
-	const overlayDependencies: EditOverlayDependencies | null =
-		deps.editOverlay === undefined || deps.editOverlay === null
-			? null
-			: { ...deps.editOverlay, store, clock: deps.clock, ids: deps.ids, heartbeatTimeoutSeconds: deps.computer.heartbeatTimeoutSeconds };
 	const overlayFileRoutes = { ...userRoutes, overlay: overlayDependencies };
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/overlay", audience: "user" }, (c) =>
 		listOverlayEntriesHandler(c, overlayFileRoutes),

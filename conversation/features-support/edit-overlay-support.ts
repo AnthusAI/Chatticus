@@ -2,35 +2,11 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { OVERLAY_INDEX_OBJECT, overlayBlobObject, type OverlayEntry } from "@chatticus/host-protocol/edit-overlay";
-import {
-	EditOverlayRefusal,
-	type EditOverlayDependencies,
-	type EditOverlayRuntime,
-	type OverlayAuditFinish,
-	type OverlayAuditRecord,
-	type OverlayAuditSink,
-} from "../src/domain/edit-overlay.ts";
+import { EditOverlayRefusal, type EditOverlayDependencies, type EditOverlayRuntime } from "../src/domain/edit-overlay.ts";
+import { StoreOverlayAuditSink } from "../src/domain/file-audit.ts";
 import { FilesystemOverlayStore, type OverlayLocation } from "../src/snapshot/overlay-store.ts";
 import { snapshotReadStoreOf } from "./computer-snapshot-files-support.ts";
 import type { ChatticusWorld } from "./world.ts";
-
-/** An audit sink that keeps its records in memory, with the finish of each folded into its record. */
-export class RecordingOverlayAuditSink implements OverlayAuditSink {
-	readonly records: Array<OverlayAuditRecord & { finishedAt?: string; removed?: number }> = [];
-	failBegin = false;
-
-	async begin(record: OverlayAuditRecord): Promise<void> {
-		if (this.failBegin) throw new Error("the audit store is unavailable");
-		this.records.push({ ...record });
-	}
-
-	async finish(operationId: string, finish: OverlayAuditFinish): Promise<void> {
-		const found = this.records.find((record) => record.operationId === operationId);
-		assert.ok(found, `No audit record ${operationId} was begun.`);
-		const { outcome, errorCode, removed, finishedAt } = finish;
-		Object.assign(found, { outcome, finishedAt, ...(errorCode === undefined ? {} : { errorCode }), ...(removed === undefined ? {} : { removed }) });
-	}
-}
 
 /** The outcome of one member edit step: recorded, or refused with the code and status the route would answer. */
 export type EditAnswer =
@@ -40,7 +16,7 @@ export type EditAnswer =
 /** What a scenario about the edit overlay remembers between its steps. */
 export type OverlayScenario = {
 	readonly store: FilesystemOverlayStore;
-	readonly audit: RecordingOverlayAuditSink;
+	readonly audit: StoreOverlayAuditSink;
 	readonly location: OverlayLocation;
 	edit: EditAnswer | null;
 	routeAnswer: { status: number; body: any } | null;
@@ -61,7 +37,7 @@ export function createOverlayScenario(world: ChatticusWorld): OverlayScenario {
 	assert.ok(world.snapshotTmpdir, "The scenario has no temporary directory.");
 	const scenario: OverlayScenario = {
 		store: new FilesystemOverlayStore(join(world.snapshotTmpdir, "overlay-objects")),
-		audit: new RecordingOverlayAuditSink(),
+		audit: new StoreOverlayAuditSink(world.messagingStore()),
 		location: { tenantId: TENANT, computerId: COMPUTER_ID },
 		edit: null,
 		routeAnswer: null,

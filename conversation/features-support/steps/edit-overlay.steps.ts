@@ -288,18 +288,33 @@ When("the owner asks to clear {string} at revision {int}", async function (this:
 	await sendOwnerRequest(this, "/owner/overlay-applied", clearBody(owner, path, revision), owner.token);
 });
 
+async function reportConflict(world: ChatticusWorld, path: string, reason: string, diskText: string): Promise<void> {
+	const owner = currentOwner(world);
+	await sendOwnerRequest(
+		world,
+		"/owner/overlay-applied",
+		{ owner_id: owner.ownerId, generation: owner.generation, cleared: [], conflicts: [{ path, revision: appliedRevisionOf(world, path), reason, disk_sha256: hashOfText(diskText) }] },
+		owner.token,
+	);
+}
+
+When("the owner reports a conflict for {string} with the disk hash of {string}", async function (this: ChatticusWorld, path: string, diskText: string) {
+	await reportConflict(this, path, "changed", diskText);
+});
+
 When(
-	"the owner reports a conflict for {string} with the disk hash of {string}",
-	async function (this: ChatticusWorld, path: string, diskText: string) {
-		const owner = currentOwner(this);
-		await sendOwnerRequest(
-			this,
-			"/owner/overlay-applied",
-			{ owner_id: owner.ownerId, generation: owner.generation, cleared: [], conflicts: [{ path, revision: appliedRevisionOf(this, path), disk_sha256: hashOfText(diskText) }] },
-			owner.token,
-		);
+	"the owner reports a conflict for {string} because of a {word} with the disk hash of {string}",
+	async function (this: ChatticusWorld, path: string, reason: string, diskText: string) {
+		await reportConflict(this, path, reason, diskText);
 	},
 );
+
+Then("the stored conflict of {string} has the reason {string}", async function (this: ChatticusWorld, path: string, reason: string) {
+	const index = await storedIndexOf(this);
+	const entry = index?.entries.find((candidate) => candidate.path === path);
+	assert.ok(entry, `The overlay holds no entry for ${path}.`);
+	assert.equal(entry.conflict?.reason, reason);
+});
 
 Then("the overlay answer status is {int}", function (this: ChatticusWorld, status: number) {
 	const answer = overlayScenarioOf(this).routeAnswer;
@@ -400,22 +415,27 @@ Then("the person's version of {string} in the overlay reads {string}", async fun
 	assert.equal(stored, text);
 });
 
-Then("the overlay audit trail has no records", function (this: ChatticusWorld) {
-	assert.deepEqual(overlayScenarioOf(this).audit.records, []);
+
+const overlayAuditRecordsOf = (world: ChatticusWorld) => world.messagingStore().listFileAuditRecords(TENANT, world.clock.now());
+
+Then("the overlay audit trail has no records", async function (this: ChatticusWorld) {
+	assert.deepEqual(await overlayAuditRecordsOf(this), []);
 });
 
-Then("the overlay audit trail has a record for member {string} with operation {string}", function (this: ChatticusWorld, userId: string, operation: string) {
-	const found = overlayScenarioOf(this).audit.records.filter((record) => record.userId === userId && record.operation === operation);
-	assert.equal(found.length, 1, JSON.stringify(overlayScenarioOf(this).audit.records));
+Then("the overlay audit trail has a record for member {string} with operation {string}", async function (this: ChatticusWorld, userId: string, operation: string) {
+	const records = await overlayAuditRecordsOf(this);
+	const found = records.filter((record) => record.userId === userId && record.operation === operation);
+	assert.equal(found.length, 1, JSON.stringify(records));
 	assert.equal(found[0]!.source, "overlay");
 	assert.equal(found[0]!.outcome, "ok");
 });
 
 Then(
 	"the overlay audit trail has a record with operation {string} and outcome {string} for {string}",
-	function (this: ChatticusWorld, operation: string, outcome: string, path: string) {
-		const found = overlayScenarioOf(this).audit.records.filter((record) => record.operation === operation && record.path === path);
-		assert.equal(found.length, 1, JSON.stringify(overlayScenarioOf(this).audit.records));
+	async function (this: ChatticusWorld, operation: string, outcome: string, path: string) {
+		const records = await overlayAuditRecordsOf(this);
+		const found = records.filter((record) => record.operation === operation && record.path === path);
+		assert.equal(found.length, 1, JSON.stringify(records));
 		assert.equal(found[0]!.outcome, outcome);
 		assert.equal(found[0]!.userId, "mia");
 		assert.ok(found[0]!.ownerId, "An overlay_apply record names the owner.");

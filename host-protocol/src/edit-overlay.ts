@@ -134,7 +134,7 @@ export const ownerOverlayAppliedRequestSchema = z
 		owner_id: identifier,
 		generation: z.number().int().positive(),
 		cleared: z.array(entryReference).max(OVERLAY_MAX_ENTRIES).default([]),
-		conflicts: z.array(entryReference.extend({ disk_sha256: sha256Hex.nullable() })).max(OVERLAY_MAX_ENTRIES).default([]),
+		conflicts: z.array(entryReference.extend({ reason: overlayConflictSchema.shape.reason, disk_sha256: sha256Hex.nullable() })).max(OVERLAY_MAX_ENTRIES).default([]),
 	})
 	.strict();
 /** How many entries remain after the clear. */

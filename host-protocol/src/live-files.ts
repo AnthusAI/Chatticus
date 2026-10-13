@@ -56,6 +56,56 @@ export const LIVE_FILE_RETRY_AFTER_MIN_MILLISECONDS = 1000;
 /** The largest `retry_after_ms`. */
 export const LIVE_FILE_RETRY_AFTER_MAX_MILLISECONDS = 10000;
 
+/**
+ * Every code a member-facing file route answers with, and its HTTP status (docs/LIVE_FILES_PROTOCOL.md section 6.3). The
+ * body is `{ error, message }` plus `current_sha256`, `retry_after_ms` or `kept_as` where the code says so.
+ */
+export const LIVE_FILE_ERROR_STATUS = {
+	invalid_path: 400,
+	invalid_range: 400,
+	invalid_body: 400,
+	path_refused: 403,
+	owner_role_required: 403,
+	not_found: 404,
+	parent_missing: 404,
+	no_snapshot: 404,
+	already_exists: 409,
+	precondition_failed: 409,
+	owner_too_old: 409,
+	edit_unsupported: 409,
+	overlay_full: 409,
+	path_busy: 409,
+	directory_not_empty: 409,
+	snapshot_not_indexed: 409,
+	invalid_move: 422,
+	not_in_saved_copy: 422,
+	not_a_file: 422,
+	not_a_directory: 422,
+	too_many_symlinks: 422,
+	not_text: 422,
+	too_many_entries: 413,
+	content_too_large: 413,
+	file_too_large: 413,
+	range_too_large: 413,
+	precondition_required: 428,
+	rate_limited: 429,
+	too_busy: 429,
+	corrupt_snapshot: 500,
+	owner_error: 502,
+	computer_starting: 503,
+	computer_stopping: 503,
+	audit_unavailable: 503,
+	snapshot_store_unavailable: 503,
+	owner_warming: 503,
+	overlay_unavailable: 503,
+	overlay_contended: 503,
+	owner_timeout: 504,
+	outcome_unknown: 504,
+} as const;
+
+/** One of the codes in {@link LIVE_FILE_ERROR_STATUS}. */
+export type LiveFileErrorCode = keyof typeof LIVE_FILE_ERROR_STATUS;
+
 /** The permission bits of a directory the helper creates, before the umask of the launcher. */
 export const LIVE_FILE_MKDIR_MODE = 0o775;
 
