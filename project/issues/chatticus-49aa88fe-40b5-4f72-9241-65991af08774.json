@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-49aa88fe-40b5-4f72-9241-65991af08774",
+  "title": "T4 Call cost records in the session document, idempotent keyed writes, turn index; retire delta counters and gateway ledger writes",
+  "description": "Pivot ticket. Depends on T1, T2, T3. Files: new conversation/src/ledger/call-cost.ts (ModelCallCost, chatticus.cost defineDoc like conversation/src/pi/channel-log.ts), conversation/src/turn/finalize.ts (measureTurnUsage, recordTurnSpend), conversation/src/turn/executor.ts (calls at conclude, fail, yield, park), conversation/src/gateway/model-gateway.ts (stop writing the ledger), conversation/src/store/turn-store.ts and conversation/src/domain/turns.ts (remove ledger_input_recorded and ledger_output_recorded), computer/host/src/owner-deps.ts (empty VendorPriceBook), turn index pk {tenant}#cost#{yyyy-mm} sk turn#{turnId} with bot_id, channel_id, prompt_author_id, prompt_message_seq, message_seq, owner_kind. Fixes F1, F3, F5(e). Acceptance: plan scenarios 1 to 5 and 20 pass; T1 scenario passes; vitest and cucumber-js green; no dual reader.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:25.063806Z",
+  "updated_at": "2026-10-13T11:31:25.063842Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "Implement idempotent call-cost records in session documents and remove legacy ledger and delta-counter writes.",
+  "right_now_updated_at": "2026-10-13T11:31:26.267485Z",
+  "custom": {}
+}

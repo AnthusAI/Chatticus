@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-26d31605-a3a0-4258-a8e4-d064b24acfea",
+  "title": "T1 Failing scenario: a computer-owner turn is counted twice on the vendor ledger",
+  "description": "Plan: docs/COST_ACCOUNTING.md finding F1. Files: features/cost_call_records.feature (new, add to features/cucumber-features.txt), steps in conversation/features-support/steps/ (reuse vendor-ledger and model-gateway steps). Scenario: one turn runs through the model gateway (recordVendorSpend per call) and then executeTurn finalizes (recordTurnSpend); assert ledger input_tokens equals the session total once. Expected today: FAILS (doubled). Also record the decision: the owner derives dollars from the session, the gateway stops writing the ledger. Acceptance: scenario exists, fails for the doubled count, cucumber-js lists it; no production code in this ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:17.382155Z",
+  "updated_at": "2026-10-13T11:31:17.382190Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "A new test exposes that one owner turn is counted twice on the vendor ledger.",
+  "right_now_updated_at": "2026-10-13T11:31:19.046108Z",
+  "custom": {}
+}

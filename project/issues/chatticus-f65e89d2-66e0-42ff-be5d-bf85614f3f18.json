@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-f65e89d2-66e0-42ff-be5d-bf85614f3f18",
+  "title": "T9 Web: channel cost chip, per-message cost markers, organization Costs page",
+  "description": "Depends on T8. Files: web/lib/api.ts, new web/lib/costs.ts, new web/components/ChannelCostChip.tsx, message marker in the chat message component under web/app/chat/, Costs page route under web/app/chat/. Show unpriced and estimated states; copy says model token cost at published list prices, not a bill. Acceptance: plan scenario 24 passes (features/web_costs.feature); web npm test green. Respect docs/BRAND_GUIDELINES.md.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:42.195725Z",
+  "updated_at": "2026-10-13T11:31:42.195761Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "The team is building cost estimates for channels, messages, and the organization Costs page.",
+  "right_now_updated_at": "2026-10-13T11:31:44.152136Z",
+  "custom": {}
+}

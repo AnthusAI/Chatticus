@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-10e4ad4b-0d86-4b41-ab41-596a8f63a35b",
+  "title": "T5 Complete metering: compaction, aborted and errored calls, voice with member and channel, gateway observations and reconciliation",
+  "description": "Depends on T4. Files: conversation/src/voice/understanding.ts (keep cacheRead), conversation/src/domain/voice-messages.ts (record member and channel, report failure instead of console.warn), conversation/src/gateway/model-gateway.ts (observed items pk {tenant}#cost#observed, TTL 35 days, flag estimated), new conversation/src/ledger/reconcile.ts. Acceptance: plan scenarios 10, 11, 12, 13, 19 pass.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:28.674788Z",
+  "updated_at": "2026-10-13T11:31:28.674830Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "The team is adding complete metering, failure reporting, gateway observations, and reconciliation.",
+  "right_now_updated_at": "2026-10-13T11:31:30.771976Z",
+  "custom": {}
+}

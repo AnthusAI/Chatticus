@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8a825643-9fe1-41e2-87e9-a725d508924f",
+      "author": "home",
+      "text": "Superseded by the cost accounting epic ticket T3 (versioned price book with cache and tiers). See docs/COST_ACCOUNTING.md, PR 533.",
+      "created_at": "2026-10-13T11:31:49.535734Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-auditor"
+      }
+    }
+  ],
   "created_at": "2026-10-11T14:22:52.253428Z",
-  "updated_at": "2026-10-11T14:22:52.253468Z",
+  "updated_at": "2026-10-13T11:31:49.535758Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Model pricing omits cached-token discounts and Luna’s long-context rates, causing slight cost overestimates.",
-  "right_now_updated_at": "2026-10-11T14:22:53.190120Z",
+  "right_now_summary": "Cost modeling moved to epic T3, which will add cached-token and long-context pricing.",
+  "right_now_updated_at": "2026-10-13T11:31:50.607447Z",
   "custom": {}
 }

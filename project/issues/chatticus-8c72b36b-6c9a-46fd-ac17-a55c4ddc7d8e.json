@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-8c72b36b-6c9a-46fd-ac17-a55c4ddc7d8e",
+  "title": "T3 Versioned vendor price book with cache, long-context tiers and published-page source",
+  "description": "Supersedes chatticus-12ba7f. Files: conversation/src/ledger/vendor-prices.ts, conversation/src/ledger/vendor-ledger.ts (costUsdFromTokens), conversation/src/gateway/model-gateway.ts, conversation/src/turn/openai-models.ts, docs/BUDGETS.md price table. Give every allowed model input, output, cacheRead, cacheWrite and tiers (above 272000 input for gpt-6-luna per pi-ai openai.json), a priceBookId naming source and retrieval date, verified against OpenAI's own page not LiteLLM. Unpriced model fails the Lambda turn closed with a clear reason. Vitest guard: gateway-allowed models equal price book models. Acceptance: scenarios 6, 7, 8, 9 of the plan list pass; docs/BUDGETS.md table updated.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:22.757961Z",
+  "updated_at": "2026-10-13T11:31:22.758025Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "The team is adding versioned vendor pricing with cache tiers, source dates, validation, and updated budget docs.",
+  "right_now_updated_at": "2026-10-13T11:31:23.874918Z",
+  "custom": {}
+}

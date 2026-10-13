@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-09bef06b-4f70-4b47-86ea-63595bee5205",
+  "title": "T8 HTTP cost API: channel, turn, organization rollup, compare, export",
+  "description": "Depends on T4 and T7. Files: new conversation/src/http/routes/costs.ts, conversation/src/http/app.ts, new conversation/src/domain/costs.ts. Routes: GET /orgs/{t}/channels/{c}/cost, /turns/{id}/cost, /costs?group_by=, /costs/export?format=csv|ndjson, /costs/compare. Authorization per the owner's answer to question 4 of the plan. Acceptance: plan scenarios 17, 18, 21, 22, 23 pass; features/cost_api.feature in cucumber-features.txt.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:38.954210Z",
+  "updated_at": "2026-10-13T11:31:38.954257Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "Implement HTTP cost APIs for channel, turn, organization rollups, comparisons, and exports.",
+  "right_now_updated_at": "2026-10-13T11:31:40.069441Z",
+  "custom": {}
+}

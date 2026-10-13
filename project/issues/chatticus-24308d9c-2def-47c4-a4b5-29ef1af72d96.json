@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-24308d9c-2def-47c4-a4b5-29ef1af72d96",
+  "title": "T6 Sub-agent and fork cost accounting plus parity guard and AGENTS.md rule",
+  "description": "Depends on T4 and spike T2. Files: conversation/src/turn/finalize.ts (walk every conversation of the session, not only root.entries), conversation/src/storage/indexed-storage.ts queries as needed, structural vitest guard under conversation/test listing every model call site against a metered allowlist, AGENTS.md one-line rule (a feature that creates conversations, calls a model or moves a session carries cost accounting in the same PR). Acceptance: plan scenarios 14, 15, 16 pass; the guard fails when an unmetered completeSimple or streamSimple caller is added.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:32.560640Z",
+  "updated_at": "2026-10-13T11:31:32.560680Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "T6 will add cost accounting for sub-agents and forks, with tests and a guard for unmetered model calls.",
+  "right_now_updated_at": "2026-10-13T11:31:33.706754Z",
+  "custom": {}
+}
