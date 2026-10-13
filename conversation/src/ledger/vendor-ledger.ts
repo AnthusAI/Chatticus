@@ -15,28 +15,11 @@ import { BILLED_VIA_VENDOR } from "../budget/models.ts";
 import { StaleAttemptError } from "../http/errors.ts";
 import { retryTransient } from "../store/transient-retry.ts";
 import { turnItemPartitionKey } from "../store/turn-events.ts";
+import { type PricedCalls, type PricedCallSubject, priceCalls, type VendorPriceBook } from "./price-book.ts";
 
 const MILLION_EXPONENT = 6;
 const COST_SCALE = 8;
 const TRANSACTION_ATTEMPTS = 5;
-
-/** Per-million-token list price in United States dollars. */
-export type VendorPrice = { readonly inputPerMillionUsd: Decimal; readonly outputPerMillionUsd: Decimal };
-
-/** Write-time vendor model prices; a model with no registered price is recorded with tokens and null dollars. */
-export class VendorPriceBook {
-	private readonly prices = new Map<string, VendorPrice>();
-
-	/** Register the price of one vendor model. */
-	register(vendor: string, model: string, price: VendorPrice): void {
-		this.prices.set(`${vendor}\u0000${model}`, price);
-	}
-
-	/** The price of one vendor model, or null when none is registered. */
-	lookup(vendor: string, model: string): VendorPrice | null {
-		return this.prices.get(`${vendor}\u0000${model}`) ?? null;
-	}
-}
 
 /** Token counts of one vendor model call. */
 export type SpendUsage = {
@@ -58,6 +41,10 @@ export type VendorLedgerEntry = {
 	readonly inputPricePerMillionUsd: Decimal | null;
 	readonly outputPricePerMillionUsd: Decimal | null;
 	readonly costUsd: Decimal | null;
+	readonly priceBookId: string | null;
+	readonly pricedWith: readonly string[];
+	readonly models: readonly string[];
+	readonly unpricedCalls: number;
 	readonly recordedAt: string;
 };
 
@@ -88,6 +75,10 @@ function entryFromItem(item: Item): VendorLedgerEntry {
 		inputPricePerMillionUsd: optionalDecimal(item, "input_price_per_million_usd"),
 		outputPricePerMillionUsd: optionalDecimal(item, "output_price_per_million_usd"),
 		costUsd: optionalDecimal(item, "cost_usd"),
+		priceBookId: item.price_book_id?.S ?? null,
+		pricedWith: [...(item.priced_with?.SS ?? [])].sort(),
+		models: [...(item.models?.SS ?? [])].sort(),
+		unpricedCalls: Number(item.unpriced_calls?.N ?? "0"),
 		recordedAt: item.recorded_at!.S!,
 	};
 }
@@ -130,9 +121,26 @@ export async function getVendorLedgerEntry(
 	return result.Item === undefined ? null : entryFromItem(result.Item);
 }
 
-function insertItem(deps: VendorLedgerDependencies, tenantId: string, turnId: string, usage: SpendUsage, billedVia: string): Item {
+function pricingAttributes(pricing: PricedCalls, priceBookId: string, hasTokens: boolean): Item {
+	const attributes: Item = {
+		price_book_id: { S: priceBookId },
+		models: { SS: [...pricing.models] },
+		unpriced_calls: { N: String(pricing.unpricedCalls) },
+	};
+	if (pricing.pricedWith.length > 0) attributes.priced_with = { SS: [...pricing.pricedWith] };
+	if (pricing.costUsd !== null && hasTokens) attributes.cost_usd = { N: pricing.costUsd.toString() };
+	return attributes;
+}
+
+function insertItem(
+	deps: VendorLedgerDependencies,
+	tenantId: string,
+	turnId: string,
+	usage: SpendUsage,
+	billedVia: string,
+	pricing: PricedCalls,
+): Item {
 	const key = vendorLedgerKey(tenantId, turnId);
-	const price = billedVia === BILLED_VIA_VENDOR ? deps.prices.lookup(usage.vendor, usage.model) : null;
 	const item: Item = {
 		pk: { S: key.pk },
 		sk: { S: key.sk },
@@ -145,13 +153,41 @@ function insertItem(deps: VendorLedgerDependencies, tenantId: string, turnId: st
 		billed_via: { S: billedVia },
 		recorded_at: { S: deps.now().toISOString() },
 	};
+	if (billedVia !== BILLED_VIA_VENDOR) return item;
+	Object.assign(item, pricingAttributes(pricing, deps.prices.priceBookId, usage.inputTokens > 0 || usage.outputTokens > 0));
+	const price = deps.prices.lookup(usage.vendor, usage.model);
 	if (price !== null) {
 		item.input_price_per_million_usd = { N: price.inputPerMillionUsd.toString() };
 		item.output_price_per_million_usd = { N: price.outputPerMillionUsd.toString() };
-		const cost = costUsdFromTokens(usage.inputTokens, usage.outputTokens, price.inputPerMillionUsd, price.outputPerMillionUsd);
-		if (cost !== null) item.cost_usd = { N: cost.toString() };
 	}
 	return item;
+}
+
+const pricingOfSingleCall = (deps: VendorLedgerDependencies, usage: SpendUsage): PricedCalls =>
+	priceCalls(deps.prices, [{ ...usage, cacheReadTokens: 0, cacheWriteTokens: 0 }]);
+
+/**
+ * The update that makes a turn row's dollars equal the priced total of every call of the turn, so a re-run that
+ * recomputes the same calls writes the same figures.
+ */
+function turnPricingUpdate(deps: VendorLedgerDependencies, pricing: PricedCalls): { set: string; remove: string; values: Item } {
+	const attributes = pricingAttributes(pricing, deps.prices.priceBookId, true);
+	const values: Item = {
+		":priceBookId": attributes.price_book_id!,
+		":models": attributes.models!,
+		":unpricedCalls": attributes.unpriced_calls!,
+	};
+	let set = "price_book_id = :priceBookId, models = :models, unpriced_calls = :unpricedCalls";
+	let remove = "";
+	if (attributes.priced_with !== undefined) {
+		set += ", priced_with = :pricedWith";
+		values[":pricedWith"] = attributes.priced_with;
+	} else remove += "priced_with";
+	if (attributes.cost_usd !== undefined) {
+		set += ", cost_usd = :costUsd";
+		values[":costUsd"] = attributes.cost_usd;
+	} else remove += `${remove === "" ? "" : ", "}cost_usd`;
+	return { set, remove, values };
 }
 
 function accumulateUpdate(
@@ -173,6 +209,10 @@ function accumulateUpdate(
 		if (cost !== null) {
 			expression += ", cost_usd :costDelta";
 			values[":costDelta"] = { N: cost.toString() };
+		}
+		if (existing.inputPricePerMillionUsd === null) {
+			expression += ", unpriced_calls :unpricedDelta";
+			values[":unpricedDelta"] = { N: "1" };
 		}
 	}
 	return { UpdateExpression: expression, ExpressionAttributeValues: values };
@@ -204,7 +244,7 @@ export async function recordVendorSpend(
 				await deps.client.send(
 					new PutItemCommand({
 						TableName: deps.tableName,
-						Item: insertItem(deps, tenantId, turnId, usage, billedVia),
+						Item: insertItem(deps, tenantId, turnId, usage, billedVia, pricingOfSingleCall(deps, usage)),
 						ConditionExpression: "attribute_not_exists(sk)",
 					}),
 				);
@@ -243,8 +283,13 @@ export type TurnSpendProgress = {
  * `ledger_input_recorded` and `ledger_output_recorded` in the same transaction under the attempt's fence. A recovered
  * attempt that recomputes the same totals therefore finds nothing left to write, and a stale attempt writes nothing.
  *
+ * Dollars are not summed from deltas: every call of the turn is priced by its own model at its own context size, and the
+ * row's `cost_usd` is set to that total, so a recovered attempt recomputing the same calls writes the same figure. The
+ * row's `model` is the model of the turn's first call; `models` lists every model that served a call. A call whose model
+ * the price book lacks is counted in `unpriced_calls` and leaves `cost_usd` absent, which means unknown, never zero.
+ *
  * @param deps Table, prices and clock.
- * @param request The turn, its attempt, the usage identity and the totals.
+ * @param request The turn, its attempt, every call of the turn so far and the token totals.
  * @returns Whether anything was written.
  * @throws StaleAttemptError When the attempt no longer owns the turn or the turn is no longer active.
  */
@@ -254,14 +299,18 @@ export async function recordTurnSpendOnce(
 		readonly tenantId: string;
 		readonly turnId: string;
 		readonly attemptId: string;
-		readonly usage: Pick<SpendUsage, "vendor" | "model">;
+		readonly calls: readonly PricedCallSubject[];
 		readonly progress: TurnSpendProgress;
 	},
 ): Promise<boolean> {
 	const inputDelta = request.progress.inputTotal - request.progress.inputRecorded;
 	const outputDelta = request.progress.outputTotal - request.progress.outputRecorded;
 	if (inputDelta <= 0 && outputDelta <= 0) return false;
-	const usage: SpendUsage = { ...request.usage, inputTokens: inputDelta, outputTokens: outputDelta };
+	const first = request.calls[0];
+	if (first === undefined) return false;
+	const usage: SpendUsage = { vendor: first.vendor, model: first.model, inputTokens: inputDelta, outputTokens: outputDelta };
+	const pricing = priceCalls(deps.prices, request.calls);
+	const pricingUpdate = turnPricingUpdate(deps, pricing);
 	const turnKey = { pk: { S: turnItemPartitionKey(request.tenantId, request.turnId) }, sk: { S: "meta" } };
 	const key = vendorLedgerKey(request.tenantId, request.turnId);
 	for (let attempt = 0; attempt < TRANSACTION_ATTEMPTS; attempt += 1) {
@@ -271,7 +320,7 @@ export async function recordTurnSpendOnce(
 				? {
 						Put: {
 							TableName: deps.tableName,
-							Item: insertItem(deps, request.tenantId, request.turnId, usage, BILLED_VIA_VENDOR),
+							Item: insertItem(deps, request.tenantId, request.turnId, usage, BILLED_VIA_VENDOR, pricing),
 							ConditionExpression: "attribute_not_exists(sk)",
 						},
 					}
@@ -280,7 +329,12 @@ export async function recordTurnSpendOnce(
 							TableName: deps.tableName,
 							Key: { pk: { S: key.pk }, sk: { S: key.sk } },
 							ConditionExpression: "attribute_exists(pk)",
-							...accumulateUpdate(existing, usage),
+							UpdateExpression: `SET ${pricingUpdate.set}${pricingUpdate.remove === "" ? "" : ` REMOVE ${pricingUpdate.remove}`} ADD input_tokens :inputDelta, output_tokens :outputDelta`,
+							ExpressionAttributeValues: {
+								...pricingUpdate.values,
+								":inputDelta": { N: String(usage.inputTokens) },
+								":outputDelta": { N: String(usage.outputTokens) },
+							},
 						},
 					};
 		try {

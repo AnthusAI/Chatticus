@@ -2,6 +2,7 @@ import type { Context } from "@earendil-works/chord";
 import { type Conversation, type Cursor, type EntryId, ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable";
 import type { Channel } from "../domain/channels.ts";
 import type { Turn } from "../domain/turns.ts";
+import type { PricedCallSubject } from "../ledger/price-book.ts";
 import { recordTurnSpendOnce } from "../ledger/vendor-ledger.ts";
 import { appendLine, ChannelLogDoc, readEntryBody } from "../pi/channel-log.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxStore } from "../pi/mailbox.ts";
@@ -30,36 +31,49 @@ export type CommittedReply = { readonly messageSeq: number; readonly body: strin
 /** The id of the log line of a turn's reply; stable, so a re-run of finalize finds the line it already wrote. */
 export const replyMessageIdFor = (turnId: string): string => `reply-${turnId}`;
 
-type UsageTotals = { inputTotal: number; outputTotal: number; vendor: string; model: string };
+/** The model calls of a turn, one per assistant message, in order, and their token totals. */
+export type TurnUsage = { readonly calls: readonly PricedCallSubject[]; readonly inputTotal: number; readonly outputTotal: number };
 
 /**
- * Add up the model usage of a turn: every assistant message from the turn's prompt entry on, steered messages and tool
- * rounds included. Input counts cached tokens too, because the ledger has one input counter.
+ * Collect the model calls of a turn: every assistant message from the turn's prompt entry on, steered messages and tool
+ * rounds included, each with the model that served it and its stored counters (uncached input, cache reads, cache
+ * writes, output with reasoning inside it). The input total counts cached tokens too, because the ledger has one input
+ * counter.
  *
  * @param root The root conversation.
  * @param promptEntryId The entry of the turn's prompt.
  * @param context Cancellation context.
- * @returns The totals and the vendor and model of the newest assistant message, or null when the model never answered.
+ * @returns The calls and totals, or null when the model never answered.
  */
 export async function measureTurnUsage(
 	root: Conversation,
 	promptEntryId: number,
 	context: Context,
-): Promise<UsageTotals | null> {
-	let totals: UsageTotals | null = null;
+): Promise<TurnUsage | null> {
+	const calls: PricedCallSubject[] = [];
+	let inputTotal = 0;
+	let outputTotal = 0;
 	let cursor: Cursor | undefined;
 	do {
 		const page = await root.entries({ minEntryId: promptEntryId as EntryId }, ENTRY_PAGE_SIZE, cursor, context);
 		for (const entry of page.items) {
 			const message = entry.model?.[0];
 			if (message?.role !== "assistant") continue;
-			if (totals === null) totals = { inputTotal: 0, outputTotal: 0, vendor: message.provider, model: message.model };
-			totals.inputTotal += message.usage.input + message.usage.cacheRead + message.usage.cacheWrite;
-			totals.outputTotal += message.usage.output;
+			const { input, cacheRead, cacheWrite, output } = message.usage;
+			calls.push({
+				vendor: message.provider,
+				model: message.model,
+				inputTokens: input,
+				cacheReadTokens: cacheRead,
+				cacheWriteTokens: cacheWrite,
+				outputTokens: output,
+			});
+			inputTotal += input + cacheRead + cacheWrite;
+			outputTotal += output;
 		}
 		cursor = page.next;
 	} while (cursor !== undefined);
-	return totals;
+	return calls.length === 0 ? null : { calls, inputTotal, outputTotal };
 }
 
 /**
@@ -78,7 +92,7 @@ export async function recordTurnSpend(inputs: FinalizeInputs, promptEntryId: num
 		tenantId: inputs.turn.tenantId,
 		turnId: inputs.turn.turnId,
 		attemptId: inputs.attemptId,
-		usage: { vendor: totals.vendor, model: totals.model },
+		calls: totals.calls,
 		progress: {
 			inputTotal: totals.inputTotal,
 			outputTotal: totals.outputTotal,

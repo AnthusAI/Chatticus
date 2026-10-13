@@ -12,7 +12,7 @@ import type { ComputerStartJob, ComputerStartQueue } from "../../../conversation
 import { type MessageDependencies, postMessage } from "../../../conversation/src/domain/messages.ts";
 import type { TurnProbeQueue, TurnRunJob, TurnRunQueue, TurnRunVisibility } from "../../../conversation/src/domain/turn-admission.ts";
 import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../../../conversation/src/domain/workers.ts";
-import { VendorPriceBook } from "../../../conversation/src/ledger/vendor-ledger.ts";
+import { VendorPriceBook } from "../../../conversation/src/ledger/price-book.ts";
 import type { CommitObject } from "../../../conversation/src/storage/indexed-storage.ts";
 import { MessageBodyCache } from "../../../conversation/src/pi/message-cache.ts";
 import { DynamoComputerActionStore } from "../../../conversation/src/store/action-store.ts";
@@ -82,7 +82,7 @@ export function buildExecutorDeps(
 		piSessionsBucket: PI_BUCKET,
 		models,
 		model,
-		ledger: { client, tableName: MESSAGING_TABLE, prices: new VendorPriceBook(), now: () => new Date() },
+		ledger: { client, tableName: MESSAGING_TABLE, prices: new VendorPriceBook("spike-prices"), now: () => new Date() },
 		workerLabel: owner,
 		turnRuns: queues.turnRuns,
 		turnProbes: queues.turnProbes,

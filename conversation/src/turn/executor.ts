@@ -182,6 +182,12 @@ class TurnAttempt {
 		const bot = await messaging.getBot(this.job.tenantId, this.job.botId);
 		const channel = await messaging.getChannel(this.job.tenantId, this.turn.channelId);
 		if (bot === null || channel === null) return this.fail(MISSING_SUBJECT_REASON);
+		const { prices } = this.deps.ledger;
+		if (prices.lookup(this.deps.model.provider, this.deps.model.modelId) === null) {
+			return this.fail(
+				`No price is tabled for model ${this.deps.model.provider}/${this.deps.model.modelId} in price book ${prices.priceBookId}, so the turn was not run.`,
+			);
+		}
 		this.bot = bot;
 		this.channel = channel;
 		const session = await openOwnerSession(storageIdFor(this.job.tenantId, this.job.botId, this.turn.channelId), {

@@ -35,21 +35,6 @@ Feature: Vendor spend ledger
     When vendor spend is recorded for turn "mini-turn" with model "gpt-5-mini" and tokens 1000000 in 1000000 out
     Then the vendor ledger row for turn "mini-turn" has cost_usd 2.25
 
-  Scenario: A model outside the default prices still records tokens with null dollars
-    Given the default vendor prices of the production compositions are in force
-    When vendor spend is recorded for turn "other-turn" with model "gpt-9-unpriced" and tokens 100 in 50 out
-    Then the vendor ledger row for turn "other-turn" has input tokens 100
-    And the vendor ledger row for turn "other-turn" has null cost_usd
-    And the vendor ledger row for turn "other-turn" has null frozen prices
-
-  Scenario: An unknown model records tokens with null dollars
-    When bot "Helper" is asked "hello unknown model"
-    And bot "Helper" runs one vendor-ledger computerless worker turn with model "unknown-model-id"
-    Then the vendor ledger row for the turn has input tokens 10
-    And the vendor ledger row for the turn has output tokens 5
-    And the vendor ledger row for the turn has null cost_usd
-    And the vendor ledger row for the turn has null frozen prices
-
   Scenario: AWS-billed inference keeps cost_usd null even when a price exists
     Given vendor price for model "chatticus-test-model" is 2.00 input and 4.00 output per million tokens
     When bot "Helper" is asked "hello aws billed"
