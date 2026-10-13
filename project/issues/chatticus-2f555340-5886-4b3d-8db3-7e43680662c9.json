@@ -17,17 +17,29 @@
       "text": "PR open for review (not merged): https://github.com/AnthusAI/Chattic.us-web/pull/21 . ci-local.sh passes (76 scenarios, 41 tests, 5 infra tests, synth); deploy-local.sh --dry-run against legacy reports verdict ok, nothing deployed.",
       "created_at": "2026-10-13T16:22:57.306376Z",
       "comment_type": "default"
+    },
+    {
+      "id": "fea3b108-1e30-4aa6-a6cf-cb8e529e4798",
+      "author": "home",
+      "text": "Merged: AnthusAI/Chattic.us-web PR 21 (local CI and deploy scripts), after the new scripts/ci-local.sh passed on the PR head (76 behave scenarios, 41 unit tests, infra tests, cdk synth) and a dry-run of scripts/deploy-local.sh reported the content-only diff as ok. Production site content (PR 18) was deployed by hand on 2026-10-13 with the apex flag after a cdk diff.",
+      "created_at": "2026-10-13T16:31:48.285759Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-13T16:13:23.325404Z",
-  "updated_at": "2026-10-13T16:22:57.306404Z",
+  "updated_at": "2026-10-13T16:31:48.285809Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude-main"
   },
-  "right_now_summary": "PR #21 is under review; local CI passes, and the deployment dry run reports no changes.",
-  "right_now_updated_at": "2026-10-13T16:23:05.766746Z",
+  "right_now_summary": "Local CI and deploy scripts were merged, validated, and the production content was deployed safely.",
+  "right_now_updated_at": "2026-10-13T16:31:49.982237Z",
   "custom": {}
 }
