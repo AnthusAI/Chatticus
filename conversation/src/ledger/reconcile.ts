@@ -153,6 +153,7 @@ function gatewayCostItems(deps: ReconcileDependencies, observation: StoredGatewa
 		models: { SS: [observation.model] },
 		source: text(COST_SOURCE_GATEWAY),
 		call_id: text(observation.callId),
+		cached_input_tokens: number(observation.cachedInputTokens),
 		estimated: { BOOL: observation.estimated },
 		record_count: number(1),
 	};

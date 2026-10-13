@@ -280,6 +280,7 @@ function turnIndexAssignments(dimensions: TurnCostDimensions, summary: TurnCostS
 	row.put("record_count", number(summary.recordCount));
 	row.put("source", text(COST_SOURCE_SESSION));
 	row.put("response_ids", summary.responseIds.length === 0 ? null : { SS: [...summary.responseIds] });
+	row.put("recorded_at", text(summary.firstRecordedAt || now));
 	row.put("updated_at", text(now));
 	return row;
 }

@@ -37,6 +37,15 @@ import {
 	listTurnEventsHandler,
 } from "./routes/turns.ts";
 import { putTurnGrantHandler } from "./routes/grants.ts";
+import {
+	compareCostsHandler,
+	exportCostsHandler,
+	getChannelCostHandler,
+	getCostSummaryHandler,
+	getMessageCostHandler,
+	getTurnCostHandler,
+	listCostRowsHandler,
+} from "./routes/costs.ts";
 import type { PolicyStore } from "../store/policy-store.ts";
 import { OpenStreamCounter, streamTurnHandler } from "./routes/turn-stream.ts";
 import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamClock } from "./stream.ts";
@@ -358,6 +367,26 @@ export function createApp(deps: AppDeps): Hono {
 		...userRoutes,
 		turns: { store: deps.turnControl, clock: deps.clock, ids: deps.ids },
 	};
+
+	const costRoutes = {
+		...turnRoutes,
+		costs: { client: deps.voice.ledger.client, tableName: deps.voice.ledger.tableName },
+		listing: deps.messages.listing,
+		clock: deps.clock,
+	};
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs", audience: "user" }, (c) => getCostSummaryHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs/turns", audience: "user" }, (c) => listCostRowsHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs/export", audience: "user" }, (c) => exportCostsHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs/compare", audience: "user" }, (c) => compareCostsHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/cost", audience: "user" }, (c) =>
+		getChannelCostHandler(c, costRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages/:seq/cost", audience: "user" }, (c) =>
+		getMessageCostHandler(c, costRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/cost", audience: "user" }, (c) =>
+		getTurnCostHandler(c, costRoutes),
+	);
 
 	const openStreams = deps.openStreams ?? new OpenStreamCounter();
 
