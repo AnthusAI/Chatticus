@@ -59,26 +59,44 @@ OpenAI vendor project and key so vendor spend is attributable.
 
 ## Vendor model prices
 
-The ledger prices a call at write time from a `VendorPriceBook`. Both
+The ledger prices each model call from a versioned `VendorPriceBook`. Both
 production compositions (the turn executor and the front door, whose model
 gateway and voice understanding also write the ledger) use
 `defaultVendorPriceBook()` from `conversation/src/ledger/vendor-prices.ts`,
-a single table of OpenAI list prices in USD per million tokens:
+a table of OpenAI list prices in USD per million tokens. The book's id is
+`openai@2026-10-13+pi-ai-1.0.2`, and every ledger row records the id of the
+book that priced it (`price_book_id`).
 
-| Model | Input | Output |
-| --- | --- | --- |
-| `gpt-6-luna` (bot turns, low reasoning) | 0.10 | 0.50 |
-| `gpt-5-nano` (voice understanding) | 0.05 | 0.40 |
-| `gpt-5-mini` | 0.25 | 2.00 |
+| Model | Input | Cache read | Cache write | Output |
+| --- | --- | --- | --- | --- |
+| `gpt-6-luna` (bot turns, low reasoning) | 0.10 | 0.01 | 0.125 | 0.50 |
+| `gpt-6-luna`, context above 272000 tokens | 0.20 | 0.02 | 0.25 | 0.75 |
+| `gpt-5-nano` (voice understanding) | 0.05 | 0.005 | 0 | 0.40 |
+| `gpt-5-mini` | 0.25 | 0.025 | 0 | 2.00 |
 
-The figures come from LiteLLM's public `model_prices_and_context_window.json`
-as fetched on 2026-10-11. That is a third-party catalog, not OpenAI's price
-page; re-check it when a price matters. The cached-input discount is not
-modelled (the ledger has one input counter), so cost is a slight overestimate,
-and the long-context tier of `gpt-6-luna` (input above 272000 tokens) is not
-modelled. A model with no entry still records tokens, with null dollars. A
-typical turn (about 4,700 input and 220 output tokens on `gpt-6-luna`) costs
-about $0.00058.
+The figures are copied from the `openai` catalog shipped inside
+`@earendil-works/pi-ai` 1.0.2 (`dist/providers/data/openai.json`, read
+2026-10-13), the catalog the Pi harness prices with. They replace the earlier
+LiteLLM figures (the base input and output rates are the same). They have not
+been compared with OpenAI's own price page; a vitest guard pins the table to
+the pi-ai catalog, so an upgrade that changes a figure fails until the table
+and the book id are updated.
+
+A call is priced by its own model: uncached input at the input rate, cache
+reads and writes at their cache rates, output (reasoning included) at the
+output rate, all at the tier the call's context size (uncached input plus
+cache reads plus cache writes) selects. A turn that switches model prices each
+call at its own model. A model whose source lists no cache rate would price its
+cached tokens at the input rate and the row's `priced_with` would carry
+`uncached_fallback`. Service tiers (flex, priority) are not modelled; Chatticus
+requests none.
+
+A model with no entry is never priced as zero. A turn on such a model fails
+before the model is called, with the reason "No price is tabled for model ...".
+A spend record of such a model (for example a voice understanding call) keeps
+its tokens, carries `unpriced_calls` greater than zero and has no `cost_usd`,
+which means unknown. A typical turn (about 4,700 input and 220 output tokens on
+`gpt-6-luna`) costs about $0.00058 when none of the input is cached.
 
 Dollars in the ledger feed the daily rollup's `vendor_cost_usd` and
 `combined_report_usd`, and so the month-to-date meter that the per-organization

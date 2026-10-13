@@ -14,7 +14,7 @@ import { currentTurnOf, readTurn } from "./model.steps.ts";
 const FAKE_COMPLETION_INPUT_TOKENS = 10;
 const FAKE_COMPLETION_OUTPUT_TOKENS = 5;
 
-async function ledgerRow(world: ChatticusWorld, turnId: string): Promise<VendorLedgerEntry> {
+export async function ledgerRow(world: ChatticusWorld, turnId: string): Promise<VendorLedgerEntry> {
 	const tenantId = world.lastChannel?.tenantId ?? "anthus";
 	const row = await getVendorLedgerEntry(ledgerDependenciesFor(world), tenantId, turnId);
 	assert.ok(row, `No vendor ledger row exists for turn ${turnId}`);

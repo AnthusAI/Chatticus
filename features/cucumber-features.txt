@@ -42,6 +42,7 @@ features/owner_role_policy.feature
 features/computer_record_move.feature
 features/model_provider_failures.feature
 features/vendor_ledger.feature
+features/cost_price_book.feature
 features/turn_execution.feature
 features/realtime_api.feature
 features/turn_stream_replay.feature

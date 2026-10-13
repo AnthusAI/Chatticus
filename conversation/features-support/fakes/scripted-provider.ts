@@ -2,8 +2,17 @@ import { createProvider, type Provider } from "@earendil-works/pi-ai/models";
 import type { AssistantMessage, Model, TranscriptContext } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 
-/** Token counts a scripted answer reports, as a real provider would. */
-export type ScriptedUsage = { readonly input: number; readonly output: number };
+/**
+ * Token counts a scripted answer reports, as a real provider would: `input` is the uncached input, the cache counters
+ * are reported separately, and `servedBy` names the model the message says answered when it differs from the requested one.
+ */
+export type ScriptedUsage = {
+	readonly input: number;
+	readonly output: number;
+	readonly cacheRead?: number;
+	readonly cacheWrite?: number;
+	readonly servedBy?: string;
+};
 
 /** The default usage every scripted answer reports unless a step says otherwise. */
 export const DEFAULT_SCRIPTED_USAGE: ScriptedUsage = { input: 10, output: 5 };
@@ -243,11 +252,12 @@ export class ScriptedProvider {
 				const usage = {
 					input: step.usage.input,
 					output: step.usage.output,
-					cacheRead: 0,
-					cacheWrite: 0,
-					totalTokens: step.usage.input + step.usage.output,
+					cacheRead: step.usage.cacheRead ?? 0,
+					cacheWrite: step.usage.cacheWrite ?? 0,
+					totalTokens: step.usage.input + step.usage.output + (step.usage.cacheRead ?? 0) + (step.usage.cacheWrite ?? 0),
 					cost: ZERO_COST,
 				};
+				if (step.usage.servedBy !== undefined) blank.model = step.usage.servedBy;
 				outer.push({ type: "start", partial: { ...blank } });
 				const thinkingPieces = step.thinking ?? [];
 				const thinkingBlocks: AssistantMessage["content"] =

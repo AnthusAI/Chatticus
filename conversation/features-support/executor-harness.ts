@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { type DynamoDBClient, GetItemCommand, TransactWriteItemsCommand } from "@aws-sdk/client-dynamodb";
 import { createModels } from "@earendil-works/pi-ai/models";
-import { VendorPriceBook, type VendorLedgerDependencies } from "../src/ledger/vendor-ledger.ts";
+import { Decimal } from "../src/budget/decimal.ts";
+import { VendorPriceBook } from "../src/ledger/price-book.ts";
+import type { VendorLedgerDependencies } from "../src/ledger/vendor-ledger.ts";
 import { defaultVendorPriceBook } from "../src/ledger/vendor-prices.ts";
 import type { TurnControlStore, TurnDependencies } from "../src/domain/turns.ts";
 import type { TurnRunJob } from "../src/domain/turn-admission.ts";
@@ -47,13 +49,20 @@ export type ModelScenario = {
 };
 
 const scenarios = new WeakMap<ChatticusWorld, ModelScenario>();
+/** The version id of the price books scenarios build for themselves. */
+export const TEST_PRICE_BOOK_ID = "scenario-test-prices";
+
 const priceBooks = new WeakMap<ChatticusWorld, VendorPriceBook>();
 
 /** The scenario's vendor price book, which the executor and the ledger steps share. */
 export function priceBookOf(world: ChatticusWorld): VendorPriceBook {
 	let book = priceBooks.get(world);
 	if (book === undefined) {
-		book = new VendorPriceBook();
+		book = new VendorPriceBook(TEST_PRICE_BOOK_ID);
+		book.register("openai", DEFAULT_SCRIPTED_MODEL_ID, {
+			inputPerMillionUsd: Decimal.parse("1.00"),
+			outputPerMillionUsd: Decimal.parse("1.00"),
+		});
 		priceBooks.set(world, book);
 	}
 	return book;
