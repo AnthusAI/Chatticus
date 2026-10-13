@@ -12,16 +12,29 @@
     "cost-accounting"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "607f4c02-67dd-4930-ad82-7bdff3ea9878",
+      "author": "home",
+      "text": "Starting spike: reading pi-durable hooks and storage, building a vitest experiment on branch ts/cost-spike-pi-durable.",
+      "created_at": "2026-10-13T12:05:08.489493Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t2"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:31:20.103258Z",
-  "updated_at": "2026-10-13T11:31:20.103295Z",
+  "updated_at": "2026-10-13T12:05:08.489524Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The team is testing durable response writes, usage records, child conversation queries, and channel totals.",
-  "right_now_updated_at": "2026-10-13T11:31:21.144355Z",
+  "right_now_summary": "The spike is underway, testing pi-durable hooks, usage records, and child conversation storage.",
+  "right_now_updated_at": "2026-10-13T12:05:09.742904Z",
   "custom": {}
 }
