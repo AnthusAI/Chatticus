@@ -16,6 +16,7 @@ import {
 	ownerLogEmitter,
 	runFileProbe,
 	runLiveFileProbe,
+	runOverlayProbe,
 	type LiveFileProbeKind,
 	runOwnerEntryPoint,
 	runShellProbe,
@@ -39,8 +40,9 @@ const shellLauncherPath = (process.env["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim()
  * unprivileged shell reaches. `file-probe <read_workspace|write_workspace|edit_workspace> <path> [text [new text]]` runs one
  * file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer.
  * `live-file-probe <list|read|write|stat|delete|mkdir> <path> [text [expected sha256]]` runs one live file operation as the
- * supervisor runs it for a member and prints `live_file_probe_ok` or `live_file_probe_error` and the outcome as JSON. Any
- * other argument exits 2.
+ * supervisor runs it for a member and prints `live_file_probe_ok` or `live_file_probe_error` and the outcome as JSON.
+ * `overlay-probe <entries.json> <blobs-directory>` applies overlay entries as the supervisor applies the sealed overlay after a hydrate
+ * and prints `overlay_probe_ok` and what it applied and reported as conflicts as JSON. Any other argument exits 2.
  *
  * Every line names the event and carries the tenant, turn and owner id and none carries a token, a credential, a key, a tool's
  * arguments or its output.
@@ -66,6 +68,17 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 		const outcome = await runLiveFileProbe(kind as LiveFileProbeKind, path, text, expectedSha256, { workspaceRoot, shellLauncherPath, fileHelperCommand });
 		process.stdout.write(`${outcome.status === "ok" ? "live_file_probe_ok" : `live_file_probe_error ${outcome.code}`} ${JSON.stringify(outcome)}\n`);
 		return outcome.status === "ok" ? 0 : 1;
+	}
+	if (argv[0] === "overlay-probe") {
+		const [, entriesFile = "", blobsDirectory = ""] = argv;
+		try {
+			const result = await runOverlayProbe(entriesFile, blobsDirectory, { workspaceRoot, shellLauncherPath, fileHelperCommand });
+			process.stdout.write(`overlay_probe_ok ${JSON.stringify(result)}\n`);
+			return 0;
+		} catch (error) {
+			process.stdout.write(`overlay_probe_error ${error instanceof Error ? error.name : "unknown"}\n`);
+			return 1;
+		}
 	}
 	if (argv[0] !== "turn") {
 		console.error("owner_unknown_subcommand");

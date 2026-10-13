@@ -236,6 +236,48 @@ if echo "${out}" | grep -q '^live_file_probe_error path_refused' && echo "${out}
 out="$(live_tool read /workspace/fifo)"
 if echo "${out}" | grep -q '^live_file_probe_error not_a_file'; then pass "the live read of a pipe is refused and does not hang"; else fail "the live read of a pipe: ${out}"; fi
 
+# The overlay entries the supervisor applies after a hydrate go through the same helper, as the shell user. overlay-probe seals
+# nothing and reads no bucket: it applies a file of entries and a directory of blobs with the supervisor's applier and prints what
+# it applied and what it reported as conflicts. The edit, the delete and the new folder must land as uid 2000, and a link to a
+# root-only file must become a conflict that leaves the file unchanged.
+overlay_tool() {
+  docker run --rm -i -e OWNER="${OWNER}" "${IMAGE}" sh -s 2>&1 <<'CONTAINER_SCRIPT' || true
+echo "root-only" > /root/secret
+chmod 600 /root/secret
+chatticus-shell -c 'printf "edit-me" > /workspace/edit.txt
+printf "gone" > /workspace/gone.txt
+ln -s /root/secret /workspace/leak'
+hash_of() { printf "%s" "$1" | sha256sum | cut -d" " -f1; }
+secret_hash="$(sha256sum /root/secret | cut -d" " -f1)"
+edit_base="$(hash_of edit-me)"
+edit_new="$(hash_of edited-by-mia)"
+gone_base="$(hash_of gone)"
+plant="$(hash_of planted)"
+mkdir /tmp/blobs
+printf "edited-by-mia" > "/tmp/blobs/${edit_new}"
+printf "planted" > "/tmp/blobs/${plant}"
+stamp='"edited_by":"mia","edited_at":"2026-10-12T08:00:00.000Z","revision":1,"conflict":null'
+cat > /tmp/entries.json <<JSON
+[
+{"path":"/workspace/edit.txt",${stamp},"op":"put","sha256":"${edit_new}","size":13,"mode":"664","base_sha256":"${edit_base}","from":null,"from_sha256":null},
+{"path":"/workspace/leak",${stamp},"op":"put","sha256":"${plant}","size":7,"mode":"664","base_sha256":"${secret_hash}","from":null,"from_sha256":null},
+{"path":"/workspace/gone.txt",${stamp},"op":"delete","directory":false,"recursive":false,"base_sha256":"${gone_base}","tree_sha256":null},
+{"path":"/workspace/docs",${stamp},"op":"mkdir","mode":"775"}
+]
+JSON
+node "${OWNER}" overlay-probe /tmp/entries.json /tmp/blobs
+echo "edit-after=$(cat /workspace/edit.txt)"
+echo "edit-owner=$(stat -c %u /workspace/edit.txt)"
+echo "gone-exists=$(test -e /workspace/gone.txt && echo yes || echo no)"
+echo "docs-owner=$(stat -c %u /workspace/docs 2>/dev/null || echo none)"
+echo "secret-after=$(cat /root/secret)"
+CONTAINER_SCRIPT
+}
+
+out="$(overlay_tool)"
+if echo "${out}" | grep -q '^overlay_probe_ok' && echo "${out}" | grep -q '^edit-after=edited-by-mia$' && echo "${out}" | grep -q '^edit-owner=2000$' && echo "${out}" | grep -q '^gone-exists=no$' && echo "${out}" | grep -q '^docs-owner=2000$'; then pass "an overlay edit, delete and new folder are applied by the helper as the unprivileged user"; else fail "the overlay entries: ${out}"; fi
+if echo "${out}" | grep -q '"conflicts":\[{"path":"/workspace/leak"' && echo "${out}" | grep -q '^secret-after=root-only$'; then pass "an overlay edit of a link to a root-only file is a conflict and the file is unchanged"; else fail "the overlay entry for a link: ${out}"; fi
+
 if [ "${failures}" -ne 0 ]; then
   echo "${failures} check(s) failed"
   exit 1

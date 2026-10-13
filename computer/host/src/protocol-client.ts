@@ -18,7 +18,14 @@ import {
 	type HostComputer,
 	type RegateActionRequest,
 } from "@chatticus/host-protocol";
+import {
+	ownerOverlayAppliedRequestSchema,
+	ownerOverlayAppliedResponseSchema,
+	ownerOverlaySealRequestSchema,
+	ownerOverlaySealResponseSchema,
+} from "@chatticus/host-protocol/edit-overlay";
 import { ownerFileResultRequestSchema, ownerFileResultResponseSchema, type OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
+import type { z } from "zod";
 import {
 	ownerBootstrapRequestSchema,
 	ownerBootstrapResponseSchema,
@@ -54,6 +61,16 @@ export class HostProtocolError extends Error {
 		this.status = status;
 		this.code = code;
 	}
+}
+
+const SUPERSEDING_CODES: ReadonlySet<string> = new Set(["stale_generation", "not_current_owner", "wrong_organization", "credential_mismatch"]);
+
+/**
+ * Whether a refusal of an owner route means this supervisor is no longer the owner of the computer: a 401, or a 403 whose
+ * code names a newer generation, another organization or other credentials.
+ */
+export function refusalEndsOwnership(error: HostProtocolError): boolean {
+	return error.status === 401 || (error.status === 403 && error.code !== undefined && SUPERSEDING_CODES.has(error.code));
 }
 
 function ownerErrorCodeOf(text: string): OwnerErrorCode | undefined {
@@ -270,6 +287,16 @@ export class OwnerSupervisorClient extends HostProtocolClient {
 	/** POST /owner/file-results: post the answer to one file request. */
 	async postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }> {
 		return this.request("POST", "/owner/file-results", ownerFileResultResponseSchema, ownerFileResultRequestSchema.parse(request));
+	}
+
+	/** POST /owner/overlay-seal: after extraction, close the edit overlay to member writes and receive its entries. */
+	async sealOverlay(request: z.input<typeof ownerOverlaySealRequestSchema>): Promise<z.output<typeof ownerOverlaySealResponseSchema>> {
+		return this.request("POST", "/owner/overlay-seal", ownerOverlaySealResponseSchema, ownerOverlaySealRequestSchema.parse(request));
+	}
+
+	/** POST /owner/overlay-applied: clear entries whose publish is recorded, and report entries that were not applied. */
+	async postOverlayApplied(request: z.input<typeof ownerOverlayAppliedRequestSchema>): Promise<z.output<typeof ownerOverlayAppliedResponseSchema>> {
+		return this.request("POST", "/owner/overlay-applied", ownerOverlayAppliedResponseSchema, ownerOverlayAppliedRequestSchema.parse(request));
 	}
 
 	/** POST /owner/stop-request: ask whether the owner may stop. A veto is an answer, not an error. */

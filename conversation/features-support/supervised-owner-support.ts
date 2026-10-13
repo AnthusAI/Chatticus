@@ -8,6 +8,7 @@ import type {
 	OwnerStopResponse,
 } from "@chatticus/host-protocol/supervisor";
 import { HostDiskLifecycle } from "../../computer/host/src/host-disk-lifecycle.ts";
+import { SealingOverlayApplier } from "../../computer/host/src/overlay-applier.ts";
 import { OwnerSupervisor } from "../../computer/host/src/supervisor.ts";
 import {
 	runtimeSupervisorClock,
@@ -20,6 +21,7 @@ import {
 import { consoleLogEmitter } from "../src/observability/log-line.ts";
 import type { SnapshotObjectStore } from "../src/snapshot/store.ts";
 import { UNUSED_FILE_HELPER_LAUNCHER } from "./fakes/fake-file-helper-launcher.ts";
+import { FakeOverlayBlobStore } from "./fakes/fake-overlay-blob-store.ts";
 import { dispatchPollAnswer, emptyPollAnswer, FAKE_SUPERVISOR_SECRETS } from "./fakes/fake-supervisor-plane.ts";
 import { ensureHostWorker, hostClientFor, hostDiskOf, LIFECYCLE_TENANT } from "./host-lifecycle-support.ts";
 import type { ChatticusWorld } from "./world.ts";
@@ -84,6 +86,14 @@ class DiskScenarioPlane implements SupervisorPlane {
 
 	async postFileResult(): Promise<{ readonly recorded: true }> {
 		return { recorded: true };
+	}
+
+	async sealOverlay(): Promise<{ readonly entries: [] }> {
+		return { entries: [] };
+	}
+
+	async postOverlayApplied(): Promise<{ readonly remaining: number }> {
+		return { remaining: 0 };
 	}
 
 	getComputer(): Promise<HostComputer> {
@@ -173,7 +183,24 @@ export async function startSupervisedOwner(
 		identity: { tenantId: LIFECYCLE_TENANT, ownerId, generation },
 		environment: { PATH: process.env["PATH"] },
 		plane,
-		openDisk: () => new HostDiskLifecycle(plane, { tenantId: LIFECYCLE_TENANT, ownerId, liveRoot: disk.liveRoot, store, log }),
+		openDisk: () =>
+			new HostDiskLifecycle(plane, {
+				tenantId: LIFECYCLE_TENANT,
+				ownerId,
+				liveRoot: disk.liveRoot,
+				store,
+				log,
+				overlayApplier: new SealingOverlayApplier({
+					ownerId,
+					generation,
+					plane,
+					launcher: UNUSED_FILE_HELPER_LAUNCHER,
+					workspaceRoot: `${disk.liveRoot}/workspace`,
+					blobs: new FakeOverlayBlobStore(disk.liveRoot),
+					clock: runtimeSupervisorClock,
+					log,
+				}),
+			}),
 		spawner: new InProcessChildSpawner(`${disk.liveRoot}/workspace`, turn ?? { work: async () => 0 }),
 		sweeper: noProcessesToSweep,
 		fileHelperLauncher: UNUSED_FILE_HELPER_LAUNCHER,

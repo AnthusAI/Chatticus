@@ -3,17 +3,19 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { HostDiskLifecycle } from "../../computer/host/src/host-disk-lifecycle.ts";
 import { ProcessFileHelperLauncher } from "../../computer/host/src/live-file-helper-launcher.ts";
+import { SealingOverlayApplier } from "../../computer/host/src/overlay-applier.ts";
 import { OwnerSupervisor } from "../../computer/host/src/supervisor.ts";
 import { supervisorConfigurationFromEnvironment, type SupervisorConfiguration } from "../../computer/host/src/supervisor-configuration.ts";
 import type { SupervisorDisk } from "../../computer/host/src/supervisor-ports.ts";
 import { ShellUserProcessSweeper } from "../../computer/host/src/unprivileged-process-sweeper.ts";
 import { scrubbedShellEnvironment } from "../src/pi/shell-environment.ts";
 import { SOURCE_FILE_HELPER_COMMAND } from "../src/pi/unprivileged-execution-env.ts";
-import { FilesystemSnapshotStore } from "../src/snapshot/store.ts";
 import { formatLogLine, type LogFields } from "../src/observability/log-line.ts";
 import { computerOwnerScenarioOf } from "./computer-owner.ts";
+import { CountingSnapshotStore } from "./fakes/counting-snapshot-store.ts";
 import { FakeChildSpawner } from "./fakes/fake-child-spawner.ts";
 import { ScenarioFileHelperLauncher } from "./fakes/fake-file-helper-launcher.ts";
+import { FakeOverlayBlobStore } from "./fakes/fake-overlay-blob-store.ts";
 import { FakeProcessTable } from "./fakes/fake-process-table.ts";
 import { FakeSupervisorClock } from "./fakes/fake-supervisor-clock.ts";
 import { FakeSupervisorDisk } from "./fakes/fake-supervisor-disk.ts";
@@ -39,7 +41,11 @@ export type SupervisorScenario = {
 	readonly disk: FakeSupervisorDisk;
 	/** The file helper the supervisor starts, and the directory that plays `/workspace` for its file requests. */
 	readonly fileHelper: ScenarioFileHelperLauncher;
-	readonly workspaceRoot: string;
+	workspaceRoot: string;
+	/** The blobs of the scenario's edit overlay, read by the supervisor's overlay applier. */
+	readonly overlayBlobs: FakeOverlayBlobStore;
+	/** The snapshot store the real disk lifecycle hydrates from and publishes to. */
+	readonly snapshotStore: CountingSnapshotStore;
 	configuration: SupervisorConfiguration | null;
 	useRealDisk: boolean;
 	memoryUsedPercent: number | undefined;
@@ -106,6 +112,8 @@ export function createSupervisorScenario(world: ChatticusWorld): SupervisorScena
 		disk: new FakeSupervisorDisk(clock, (event, fields) => logs.push(formatLogLine(event, { tenant_id: "anthus", owner_id: "owner-1", ...fields }))),
 		fileHelper: new ScenarioFileHelperLauncher(clock, processLauncher),
 		workspaceRoot,
+		overlayBlobs: new FakeOverlayBlobStore(world.snapshotTmpdir),
+		snapshotStore: new CountingSnapshotStore(join(world.snapshotTmpdir, "supervisor-store")),
 		configuration: null,
 		useRealDisk: false,
 		memoryUsedPercent: undefined,
@@ -142,8 +150,18 @@ export async function startSupervisor(world: ChatticusWorld): Promise<void> {
 					tenantId: configuration.tenantId,
 					ownerId: configuration.ownerId,
 					liveRoot: configuration.liveRoot,
-					store: new FilesystemSnapshotStore(join(world.snapshotTmpdir!, "supervisor-store")),
+					store: scenario.snapshotStore,
 					log: emit,
+					overlayApplier: new SealingOverlayApplier({
+						ownerId: configuration.ownerId,
+						generation: configuration.generation,
+						plane: scenario.plane,
+						launcher: scenario.fileHelper,
+						workspaceRoot: scenario.workspaceRoot,
+						blobs: scenario.overlayBlobs,
+						clock: scenario.clock,
+						log: emit,
+					}),
 				})
 			: scenario.disk;
 	const supervisor = new OwnerSupervisor({

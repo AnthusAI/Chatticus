@@ -1,3 +1,4 @@
+import type { ownerOverlayAppliedRequestSchema, ownerOverlayAppliedResponseSchema, ownerOverlaySealRequestSchema, ownerOverlaySealResponseSchema } from "@chatticus/host-protocol/edit-overlay";
 import type { OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
 import type {
 	OwnerBootstrapRequest,
@@ -7,7 +8,9 @@ import type {
 	OwnerStopRequest,
 	OwnerStopResponse,
 } from "@chatticus/host-protocol/supervisor";
+import type { z } from "zod";
 import type { HostBootPlane } from "./boot.ts";
+import type { OverlayEntryReference } from "./overlay-applier.ts";
 
 /** The exit code of a supervisor that stopped itself in good order: idle, drained or unhealthy and approved. */
 export const SUPERVISOR_EXIT_STOPPED = 0;
@@ -70,6 +73,10 @@ export interface SupervisorPlane extends HostBootPlane {
 	stopRequest(request: OwnerStopRequest): Promise<OwnerStopResponse>;
 	/** Post the owner's answer to one file request; a repeat of an answer already recorded is recorded again without harm. */
 	postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }>;
+	/** Close the edit overlay to member writes after the snapshot is extracted, and receive the entries to apply. */
+	sealOverlay(request: z.input<typeof ownerOverlaySealRequestSchema>): Promise<z.output<typeof ownerOverlaySealResponseSchema>>;
+	/** Ask the Front Door to clear applied entries once a publish that began after the apply is recorded, and report entries that were not applied. */
+	postOverlayApplied(request: z.input<typeof ownerOverlayAppliedRequestSchema>): Promise<z.output<typeof ownerOverlayAppliedResponseSchema>>;
 }
 
 /**
@@ -77,12 +84,18 @@ export interface SupervisorPlane extends HostBootPlane {
  * `snapshot_skipped` and `snapshot_publish_failed` lines.
  */
 export interface SupervisorDisk {
-	/** Mark the computer running, clear the model gate, hydrate the published snapshot, share the workspace with the shell and clear the workspace gate. Throws when the disk could not be restored. */
-	hydrate(): Promise<void>;
+	/**
+	 * Mark the computer running, clear the model gate, hydrate the published snapshot, share the workspace with the shell, clear the workspace
+	 * gate, then seal the edit overlay and apply its entries through the file helper. Resolves with the entries now on the disk that wait for a
+	 * publish and a clear. Throws when the disk could not be restored or the overlay could not be applied.
+	 */
+	hydrate(): Promise<readonly OverlayEntryReference[]>;
 	/** Whether the live disk differs from the last published pack; false is logged as a skipped publish. */
 	needsPublish(): Promise<boolean>;
 	/** Pack the live disk, upload it and record it. Throws when the publish failed. */
 	publish(): Promise<void>;
+	/** Ask the Front Door to clear exactly these applied entries; true when it acknowledged. A refusal that ends the ownership is thrown. */
+	clearApplied(entries: readonly OverlayEntryReference[]): Promise<boolean>;
 }
 
 /** How a child process ended: its exit code, or the signal that ended it. */
