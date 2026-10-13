@@ -3,6 +3,8 @@
 # requirement to a scenario name below. Whoever builds a part writes the steps for the tag they own
 # (@server, @supervisor, @web, @end-to-end) and adds this file to the list together with those steps.
 # Scenario names are the contract: do not rename one without changing the table.
+# The scenarios of LF-53 to LF-56 and the store-level halves of LF-57 (discard, seal, stale seal, clear, derived
+# conflicts) moved to features/computer_file_overlay.feature, which is registered and runs.
 
 Feature: Members view and edit the files on the running computer
   As a member of an organization
@@ -491,146 +493,6 @@ Feature: Members view and edit the files on the running computer
       | field     | value  |
       | operation | reveal |
       | source    | overlay |
-
-  @server
-  Scenario: A member discards their own pending edit
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
-    When member "mia" discards the pending edit of "/workspace/notes.md"
-    Then the file response status is 200
-    And the overlay holds no entry for "/workspace/notes.md"
-    And a member reads the computer file "/workspace/notes.md" and gets "first draft"
-    And the audit log has a record for member "mia" with operation "discard"
-
-  @server
-  Scenario: An edit made while the owner extracts the snapshot is in the set the owner seals
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And a live owner is polling for the household computer in state "hydrating"
-    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
-    Then the file response says "source" is "overlay"
-    When the owner seals the overlay
-    Then the sealed entries are exactly:
-      | path                | sha256                     |
-      | /workspace/notes.md | the hash of "second draft" |
-
-  @server
-  Scenario: An edit made after the owner sealed the overlay waits for the owner
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And a live owner is polling for the household computer in state "hydrating"
-    And the owner sealed the overlay
-    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
-    Then the file response status is 503
-    And the file response error is "computer_starting"
-    And the file response says "retry_after_ms" is "2000"
-    And the overlay holds no entry for "/workspace/notes.md"
-    And the audit log has no records
-
-  @server
-  Scenario: A seal and an edit that race leave exactly one of them in charge
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And a live owner is polling for the household computer in state "hydrating"
-    When the owner seals the overlay at the same instant as member "mia" edits "/workspace/notes.md"
-    Then either the sealed entries hold the edit or the edit was answered "computer_starting"
-    And never both and never neither
-
-  @server
-  Scenario: A seal left by an owner that died is replaced by the next edit
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And the overlay was sealed by an owner whose heartbeat then lapsed
-    When member "mia" replaces the computer file "/workspace/notes.md" with "second draft" if it still has the hash of "first draft"
-    Then the file response status is 200
-    And the overlay is not sealed
-    And the overlay holds "second draft" for "/workspace/notes.md"
-
-  @server
-  Scenario: An owner of an older generation cannot seal or clear
-    Given the overlay was sealed by an owner of generation 1
-    And a newer owner of generation 2 has bootstrapped
-    When the owner of generation 1 asks to seal the overlay
-    Then the request is refused with code "stale_generation"
-    When the owner of generation 1 asks to clear "/workspace/notes.md"
-    Then the request is refused with code "stale_generation"
-
-  @server
-  Scenario: A clear that is not sealed by the caller is refused
-    Given the computer disk is published
-    And a live owner is polling for the household computer
-    When the owner asks to clear "/workspace/notes.md" before it sealed the overlay
-    Then the request is refused with code "overlay_not_sealed"
-
-  @server
-  Scenario: Clearing removes only the entries that were applied
-    Given member "mia" replaced "/workspace/a.md" with "a2" and "/workspace/b.md" with "b2" while the computer was off
-    And the owner sealed the overlay
-    When the owner asks to clear "/workspace/a.md" at the revision and hash it applied
-    Then the overlay holds no entry for "/workspace/a.md"
-    And the overlay holds "b2" for "/workspace/b.md"
-    And the blob of "a2" is deleted and the blob of "b2" is kept
-
-  @server
-  Scenario: A clear that names an entry that changed since is ignored
-    Given member "mia" replaced "/workspace/a.md" with "a2" while the computer was off
-    And the owner sealed the overlay
-    When the owner asks to clear "/workspace/a.md" at revision 99
-    Then the overlay still holds "a2" for "/workspace/a.md"
-
-  @server
-  Scenario: A clear before any publish is recorded is refused
-    Given the computer disk holds workspace file "notes.md" containing "first draft"
-    And the computer disk is published
-    And member "mia" replaced "/workspace/notes.md" with "second draft" while the computer was off
-    And a live owner is polling for the household computer
-    And the owner sealed the overlay
-    When the owner asks to clear "/workspace/notes.md" at the revision and hash it applied
-    Then the overlay still holds "second draft" for "/workspace/notes.md"
-    When the owner publishes a snapshot and the control plane records it
-    And the owner asks to clear "/workspace/notes.md" at the revision and hash it applied
-    Then the overlay holds no entry for "/workspace/notes.md"
-
-  @server
-  Scenario: A snapshot that moved under an edit shows a conflict and keeps both versions
-    Given the computer disk holds workspace file "plan.md" containing "v1"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
-    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
-    When a member reads the computer file "/workspace/plan.md"
-    Then the content response holds "from the host"
-    And the file response says "overlay" is "conflict"
-    And the file response says "mine_sha256" is the hash of "from Mia"
-    When a member reads the computer file "/workspace/plan.md" as the "mine" variant
-    Then the content response holds "from Mia"
-
-  @server
-  Scenario: An edit made on both sides conflicts and is never applied silently
-    Given the computer disk holds workspace file "plan.md" containing "v1"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
-    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
-    When member "ryan" replaces the computer file "/workspace/plan.md" with "from Ryan" if it still has the hash of "v1"
-    Then the file response status is 409
-    And the file response says "current_sha256" is the hash of "from the host"
-    When member "mia" replaces the computer file "/workspace/plan.md" with "from Mia again" if it still has the hash of "from the host"
-    Then the file response status is 200
-    And the overlay holds "from Mia again" for "/workspace/plan.md" with base hash of "from the host"
-
-  @server
-  Scenario: A conflict can be dropped explicitly
-    Given the computer disk holds workspace file "plan.md" containing "v1"
-    And the computer disk is published
-    And no owner is running
-    And member "mia" replaced "/workspace/plan.md" with "from Mia" while the computer was off
-    And a host that does not know the overlay publishes a snapshot holding "plan.md" as "from the host"
-    When member "mia" discards the pending edit of "/workspace/plan.md"
-    Then the overlay holds no entry for "/workspace/plan.md"
-    And a member reads the computer file "/workspace/plan.md" and gets "from the host"
 
   @server
   Scenario: A computer in a customer account cannot be edited while it is off

@@ -68,7 +68,16 @@ import {
 	rememberOwnerHostPrincipal,
 } from "./owner-host-auth.ts";
 import type { OwnerCredentialBrokerPort } from "../computer/owner-credential-broker.ts";
-import { ownerBootstrapHandler, ownerErrorResponse, ownerPollHandler, ownerStopRequestHandler } from "./owner-supervisor.ts";
+import {
+	ownerBootstrapHandler,
+	ownerErrorResponse,
+	ownerOverlayAppliedHandler,
+	ownerOverlaySealHandler,
+	ownerPollHandler,
+	ownerStopRequestHandler,
+} from "./owner-supervisor.ts";
+import type { EditOverlayDependencies, EditOverlayRuntime } from "../domain/edit-overlay.ts";
+import { discardOverlayEntryHandler, listOverlayEntriesHandler } from "./routes/computer-file-overlay.ts";
 import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
 
 export interface Clock {
@@ -106,6 +115,8 @@ export interface AppDeps {
 	computer: ComputerHandoffDependencies;
 	/** Reads the published computer snapshot behind the read-only file routes; absent or null answers those routes with 503. */
 	snapshotFiles?: SnapshotFileService | null;
+	/** The edit overlay of file changes made while the computer is off: its store, the snapshot it merges over and its audit sink. Absent where the deployment has none. */
+	editOverlay?: EditOverlayRuntime | null;
 	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
 	budgetRollups: BudgetRollupReader;
 	/** The invoke keys CloudFront may present, read on every request from a source that caches; null turns the gate off. */
@@ -395,6 +406,18 @@ export function createApp(deps: AppDeps): Hono {
 		readComputerFileContentHandler(c, computerFileRoutes),
 	);
 
+	const overlayDependencies: EditOverlayDependencies | null =
+		deps.editOverlay === undefined || deps.editOverlay === null
+			? null
+			: { ...deps.editOverlay, store, clock: deps.clock, ids: deps.ids, heartbeatTimeoutSeconds: deps.computer.heartbeatTimeoutSeconds };
+	const overlayFileRoutes = { ...userRoutes, overlay: overlayDependencies };
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/overlay", audience: "user" }, (c) =>
+		listOverlayEntriesHandler(c, overlayFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/overlay/discard", audience: "user" }, (c) =>
+		discardOverlayEntryHandler(c, overlayFileRoutes),
+	);
+
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/workers/register", audience: "public" }, (c) =>
@@ -406,6 +429,7 @@ export function createApp(deps: AppDeps): Hono {
 		ids: deps.ids,
 		park: computerRoutes.park,
 		policyStore: deps.policy,
+		editOverlay: overlayDependencies,
 	};
 	const hostPaths = [
 		["GET", "/computer", hostGetComputerHandler],
@@ -432,6 +456,12 @@ export function createApp(deps: AppDeps): Hono {
 		);
 		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/stop-request", audience: "computer-owner" }, (c) =>
 			ownerStopRequestHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/overlay-seal", audience: "computer-owner" }, (c) =>
+			ownerOverlaySealHandler(c, overlayDependencies),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/overlay-applied", audience: "computer-owner" }, (c) =>
+			ownerOverlayAppliedHandler(c, overlayDependencies),
 		);
 	}
 

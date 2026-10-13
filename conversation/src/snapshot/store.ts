@@ -12,6 +12,7 @@ import {
 } from "./uri.ts";
 import { SnapshotObjectMissingError, SnapshotPackError } from "./pack.ts";
 import { indexObjectName } from "./index-format.ts";
+import { FilesystemOverlayStore, S3OverlayStore, type OverlayStore } from "./overlay-store.ts";
 
 /**
  * Metadata stored next to a snapshot pack.
@@ -178,6 +179,25 @@ export async function openSnapshotStore(store: string): Promise<SnapshotObjectSt
 	}
 
 	return new FilesystemSnapshotStore(store);
+}
+
+/**
+ * Open the store that holds the edit overlay beside the snapshots: the CDK bucket for `s3` and `s3://bucket`, a local
+ * directory for any other value. The overlay lives under the same computer prefix as the snapshot.
+ *
+ * @param store The same location string {@link openSnapshotStore} takes.
+ * @returns The overlay store.
+ */
+export async function openOverlayStore(store: string): Promise<OverlayStore> {
+	if (store === "s3" || store.startsWith("s3://")) {
+		const { S3Client } = await import("@aws-sdk/client-s3");
+		const bucket = store === "s3" ? defaultSnapshotBucket() : new URL(store).hostname;
+		if (bucket === LOGICAL_SNAPSHOT_BUCKET) {
+			throw new SnapshotPackError("CHATTICUS_SNAPSHOT_BUCKET is not set. Deploy infra/ with CDK and export the SnapshotBucketName output.");
+		}
+		return new S3OverlayStore(bucket, new S3Client({}));
+	}
+	return new FilesystemOverlayStore(store);
 }
 
 /**
