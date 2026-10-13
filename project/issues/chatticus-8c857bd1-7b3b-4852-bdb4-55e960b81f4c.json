@@ -21,7 +21,7 @@
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The team is building durable cost tracking, pricing, APIs, and web views while fixing metering gaps.",
-  "right_now_updated_at": "2026-10-13T13:30:06.532028Z",
+  "right_now_summary": "The team is building durable cost tracking, pricing, APIs, reports, and sub-agent metering.",
+  "right_now_updated_at": "2026-10-13T13:46:21.590376Z",
   "custom": {}
 }
