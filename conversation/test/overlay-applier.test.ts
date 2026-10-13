@@ -219,7 +219,7 @@ describe("the overlay applier", () => {
 	});
 
 	it("fails the hydrate on a helper failure that is not a precondition", async () => {
-		for (const code of ["io_error", "permission_denied", "helper_timeout", "helper_failed"]) {
+		for (const code of ["io_error", "helper_timeout", "helper_failed"]) {
 			const { applier } = harness([putEntry("/workspace/a.txt", "second draft", null)], () => failure(code));
 			await expect(applier.applyAfterHydrate()).rejects.toBeInstanceOf(OverlayApplyError);
 		}

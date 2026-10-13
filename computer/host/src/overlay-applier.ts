@@ -91,7 +91,7 @@ const APPLIED: Verdict = { kind: "applied" };
 const ALREADY: Verdict = { kind: "already" };
 const conflict = (reason: OverlayConflictReason, diskSha256: string | null = null): Verdict => ({ kind: "conflict", reason, diskSha256 });
 
-const ESCAPE_CODES: ReadonlySet<string> = new Set(["outside_workspace", "path_refused"]);
+const ESCAPE_CODES: ReadonlySet<string> = new Set(["outside_workspace", "path_refused", "permission_denied"]);
 
 type DiskState =
 	| { readonly kind: "absent" }
