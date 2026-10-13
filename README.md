@@ -149,11 +149,27 @@ ledger row is projected from those records. Verified live on **development
 only**: a computer-owner turn wrote 2 records (0.0001858 USD) and a Lambda turn
 wrote 1 (0.000092 USD), the ledger row matched, and the earlier double count on
 the computer-owner path is gone. The price book is versioned
-(`openai@2026-10-13+pi-ai-1.0.2`). **Not built yet:** no customer-visible view
-or API, no per-session, bot or message screens; compaction, aborted and
-uncommitted calls are not metered; sub-agents are not built; old ledger rows are
-not migrated; rates come from the library's bundled catalog and have not been
-verified against the vendor's published page. Staging and production do not
+(`openai@2026-10-13+pi-ai-1.0.2`). **Customer-visible on development only:** the cost HTTP API
+(chatticus-09bef0, #541) and the web cost view (chatticus-f65e89, #542): a
+Costs tab in the inspector (Context | Files | Costs), a cost chip in the header
+of the open conversation, Triggered/Took markers under messages, an
+organization month summary broken down by bot, conversation and model, recent
+turns with Show more, a per-turn drill-down (per-call model, tokens, cache
+reads and writes, tier, price book, dollars) and CSV export at turn and call
+grain. Incomplete totals read "at least $x" with the count of unpriced calls;
+unpriced calls are never shown as zero; estimated, gateway and voice rows are
+labelled; money keeps sub-cent precision; a standing line says it is not a
+bill. Verified live: the signed-in Costs tab opens on development and shows its
+empty state for an organization with no new-format records. **Not verified:**
+the populated view with real data in the signed-in workspace (only fixtures at
+desktop and 375 px, light and dark), and the header chip and message markers in
+a live thread (follow-up under `chatticus-8c857b`). **Not built yet:** compare
+UI and export polish (chatticus-dffe56); per-sub-agent cost, since sub-agents
+are not built (chatticus-24308d); legacy ledger migration (chatticus-0d265c),
+so old ledger rows are not shown; compaction, aborted and uncommitted calls are
+not metered beyond the documented caveats; rates come from the library's
+bundled catalog and have not been verified against the vendor's published page.
+Staging and production do not
 record this. See [Cost accounting](docs/COST_ACCOUNTING.md) and Kanbus epic
 `chatticus-8c857b`.
 

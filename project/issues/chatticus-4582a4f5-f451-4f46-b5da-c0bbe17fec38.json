@@ -19,7 +19,7 @@
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The marketing branch is ready, but its durability and cost pages still await a pull request and owner merge.",
-  "right_now_updated_at": "2026-10-13T16:32:17.415505Z",
+  "right_now_summary": "The pages are being updated, but the branch has no pull request yet.",
+  "right_now_updated_at": "2026-10-13T18:30:18.779352Z",
   "custom": {}
 }

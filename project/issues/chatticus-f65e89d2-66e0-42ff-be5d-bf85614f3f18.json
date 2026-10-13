@@ -3,7 +3,7 @@
   "title": "T9 Web: channel cost chip, per-message cost markers, organization Costs page",
   "description": "Depends on T8. Files: web/lib/api.ts, new web/lib/costs.ts, new web/components/ChannelCostChip.tsx, message marker in the chat message component under web/app/chat/, Costs page route under web/app/chat/. Show unpriced and estimated states; copy says model token cost at published list prices, not a bill. Acceptance: plan scenario 24 passes (features/web_costs.feature); web npm test green. Respect docs/BRAND_GUIDELINES.md.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -36,17 +36,29 @@
         "model": "claude-sonnet-5-5",
         "name": "cost-t9"
       }
+    },
+    {
+      "id": "baa7a518-b717-47b5-9546-a24fc0492bd4",
+      "author": "home",
+      "text": "T9 merged (PR 542) and deployed to development; verified live 2026-10-13. Shipped: Costs tab in the inspector (Context | Files | Costs); header cost chip for the open conversation; Triggered/Took markers under messages; organization month summary with breakdowns by bot, conversation and model; recent turns with Show more; per-turn drill-down with per-call model, tokens, cache reads/writes, tier, price book and dollars; CSV export (turn and call grain); incomplete totals shown as 'at least $x ... incomplete: N unpriced calls', unpriced calls never shown as zero; estimated/gateway/voice rows labelled; sub-cent money precision; standing 'not a bill' basis line. Signed-in Costs tab opened on develop.chattic.us and shows its empty state correctly for an organization with no new-format records. NOT verified: the populated view with real data in the signed-in workspace (fixtures only, desktop and 375 px, light and dark), and the header chip and message markers in the live thread; a follow-up ticket tracks it. Not built: compare UI and export polish (chatticus-dffe56), per-sub-agent cost (chatticus-24308d), legacy ledger migration (chatticus-0d265c), compaction cost beyond T5 caveats. Rates are from the pi-ai bundled catalog, not verified against the vendor page.",
+      "created_at": "2026-10-13T18:30:05.198679Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
     }
   ],
   "created_at": "2026-10-13T11:31:42.195725Z",
-  "updated_at": "2026-10-13T18:08:58.503348Z",
-  "closed_at": null,
+  "updated_at": "2026-10-13T18:30:05.198943Z",
+  "closed_at": "2026-10-13T18:29:50.771680Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The web cost view is implemented and pushed; only opening the PR remains.",
-  "right_now_updated_at": "2026-10-13T18:09:00.373129Z",
+  "right_now_summary": "T9 is deployed, with live populated-data checks and several follow-up features still pending.",
+  "right_now_updated_at": "2026-10-13T18:30:06.609809Z",
   "custom": {}
 }

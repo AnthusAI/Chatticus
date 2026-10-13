@@ -34,7 +34,7 @@
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "Core cost tracking is live; T5 awaits review and deployment, while sub-agent, migration, and view work continues.",
-  "right_now_updated_at": "2026-10-13T18:09:02.893509Z",
+  "right_now_summary": "T1–T4 and T8–T9 are live in development; T5 awaits review, with sub-agent coverage and cost views still needed.",
+  "right_now_updated_at": "2026-10-13T18:30:15.655816Z",
   "custom": {}
 }

@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "749405e3-73c4-4f63-93a8-5fab54071715",
+      "author": "home",
+      "text": "The per-session, bot and message cost views have shipped on development (Costs tab, header chip, message markers, org month summary with bot/conversation/model breakdowns, CSV export; PR 542, chatticus-f65e89). Development only; the populated view with real data is not yet verified (see the follow-up verification ticket under chatticus-8c857b). The website cost page should be revised now.",
+      "created_at": "2026-10-13T18:30:15.675468Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:38:53.676186Z",
-  "updated_at": "2026-10-13T11:39:01.674383Z",
+  "updated_at": "2026-10-13T18:30:15.675490Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "This follow-up waits for the web cost views to ship before updating the cost page.",
-  "right_now_updated_at": "2026-10-13T11:39:03.382447Z",
+  "right_now_summary": "The cost page now needs updates to match the shipped cost views.",
+  "right_now_updated_at": "2026-10-13T18:30:17.191957Z",
   "custom": {}
 }
