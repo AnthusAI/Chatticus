@@ -9,7 +9,9 @@ Feature: Model gateway for a container's Pi session
   as the worker id of its claim, so the turn's current attempt records it; a
   second owner that takes the turn over makes the first owner's token useless. The gateway checks the token and
   the turn, forwards the request with the real key, streams the answer back
-  as the vendor produces it, and records the spend once from the final usage.
+  as the vendor produces it, and logs the usage it saw once. The gateway never
+  writes the vendor ledger; the turn's finalize step does, from the session
+  (see cost_call_records.feature).
 
   Background:
     Given an empty control plane backed by a durable messaging store with HTTP
@@ -48,11 +50,11 @@ Feature: Model gateway for a container's Pi session
     When the vendor lets the rest of the answer go
     Then the container receives the answer text "Good morning."
 
-  Scenario: The spend is recorded once from the final usage
+  Scenario: The usage is observed once from the final usage and the gateway leaves the ledger to the turn
     Given the container holds a session token for its turn valid for 300 seconds
     When the container asks the model gateway for an answer
-    Then the vendor ledger holds 120 input tokens and 30 output tokens for the turn
-    And the gateway recorded spend 1 time
+    Then the gateway observed usage 1 time
+    And the vendor ledger holds no spend for the turn
 
   Scenario: A token that has expired is refused
     Given the container holds a session token for its turn valid for 300 seconds
@@ -250,10 +252,10 @@ Feature: Model gateway for a container's Pi session
     When the container asks the model gateway for an answer
     Then the vendor was told not to store the response
 
-  Scenario: An answer the container abandons midway still records the spend seen so far
+  Scenario: An answer the container abandons midway is observed as an estimate and the ledger is left alone
     Given the container holds a session token for its turn valid for 300 seconds
     And the vendor holds its answer back after the first text delta
     When the container asks the model gateway for an answer and reads only the start
     And the container drops the connection
-    Then the vendor ledger comes to hold an estimated spend for the turn
-    And the gateway recorded spend 1 time
+    Then the gateway comes to observe an estimated usage for the turn
+    And the vendor ledger holds no spend for the turn

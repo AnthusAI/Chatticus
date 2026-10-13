@@ -150,3 +150,4 @@ features/computer_file_overlay_supervisor.feature
 features/computer_file_overlay_authority.feature
 features/computer_file_live_end_to_end.feature
 features/front_door_snapshot_role_policy.feature
+features/cost_call_records.feature

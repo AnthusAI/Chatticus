@@ -317,8 +317,8 @@ Then("the vendor ledger holds no spend for the turn", async function (this: Chat
 	assert.equal(await getVendorLedgerEntry(ledgerDependenciesFor(this), turn.tenantId, turn.turnId), null);
 });
 
-Then("the gateway recorded spend {int} time(s)", function (this: ChatticusWorld, count: number) {
-	assert.equal(gatewayScenarioOf(this).logEvents.filter((event) => event.event === "spend_recorded").length, count);
+Then("the gateway observed usage {int} time(s)", function (this: ChatticusWorld, count: number) {
+	assert.equal(gatewayScenarioOf(this).logEvents.filter((event) => event.event === "usage_observed").length, count);
 });
 
 Then("the error says the model provider request failed", function (this: ChatticusWorld) {
@@ -391,17 +391,20 @@ Then("the gateway response does not contain {string}", function (this: Chatticus
 	assert.ok(!gatewayScenarioOf(this).lastBody.includes(text), gatewayScenarioOf(this).lastBody);
 });
 
-Then("the vendor ledger comes to hold an estimated spend for the turn", async function (this: ChatticusWorld) {
+Then("the gateway comes to observe an estimated usage for the turn", async function (this: ChatticusWorld) {
 	const turn = turnOf(this);
 	for (let attempt = 0; attempt < 100; attempt += 1) {
-		const row = await getVendorLedgerEntry(ledgerDependenciesFor(this), turn.tenantId, turn.turnId);
-		if (row !== null) {
-			assert.ok(row.inputTokens > 0, "The estimate counted no input");
-			assert.ok(row.outputTokens > 0, "The estimate counted none of the output already sent");
-			assert.equal(row.model, GATEWAY_MODEL);
+		const observed = gatewayScenarioOf(this).logEvents.filter((event) => event.event === "usage_observed");
+		if (observed.length > 0) {
+			assert.equal(observed.length, 1);
+			const [event] = observed;
+			assert.equal(event!.reason, "estimated_after_interruption");
+			assert.equal(event!.turnId, turn.turnId);
+			assert.ok((event!.inputTokens ?? 0) > 0, "The estimate counted no input");
+			assert.ok((event!.outputTokens ?? 0) > 0, "The estimate counted none of the output already sent");
 			return;
 		}
 		await new Promise((resolve) => setTimeout(resolve, 50));
 	}
-	assert.fail("The abandoned answer left no spend in the ledger");
+	assert.fail("The abandoned answer was never observed");
 });

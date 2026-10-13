@@ -4,7 +4,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { DynamoBudgetStore } from "../../../conversation/src/budget/budget-store.ts";
 import type { ComputerStartQueue } from "../../../conversation/src/domain/computer-start.ts";
 import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../../../conversation/src/domain/workers.ts";
-import { VendorPriceBook } from "../../../conversation/src/ledger/vendor-ledger.ts";
+import { defaultVendorPriceBook } from "../../../conversation/src/ledger/vendor-prices.ts";
 import { DynamoComputerActionStore } from "../../../conversation/src/store/action-store.ts";
 import { DynamoMessagingStore } from "../../../conversation/src/store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../../../conversation/src/store/turn-store.ts";
@@ -73,7 +73,7 @@ export function createContainerOwnerDeps(config: OwnerStoresConfig, log?: LogEmi
 		piSessionsBucket: config.piSessionsBucket,
 		models: createGatewayModels(config.gateway, log),
 		model: DEFAULT_TURN_MODEL,
-		ledger: { client, tableName: config.messagingTableName, prices: new VendorPriceBook(), now: () => new Date() },
+		ledger: { client, tableName: config.messagingTableName, prices: defaultVendorPriceBook(), now: () => new Date() },
 		workerLabel: "computer-host-owner",
 		turnRuns: NO_OP_TURN_RUNS,
 		turnProbes: NO_OP_TURN_PROBES,
