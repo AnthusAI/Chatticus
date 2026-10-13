@@ -18,6 +18,7 @@ import {
 	type HostComputer,
 	type RegateActionRequest,
 } from "@chatticus/host-protocol";
+import { ownerFileResultRequestSchema, ownerFileResultResponseSchema, type OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
 import {
 	ownerBootstrapRequestSchema,
 	ownerBootstrapResponseSchema,
@@ -230,7 +231,8 @@ export type OwnerSupervisorClientOptions = Omit<HostProtocolClientOptions, "work
 };
 
 /**
- * The Front Door as the owner supervisor sees it: the bootstrap exchange, the poll and the stop request, and, after the
+ * The Front Door as the owner supervisor sees it: the bootstrap exchange, the poll, the stop request and the result of a file
+ * request, and, after the
  * exchange, the four computer routes the supervisor calls, all with the supervisor token. Every request carries the host
  * user header. A refusal is a {@link HostProtocolError} with the status and, when the body has one, the owner error code.
  */
@@ -263,6 +265,11 @@ export class OwnerSupervisorClient extends HostProtocolClient {
 	/** POST /owner/poll: say what the owner is doing and ask for work. */
 	async poll(request: OwnerPollRequest): Promise<OwnerPollResponse> {
 		return this.request("POST", "/owner/poll", ownerPollResponseSchema, ownerPollRequestSchema.parse(request));
+	}
+
+	/** POST /owner/file-results: post the answer to one file request. */
+	async postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }> {
+		return this.request("POST", "/owner/file-results", ownerFileResultResponseSchema, ownerFileResultRequestSchema.parse(request));
 	}
 
 	/** POST /owner/stop-request: ask whether the owner may stop. A veto is an answer, not an error. */

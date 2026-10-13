@@ -140,3 +140,4 @@ features/rich_turn_events.feature
 features/supervisor_role_policy.feature
 features/owner_credential_broker.feature
 features/computer_owner_long_lived.feature
+features/computer_file_live_supervisor.feature

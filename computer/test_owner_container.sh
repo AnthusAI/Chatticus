@@ -196,6 +196,46 @@ if echo "${out}" | grep -q '^file_probe_ok'; then pass "edit_workspace still edi
 out="$(file_tool edit_workspace /workspace/edit.txt omega gamma)"
 if echo "${out}" | grep -q '^file_probe_error: Could not find the exact text'; then pass "edit_workspace keeps its exact-match refusal"; else fail "edit_workspace exact-match refusal: ${out}"; fi
 
+# The live file operations the supervisor runs for a member go through the same helper as the shell user. live-file-probe maps
+# a request exactly as the supervisor does and prints the outcome the supervisor would post.
+live_tool() {
+  docker run --rm -i -e OWNER="${OWNER}" "${IMAGE}" sh -s -- "$@" 2>&1 <<'CONTAINER_SCRIPT' || true
+chatticus-shell -c 'mkdir -p /workspace/dir /workspace/.git
+echo listed > /workspace/dir/a.txt
+printf "edit-me" > /workspace/edit.txt
+echo "[core]" > /workspace/.git/config
+ln -s .git/config /workspace/sneaky
+mkfifo /workspace/fifo'
+hash="$(printf "edit-me" | sha256sum | cut -d" " -f1)"
+case "$1" in
+  write-if-match) node "${OWNER}" live-file-probe write /workspace/edit.txt edited "${hash}" ;;
+  *) node "${OWNER}" live-file-probe "$@" ;;
+esac
+echo "edit-after=$(cat /workspace/edit.txt)"
+echo "git-config-after=$(cat /workspace/.git/config)"
+echo "edit-owner=$(stat -c %u /workspace/edit.txt)"
+echo "temporaries=$(ls -A /workspace | grep -c 'chatticus-.*tmp' || true)"
+CONTAINER_SCRIPT
+}
+
+out="$(live_tool list /workspace/dir)"
+if echo "${out}" | grep -q '^live_file_probe_ok' && echo "${out}" | grep -q '"name":"a.txt"'; then pass "the live listing runs as the shell user and lists a directory"; else fail "the live listing: ${out}"; fi
+
+out="$(live_tool read /workspace/edit.txt)"
+if echo "${out}" | grep -q '^live_file_probe_ok' && echo "${out}" | grep -q '"content":"edit-me"'; then pass "the live read returns the file's text and its hash"; else fail "the live read: ${out}"; fi
+
+out="$(live_tool write-if-match)"
+if echo "${out}" | grep -q '^live_file_probe_ok' && echo "${out}" | grep -q '^edit-after=edited$' && echo "${out}" | grep -q '^edit-owner=2000$' && echo "${out}" | grep -q '^temporaries=0$'; then pass "the live write replaces the file atomically as the shell user and leaves no temporary file"; else fail "the live write: ${out}"; fi
+
+out="$(live_tool write /workspace/edit.txt edited 0000000000000000000000000000000000000000000000000000000000000000)"
+if echo "${out}" | grep -q '^live_file_probe_error precondition_failed' && echo "${out}" | grep -q '^edit-after=edit-me$'; then pass "the live write with a stale hash is refused and changes nothing"; else fail "the stale live write: ${out}"; fi
+
+out="$(live_tool write /workspace/sneaky planted)"
+if echo "${out}" | grep -q '^live_file_probe_error path_refused' && echo "${out}" | grep -q '^git-config-after=\[core\]$'; then pass "the live write through a link to a .git file is refused"; else fail "the live write into .git: ${out}"; fi
+
+out="$(live_tool read /workspace/fifo)"
+if echo "${out}" | grep -q '^live_file_probe_error not_a_file'; then pass "the live read of a pipe is refused and does not hang"; else fail "the live read of a pipe: ${out}"; fi
+
 if [ "${failures}" -ne 0 ]; then
   echo "${failures} check(s) failed"
   exit 1

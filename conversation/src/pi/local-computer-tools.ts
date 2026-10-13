@@ -44,6 +44,7 @@ import type { Clock, IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { Extension, ToolExecutionApi, ToolExecutionResult, ToolRegistration } from "@earendil-works/pi-durable";
 import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@earendil-works/pi-durable/tools";
+import { scrubbedShellEnvironment } from "./shell-environment.ts";
 import { SOURCE_FILE_HELPER_COMMAND, UnprivilegedExecutionEnv } from "./unprivileged-execution-env.ts";
 import { type ComputerToolCall, type ComputerToolHandoff, computerToolsExtension, computerWorkPausedText, stringArguments } from "./computer-tools.ts";
 
@@ -63,23 +64,8 @@ export const INTERRUPTED_TERMINAL_RESULT =
 /** What the model reads when another computer worker holds the call. */
 export const HELD_BY_ANOTHER_WORKER_RESULT = "The computer action of this call is held by another worker, so it was not run here.";
 
-const FALLBACK_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-
 /** The tools whose second run after an interruption is harmless: a read, a whole-file overwrite, and an edit that applies once. */
 const REPEATABLE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace", "edit_workspace", BROWSE_ACTION_KIND, REQUEST_COMPUTER_CAPABILITY_ACTION_KIND]);
-
-/**
- * The environment a model-chosen command gets: a search path, a home inside the workspace, a locale and a terminal type.
- * Nothing else of the owner's environment (its model key, its cloud credentials) is passed on.
- *
- * @param home The command's home directory.
- * @param source The environment the search path is taken from.
- * @returns The four variables.
- */
-export function scrubbedShellEnvironment(home: string, source: NodeJS.ProcessEnv = process.env): Record<string, string> {
-	const path = source["PATH"];
-	return { PATH: path === undefined || path === "" ? FALLBACK_PATH : path, HOME: home, LANG: "C.UTF-8", TERM: "dumb" };
-}
 
 /**
  * Map a path the model named to the same place under the real workspace directory.

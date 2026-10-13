@@ -10,7 +10,9 @@
  * additionally refuses a final location outside the workspace (see `owner-file-helper.ts`).
  *
  * Only the operations the file tools use (`read`, `write`, `edit`: read bytes, read text, write, `lstat`, canonical path) are
- * implemented, each as one helper process with one request. The other file operations of the interface answer
+ * implemented, each as one helper process with one request. A write takes the same atomic path as the live file edits (a
+ * temporary file in the resolved directory, then a rename), without a precondition and with the missing parents created, so a
+ * reader never sees half a file. The other file operations of the interface answer
  * `not_supported`, so a future tool cannot reach the disk through the owner by accident. `exec` is unchanged; it already
  * starts the command through the launcher.
  */
@@ -21,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import { type FileErrorCode, type FileInfo, type Result, FileError, err, ok } from "@earendil-works/pi-durable/env";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
-import { OUTSIDE_ALLOWED_ROOTS_CODE, type OwnerFileRequest, type OwnerFileResponse } from "./owner-file-helper.ts";
+import type { OwnerFileRequest, OwnerFileResponse } from "./owner-file-helper.ts";
 
 /** Where the helper program lives when the owner runs from source: next to this module. */
 export const SOURCE_FILE_HELPER_COMMAND: readonly string[] = [process.execPath, fileURLToPath(new URL("./owner-file-helper-main.ts", import.meta.url))];
@@ -41,14 +43,12 @@ export type UnprivilegedExecutionEnvOptions = {
 };
 
 const CODES: Readonly<Record<string, FileErrorCode>> = {
-	ENOENT: "not_found",
-	EACCES: "permission_denied",
-	EPERM: "permission_denied",
-	[OUTSIDE_ALLOWED_ROOTS_CODE]: "permission_denied",
-	ENOTDIR: "not_directory",
-	EISDIR: "is_directory",
-	EINVAL: "invalid",
-	ABORT_ERR: "aborted",
+	not_found: "not_found",
+	permission_denied: "permission_denied",
+	outside_workspace: "permission_denied",
+	path_refused: "permission_denied",
+	not_a_directory: "not_directory",
+	not_a_file: "is_directory",
 };
 
 const NOT_SUPPORTED_MESSAGE = "This operation is not available on the owner: only the file tools' reads, writes and stats are carried out, and by the unprivileged helper.";
@@ -131,7 +131,7 @@ export class UnprivilegedExecutionEnv extends NodeExecutionEnv {
 
 	override async writeFile(path: string, content: string | Uint8Array, context: Context): Promise<Result<void, FileError>> {
 		const bytes = typeof content === "string" ? Buffer.from(content, "utf8") : Buffer.from(content);
-		const answer = await this.ask({ operation: "write", path: resolve(this.cwd, path), contentBase64: bytes.toString("base64") }, context);
+		const answer = await this.ask({ operation: "write", path: resolve(this.cwd, path), contentBase64: bytes.toString("base64"), createParents: true }, context);
 		if (!answer.ok) return answer;
 		return ok(undefined);
 	}

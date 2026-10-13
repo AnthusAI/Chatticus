@@ -15,6 +15,8 @@ import {
 	ownerExitCodeFor,
 	ownerLogEmitter,
 	runFileProbe,
+	runLiveFileProbe,
+	type LiveFileProbeKind,
 	runOwnerEntryPoint,
 	runShellProbe,
 } from "./owner.ts";
@@ -35,8 +37,10 @@ const shellLauncherPath = (process.env["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim()
  *
  * `shell-probe <command>` runs one command through the shell launcher and prints what it left, so an image can show what the
  * unprivileged shell reaches. `file-probe <read_workspace|write_workspace|edit_workspace> <path> [text [new text]]` runs one
- * file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer. Any other argument
- * exits 2.
+ * file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer.
+ * `live-file-probe <list|read|write|stat|delete|mkdir> <path> [text [expected sha256]]` runs one live file operation as the
+ * supervisor runs it for a member and prints `live_file_probe_ok` or `live_file_probe_error` and the outcome as JSON. Any
+ * other argument exits 2.
  *
  * Every line names the event and carries the tenant, turn and owner id and none carries a token, a credential, a key, a tool's
  * arguments or its output.
@@ -56,6 +60,12 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 		const result = await runFileProbe(tool as "read_workspace" | "write_workspace" | "edit_workspace", args, { workspaceRoot, shellLauncherPath, fileHelperCommand });
 		process.stdout.write(`${result.isError ? "file_probe_error" : "file_probe_ok"}: ${result.text}\n`);
 		return result.isError ? 1 : 0;
+	}
+	if (argv[0] === "live-file-probe") {
+		const [, kind = "", path = "", text = "", expectedSha256 = ""] = argv;
+		const outcome = await runLiveFileProbe(kind as LiveFileProbeKind, path, text, expectedSha256, { workspaceRoot, shellLauncherPath, fileHelperCommand });
+		process.stdout.write(`${outcome.status === "ok" ? "live_file_probe_ok" : `live_file_probe_error ${outcome.code}`} ${JSON.stringify(outcome)}\n`);
+		return outcome.status === "ok" ? 0 : 1;
 	}
 	if (argv[0] !== "turn") {
 		console.error("owner_unknown_subcommand");
