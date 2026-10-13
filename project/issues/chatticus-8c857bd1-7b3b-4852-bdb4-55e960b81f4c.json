@@ -34,7 +34,7 @@
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "Core cost accounting is merged and verified; T5 awaits review while API, migration, sub-agent, and web work continues.",
-  "right_now_updated_at": "2026-10-13T16:13:18.711926Z",
+  "right_now_summary": "Cost tracking now rides with sessions; T1–T4 and T8 are live, while T5 awaits review and other work continues.",
+  "right_now_updated_at": "2026-10-13T16:41:15.596837Z",
   "custom": {}
 }
