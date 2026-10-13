@@ -87,6 +87,7 @@ import {
 } from "./owner-supervisor.ts";
 import type { EditOverlayDependencies, EditOverlayRuntime } from "../domain/edit-overlay.ts";
 import { discardOverlayEntryHandler, listOverlayEntriesHandler } from "./routes/computer-file-overlay.ts";
+import { deleteComputerFileHandler, makeComputerFolderHandler, moveComputerFileHandler } from "./routes/computer-file-operations.ts";
 import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
 
 export interface Clock {
@@ -436,6 +437,15 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/watch", audience: "user" }, (c) =>
 		watchComputerFilesHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "DELETE", path: "/orgs/:tenant_id/computer/files", audience: "user" }, (c) =>
+		deleteComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/move", audience: "user" }, (c) =>
+		moveComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/directories", audience: "user" }, (c) =>
+		makeComputerFolderHandler(c, computerFileRoutes),
 	);
 
 	const overlayFileRoutes = { ...userRoutes, overlay: overlayDependencies };

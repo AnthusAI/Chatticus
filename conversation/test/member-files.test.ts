@@ -4,7 +4,7 @@ import { StoreOverlayAuditSink, auditExpiryOf, memberAuditRecordOf } from "../sr
 import { secondsLeftInWindow } from "../src/domain/file-rate-limit.ts";
 import { MemberFileRefusal } from "../src/domain/member-file-refusal.ts";
 import { fallbackReasonOfOwnerError, refusalOfOwnerError } from "../src/domain/member-files.ts";
-import { writePreconditionOf } from "../src/http/routes/file-preconditions.ts";
+import { recursiveFlagOf, removePreconditionOf, writePreconditionOf } from "../src/http/routes/file-preconditions.ts";
 import type { FileAuditRecord } from "../src/store/codecs/file-audit.ts";
 
 const HASH = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
@@ -31,6 +31,32 @@ describe("the precondition of a save", () => {
 
 	it.each([`"${HASH}"`, "", "**", "W/*"])("refuses the If-None-Match value %j as 400", (value) => {
 		expect(() => writePreconditionOf(undefined, value)).toThrowError(expect.objectContaining({ code: "invalid_body", status: 400 }));
+	});
+});
+
+describe("the precondition of a delete or a rename", () => {
+	it("reads one strong quoted hash from If-Match", () => {
+		expect(removePreconditionOf(`"${HASH}"`)).toBe(HASH);
+	});
+
+	it("asks for If-Match with 428", () => {
+		expect(() => removePreconditionOf(undefined)).toThrowError(expect.objectContaining({ code: "precondition_required", status: 428 }));
+	});
+
+	it.each(["*", `W/"${HASH}"`, `"${HASH}", "${HASH}"`, HASH, `"${HASH.slice(1)}"`, '""'])("refuses the If-Match value %j as 400", (value) => {
+		expect(() => removePreconditionOf(value)).toThrowError(expect.objectContaining({ code: "invalid_body", status: 400 }));
+	});
+
+	it.each([
+		[undefined, false],
+		["false", false],
+		["true", true],
+	])("reads recursive=%j as %j", (raw, expected) => {
+		expect(recursiveFlagOf(raw)).toBe(expected);
+	});
+
+	it.each(["", "1", "yes", "TRUE"])("refuses recursive=%j as 400", (raw) => {
+		expect(() => recursiveFlagOf(raw)).toThrowError(expect.objectContaining({ code: "invalid_body", status: 400 }));
 	});
 });
 

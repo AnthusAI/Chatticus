@@ -45,7 +45,7 @@ async function putContent(world: ChatticusWorld, userId: string, tenantId: strin
 	});
 }
 
-async function ownerAnswersTheWaitingRequest(
+export async function ownerAnswersTheWaitingRequest(
 	world: ChatticusWorld,
 	choose: (request: OwnerFileRequest, answer: LiveFileOutcome) => LiveFileOutcome = (_request, answer) => answer,
 ) {

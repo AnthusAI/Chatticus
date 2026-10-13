@@ -229,6 +229,14 @@ export type MemberFileChange = {
 	readonly overlayRequest: OverlayMemberChange;
 	/** The paths the request names, for the `.git` refusal. */
 	readonly paths: readonly string[];
+	/** Only the organization owner role may make this change (L51); anyone else is refused `owner_role_required` and the refusal is audited. */
+	readonly ownerRoleRequired?: boolean;
+	/**
+	 * The live request depends on what is at the path: the owner checks a file or a link against its content hash and a folder
+	 * against its tree hash, and a person's `If-Match` does not say which it is. The Front Door asks the owner what is there
+	 * before it writes the audit record, and sends `requestForDirectory` (with `auditForDirectory`) when it is a folder.
+	 */
+	readonly entryKind?: { readonly path: string; readonly requestForDirectory: LiveFileRequestBody; readonly auditForDirectory: MemberAuditIntent };
 };
 
 /** What a change came to. */
@@ -256,6 +264,10 @@ export async function performMemberChange(
 	ctx?: FileRoutingContext,
 ): Promise<MemberChangeResult> {
 	const routing = ctx ?? (await routingContextOf(deps, member.tenantId));
+	if (change.ownerRoleRequired === true && member.role !== "owner") {
+		await auditRefusal(deps, member, routing, change, routing.source.source === "live" ? "live" : "overlay", "owner_role_required");
+		throw new MemberFileRefusal("owner_role_required", "Only an owner of the organization deletes a folder that is not empty.");
+	}
 	if (routing.source.source === "live") {
 		if (change.paths.some((path) => livePathHasGitSegment(normalizeLivePath(path)))) {
 			await auditRefusal(deps, member, routing, change, "live", "path_refused");
@@ -302,6 +314,9 @@ async function auditRefusal(
 async function changeThroughOwner(deps: MemberFileDependencies, ctx: FileRoutingContext, member: FileMember, change: MemberFileChange): Promise<MemberChangeResult> {
 	const { computer, worker } = ctx;
 	if (computer === null || worker === null) throw new MemberFileRefusal("computer_stopping", "The computer is stopping; try again in a moment.", { retryAfterMs: OVERLAY_STOPPING_RETRY_AFTER_MILLISECONDS });
+	const kind = change.entryKind === undefined ? null : await entryKindThroughOwner(deps, ctx, member, change.entryKind.path);
+	const asked = kind === "directory" && change.entryKind !== undefined ? change.entryKind.requestForDirectory : change.liveRequest;
+	const intent = kind === "directory" && change.entryKind !== undefined ? change.entryKind.auditForDirectory : change.audit;
 	await refuseWhenTooBusy(deps, member.tenantId);
 	const pickup = expectedPickupMilliseconds(worker, deps.clock.now());
 	if (pickup > LARGEST_WORTH_WAITING_MILLISECONDS) {
@@ -312,12 +327,12 @@ async function changeThroughOwner(deps: MemberFileDependencies, ctx: FileRouting
 	const operationId = newLiveFileOperationId(deps.ids);
 	const record = memberAuditRecordOf(
 		{ tenantId: member.tenantId, computerId: computer.computerId, userId: member.userId, operationId, at, source: "live" },
-		change.audit,
+		intent,
 		"pending",
 	);
 	await beginMemberAudit(deps.store, record);
 	await deps.store.markComputerDiskDirty(member.tenantId);
-	const queued = await queueLiveFileRequest(deps, { computer, userId: member.userId, request: change.liveRequest, operationId, auditAtMilliseconds: at.getTime() });
+	const queued = await queueLiveFileRequest(deps, { computer, userId: member.userId, request: asked, operationId, auditAtMilliseconds: at.getTime() });
 	if (queued.status === "owner_stopping") {
 		await finishMemberAudit(deps.store, record, { outcome: "failed", finishedAt: deps.clock.now(), errorCode: "owner_stopping" });
 		throw new MemberFileRefusal("computer_stopping", "The computer is stopping; try again in a moment.", { retryAfterMs: OVERLAY_STOPPING_RETRY_AFTER_MILLISECONDS });
@@ -336,6 +351,30 @@ async function changeThroughOwner(deps: MemberFileDependencies, ctx: FileRouting
 		throw new MemberFileRefusal("outcome_unknown", "The computer took the change but did not answer in time. Read the file again to see whether it was made.");
 	}
 	if (waited.outcome.status === "error") throw refusalOfOwnerError(waited.outcome);
-	if (waited.outcome.result.kind !== change.liveRequest.kind) throw new MemberFileRefusal("owner_error", "The computer answered a different request.");
+	if (waited.outcome.result.kind !== asked.kind) throw new MemberFileRefusal("owner_error", "The computer answered a different request.");
 	return { source: "live", operationId, result: waited.outcome.result };
+}
+
+/**
+ * Ask the running owner what is at a path, so that a delete or a rename can send the kind of precondition the owner checks
+ * (a content hash for a file or a link, a tree hash for a folder). Nothing is audited or changed. A path that is not there is
+ * `not_found`; an owner that cannot answer in time leaves the person to try again.
+ */
+async function entryKindThroughOwner(deps: MemberFileDependencies, ctx: FileRoutingContext, member: FileMember, path: string): Promise<"file" | "directory" | "symlink"> {
+	const read = await readThroughOwner(deps, ctx, member, { kind: "stat", path, tree: false });
+	if (read.kind === "fallback") {
+		switch (read.reason) {
+			case "owner_stopping":
+				throw new MemberFileRefusal("computer_stopping", "The computer is stopping; try again in a moment.", { retryAfterMs: OVERLAY_STOPPING_RETRY_AFTER_MILLISECONDS });
+			case "owner_warming":
+				throw new MemberFileRefusal("owner_warming", "The computer is not ready to take the change yet; try again in a moment.", { retryAfterMs: read.retryAfterMs ?? LIVE_FILE_RETRY_AFTER_MIN_MILLISECONDS });
+			case "owner_timeout":
+				throw new MemberFileRefusal("owner_timeout", "The computer did not answer in time; nothing was changed.");
+			default:
+				throw new MemberFileRefusal("owner_error", "The computer could not say what is at the path; nothing was changed.");
+		}
+	}
+	if (read.outcome.status === "error") throw refusalOfOwnerError(read.outcome);
+	if (read.outcome.result.kind !== "stat") throw new MemberFileRefusal("owner_error", "The computer answered a different request.");
+	return read.outcome.result.entry.kind;
 }
