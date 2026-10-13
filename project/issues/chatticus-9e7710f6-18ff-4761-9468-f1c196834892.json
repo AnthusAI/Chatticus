@@ -24,17 +24,29 @@
         "model": "claude-sonnet-5-5",
         "name": "cost-t2"
       }
+    },
+    {
+      "id": "8ace3f44-51f1-4aaa-93ae-b86e1e04ca89",
+      "author": "home",
+      "text": "Spike done, PR 536 (not merged). Findings: (1) afterResponse runs before the response commit with a read-only HookApi; a record it writes is a separate commit (undocumented runtime commit), not atomic. The assistant entry and pi.usage are the atomic part. (2) Keyed derivation from entries (key entry-<id>) is idempotent across retry and a takeover with a new fence; stale owner is rejected with OwnershipLost. (3) Keyed family documents are readable by key via a reader session with no replay; use fork initial; child conversations enumerate by ownerTaskId, ownerConversationId and whole partition; harness.usage sums children. (4) usage plus pi-ai cost are enough for our own price book; compaction spend is only in pi.usage (no entry, no hook). Recommendation: no hook, derive at conclude/fail/yield/park/takeover. Details in docs/COST_SPIKE_PI_DURABLE.md. Leaving in_progress until the PR merges.",
+      "created_at": "2026-10-13T12:15:35.534718Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t2"
+      }
     }
   ],
   "created_at": "2026-10-13T11:31:20.103258Z",
-  "updated_at": "2026-10-13T12:05:08.489524Z",
+  "updated_at": "2026-10-13T12:15:35.534748Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The spike is underway, testing pi-durable hooks, usage records, and child conversation storage.",
-  "right_now_updated_at": "2026-10-13T12:05:09.742904Z",
+  "right_now_summary": "The spike is complete, findings are documented, and PR 536 awaits merge.",
+  "right_now_updated_at": "2026-10-13T12:15:37.533517Z",
   "custom": {}
 }
