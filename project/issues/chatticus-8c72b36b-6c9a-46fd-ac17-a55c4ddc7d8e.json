@@ -12,16 +12,29 @@
     "cost-accounting"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "71002ac7-efc7-4b30-8c7e-486cf15242e4",
+      "author": "home",
+      "text": "Implemented in PR 537 (branch ts/cost-price-book, not merged). Price book now versioned (openai@2026-10-13+pi-ai-1.0.2) with cacheRead, cacheWrite and the gpt-6-luna tier above 272000 context tokens; sourced from the pi-ai 1.0.2 bundled openai catalog, NOT yet verified against OpenAI's own page. Calls are priced individually by their own model and context size; unpriced model fails the turn before the model call and a spend record is marked unpriced_calls with no cost_usd. Scenarios 6, 8, 9 of the plan are covered by features/cost_price_book.feature; scenario 7 (reasoning within output) is by construction (output priced as output) and not separately asserted. Not done: verification against OpenAI's page, rollup surfacing of unpriced_calls, service tier pricing, T4.",
+      "created_at": "2026-10-13T13:03:03.480323Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t3"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:31:22.757961Z",
-  "updated_at": "2026-10-13T11:31:22.758025Z",
+  "updated_at": "2026-10-13T13:03:03.480714Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "cost-auditor"
   },
-  "right_now_summary": "The team is adding versioned vendor pricing with cache tiers, source dates, validation, and updated budget docs.",
-  "right_now_updated_at": "2026-10-13T11:31:23.874918Z",
+  "right_now_summary": "A price-book implementation is in an unmerged PR, but source checks and service-tier pricing remain.",
+  "right_now_updated_at": "2026-10-13T13:03:06.831197Z",
   "custom": {}
 }
