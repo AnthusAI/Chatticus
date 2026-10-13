@@ -71,6 +71,7 @@ export async function recordBudgetAlertFromSns(request: RecordBudgetAlertRequest
 		rollupDate,
 		awsCostUsd: existing?.awsCostUsd ?? null,
 		vendorCostUsd: existing?.vendorCostUsd ?? Decimal.zero(),
+		unpricedCalls: existing?.unpricedCalls ?? 0,
 		combinedReportUsd: existing?.combinedReportUsd ?? null,
 		ceStatus: existing?.ceStatus ?? CE_STATUS_OK,
 		alertEvents: [

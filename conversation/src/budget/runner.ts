@@ -8,6 +8,7 @@ import {
 	type CostExplorerReader,
 } from "./cost-explorer.ts";
 import { Decimal } from "./decimal.ts";
+import type { ObservationReconciler } from "../ledger/reconcile.ts";
 import {
 	BILLED_VIA_VENDOR,
 	CE_STATUS_ERROR,
@@ -15,13 +16,18 @@ import {
 	CE_STATUS_PENDING,
 	DEFAULT_THRESHOLD_BANDS,
 	type Organization,
+	type VendorLedgerRow,
 } from "./models.ts";
+
+const GATEWAY_SOURCE = "gateway";
 
 export interface DailyRollupRequest {
 	readonly store: BudgetStore;
 	readonly costExplorer: CostExplorerReader;
 	readonly accountSpend: AccountSpendReader | null;
 	readonly alerts: BudgetAlertsPublisher | null;
+	/** Reconciles each organization's gateway observations against its session records before its spend is summed; null skips it. */
+	readonly reconciler: ObservationReconciler | null;
 	readonly environment: string;
 	readonly rollupDate: string;
 	readonly monthlyLimitUsd: Decimal;
@@ -29,13 +35,22 @@ export interface DailyRollupRequest {
 	readonly thresholdBands?: readonly number[];
 }
 
-/** Write org-environment-day rows and publish vendor threshold alerts once. */
+/**
+ * Write org-environment-day rows and publish vendor threshold alerts once. Each organization's gateway observations are
+ * reconciled first, so a call the vendor answered and the session never committed is in the day's dollars and a call the
+ * session did record is not counted a second time. Calls the price book could not price are counted on the row
+ * (`unpriced_calls`) and logged, never skipped without trace.
+ */
 export async function runDailyRollup(request: DailyRollupRequest): Promise<void> {
 	const { store, environment, rollupDate } = request;
 	const ceResult = await request.costExplorer.dailyCostsByTenant({ environment, rollupDate });
 	const updatedAt = pythonIsoUtc(request.now);
 	for (const organization of await store.listEnabledOrganizations()) {
-		const vendorCostUsd = await vendorDailyTotal(store, organization.tenantId, rollupDate);
+		await request.reconciler?.reconcileTenant(organization.tenantId);
+		const { total: vendorCostUsd, unpricedCalls } = await vendorDailyTotal(store, organization.tenantId, rollupDate);
+		if (unpricedCalls > 0) {
+			console.warn(`vendor_cost_unpriced_calls tenant_id=${organization.tenantId} rollup_date=${rollupDate} unpriced_calls=${unpricedCalls}`);
+		}
 		const [awsCostUsd, ceStatus] = await awsSpendFor(organization, ceResult, request.accountSpend, rollupDate);
 		const existing = await store.getBudgetRollupRow(organization.tenantId, environment, rollupDate);
 		await store.putBudgetRollupRow({
@@ -44,6 +59,7 @@ export async function runDailyRollup(request: DailyRollupRequest): Promise<void>
 			rollupDate,
 			awsCostUsd,
 			vendorCostUsd,
+			unpricedCalls,
 			combinedReportUsd: awsCostUsd === null ? null : awsCostUsd.add(vendorCostUsd),
 			ceStatus,
 			alertEvents: existing?.alertEvents ?? [],
@@ -99,33 +115,41 @@ async function awsSpendFor(
 	return [ceResult.costsByTenant.get(organization.tenantId) ?? Decimal.zero(), CE_STATUS_OK];
 }
 
-async function vendorDailyTotal(store: BudgetStore, tenantId: string, rollupDate: string): Promise<Decimal> {
+type VendorSpend = { readonly total: Decimal; readonly unpricedCalls: number };
+
+/**
+ * The vendor dollars and unpriced calls of the ledger rows that fall in a window of days. A gateway row whose call a
+ * session row already lists among its response ids is the same call and is skipped, so it is never counted twice; a row
+ * with unpriced calls adds them to the count instead of vanishing from the sum.
+ */
+function sumVendorRows(rows: readonly VendorLedgerRow[], firstDay: string, lastDay: string): VendorSpend {
+	const accountedCalls = new Set(rows.filter((row) => row.source !== GATEWAY_SOURCE).flatMap((row) => row.responseIds));
 	let total = Decimal.zero();
-	for (const row of await store.listVendorLedgerRowsForTenant(tenantId)) {
-		if (dayWrittenIn(row.recordedAt) !== rollupDate || row.billedVia !== BILLED_VIA_VENDOR || row.costUsd === null) {
-			continue;
-		}
-		total = total.add(row.costUsd);
+	let unpricedCalls = 0;
+	for (const row of rows) {
+		const rowDay = dayWrittenIn(row.recordedAt);
+		if (rowDay < firstDay || rowDay > lastDay || row.billedVia !== BILLED_VIA_VENDOR) continue;
+		if (row.source === GATEWAY_SOURCE && row.callId !== null && accountedCalls.has(row.callId)) continue;
+		unpricedCalls += row.unpricedCalls;
+		if (row.costUsd !== null) total = total.add(row.costUsd);
 	}
-	return total;
+	return { total, unpricedCalls };
 }
 
-async function vendorMonthToDateTotal(store: BudgetStore, rollupDate: string): Promise<Decimal> {
+async function vendorDailyTotal(store: BudgetStore, tenantId: string, rollupDate: string): Promise<VendorSpend> {
+	return sumVendorRows(await store.listVendorLedgerRowsForTenant(tenantId), rollupDate, rollupDate);
+}
+
+async function vendorMonthToDateTotal(store: BudgetStore, rollupDate: string): Promise<VendorSpend> {
 	const monthStart = firstDayOfMonth(rollupDate);
 	let total = Decimal.zero();
+	let unpricedCalls = 0;
 	for (const organization of await store.listEnabledOrganizations()) {
-		for (const row of await store.listVendorLedgerRowsForTenant(organization.tenantId)) {
-			const rowDay = dayWrittenIn(row.recordedAt);
-			if (rowDay < monthStart || rowDay > rollupDate) {
-				continue;
-			}
-			if (row.billedVia !== BILLED_VIA_VENDOR || row.costUsd === null) {
-				continue;
-			}
-			total = total.add(row.costUsd);
-		}
+		const spend = sumVendorRows(await store.listVendorLedgerRowsForTenant(organization.tenantId), monthStart, rollupDate);
+		total = total.add(spend.total);
+		unpricedCalls += spend.unpricedCalls;
 	}
-	return total;
+	return { total, unpricedCalls };
 }
 
 async function maybePublishVendorThreshold(request: DailyRollupRequest): Promise<void> {
@@ -133,7 +157,7 @@ async function maybePublishVendorThreshold(request: DailyRollupRequest): Promise
 	if (alerts === null || !monthlyLimitUsd.isPositive()) {
 		return;
 	}
-	const vendorMtd = await vendorMonthToDateTotal(store, rollupDate);
+	const { total: vendorMtd, unpricedCalls } = await vendorMonthToDateTotal(store, rollupDate);
 	const crossedBand = highestBandCrossed(vendorMtd, monthlyLimitUsd, request.thresholdBands ?? DEFAULT_THRESHOLD_BANDS);
 	if (crossedBand === null) {
 		return;
@@ -148,6 +172,7 @@ async function maybePublishVendorThreshold(request: DailyRollupRequest): Promise
 		vendorMtdUsd: vendorMtd,
 		monthlyLimitUsd,
 		rollupDate,
+		unpricedCalls,
 	});
 	await store.putBudgetThresholdState({
 		environment,

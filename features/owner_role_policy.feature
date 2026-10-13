@@ -10,7 +10,7 @@ Feature: The computer owner role reaches one conversation session and nothing el
   the tenant tag. These scenarios take the statements of that file, substitute
   the tag values the way IAM does, and ask whether each request is allowed.
   The owner may write the key families of its turn, its channel, its computer
-  record and actions, its ledger and its own mailbox; it may only read the
+  record and actions, its ledger and the monthly cost index of its organization and its own mailbox; it may only read the
   organization record and the budget rollup and look up one roster item (its bot); every other family,
   every other tenant, bot, channel and computer, and every action that carries
   no key (Scan, a batch write) are denied.
@@ -38,6 +38,9 @@ Feature: The computer owner role reaches one conversation session and nothing el
       | dynamodb:UpdateItem | anthus#computer#record       |
       | dynamodb:GetItem    | anthus#vendor_ledger         |
       | dynamodb:PutItem    | anthus#vendor_ledger         |
+      | dynamodb:GetItem    | anthus#cost#2026-10          |
+      | dynamodb:UpdateItem | anthus#cost#2026-10          |
+      | dynamodb:Query      | anthus#cost#2026-10          |
       | dynamodb:Query      | MB#anthus#bot-1#channel-1    |
       | dynamodb:DeleteItem | MB#anthus#bot-1#channel-1    |
 
@@ -63,6 +66,20 @@ Feature: The computer owner role reaches one conversation session and nothing el
       | dynamodb:PutItem             | anthus#budget_rollup   | denies  |
       | dynamodb:UpdateItem          | anthus#budget_rollup   | denies  |
       | dynamodb:DeleteItem          | anthus#budget_rollup   | denies  |
+
+  Scenario Outline: The owner cannot touch what the gateway observed, because that is the evidence its own cost is checked against
+    When the owner requests "<action>" on the "messaging" table for the keys "<key>"
+    Then the owner role denies the request
+
+    Examples:
+      | action              | key                          |
+      | dynamodb:GetItem    | anthus#cost#observed         |
+      | dynamodb:Query      | anthus#cost#observed         |
+      | dynamodb:PutItem    | anthus#cost#observed         |
+      | dynamodb:UpdateItem | anthus#cost#observed         |
+      | dynamodb:DeleteItem | anthus#cost#observed         |
+      | dynamodb:PutItem    | anthus#cost#channel#channel-1 |
+      | dynamodb:PutItem    | other#cost#2026-10           |
 
   Scenario Outline: The owner cannot touch any other family of its own organization
     When the owner requests "<action>" on the "messaging" table for the keys "<key>"

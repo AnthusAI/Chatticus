@@ -71,9 +71,3 @@ Feature: A versioned price book prices every model call
     And bot "Helper" runs one vendor-ledger computerless worker turn with model "gpt-9-unpriced" that fails
     Then the turn has failed with reason "No price is tabled for model openai/gpt-9-unpriced in price book openai@2026-10-13+pi-ai-1.0.2, so the turn was not run."
     And the model "gpt-9-unpriced" was called 0 times
-
-  Scenario: A spend record of an unknown model is marked unpriced and carries no dollars
-    When vendor spend is recorded for turn "unpriced-turn" with model "gpt-9-unpriced" and tokens 100 in 50 out
-    Then the vendor ledger row for turn "unpriced-turn" has input tokens 100
-    And the vendor ledger row for turn "unpriced-turn" has null cost_usd
-    And the vendor ledger row for turn "unpriced-turn" has 1 unpriced call

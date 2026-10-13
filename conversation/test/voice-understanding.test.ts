@@ -71,7 +71,7 @@ describe("one-shot completion through the faux provider", () => {
 		const understanding = new ModelUserUnderstanding(modelsServing(scripted));
 		const result = await understanding.understand("status please", [{ speaker: "Person", text: "earlier" }]);
 		expect(result.text).toBe("Status, please.");
-		expect(result.usage).toEqual({ vendor: "openai", model: "gpt-5-nano", inputTokens: 300, outputTokens: 12 });
+		expect(result.usage).toEqual({ vendor: "openai", model: "gpt-5-nano", inputTokens: 300, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 12, reasoningTokens: 0 });
 		expect(scripted.callCount).toBe(1);
 		expect(scripted.requests[0]).toContain("<transcript>\\nstatus please\\n</transcript>");
 		expect(scripted.requests[0]).toContain("Person: earlier");
@@ -136,7 +136,7 @@ describe("one-shot completion through the real OpenAI provider with its request 
 			});
 		const result = await understanding.understand("hi", []);
 		expect(result.text).toBe("Hi.");
-		expect(result.usage).toEqual({ vendor: "openai", model: "gpt-5-nano", inputTokens: 30, outputTokens: 7 });
+		expect(result.usage).toEqual({ vendor: "openai", model: "gpt-5-nano", inputTokens: 30, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 7, reasoningTokens: 0 });
 		expect(sent.url).toBe("https://api.openai.com/v1/responses");
 		expect(sent.body.model).toBe("gpt-5-nano");
 		expect(sent.body.reasoning.effort).toBe("minimal");

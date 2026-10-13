@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Decimal } from "../src/budget/decimal.ts";
-import { costUsdFromTokens } from "../src/ledger/vendor-ledger.ts";
 import { CommitOutcomeUnknown, findStorageFailure, OwnershipLost } from "../src/pi/errors.ts";
 import {
 	ACCESS_DENIED_REASON,
@@ -167,20 +165,6 @@ describe("buildSystemPrompt", () => {
 		expect(prompt).toContain("compile and run it with run_terminal");
 		expect(prompt).toContain("try it with run_terminal and tell the user what happened");
 		expect(prompt).toContain("To change an existing file, use edit_workspace. To create a new file, use write_workspace.");
-	});
-});
-
-describe("costUsdFromTokens", () => {
-	const price = (text: string) => Decimal.parse(text);
-
-	it("prices tokens at frozen per-million rates", () => {
-		expect(costUsdFromTokens(10, 5, price("2.00"), price("4.00"))?.toString()).toBe("0.00004000");
-		expect(costUsdFromTokens(3, 2, price("2.00"), price("4.00"))?.toString()).toBe("0.00001400");
-	});
-
-	it("is null without a rate or without tokens", () => {
-		expect(costUsdFromTokens(10, 5, null, price("4.00"))).toBeNull();
-		expect(costUsdFromTokens(0, 0, price("2.00"), price("4.00"))).toBeNull();
 	});
 });
 

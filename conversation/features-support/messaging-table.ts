@@ -98,6 +98,8 @@ export class ScenarioMessagingTable {
 		billedVia: string;
 		costUsd: Decimal | null;
 		recordedAt: string;
+		unpricedCalls?: number;
+		responseIds?: readonly string[];
 	}): Promise<void> {
 		const key = vendorLedgerKey(row.tenantId, row.turnId);
 		const billedByVendor = row.billedVia === BILLED_VIA_VENDOR;
@@ -119,6 +121,12 @@ export class ScenarioMessagingTable {
 		}
 		if (row.costUsd !== null) {
 			item.cost_usd = { N: row.costUsd.toString() };
+		}
+		if (row.unpricedCalls !== undefined) {
+			item.unpriced_calls = { N: String(row.unpricedCalls) };
+		}
+		if (row.responseIds !== undefined && row.responseIds.length > 0) {
+			item.response_ids = { SS: [...row.responseIds] };
 		}
 		await this.client.send(new PutItemCommand({ TableName: this.tableName, Item: item }));
 	}

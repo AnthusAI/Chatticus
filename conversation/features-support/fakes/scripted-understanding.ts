@@ -1,10 +1,10 @@
-import type { SpendUsage } from "../../src/ledger/vendor-ledger.ts";
+import type { ModelCallUsage } from "../../src/ledger/call-cost.ts";
 import type { RecentLine, Understanding, UserUnderstanding } from "../../src/voice/understanding.ts";
 
 /** The understand-the-user step with scripted meanings: it records what it was asked and what it was shown. */
 export class ScriptedUserUnderstanding implements UserUnderstanding {
 	readonly meanings = new Map<string, string>();
-	readonly usages = new Map<string, SpendUsage>();
+	readonly usages = new Map<string, ModelCallUsage>();
 	readonly calls: Array<{ transcript: string; recent: RecentLine[] }> = [];
 	unavailable = false;
 

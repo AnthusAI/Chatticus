@@ -126,34 +126,3 @@ export function priceCall(book: VendorPriceBook, call: PricedCallSubject): Price
 	}
 	return { costUsd: cost, pricedWith: [...labels].sort(), appliedRates: rates };
 }
-
-/** The dollars of a set of calls, each priced by its own model. */
-export type PricedCalls = {
-	readonly costUsd: Decimal | null;
-	readonly pricedWith: readonly string[];
-	readonly unpricedCalls: number;
-	readonly models: readonly string[];
-};
-
-/**
- * Price every call of a turn by its own model. A call whose model is not in the book is counted as unpriced, and the
- * total is then unknown (null) rather than the sum of the priced part, so a partial figure is never shown as complete.
- */
-export function priceCalls(book: VendorPriceBook, calls: readonly PricedCallSubject[]): PricedCalls {
-	let total = Decimal.zero();
-	let unpricedCalls = 0;
-	const labels = new Set<string>();
-	const models = new Set<string>();
-	for (const call of calls) {
-		models.add(call.model);
-		try {
-			const priced = priceCall(book, call);
-			total = total.add(priced.costUsd);
-			for (const label of priced.pricedWith) labels.add(label);
-		} catch (error) {
-			if (!(error instanceof UnpricedModelError)) throw error;
-			unpricedCalls += 1;
-		}
-	}
-	return { costUsd: unpricedCalls > 0 ? null : total, pricedWith: [...labels].sort(), unpricedCalls, models: [...models].sort() };
-}

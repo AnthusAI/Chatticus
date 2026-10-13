@@ -14,7 +14,7 @@ import { snapshotReadStoreOf } from "./computer-snapshot-files-support.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { editOverlayRuntimeOf } from "./edit-overlay-support.ts";
 import { fileWaitOf } from "./computer-file-live-support.ts";
-import { ledgerDependenciesFor } from "./executor-harness.ts";
+import { voiceCostFailureReporterOf, voiceLedgerFor } from "./voice-cost-support.ts";
 import { modelGatewayFor, SCENARIO_GATEWAY_SIGNING_KEY } from "./model-gateway-support.ts";
 import { ownerBrokerOf } from "./owner-broker-support.ts";
 import { probedListingClients } from "./front-door-listing-probe.ts";
@@ -90,7 +90,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		ids: world.ids,
 		store: world.messagingStore(),
 		messages: messageDependencies(world, await ensurePiStorage(world)),
-		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
+		voice: { understanding: world.scriptedUnderstanding, ledger: voiceLedgerFor(world), reportCostFailure: voiceCostFailureReporterOf(world) },
 		turnControl: world.turnControlStore(),
 		modelGateway: modelGatewayFor(world),
 		ownerSupervisor: { signingKey: SCENARIO_GATEWAY_SIGNING_KEY, broker: ownerBrokerOf(world) },

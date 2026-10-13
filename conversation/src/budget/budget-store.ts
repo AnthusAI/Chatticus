@@ -102,6 +102,10 @@ export function vendorLedgerRowFromItem(item: Item): VendorLedgerRow {
 		billedVia: requireString(item, "billed_via"),
 		costUsd: optionalDecimal(item, "cost_usd"),
 		recordedAt: requireString(item, "recorded_at"),
+		unpricedCalls: Number(item.unpriced_calls?.N ?? "0"),
+		source: item.source?.S ?? "session",
+		callId: item.call_id?.S ?? null,
+		responseIds: [...(item.response_ids?.SS ?? [])],
 	};
 }
 
@@ -117,6 +121,7 @@ export function budgetRollupItem(row: BudgetRollupRow): Item {
 		environment: { S: row.environment },
 		rollup_date: { S: row.rollupDate },
 		vendor_cost_usd: { N: row.vendorCostUsd.toString() },
+		unpriced_calls: { N: String(row.unpricedCalls) },
 		ce_status: { S: row.ceStatus },
 		updated_at: { S: row.updatedAt },
 		alert_events: { S: JSON.stringify(events) },
@@ -147,6 +152,7 @@ export function budgetRollupFromItem(item: Item): BudgetRollupRow {
 		rollupDate: requireString(item, "rollup_date"),
 		awsCostUsd: optionalDecimal(item, "aws_cost_usd"),
 		vendorCostUsd: Decimal.parse(requireNumber(item, "vendor_cost_usd")),
+		unpricedCalls: Number(item.unpriced_calls?.N ?? "0"),
 		combinedReportUsd: optionalDecimal(item, "combined_report_usd"),
 		ceStatus: requireString(item, "ce_status"),
 		alertEvents,

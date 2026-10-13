@@ -104,6 +104,7 @@ const TEST_TUNING: Partial<ExecutorTuning> = {
 	renewIntervalMilliseconds: 1000,
 	mailboxPollMilliseconds: 100,
 	retry: { maxRetries: 2, baseDelayMilliseconds: 5 },
+	compaction: { keepRecentTokens: 1 },
 };
 
 /**

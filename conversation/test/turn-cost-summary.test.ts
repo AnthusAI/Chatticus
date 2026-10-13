@@ -42,6 +42,31 @@ describe("the turn index key", () => {
 	it("partitions by tenant and month and sorts by turn", () => {
 		expect(costTurnIndexKey("anthus", "2026-10", "t9")).toEqual({ pk: "anthus#cost#2026-10", sk: "turn#t9" });
 	});
+
+	it("sorts a voice understanding call under voice and not under turn", () => {
+		expect(costTurnIndexKey("anthus", "2026-10", "voice:abc")).toEqual({ pk: "anthus#cost#2026-10", sk: "voice#abc" });
+	});
+});
+
+describe("what a summary keeps for reconciliation", () => {
+	it("lists the response ids of records that carry tokens and leaves out a record without tokens", () => {
+		const summary = summarizeTurnCost([
+			recordOf({ entryId: 1, responseId: "resp_a" }),
+			recordOf({ entryId: 2, responseId: "resp_b", inputTokens: 0, contextTokens: 0, outputTokens: 0, costUsd: "0" }),
+			recordOf({ entryId: 3, responseId: null }),
+		])!;
+		expect(summary.responseIds).toEqual(["resp_a"]);
+	});
+
+	it("totals the tokens of the compaction records, which carry no response id", () => {
+		const summary = summarizeTurnCost([
+			recordOf({ entryId: 1, responseId: "resp_a" }),
+			recordOf({ entryId: 2, kind: "compaction", inputTokens: 900, contextTokens: 900, outputTokens: 60 }),
+		])!;
+		expect(summary.compactionContextTokens).toBe(900);
+		expect(summary.compactionOutputTokens).toBe(60);
+		expect(summary.responseIds).toEqual(["resp_a"]);
+	});
 });
 
 describe("summarizing the cost records of a turn", () => {

@@ -6,7 +6,6 @@ import {
 	PRICED_WITH_LONG_CONTEXT_TIER,
 	PRICED_WITH_UNCACHED_FALLBACK,
 	priceCall,
-	priceCalls,
 	UnpricedModelError,
 	VendorPriceBook,
 } from "../src/ledger/price-book.ts";
@@ -64,22 +63,5 @@ describe("a price without cache rates", () => {
 
 	it("does not flag a call that used no cache", () => {
 		expect(priceCall(bareBook(), call("bare", 1000, 0, 0, 0)).pricedWith).toEqual([PRICED_WITH_LIST]);
-	});
-});
-
-describe("pricing the calls of a turn", () => {
-	const book = defaultVendorPriceBook();
-
-	it("prices each call by its own model", () => {
-		const priced = priceCalls(book, [call("gpt-6-luna", 1000, 0, 0, 100), call("gpt-5-nano", 1000, 0, 0, 100)]);
-		expect(priced.costUsd?.equals(Decimal.parse("0.00024"))).toBe(true);
-		expect(priced.models).toEqual(["gpt-5-nano", "gpt-6-luna"]);
-		expect(priced.unpricedCalls).toBe(0);
-	});
-
-	it("makes the total unknown when any call is unpriced", () => {
-		const priced = priceCalls(book, [call("gpt-6-luna", 1000, 0, 0, 100), call("gpt-9-unpriced", 1000, 0, 0, 100)]);
-		expect(priced.costUsd).toBeNull();
-		expect(priced.unpricedCalls).toBe(1);
 	});
 });

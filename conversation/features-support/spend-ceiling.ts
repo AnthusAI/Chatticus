@@ -68,6 +68,7 @@ export async function rollUpToday(world: ChatticusWorld): Promise<void> {
 		costExplorer: world.costExplorer,
 		accountSpend: null,
 		alerts: null,
+		reconciler: null,
 		environment: world.budgetEnvironment,
 		rollupDate: utcDayOf(world.clock.now()),
 		monthlyLimitUsd: world.monthlyLimitUsd,

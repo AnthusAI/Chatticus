@@ -1,5 +1,5 @@
 import type { Models } from "@earendil-works/pi-ai/models";
-import type { SpendUsage } from "../ledger/vendor-ledger.ts";
+import type { ModelCallUsage } from "../ledger/call-cost.ts";
 
 /** The model that repairs spoken lines. */
 export const DEFAULT_UNDERSTANDING_MODEL = "gpt-5-nano";
@@ -79,7 +79,7 @@ export type UnderstandingOutcome = "rewritten" | "as_heard" | "degraded" | "untr
  */
 export type Understanding = {
 	readonly text: string;
-	readonly usage: SpendUsage | null;
+	readonly usage: ModelCallUsage | null;
 	readonly degraded: boolean;
 	readonly outcome: UnderstandingOutcome;
 };
@@ -237,7 +237,10 @@ export class ModelUserUnderstanding implements UserUnderstanding {
 				vendor: UNDERSTANDING_VENDOR,
 				model: this.modelId,
 				inputTokens: message.usage.input,
+				cacheReadTokens: message.usage.cacheRead,
+				cacheWriteTokens: message.usage.cacheWrite,
 				outputTokens: message.usage.output,
+				reasoningTokens: message.usage.reasoning ?? 0,
 			},
 			degraded: false,
 			outcome: "rewritten",

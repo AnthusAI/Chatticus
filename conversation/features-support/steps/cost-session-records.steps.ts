@@ -22,7 +22,7 @@ const context = BACKGROUND_CONTEXT;
 
 const tenantOf = (world: ChatticusWorld): string => world.lastChannel?.tenantId ?? "anthus";
 
-async function partitionOfTurn(world: ChatticusWorld, turnId: string) {
+export async function partitionOfTurn(world: ChatticusWorld, turnId: string) {
 	const tenantId = tenantOf(world);
 	const turn = await world.turnDependencies().store.getTurn(tenantId, turnId);
 	assert.ok(turn, `Turn ${turnId} does not exist`);

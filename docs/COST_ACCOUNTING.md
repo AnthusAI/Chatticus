@@ -9,6 +9,10 @@
 > **As built (T4, Kanbus `chatticus-49aa88`):** sections 1 and 2 describe the code BEFORE T4. Section 3.8 describes what T4 built and
 > which findings it closed (F1, F3, F5(e)); where 3.2 and 3.3 differ from 3.8, 3.8 is the code. The spike decision (no `afterResponse`
 > hook, derive from entries) is folded into 3.8; `COST_SPIKE_PI_DURABLE.md` stays as the record of the library contract.
+>
+> **As built (T5, Kanbus `chatticus-10e4ad`):** section 3.9 describes complete metering: compaction, errored and aborted responses, calls only the
+> gateway saw, the voice understanding call, and the rollup's unpriced count. It closes F5(a) (for computer-owner turns), F5(b), F5(c), F5(d) and the
+> voice part of F6, and it is the code where 3.3 differs.
 
 ## 0. The owner's vision, and the short answer
 
@@ -33,7 +37,7 @@ The owner's suspicion was "it probably is stored, but this needs checking". Chec
 | Cost per sub-agent | FALSE | Chatticus has no sub-agent tool yet. When it does, `measureTurnUsage` reads only the root conversation, so a child's spend would be missed |
 | Cost visible to users in the web app | FALSE | `web/` shows only the monthly AWS spend ceiling and the computer-paused notice. No model cost anywhere |
 | Cost exposed over the HTTP API | FALSE | The only spend routes are `PATCH /orgs/{t}/monthly-aws-spend-ceiling` and ceiling fields on `/me` |
-| Every model call is metered | MOSTLY TRUE | Turn calls (both owners), the voice understanding call. Compaction summaries, aborted or failed attempts, and cached or reasoning breakdowns are not (F5, F6). No title-generation, routine or other model call exists |
+| Every model call is metered | TRUE after T5 for every call site that exists (section 3.9 lists them) | Turn calls (both owners), compaction summaries, errored and aborted responses, the voice understanding call, and calls only the gateway saw. Before T5: compaction, aborted or failed attempts and gateway-only calls were not (F5, F6). No title-generation, routine or other model call exists |
 | Per-organization rollup | PARTLY TRUE | The daily rollup sums ledger dollars per organization per day (`conversation/src/budget/runner.ts`), but only into a budget alert and the computer-work meter; there is no readable report |
 | Per-user rollup | FALSE | Ledger carries no user id |
 
@@ -325,12 +329,93 @@ fields `ledger_input_recorded` / `ledger_output_recorded` (`domain/turns.ts`, `s
 understanding call only (T5 moves it). The container's empty price book was replaced by the default book in T3.
 
 **Findings closed.** F1 (double count) by T1 and T4. F3 (one model per turn): every record carries its own model and is priced by it. F5(e)
-(nothing recorded at yield, park or while the turn is unresolved): records are written at those points. Still open: F5(a) (a call with no committed
-entry), F5(b) compaction, F5(c) aborted calls without entries (T5), F4 children and forks beyond the `fork: "initial"` and conversation-filter
-guards (T6), F6 voice.
+(nothing recorded at yield, park or while the turn is unresolved): records are written at those points. Closed by T5 (section 3.9): F5(a) for computer-owner turns (a call with no committed
+entry, through the gateway observation), F5(b) compaction, F5(c) aborted and errored calls, F6 voice. Still open: F4 children and forks beyond the `fork: "initial"` and conversation-filter
+guards (T6).
 
 **Proof.** `features/cost_session_records.feature`, `cost_session_records_owners.feature`, `cost_session_records_handoff.feature`; mutation
 checks on the entry key, the conversation filter and the fork mode each fail a named scenario (see the pull request).
+
+### 3.9 As built (T5)
+
+**Every model call site, and how it is metered.** The search was `completeSimple`, `streamSimple`, `.stream(`, `createModels`, `createOpenAiModels`,
+`createGatewayModels`, `api.openai.com`, `/responses`, `Harness.open` and `OPENAI_API_KEY` over `conversation/src`, `computer/host/src`, `web/` and
+`infra/lib`. These are all the places that can reach a model:
+
+| Call site | Where | Metered by |
+| --- | --- | --- |
+| Bot turn rounds on a Lambda owner | `turn/executor.ts` through `createOpenAiModels` (`turn/openai-models.ts`) | `turn_round` records derived from assistant entries (T4) |
+| Bot turn rounds on the computer owner | `computer/host/src/owner-models.ts` `createGatewayModels` into the gateway | the same records, plus a gateway observation per call |
+| Errored and aborted responses | the same two paths; Pi appends them as assistant entries | the same `turn_round` records, with the tokens the provider had counted (zero when it had counted none) |
+| Compaction summaries | Pi's own `CompactionTask`, inside the turn, on either owner | `compaction` records (below) |
+| Voice understanding | `voice/understanding.ts` `completeSimple`, called by `domain/voice-messages.ts` | a `voice_understanding` record (below) |
+| The model gateway | `gateway/model-gateway.ts`, the route containers reach | an observation per call, the only cover for a call the session never committed (below) |
+| `migration/copy.ts` | opens a session through `createModels()` | not a call site: it never calls a model |
+
+There is no title generator, routine model call or sub-agent tool. `pi.usage` also has a `tools` bucket for tool results; no Chatticus tool calls a
+model, so it is empty and nothing reads it. A tool that ever calls a model must carry its own cost record in the same change (T6 adds the structural
+guard that enforces this).
+
+**Compaction.** Pi's compaction summary is a model call with no assistant entry, but the session's usage ledger (`pi.usage`) counts it. A
+conversation's compaction spend is that ledger minus what its assistant entries account for, per model. `deriveCompactionCostRecords`
+(`ledger/call-cost.ts`) computes the remainder, subtracts what the conversation's compaction records already hold, and writes the difference as a
+record of kind `compaction` (round 0) in the same `chatticus.cost` family, keyed by the cumulative spend it brings the conversation up to
+(`compaction-<provider>-<model>-<input>-<cacheRead>-<cacheWrite>-<output>`), so deriving again writes nothing and a later compaction adds only its own
+spend. It reads the ledger before the entries, so a response committed between the two reads shrinks the remainder and is then counted as its own entry,
+never as compaction. It runs wherever the entry derivation runs (`deriveCostRecords`, called by `recordTurnCost`), attributes the spend to the turn that
+derives it, and costs one extra scan of the conversation's entries per derivation (household scale). The compaction policy knob `keepRecentTokens` is
+now an executor tuning field (default Pi's 20000) so a scenario can make a short conversation compactable.
+
+**Errored and aborted responses.** Pi appends both as assistant entries with the usage the provider had counted (`appendAssistant`, and
+`convertPartial` for a cut-off stream), so they were already records; T5 proves it with scenarios for an error that reported usage and a cut-off stream
+that reported partial usage. A response that failed or was cut off before the provider counted anything is a record with zero tokens, and the vendor may
+still have billed it. The session cannot know that amount; the gateway observation can (below).
+
+**Gateway observations and reconciliation.** The gateway keeps one item per answered call: `pk = {tenant}#cost#observed`, `sk = turn#{turnId}#call#{callId}`,
+TTL 35 days (`expires_at`). `callId` is the vendor response id when the gateway saw one, otherwise its own request id, so one call is one item. The item
+holds the model, the vendor's input tokens (cached included), cached tokens, output and reasoning tokens, `estimated` (true for an interrupted stream or an
+answer with no final usage; the figures are then the gateway's estimate) and `reconciliation`. A final figure replaces an earlier estimate of the same call
+and an estimate never replaces a final figure. The gateway never writes the ledger; failing to keep an observation is logged (`observation_not_recorded`) and
+never fails the response.
+
+`reconcileTenantObservations` (`ledger/reconcile.ts`) judges each observation against the ledger row of its turn, which carries the response ids of the
+session records that have tokens and the tokens of the turn's compaction records: **matched** (its response id is on the row: the same call, not a cost),
+**compaction** (it fits inside the turn's compaction tokens, because a summarization has no response id in the session), **pending** (nothing accounts for
+it yet and it is younger than two hours, because a long turn writes its records only when it yields, parks, concludes or fails), or **orphan** (a call the
+vendor answered and the session never committed). An orphan becomes a ledger row `turn#gateway:{callId}` and a cost index item `gateway#{callId}` in the
+month of the call, priced from the book, with `source: gateway`, `estimated`, and the label `gateway_estimate` when estimated. The verdict is recomputed on
+every run, so the job is idempotent, and an orphan whose session record appears later is withdrawn (its rows deleted). A turn whose orphan tokens exceed 5
+percent of its session tokens is flagged in the outcome. The zero-token record of an aborted response lists no response id, so the gateway estimate of
+that same call is not matched and is counted. Known limit: a lost call whose tokens happen to fit inside a compaction budget of the same turn is absorbed
+as compaction; that needs a turn with a compaction and a lost call together.
+
+**Who reconciles.** The daily rollup (`budget/runner.ts`) calls the reconciler for each organization before it sums the day, so the day's dollars include
+orphans and exclude matched calls. The sum also skips a gateway row whose call id is on any session row's response ids, so it does not depend on the
+reconciler having deleted that row yet. Reads of the cost index added later (T8) must apply the same rule.
+
+**Voice understanding.** `recordVoiceUnderstandingCost` (`ledger/voice-cost.ts`) builds a `voice_understanding` record with the same
+`buildModelCallCost` and price book as a turn round (cache reads included), and projects it with the same `projectTurnCost` to the ledger row
+`turn#voice:{uuid}` and the cost index item `voice#{uuid}` with `channel_id`, the member in `prompt_author_id`, `kind: voice_understanding` and no
+`bot_id`. A failure to record is reported through `reportCostFailure` (an error log line `voice_cost_not_recorded` by default) and never blocks the line.
+`recordVendorSpend` and the frozen-first-write arithmetic are removed; nothing writes a ledger row by addition any more.
+
+**Rollups.** The rollup row has `unpriced_calls` (calls with no price in the book that day; their dollars are not in `vendor_cost_usd`), a
+`vendor_cost_unpriced_calls` warning is logged when it is positive, and the threshold alert payload carries the month-to-date `unpriced_calls`.
+
+**IAM.** The computer owner role wrote `{tenant}#cost#*`, which would have let a container write the gateway's evidence. The statement now names only
+month partitions (`{tenant}#cost#????-??`); `{tenant}#cost#observed` is written by the Front Door and the rollup Lambda only. This is a role-policy change:
+the CDK reads `conversation/src/gateway/owner-role-policy.json`, so the stack must be deployed and the owner role verified with the IAM simulator before
+an owner image that depends on it is released (moto does not enforce IAM). The scenarios in `owner_role_policy.feature` prove the policy file; they are not
+a substitute for the simulator run.
+
+**Still unmetered or approximate.** A Lambda owner calls the vendor directly and has no gateway, so a call it made that the session never committed is
+not recoverable. A response that failed or was cut off before the provider counted anything is recorded with zero tokens; only a computer owner's gateway
+observation can add its estimate. Compaction spend is attributed to the turn that derives it, which may be the next turn. Sub-agents and forks (T6). The
+`pi.usage` `tools` bucket. Service-tier pricing. The estimate of an interrupted stream counts hidden reasoning tokens as zero.
+
+**Proof.** `features/cost_complete_metering.feature`, `cost_gateway_observations.feature`, `cost_gateway_reconciliation.feature`, the voice and rollup
+scenarios in `voice_messages.feature` and `daily_budget_rollup.feature`, and the policy rows in `owner_role_policy.feature`. Mutation checks are in the
+pull request.
 
 ## 4. Work split and dependencies
 
@@ -340,7 +425,7 @@ checks on the entry key, the conversation filter and the fork mode each fail a n
 | T2 | S0 spike: pi-durable `afterResponse` document write, `pi.usage` reading, child-conversation enumeration; write findings to this doc | none | `docs/COST_ACCOUNTING.md` (spike notes), throwaway code outside `conversation/src` |
 | T3 | Versioned price book with cache, tiers, source; fail-closed unpriced; supersedes `chatticus-12ba7f` | none | `conversation/src/ledger/vendor-prices.ts`, `ledger/vendor-ledger.ts`, `gateway/model-gateway.ts`, `turn/openai-models.ts` |
 | T4 (done, section 3.8) | Call records in the session (`chatticus.cost` doc), idempotent keyed writes, turn index, retire delta counters and gateway ledger writes (fixes F1, F3, F5) | T1, T2, T3 | new `conversation/src/ledger/call-cost.ts`, `turn/finalize.ts`, `turn/executor.ts`, `gateway/model-gateway.ts`, `store/turn-store.ts`, `computer/host/src/owner-deps.ts` |
-| T5 | Complete metering: compaction, aborted, voice with member and channel, gateway observations and reconciliation job | T4 | `voice/understanding.ts`, `domain/voice-messages.ts`, `gateway/model-gateway.ts`, new `conversation/src/ledger/reconcile.ts` |
+| T5 (done, section 3.9) | Complete metering: compaction, aborted, voice with member and channel, gateway observations and reconciliation job | T4 | `voice/understanding.ts`, `domain/voice-messages.ts`, `gateway/model-gateway.ts`, new `conversation/src/ledger/reconcile.ts` |
 | T6 | Sub-agent and fork accounting plus parity guard and AGENTS.md rule | T4 (spike T2) | `conversation/src/turn/finalize.ts`, `storage/indexed-storage.ts` queries, guard test under `conversation/test`, `AGENTS.md` |
 | T7 | Migrate legacy ledger rows to the turn index; rollup reads the new shape | T4 | `conversation/src/budget/runner.ts`, `budget/budget-store.ts`, `conversation/src/migration/` |
 | T8 | HTTP cost API (channel, turn, org rollup, compare, export) | T4, T7 | `conversation/src/http/routes/costs.ts`, `http/app.ts`, `domain/costs.ts` |

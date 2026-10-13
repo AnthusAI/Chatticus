@@ -51,6 +51,8 @@ export type ExecutorTuning = {
 	readonly yieldBelowMilliseconds: number;
 	/** Pi's retry policy for a failed model call. */
 	readonly retry: { readonly maxRetries: number; readonly baseDelayMilliseconds: number };
+	/** How much of the newest conversation compaction keeps whole; Pi summarizes what is older than this. */
+	readonly compaction: { readonly keepRecentTokens: number };
 };
 
 /** What an executor tells an observer about the turn's claim; it never carries a secret or any of the turn's content. */

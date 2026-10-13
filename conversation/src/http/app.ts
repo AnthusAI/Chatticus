@@ -24,6 +24,7 @@ import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
 import { createUserTaskHandler, getTaskHandler, listUserTasksHandler, patchTaskHandler } from "./routes/tasks.ts";
 import { postVoiceMessageHandler } from "./routes/voice-messages.ts";
+import type { VoiceMessageDependencies } from "../domain/voice-messages.ts";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import { modelGatewayResponsesHandler, type ModelGatewayDependencies } from "../gateway/model-gateway.ts";
 import type { UserUnderstanding } from "../voice/understanding.ts";
@@ -116,7 +117,7 @@ export interface AppDeps {
 	/** Message admission and listing, behind the routes under /channels/{id}/messages. */
 	messages: Omit<MessageDependencies, "store" | "ids" | "clock">;
 	/** The understand-the-user step and the ledger its spend is recorded in, behind POST .../voice-messages. */
-	voice: { understanding: UserUnderstanding; ledger: VendorLedgerDependencies };
+	voice: { understanding: UserUnderstanding; ledger: VendorLedgerDependencies; reportCostFailure?: VoiceMessageDependencies["reportCostFailure"] };
 	/** The turn control record, behind the turn read routes. */
 	turnControl: TurnControlStore;
 	/** Member standing ceilings, read when a member replaces a turn's grant. */

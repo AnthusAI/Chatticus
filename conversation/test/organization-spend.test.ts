@@ -18,6 +18,7 @@ function row(rollupDate: string, ceStatus: string, combined: string | null): Bud
 		rollupDate,
 		awsCostUsd: null,
 		vendorCostUsd: Decimal.zero(),
+		unpricedCalls: 0,
 		combinedReportUsd: combined === null ? null : Decimal.parse(combined),
 		ceStatus,
 		alertEvents: [],
