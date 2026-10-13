@@ -1923,7 +1923,7 @@ it already has read and write on the whole bucket, and it is operator-trusted, o
 
 ## 13. Traceability
 
-Scenario names are those of `features/computer_file_live.feature`. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
+Scenario names are those of `features/computer_file_live.feature`, except the `@web` ones, which live in `features/web_computer_files.feature` (registered, with steps) under the same names. Tags: `@server` (A1, A2), `@supervisor` (C), `@web` (W),
 `@end-to-end` (E). `vitest` is the unit-test exception of `AGENTS.md`: pure helpers only.
 
 | # | Requirement | Section | Scenarios | Tag |
