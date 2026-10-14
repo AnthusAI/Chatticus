@@ -3,7 +3,7 @@
   "title": "A refused computer start retries until the dead-letter queue and the user sees no clear reason",
   "description": "Real use on development 2026-10-10: the user's organization (Anthus AI Solutions) had no AWS home, so the ComputerStarter logged computer_start_failed 'computer provisioning refused: Organization has no AWS home' about 20 times for one turn (SQS redelivery) and the user only saw a turn that could not get a computer. A provisioning refusal is permanent, not transient. Required: the start job handler must treat it as final: fail or answer the parked turn right away with a plain message that this organization has no computer set up (and what to do), mark the start job done so it does not redeliver, and keep the message out of the DLQ. Scenario: a parked turn on an organization with no AWS home ends with that message within one probe tick and exactly one start attempt. Mutation check.",
   "type": "bug",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "reliability-a"
       }
+    },
+    {
+      "id": "2431393c-940c-4d46-b0c5-c585c5f1c271",
+      "author": "home",
+      "text": "Triage 2026-10-14: closing as done. PR 546 is merged (2026-10-14T02:26Z) and PR 494 earlier fixed the no-AWS-home case. features/computer_owner_start.feature on origin/develop has the required scenarios: 'An organization with no AWS home fails the parked turn at once and the start job is never retried', 'A suspended organization fails the parked turn at once and the start job is never retried', 'A transient failure is retried until the third delivery and then fails the parked turn instead of dead-lettering', and 'A transient AWS error still leaves the parked turn waiting and the start job to be retried'. The comment on this ticket records them shown failing first and mutation-checked.",
+      "created_at": "2026-10-14T03:09:16.511027Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
     }
   ],
   "created_at": "2026-10-10T19:06:24.979332Z",
-  "updated_at": "2026-10-14T02:12:00.618314Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T03:10:00.987150Z",
+  "closed_at": "2026-10-14T03:10:00.987117Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The handler treats permanent refusals as final, limits retries, and gives users a clear reason.",
-  "right_now_updated_at": "2026-10-14T02:12:02.485443Z",
+  "right_now_summary": "The merged fix fails permanent refusals at once and bounds transient retries without sending jobs to the DLQ.",
+  "right_now_updated_at": "2026-10-14T03:10:02.922085Z",
   "custom": {}
 }

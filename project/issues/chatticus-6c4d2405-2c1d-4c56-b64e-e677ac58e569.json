@@ -3,7 +3,7 @@
   "title": "Spike: pi-durable on a DynamoDB Storage backend, driven per turn",
   "description": "Throwaway spike (spikes/pi-durable-6c4d24/). Prove, with measurements, before any product code:\n1. A DynamoDB implementation of pi-durable's Storage interface passes its storage conformance suite (registerStorageConformance), locally against DynamoDB Local.\n2. One storage per bot conversation; a short-lived owner (simulating the turn Lambda) opens it, submits a user message with a requestId, runs a turn on OpenAI gpt-5-nano, commits, closes; a second owner reopens and continues.\n3. Crash mid-turn (kill the owner during the model call and during a tool call); the next owner resumes unfinished tasks from checkpoints; idempotent requestId resubmission returns the original.\n4. watchEvents()/commit operations mapped onto the one-turn stream (event kinds, sizes).\n5. Another participant's message injected with attribution; a tool call gated (approval) and a tool executed remotely.\n6. Later, in AWS (needs the human's go-ahead): cold start and bundle size of the owner in a Node 22 Lambda outside any VPC.\nResults go into docs/PI_HARNESS.md.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -17,17 +17,29 @@
       "text": "Spike complete on branch claude/pi-durable-spike-6c4d24 (PR #391): review fixes (idempotent ClientRequestToken commits, OwnershipLost on fence loss with a stale owner that stops, best-effort cleanup) and the S3-plus-DynamoDB-index storage (23/23 conformance, all phase scripts incl. handoff pass on moto; index items <= 361 bytes; 410 KB entry and 4.2 MB commit now work). Open: real-AWS run (needs human go-ahead), snapshot object, orphan sweeper, defer-to-computer path, no-owner human messages, fewer commits per turn.",
       "created_at": "2026-10-04T19:56:07.164755Z",
       "comment_type": "default"
+    },
+    {
+      "id": "bb57b2c7-9b14-4797-894c-eb6bea38b3cc",
+      "author": "home",
+      "text": "Triage 2026-10-14: closing as done; the spike's decision shipped. Evidence: results are in docs/PI_HARNESS.md (the real-AWS run with cold start and bundle measurements, lines ~351-368; conformance 23 of 23 for the production S3-plus-index storage in conversation/src/storage/indexed-storage.ts, run in CI), spike code in spikes/pi-durable-6c4d24/, PR 391. The production control plane runs on this harness and the handoff from a serverless worker to the computer owner is proven live on development (README 'The computer runs Pi on development', docs/PI_SESSION_HANDOFF.md). The spike's own open items (orphan sweeper, no-owner human messages, fewer commits per turn) are product backlog, not spike work.",
+      "created_at": "2026-10-14T03:09:07.585282Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
     }
   ],
   "created_at": "2026-10-04T18:35:41.955362Z",
-  "updated_at": "2026-10-04T19:56:07.164803Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T03:09:58.790779Z",
+  "closed_at": "2026-10-14T03:09:58.790747Z",
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "The spike passes local tests; AWS validation and several follow-up paths still need work.",
-  "right_now_updated_at": "2026-10-04T19:56:09.201941Z",
+  "right_now_summary": "The spike is complete, with evidence documented and its decision shipped.",
+  "right_now_updated_at": "2026-10-14T03:09:59.742248Z",
   "custom": {}
 }

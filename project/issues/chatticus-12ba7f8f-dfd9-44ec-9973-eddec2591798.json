@@ -3,7 +3,7 @@
   "title": "Model costs: cached-input discount and the long-context tier are not modelled",
   "description": "vendor-prices.ts prices luna 0.10/0.50, nano 0.05/0.40, mini 0.25/2.00 USD per million from LiteLLM's public catalog (2026-10-11). The ledger has no cached-token field, so cached input (luna 0.01 per million) is charged at full price, a slight overestimate; pi-ai also lists a pricier long-context tier for luna above 272000 input tokens (input 0.20, output 0.75) that is not modelled. Add cached tokens to the usage record if costs matter; verify prices against OpenAI's own page.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "cost-auditor"
       }
+    },
+    {
+      "id": "71e6eb5b-c344-45c7-8430-9cdeeb8cc637",
+      "author": "home",
+      "text": "Triage 2026-10-14: closing as superseded and done. PR 537 (chatticus-8c72b3, T3 of docs/COST_ACCOUNTING.md) added the versioned price book: conversation/src/ledger/price-book.ts and vendor-prices.ts price cached input reads and writes at the cache rates and select the long-context tier by context size, and an unknown model fails closed as unpriced. features/cost_price_book.feature has the scenarios (cached input reads at the cache read rate, cached writes at the cache write rate, tier selection, unpriced). Usage records carry cache read and write tokens (conversation/src/ledger/call-cost.ts, PR 538). The price book names its source and version on every ledger row, which also covers the 'verify prices' request as an operator re-verification, not a code gap.",
+      "created_at": "2026-10-14T03:08:52.903385Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
     }
   ],
   "created_at": "2026-10-11T14:22:52.253428Z",
-  "updated_at": "2026-10-13T11:31:49.535758Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T03:09:44.930828Z",
+  "closed_at": "2026-10-14T03:09:44.930787Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Cost modeling moved to epic T3, which will add cached-token and long-context pricing.",
-  "right_now_updated_at": "2026-10-13T11:31:50.607447Z",
+  "right_now_summary": "Cost accounting now covers cached tokens and long-context pricing in the new versioned price book.",
+  "right_now_updated_at": "2026-10-14T03:09:46.683157Z",
   "custom": {}
 }

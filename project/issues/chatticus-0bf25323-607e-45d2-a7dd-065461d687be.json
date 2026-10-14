@@ -3,23 +3,36 @@
   "title": "TS-73 Host recycled mid-session during a 110 s turn, adding a host start",
   "description": "Live rehearsal: host generation 10 to 11 during one long turn, so a 3-start budget was exceeded (4). Find why a host exits or is replaced while a turn is in flight (idle timeout versus activity, lease relinquish TS-61). Scenario first.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d01a7c9d-5548-43bf-af30-356ef7901ed3",
+      "author": "home",
+      "text": "Triage 2026-10-14: closing as superseded. The mid-session host recycle was observed on the host-worker path (start generation 10 to 11 during a 110 s turn). Own-account computers no longer use the host worker; the long-lived owner supervisor (computer/host/src/supervisor.ts, Phase 2a, PR 518) only asks to stop for idleness when state is idle with no activity and no child (canAskToStopForIdleness: activity === null, child === null), so a turn in flight cannot hit the idle timeout, and a start for a computer with a live owner is acknowledged, not repeated (features/computer_owner_long_lived.feature: 'A second turn is served by the live owner without a start', 'A turn parked behind a busy owner waits and then runs'). Live proof: README says one owner served two back-to-back turns on development. The customer-account host-worker path keeps its own lease rules; if a recycle during a turn is seen there, open a new ticket with the log lines.",
+      "created_at": "2026-10-14T03:09:20.090955Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-07T21:17:28.563238Z",
-  "updated_at": "2026-10-07T21:17:28.563277Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T03:10:04.675557Z",
+  "closed_at": "2026-10-14T03:10:04.675524Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is tracing why the host was replaced during a long turn and exceeded the three-start budget.",
-  "right_now_updated_at": "2026-10-07T21:17:29.809045Z",
+  "right_now_summary": "The issue was superseded; own-account hosts no longer recycle during active turns.",
+  "right_now_updated_at": "2026-10-14T03:10:05.803444Z",
   "custom": {}
 }
