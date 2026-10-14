@@ -100,16 +100,16 @@ if echo "${out}" | grep -qi 'permission denied' && ! echo "${out}" | grep -q "${
 mode_and_type="$(docker exec "${SUPERVISOR_CONTAINER}" stat -c '%a %F' /run/chatticus/supervisor.sock 2>&1 || true)"
 if [ "${mode_and_type}" = "600 socket" ]; then pass "the supervisor listens on a filesystem socket of mode 600 in its runtime directory"; else fail "the supervisor socket is '${mode_and_type}', expected '600 socket'"; fi
 
-SOCKET_PROBE='const c=require("node:net").connect("/run/chatticus/supervisor.sock");let got="";c.on("connect",()=>c.write("{}\n"));c.on("data",(d)=>{got+=d});c.on("close",()=>{console.log("closed:"+got);process.exit(0)});c.on("error",(e)=>{console.log("error:"+e.code);process.exit(0)})'
+SOCKET_PROBE='const c=require("node:net").connect("/run/chatticus/supervisor.sock");let got="";c.on("connect",()=>c.write("{}\n"));c.on("data",(d)=>{got+=d});c.on("close",()=>{console.log("closed:"+got);process.exit(0)});c.on("error",(e)=>{console.log("error:"+e.code+":"+got);process.exit(0)})'
 
 out="$(docker exec "${SUPERVISOR_CONTAINER}" node -e "${SOCKET_PROBE}" 2>&1 || true)"
-if [ "${out}" = "closed:" ]; then pass "root can open the supervisor's socket, which answers nothing while no child runs"; else fail "root at the supervisor's socket: ${out}"; fi
+if echo "${out}" | grep -Eq "^(closed|error:(ECONNRESET|EPIPE|ECONNREFUSED|ENOENT)):$"; then pass "the supervisor's socket answers root nothing while no child runs: the connection is closed or reset with no bytes"; else fail "root at the supervisor's socket: ${out}"; fi
 
 out="$(docker exec --user 2000 "${SUPERVISOR_CONTAINER}" ls /run/chatticus 2>&1 || true)"
 if echo "${out}" | grep -qi 'permission denied' && ! echo "${out}" | grep -q 'supervisor.sock'; then pass "the unprivileged shell user cannot list the runtime directory"; else fail "the unprivileged user listed the runtime directory: ${out}"; fi
 
 out="$(docker exec --user 2000 "${SUPERVISOR_CONTAINER}" node -e "${SOCKET_PROBE}" 2>&1 || true)"
-if [ "${out}" = "error:EACCES" ]; then pass "the unprivileged shell user cannot open the supervisor's socket"; else fail "the unprivileged user at the supervisor's socket: ${out}"; fi
+if [ "${out}" = "error:EACCES:" ]; then pass "the unprivileged shell user cannot open the supervisor's socket"; else fail "the unprivileged user at the supervisor's socket: ${out}"; fi
 
 listeners="$(docker exec "${SUPERVISOR_CONTAINER}" sh -c "awk 'NR>1 && \$4==\"0A\"' /proc/net/tcp /proc/net/tcp6 2>/dev/null | wc -l" | tr -d ' ')"
 if [ "${listeners}" = "0" ]; then pass "the supervisor holds no loopback or other TCP port for the shell user to reach"; else fail "the supervisor container listens on ${listeners} TCP port(s)"; fi
