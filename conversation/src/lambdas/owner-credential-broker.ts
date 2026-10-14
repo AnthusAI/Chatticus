@@ -1,7 +1,9 @@
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
+	OWNER_BROKER_MINIMUM_SESSION_SECONDS,
 	OWNER_CREDENTIAL_LIFETIME_SECONDS,
+	OWNER_HARD_LIFETIME_SECONDS,
 	ownerCredentialBrokerRequestSchema,
 	type OwnerCredentialBrokerErrorCode,
 	type OwnerCredentialBrokerRequest,
@@ -22,7 +24,7 @@ export type OwnerCredentialBrokerDependencies = {
 	readonly sts: Pick<STSClient, "send">;
 	readonly secrets: Pick<SecretsManagerClient, "send">;
 	readonly now: () => Date;
-	/** The role assumed for `purpose: supervisor`. Fixed by the deployment; no request chooses it. */
+	/** The role assumed for `purpose: supervisor` and `purpose: supervisor_renewal`. Fixed by the deployment; no request chooses it. */
 	readonly supervisorRoleArn: string;
 	/** The role assumed for `purpose: turn`. Fixed by the deployment; no request chooses it. */
 	readonly scopedRoleArn: string;
@@ -38,15 +40,14 @@ function refusal(code: OwnerCredentialBrokerErrorCode, message: string): OwnerCr
 	return { ok: false, error: { code, message } };
 }
 
-type ServedBrokerRequest = Exclude<OwnerCredentialBrokerRequest, { purpose: "supervisor_renewal" }>;
-
-function roleSessionNameFor(request: ServedBrokerRequest): string {
-	return `${request.purpose}-${request.owner_id}`.replace(ROLE_SESSION_NAME_DISALLOWED, "-").slice(0, ROLE_SESSION_NAME_MAXIMUM_CHARACTERS);
+function roleSessionNameFor(request: OwnerCredentialBrokerRequest): string {
+	const prefix = request.purpose === "turn" ? "turn" : "supervisor";
+	return `${prefix}-${request.owner_id}`.replace(ROLE_SESSION_NAME_DISALLOWED, "-").slice(0, ROLE_SESSION_NAME_MAXIMUM_CHARACTERS);
 }
 
 function authorizationMatches(
 	claims: { tenantId: string; computerId: string; ownerId: string; startGeneration: number },
-	request: ServedBrokerRequest,
+	request: OwnerCredentialBrokerRequest,
 ): boolean {
 	return (
 		claims.tenantId === request.tenant_id &&
@@ -56,8 +57,8 @@ function authorizationMatches(
 	);
 }
 
-function tagsFor(request: ServedBrokerRequest): SessionTag[] {
-	if (request.purpose === "supervisor") {
+function tagsFor(request: OwnerCredentialBrokerRequest): SessionTag[] {
+	if (request.purpose !== "turn") {
 		return supervisorSessionTags({ tenantId: request.tenant_id, computerId: request.computer_id });
 	}
 	return ownerSessionTags({
@@ -73,7 +74,8 @@ function tagsFor(request: ServedBrokerRequest): SessionTag[] {
  * Build the OwnerCredentialBroker: the only principal that assumes the supervisor and per-turn roles and the only one
  * besides the Front Door and the starter that holds the signing key. It verifies the authorization itself, assumes a fixed
  * role with tags derived from the verified payload and no session policy, and signs a token that expires with the
- * credentials. It reads no store, so the Front Door alone decides whether a turn is really parked (docs/OWNER_SUPERVISOR_PROTOCOL.md section 7).
+ * credentials. No credential or token it issues ends after the owner's hard lifetime, counted from the signed
+ * `ownerStartedAtSeconds` claim, and nothing is issued in the last minimum session of it. It reads no store, so the Front Door alone decides whether a turn is really parked (docs/OWNER_SUPERVISOR_PROTOCOL.md section 7).
  *
  * @param dependencies The STS and Secrets Manager clients, the clock and the fixed role and secret ARNs.
  * @returns The Lambda handler.
@@ -116,10 +118,6 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 			return refusal(code, message);
 		};
 
-		if (request.purpose === "supervisor_renewal") {
-			return refuse("invalid_request", "The purpose supervisor_renewal is not served by this broker yet.");
-		}
-
 		const key = await signingKey();
 		if (key === null) return refuse("signing_key_unavailable", "The signing key could not be read.");
 
@@ -133,6 +131,14 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 			return refuse("authorization_mismatch", "The authorization names another owner than the payload.");
 		}
 
+		const nowSeconds = Math.floor(now.getTime() / 1000);
+		const ownerStartedAtSeconds = "ownerStartedAtSeconds" in verification.claims ? verification.claims.ownerStartedAtSeconds : nowSeconds;
+		const secondsUntilHardEnd = ownerStartedAtSeconds + OWNER_HARD_LIFETIME_SECONDS - nowSeconds;
+		if (secondsUntilHardEnd < OWNER_BROKER_MINIMUM_SESSION_SECONDS) {
+			return refuse("owner_lifetime_over", "The owner is within the minimum session of its hard lifetime, or past it.");
+		}
+		const durationSeconds = Math.min(OWNER_CREDENTIAL_LIFETIME_SECONDS, secondsUntilHardEnd);
+
 		let tags: SessionTag[];
 		try {
 			tags = tagsFor(request);
@@ -145,9 +151,9 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 		try {
 			const assumed = await dependencies.sts.send(
 				new AssumeRoleCommand({
-					RoleArn: request.purpose === "supervisor" ? dependencies.supervisorRoleArn : dependencies.scopedRoleArn,
+					RoleArn: request.purpose === "turn" ? dependencies.scopedRoleArn : dependencies.supervisorRoleArn,
 					RoleSessionName: roleSessionNameFor(request),
-					DurationSeconds: OWNER_CREDENTIAL_LIFETIME_SECONDS,
+					DurationSeconds: durationSeconds,
 					Tags: tags,
 				}),
 			);
@@ -167,19 +173,18 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 		}
 
 		const expiresAt = credentials.expiration.toISOString();
-		const nowSeconds = Math.floor(now.getTime() / 1000);
-		const expiresAtSeconds = Math.min(nowSeconds + OWNER_CREDENTIAL_LIFETIME_SECONDS, Math.floor(credentials.expiration.getTime() / 1000));
+		const expiresAtSeconds = Math.min(nowSeconds + durationSeconds, Math.floor(credentials.expiration.getTime() / 1000));
 		const awsCredentials = {
 			access_key_id: credentials.accessKeyId,
 			secret_access_key: credentials.secretAccessKey,
 			session_token: credentials.sessionToken,
 			expires_at: expiresAt,
 		};
-		emit("owner_broker_issued", scope);
-		if (request.purpose === "supervisor") {
+		emit("owner_broker_issued", { ...scope, duration_seconds: durationSeconds });
+		if (request.purpose !== "turn") {
 			return {
 				ok: true,
-				purpose: "supervisor",
+				purpose: request.purpose,
 				aws_credentials: awsCredentials,
 				supervisor_token: mintComputerOwnerToken(key, {
 					audience: "computer-owner",
@@ -187,7 +192,7 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 					computerId: request.computer_id,
 					ownerId: request.owner_id,
 					startGeneration: request.generation,
-					ownerStartedAtSeconds: nowSeconds,
+					ownerStartedAtSeconds,
 					issuedAtSeconds: nowSeconds,
 					expiresAtSeconds,
 				}),

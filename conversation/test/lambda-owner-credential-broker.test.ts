@@ -54,6 +54,14 @@ const supervisorGrant = {
 	supervisor_token_expires_at: "2026-10-07T13:00:00.000Z",
 };
 
+const renewalRequest: Extract<OwnerCredentialBrokerRequest, { purpose: "supervisor_renewal" }> = {
+	...supervisorRequest,
+	purpose: "supervisor_renewal",
+	authorization: "ct1.supervisor.token",
+};
+
+const renewalGrant = { ...supervisorGrant, purpose: "supervisor_renewal" };
+
 const turnGrant = { ok: true, purpose: "turn", aws_credentials: credentials, gateway_token: "ct1.gateway", expires_at: "2026-10-07T13:00:00.000Z" };
 
 const bytes = (value: unknown): Uint8Array => new TextEncoder().encode(JSON.stringify(value));
@@ -74,6 +82,21 @@ describe("LambdaOwnerCredentialBroker", () => {
 		expect(input.FunctionName).toBe("owner-credential-broker-fn");
 		expect(input.InvocationType).toBe("RequestResponse");
 		expect(JSON.parse(new TextDecoder().decode(input.Payload as Uint8Array))).toEqual(supervisorRequest);
+	});
+
+	it("returns the supervisor renewal grant and refuses a bootstrap grant answered to it", async () => {
+		const renewing = brokerAnswering(() => ({ StatusCode: 200, Payload: bytes(renewalGrant) }));
+		expect(await renewing.broker.issue(renewalRequest)).toEqual(renewalGrant);
+		const confused = brokerAnswering(() => ({ StatusCode: 200, Payload: bytes(supervisorGrant) }));
+		await expect(confused.broker.issue(renewalRequest)).rejects.toMatchObject({ code: "malformed_response" });
+	});
+
+	it("throws owner_lifetime_over as the broker's own code", async () => {
+		const { broker } = brokerAnswering(() => ({
+			StatusCode: 200,
+			Payload: bytes({ ok: false, error: { code: "owner_lifetime_over", message: "The owner is within the minimum session of its hard lifetime, or past it." } }),
+		}));
+		await expect(broker.issue(renewalRequest)).rejects.toMatchObject({ name: "OwnerCredentialBrokerError", code: "owner_lifetime_over" });
 	});
 
 	it("returns the turn grant", async () => {
