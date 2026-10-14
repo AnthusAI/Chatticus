@@ -21,6 +21,19 @@ export class ScenarioOwnerCredentialBroker implements OwnerCredentialBrokerPort 
 	/** How many calls reached the port, counted when a call arrives, before the broker answers or is held. */
 	arrivals = 0;
 	private unreachable = false;
+	private readonly arrivalWaiters: Array<() => void> = [];
+
+	/**
+	 * A latch that opens when the next call reaches the port. Arm it before sending the request that causes the call; awaiting
+	 * it is an explicit rendezvous with the call, never a sleep or a poll.
+	 *
+	 * @returns A promise that resolves when the next call arrives.
+	 */
+	nextArrival(): Promise<void> {
+		return new Promise<void>((resolve) => {
+			this.arrivalWaiters.push(resolve);
+		});
+	}
 
 	constructor(world: ChatticusWorld) {
 		this.fake = new FakeOwnerCredentialBroker(SCENARIO_GATEWAY_SIGNING_KEY, world.clock);
@@ -38,6 +51,8 @@ export class ScenarioOwnerCredentialBroker implements OwnerCredentialBrokerPort 
 		request: SupervisorGrantRequest | SupervisorRenewalGrantRequest | TurnGrantRequest,
 	): Promise<SupervisorGrant | SupervisorRenewalGrant | TurnGrant> {
 		this.arrivals += 1;
+		const waiters = this.arrivalWaiters.splice(0);
+		for (const signal of waiters) signal();
 		if (this.unreachable) {
 			this.fake.calls.push({ request, tags: [] });
 			throw new OwnerCredentialBrokerError("broker_unreachable", "The scenario made the broker unreachable.");

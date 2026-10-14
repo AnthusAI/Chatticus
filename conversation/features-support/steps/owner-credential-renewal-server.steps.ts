@@ -71,15 +71,17 @@ function remember(world: ChatticusWorld, answer: AnswerRecord): AnswerRecord {
 
 async function askForCredentials(world: ChatticusWorld, body: Record<string, unknown>, token?: string): Promise<AnswerRecord> {
 	const scenario = renewalOf(world);
+	const holding = scenario.releaseBroker !== null;
+	const arrival = holding ? ownerBrokerOf(world).nextArrival() : Promise.resolve();
 	const request = send(world, "POST", hostPath("/owner/credentials"), { token: token ?? ownerServerOf(world).supervisorToken, body });
-	if (scenario.releaseBroker !== null) {
-		const broker = ownerBrokerOf(world);
-		const arrivalsBefore = broker.arrivals;
+	if (holding) {
 		scenario.pendingRenewal = request;
-		for (let attempt = 0; attempt < 1000 && broker.arrivals === arrivalsBefore; attempt += 1) {
-			await new Promise<void>((resolve) => setImmediate(resolve));
-		}
-		assert.ok(broker.arrivals > arrivalsBefore, "The renewal never reached the broker.");
+		await Promise.race([
+			arrival,
+			request.then((answer) => {
+				throw new Error(`The renewal was answered ${answer.status} without reaching the broker.`);
+			}),
+		]);
 		return { status: 0, body: null };
 	}
 	return remember(world, await request);
