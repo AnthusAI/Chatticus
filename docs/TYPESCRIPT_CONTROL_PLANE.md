@@ -802,7 +802,22 @@ cross-account role when the organization is in its own account, and calls ECS
 `run_task` (command override from the infra env). It deletes the SQS message on
 success and returns an item failure only when it could not start. The host
 discovers work by claiming actions on boot, so there is no start-to-turn
-coupling. Customer-account provisioning, the CloudFormation template asset
+coupling.
+
+A start that fails always settles the parked turn; it is never left to redeliver until the dead-letter queue. The
+starter classifies every failure. A **permanent refusal** is one that retrying cannot cure: the organization is not
+enabled (suspended, pending or gone), has no AWS home, or has a customer-account home without its cross-account role.
+It fails the parked turn at once with a plain reason and the job is done, so there is exactly one attempt (the
+refusal is logged as `computer_start_refused` with a `reason_class`). The monthly spend ceiling is the third permanent
+refusal: it answers the turn's open actions with a denial and resumes the turn. Everything else (an ECS `RunTask`
+failure, an STS or CloudFormation error, a customer stack still being created, a missing image) is **transient**: the
+Lambda reports an item failure and the queue redelivers, but only for `COMPUTER_START_MAX_DELIVERIES` (3) deliveries,
+counted from the record's `ApproximateReceiveCount`. The last delivery fails the parked turn with "could not be started
+after several tries" and finishes the job (logged as `computer_start_gave_up`), so the queue's own redrive limit of 5
+and its dead-letter queue are only a backstop for a starter that cannot even settle the turn. The person sees the reason
+as the turn's failure, with the wording in `domain/computer-start.ts`.
+
+Customer-account provisioning, the CloudFormation template asset
 (moved into `infra/`) and the snapshot bucket naming are ported mechanically.
 
 ### 4.6 Host worker internals (Node)

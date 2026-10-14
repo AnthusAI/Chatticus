@@ -20,7 +20,11 @@ import { DynamoTurnControlStore } from "../store/turn-store.ts";
 import { resumeTurnForAction, type ParkDependencies } from "../turn/park.ts";
 import { SqsComputerStartQueue, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 
-type SqsRecord = { readonly messageId: string; readonly body: string };
+type SqsRecord = {
+	readonly messageId: string;
+	readonly body: string;
+	readonly attributes: { readonly ApproximateReceiveCount: string };
+};
 
 /** The part of an SQS event this handler reads. */
 export type ComputerStartsEvent = { readonly Records: readonly SqsRecord[] };
@@ -162,8 +166,9 @@ function jobFrom(record: SqsRecord): ComputerStartJob {
 
 /**
  * SQS entry point of the ComputerStarter Lambda. It starts the computer's host for each parked turn, once per host start
- * generation. A message that could not start a host (the driver failed or provisioning was refused) is reported as an
- * item failure so the queue redelivers only it; a refused spend ceiling is a finished job, not a failure.
+ * generation. A message that could not start a host for a transient reason is reported as an item failure so the queue
+ * redelivers only it, for at most `COMPUTER_START_MAX_DELIVERIES` deliveries; a refusal retrying cannot cure, an exhausted
+ * retry budget and a refused spend ceiling each settle the parked turn and finish the job, so none is a failure.
  *
  * @param event The SQS event.
  * @returns The messages to redeliver.
@@ -172,7 +177,9 @@ export async function handler(event: ComputerStartsEvent): Promise<ComputerStart
 	const batchItemFailures: { itemIdentifier: string }[] = [];
 	for (const record of event.Records) {
 		try {
-			await handleComputerStartJob(await starterDependencies(), jobFrom(record));
+			await handleComputerStartJob(await starterDependencies(), jobFrom(record), {
+				receiveCount: Number(record.attributes.ApproximateReceiveCount),
+			});
 		} catch (error) {
 			console.error(`computer_start_failed message_id=${record.messageId} detail=${error instanceof Error ? error.message : String(error)}`);
 			batchItemFailures.push({ itemIdentifier: record.messageId });

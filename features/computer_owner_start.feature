@@ -137,3 +137,28 @@ Feature: The starter launches the computer as a supervisor that holds one bootst
     Then the start failed and the parked turn is still waiting
     And the start job is queued again
     And the starter logged no "computer_start_refused" line
+
+  Scenario: A suspended organization fails the parked turn at once and the start job is never retried
+    Given the organization is suspended
+    And the starter has the owner settings
+    When the starter handles the start job
+    Then the start ended "refused"
+    And the parked turn failed telling the person the organization is suspended
+    And the start job is not retried
+    And no start job is left for the dead-letter queue
+    And the starter made exactly 0 start attempts
+    And the starter ran exactly 0 ECS tasks
+    And the starter logged one "computer_start_refused" line with the tenant, the turn and the reason class "organization_not_enabled"
+
+  Scenario: A transient failure is retried until the third delivery and then fails the parked turn instead of dead-lettering
+    Given the starter has the owner settings
+    And ECS answers the run task with no task
+    When the starter handles the start job on delivery 2
+    Then the start failed and the parked turn is still waiting
+    And the start job is queued again
+    When the starter handles the start job on delivery 3
+    Then the start ended "gave_up"
+    And the parked turn failed telling the person the computer could not be started after several tries
+    And the start job is not retried
+    And no start job is left for the dead-letter queue
+    And the starter logged one "computer_start_gave_up" line with the tenant, the turn and the reason class "start_attempts_exhausted"
