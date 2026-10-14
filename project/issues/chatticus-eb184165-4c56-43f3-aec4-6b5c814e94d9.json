@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "25b937eb-4fbd-42b5-bdd2-26be8123baa9",
+      "author": "home",
+      "text": "Seen again 2026-10-14 on the PR 545 merge commit CI: channel_mailbox_and_log.feature:35 failed with 'SyntaxError: Unexpected token <, <!doctype ... is not valid JSON' at the step 'an owner holds the session of bot ada in channel general' (moto returned an HTML error page to the DynamoDB client under load); 1654 of 1655 scenarios passed and the rerun of the failed job is the remedy. Same family as the thin_task_http.feature:33 moto HTML error. Likely fix: a bounded retry/health wait in the moto test harness client, or a lower cucumber parallelism in CI.",
+      "created_at": "2026-10-14T02:02:12.676740Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-08T00:47:42.027497Z",
-  "updated_at": "2026-10-08T02:25:44.228530Z",
+  "updated_at": "2026-10-14T02:02:12.676776Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The fix now targets excess DynamoDB and S3 calls during park and resume cycles.",
-  "right_now_updated_at": "2026-10-08T02:25:45.844194Z",
+  "right_now_summary": "CI still sees flaky moto failures under parallel load, including timeouts and HTML responses from DynamoDB.",
+  "right_now_updated_at": "2026-10-14T02:02:14.314724Z",
   "custom": {}
 }

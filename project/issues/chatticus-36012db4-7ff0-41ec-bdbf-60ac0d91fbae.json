@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "reliability-c"
       }
+    },
+    {
+      "id": "fdb4945c-87cf-4b6b-b433-1d2dd3383766",
+      "author": "home",
+      "text": "Merged PR 543 (separate concurrency group per development workflow, pinned checkout, stack wait) and PR 545 (synth once, bounded retry only on 'is in ...IN_PROGRESS state and can not be updated', no retry for other errors). Live results on 2026-10-14: the PR 543 merge ran Auth, ControlPlane, ThinTurn and the image build with ZERO cancellations; the Web deploy hit the check-then-act race (ChatticusWeb UPDATE_IN_PROGRESS from the ThinTurn workflow) which PR 545 fixes; the PR 545 merge ran Auth, ControlPlane, ThinTurn and Web, all success, no cancellations. Not yet seen live: the retry path actually firing. Keep open until a merge shows 'is UPDATE_IN_PROGRESS ... waiting' or a retry message in a deploy log, or close on the next fully green overlapping merge.",
+      "created_at": "2026-10-14T02:02:08.121055Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-12T17:49:46.505462Z",
-  "updated_at": "2026-10-14T00:53:31.724379Z",
+  "updated_at": "2026-10-14T02:02:08.121590Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Each development workflow now has its own concurrency group, preventing cancellations during merged deploys.",
-  "right_now_updated_at": "2026-10-14T00:53:33.896314Z",
+  "right_now_summary": "Separate workflow groups prevent cancellation; overlapping deploys now succeed, with retry-path proof still pending.",
+  "right_now_updated_at": "2026-10-14T02:02:10.352671Z",
   "custom": {}
 }
