@@ -135,8 +135,6 @@ describe("deploy workflow YAML", () => {
     const pattern = /CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: \$\{\{ vars\.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN \}\}/;
     const carriers = [
       "deploy-controlplane-development.yml",
-      "deploy-web-development.yml",
-      "deploy-thinturn-development.yml",
       "deploy-controlplane-staging.yml",
       "deploy-web-staging.yml",
       "deploy-thinturn-staging.yml",
@@ -170,15 +168,34 @@ describe("deploy workflow YAML", () => {
   for (const environment of ["development", "staging", "production"]) {
     const controlPlane = `deploy-chatticus-dedicated-account.sh ${environment} control-plane`;
 
-    it(`${environment}: consumers deploy before producers, control-plane then web then thin-turn`, () => {
-      assert.deepEqual(deployRunLines(`deploy-controlplane-${environment}.yml`), [controlPlane]);
-      assert.deepEqual(deployRunLines(`deploy-web-${environment}.yml`), [controlPlane, WEB_SCRIPT(environment)]);
-      assert.deepEqual(deployRunLines(`deploy-thinturn-${environment}.yml`), [
-        controlPlane,
-        WEB_SCRIPT(environment),
-        THIN_TURN_SCRIPT(environment),
-      ]);
-    });
+    if (environment === "development") {
+      it("development: each workflow deploys only the stack it is named for", () => {
+        assert.deepEqual(deployRunLines("deploy-controlplane-development.yml"), [controlPlane]);
+        assert.deepEqual(deployRunLines("deploy-web-development.yml"), [WEB_SCRIPT(environment)]);
+        assert.deepEqual(deployRunLines("deploy-thinturn-development.yml"), [THIN_TURN_SCRIPT(environment)]);
+      });
+
+      it("development: every stack is deployed by exactly one workflow", () => {
+        const owners = new Map<string, string[]>();
+        for (const fileName of deployWorkflowFiles().filter((name) => name.endsWith("-development.yml"))) {
+          for (const line of deployRunLines(fileName)) {
+            owners.set(line, [...(owners.get(line) ?? []), fileName]);
+          }
+        }
+        assert.ok(owners.size >= 4);
+        for (const [line, files] of owners) assert.equal(files.length, 1, `${line} is deployed by ${files.join(", ")}`);
+      });
+    } else {
+      it(`${environment}: consumers deploy before producers, control-plane then web then thin-turn`, () => {
+        assert.deepEqual(deployRunLines(`deploy-controlplane-${environment}.yml`), [controlPlane]);
+        assert.deepEqual(deployRunLines(`deploy-web-${environment}.yml`), [controlPlane, WEB_SCRIPT(environment)]);
+        assert.deepEqual(deployRunLines(`deploy-thinturn-${environment}.yml`), [
+          controlPlane,
+          WEB_SCRIPT(environment),
+          THIN_TURN_SCRIPT(environment),
+        ]);
+      });
+    }
 
     it(`${environment}: the four deploy workflows exist`, () => {
       const names = deployWorkflowFiles().filter((name) => name.endsWith(`-${environment}.yml`));

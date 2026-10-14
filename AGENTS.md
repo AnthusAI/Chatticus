@@ -296,13 +296,22 @@ group (`deploy-{auth,controlplane,thinturn,web}-development` and
 `build-computer-image-development`) with `cancel-in-progress: false`: a
 newer merge queues behind a running deploy, and only a pending run of the same
 workflow can be replaced, always by a run for a later `develop` commit (each
-deploy checks out `github.sha`). Because the ThinTurn workflow deploys
-control-plane and web before thin-turn, workflows overlap on stacks;
-`infra/deploy-chatticus-dedicated-account.sh` waits for its target stack to
-leave `*_IN_PROGRESS`, synthesizes once, and retries `cdk deploy` (up to five
-attempts, each after another bounded wait) only when cdk reports the stack "is in
-... IN_PROGRESS state and can not be updated", because a sibling workflow can
-start updating the stack during synthesis; every other failure exits at once. The image build does not wait for
+deploy checks out `github.sha`). In development each stack is deployed by
+exactly one workflow, the one it is named for (ControlPlane deploys
+control-plane, Web deploys web, ThinTurn deploys thin-turn, Auth deploys auth);
+a guard in `infra/test/deploy-workflows.test.ts` enforces it. Nothing imports
+the thin-turn CloudFormation exports; control-plane and web only read thin-turn
+SSM parameters at deploy time, so the workflows need no mutual ordering beyond
+the one-time first deploy of thin-turn in a new account. Staging and production
+still chain control-plane, web and thin-turn inside each manual workflow.
+`infra/deploy-chatticus-dedicated-account.sh` still waits for its target stack
+to leave `*_IN_PROGRESS`, synthesizes once, and retries `cdk deploy` (up to five
+attempts, each after another bounded wait) only when the output matches the
+named list `OVERLAPPING_DEPLOY_MESSAGE_PATTERNS` (stack "is in ... IN_PROGRESS
+state and can not be updated", "Cannot delete ChangeSet in status
+CREATE_IN_PROGRESS", a ChangeSet "already exists", ConcurrentModificationException,
+"concurrent update"), which is how two overlapping deploys of one stack
+surface; every other failure exits at once. The image build does not wait for
 the Lambda deploys; the image tag promotion order is owned by chatticus-d88a0f.
 Staging and production keep one group each, since they are manual dispatches.
 A cancelled development run is now a defect to investigate, not routine.
