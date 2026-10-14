@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b452cf3c-3760-42f3-a5a9-b4a7abb9ab07",
+      "author": "home",
+      "text": "Owner decisions applied (contract section 20): S2 the broker requires the signed start time claim and refuses a token without it (invalid_authorization, for every purpose); S1 the broker stays store-free. New scenarios owned: 'A turn is refused for a supervisor token without a start time' and the new row of 'The broker refuses what it should not renew'. The three scenarios about the development fault switch moved to 2b-B2.",
+      "created_at": "2026-10-14T09:54:22.870678Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-planner"
+      }
+    }
+  ],
   "created_at": "2026-10-14T03:32:16.285633Z",
-  "updated_at": "2026-10-14T03:33:34.587743Z",
+  "updated_at": "2026-10-14T09:54:22.871661Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The credential broker renewal work is specified, with implementation and tests still pending.",
-  "right_now_updated_at": "2026-10-14T03:33:36.417642Z",
+  "right_now_summary": "The broker renews supervisor credentials, enforces the hard lifetime, and rejects tokens without a signed start time.",
+  "right_now_updated_at": "2026-10-14T09:54:23.968824Z",
   "custom": {}
 }

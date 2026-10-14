@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-816a1aff-21af-4fd6-8fb1-e382cee3d8e0",
+  "title": "2b-R: emergency revocation runbook for a leaked supervisor or turn credential",
+  "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (decision S6, sections 7.1, 12.2, 12.3, 17 R). Documentation only; no production code.\n\nWrite docs/OWNER_CREDENTIAL_REVOCATION.md: what to do when a supervisor credential or a per-turn credential leaks, in order, each step with its cost, who may do it and how to verify it: (1) stop the task (aws ecs stop-task; the owner reports stopped and the control plane then refuses its token because the owner is no longer the live owner); (2) revoke the role session with an inline deny on ComputerSupervisorRole and ComputerOwnerScopedRole carrying an aws:TokenIssueTime condition, as a CDK change deployed by the normal path and never by hand in the console (it affects every tenant's sessions of that role; live owners recover at their next renewal because a new session has a later issue time); (3) rotate the signing key secret (invalidates every supervisor, bootstrap and gateway token at once; owners then exit 5 and publish nothing, so it is the last resort and the document states what unpublished work is lost); (4) after the incident remove the deny and check CloudTrail AssumeRole events and the owner_credentials_refreshed log lines to bound what was reachable. Cite the blast-radius analysis of 12.2. No account id (those live only in AGENTS.local.md). Link it from docs/THREAT_MODEL.md and from section 12.3 of the contract.\n\nAcceptance: the document exists; every command in it was run read-only or as a dry run on development where possible (the CDK deny is synthesized, not deployed); a second reader followed it once; a Kanbus comment records the result.\n\nDependencies: none. Blocks nothing.",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-14T09:53:45.127752Z",
+  "updated_at": "2026-10-14T09:53:45.127961Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "phase2b-planner"
+  },
+  "right_now_summary": "The emergency credential revocation runbook still needs to be written and reviewed.",
+  "right_now_updated_at": "2026-10-14T09:53:47.710677Z",
+  "custom": {}
+}

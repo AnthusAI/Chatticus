@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-planner"
       }
+    },
+    {
+      "id": "a2ddf5c5-d7ba-44c2-87bb-34fa38273a77",
+      "author": "home",
+      "text": "Owner took the recommendations on the open questions; recorded as decisions in docs/OWNER_CREDENTIAL_RENEWAL.md section 20 (PR 550). P1 keep the 300 s grace; P2 8 hours from bootstrap; P3 minimum protocol version stays 1 until the new image is promoted and proven live; P4 build the development-only fault switch (four gates, scenario and structural test); P5 no external watchdog; S1 broker store-free; S2 broker requires the start-time claim; S3 stateless tokens; S4 and S5 accepted; S6 new ticket 2b-R (chatticus-816a1a) for the emergency revocation runbook.",
+      "created_at": "2026-10-14T09:54:34.028468Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-planner"
+      }
     }
   ],
   "created_at": "2026-10-12T13:18:55.826042Z",
-  "updated_at": "2026-10-14T03:34:38.081548Z",
+  "updated_at": "2026-10-14T09:54:34.028503Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The renewal contract is drafted, while implementation, tests, and live proof remain underway.",
-  "right_now_updated_at": "2026-10-14T03:34:39.491297Z",
+  "right_now_summary": "The team is building credential renewal, broker controls, child access, and live-proof tests.",
+  "right_now_updated_at": "2026-10-14T09:54:35.676855Z",
   "custom": {}
 }

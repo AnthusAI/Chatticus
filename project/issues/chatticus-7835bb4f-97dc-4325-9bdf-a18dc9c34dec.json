@@ -35,16 +35,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b47b29e3-2013-4719-b654-8d6b22008eff",
+      "author": "home",
+      "text": "Owner decisions applied (contract section 20): P3 OWNER_MINIMUM_PROTOCOL_VERSION stays 1 until the new image is promoted and proven live; raising it is a separate later operator change, not part of this ticket (deploy step 8). P4 the failure proof (live proof steps 3 and 4) uses the development-only fault switch of 2b-B2. P2 the 8 hours are measured from the bootstrap. 2b-R (runbook) is independent and does not block this ticket.",
+      "created_at": "2026-10-14T09:54:28.154456Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-planner"
+      }
+    }
+  ],
   "created_at": "2026-10-14T03:33:07.661953Z",
-  "updated_at": "2026-10-14T03:34:27.179215Z",
+  "updated_at": "2026-10-14T09:54:28.154481Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The end-to-end tests, soak modes, deployment checks, and live credential-renewal proof still need completion.",
-  "right_now_updated_at": "2026-10-14T03:34:28.951271Z",
+  "right_now_summary": "The deployment and live-proof plan is clarified, with the B2 failure test required and protocol changes deferred.",
+  "right_now_updated_at": "2026-10-14T09:54:29.900327Z",
   "custom": {}
 }
