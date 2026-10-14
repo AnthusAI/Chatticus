@@ -431,7 +431,7 @@ Changes to `conversation/src/lambdas/owner-credential-broker.ts` (section 7 of t
 | Claims equal payload | tenant, computer, owner, generation | the same | the same |
 | Anchor | `ownerStartedAtSeconds = now` (the broker's clock) | **copied from the token** | read from the token |
 | Hard end | `anchor + 28800` | `anchor + 28800` | `anchor + 28800` |
-| Refuse | | `now >= hardEnd - 900`: `owner_lifetime_over` | the same |
+| Refuse | | `hardEnd - now < 900`: `owner_lifetime_over` (a session of exactly 900 seconds is granted) | the same |
 | Tags | `supervisorSessionTags` | the same two tags, from the verified payload | `ownerSessionTags`, five |
 | `RoleSessionName` | `supervisor-<ownerId>` | `supervisor-<ownerId>` (R20) | `turn-<ownerId>` |
 | `DurationSeconds` | 3600 | `min(3600, hardEnd - now)` (at least 900 by the refusal) | `min(3600, hardEnd - now)` |

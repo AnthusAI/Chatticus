@@ -5,11 +5,14 @@ Feature: The credential broker issues owner credentials only for the owner a val
 
   The OwnerCredentialBroker is invoked by the Front Door. It verifies the
   authorization it is handed with the signing key before it does anything: the
-  bootstrap token for a supervisor grant, the supervisor token for a turn grant.
+  bootstrap token for a supervisor grant, the supervisor token for a supervisor
+  renewal or a turn grant.
   It assumes ComputerSupervisorRole with two session tags, or
   ComputerOwnerScopedRole with five, for one hour and with no session policy,
   and signs the supervisor token or the model gateway token to expire when the
-  credentials do. It refuses everything else. What the two roles allow is
+  credentials do, and never later than eight hours after the owner started,
+  which it reads from the signed start time of the supervisor token. It refuses
+  everything else. What the two roles allow is
   proved by supervisor_role_policy.feature and owner_role_policy.feature.
 
   Scenario: The broker issues supervisor credentials for the owner a bootstrap token names
@@ -60,3 +63,79 @@ Feature: The credential broker issues owner credentials only for the owner a val
     When the broker is asked for supervisor credentials with a valid bootstrap token
     Then the broker answers not ok with the code "signing_key_unavailable"
     And STS was not asked to assume a role
+
+  Scenario: A supervisor token issued at bootstrap names the moment the owner started
+    Given the broker holds the signing key
+    When the broker is asked for supervisor credentials with a valid bootstrap token
+    Then the answer holds a supervisor token whose bootstrap time is the time of the broker's clock
+
+  # Renewal. An owner lives up to eight hours from its bootstrap by asking again
+  # for the credentials of the supervisor role. The supervisor token it holds is
+  # the authorization, and the start time it signed at bootstrap is the only clock
+  # the broker has: it reads no store, so it ends every credential at that start
+  # plus the hard lifetime and refuses to issue in the last minimum session of it.
+
+  Scenario: The broker renews supervisor credentials with the role and tags of the bootstrap
+    Given the broker holds the signing key
+    When the broker is asked for supervisor renewal credentials with a valid supervisor token
+    Then the role "ComputerSupervisorRole" was assumed for 3600 seconds
+    And the session tags are exactly "tenant" and "computer"
+    And the broker's assume-role call carries no session policy
+    And the session name is the session name of the bootstrap
+    And the answer holds a supervisor token that keeps the bootstrap time of the token it was given
+    And the credentials, the token and the token's expiry end at the same moment
+
+  Scenario Outline: The broker refuses what it should not renew
+    Given the broker holds the signing key
+    When the broker is asked for supervisor renewal credentials and <fault>
+    Then the broker answers not ok with the code "<code>"
+    And STS was not asked to assume a role
+
+    Examples:
+      | fault                                                         | code                   |
+      | the authorization is a bootstrap token                        | invalid_authorization  |
+      | the authorization is a model gateway token                    | invalid_authorization  |
+      | the authorization is an expired supervisor token              | invalid_authorization  |
+      | the authorization names another owner than the payload        | authorization_mismatch |
+      | the authorization names another computer than the payload     | authorization_mismatch |
+      | the authorization is a supervisor token without a start time  | invalid_authorization  |
+      | the owner was bootstrapped 27901 seconds ago                  | owner_lifetime_over    |
+      | the owner was bootstrapped 30000 seconds ago                  | owner_lifetime_over    |
+      | the payload names a turn                                      | invalid_request        |
+
+  Scenario: No credential the broker issues outlives the hard lifetime
+    Given the broker holds the signing key
+    And the supervisor token names a bootstrap 26000 seconds ago
+    When the broker is asked for supervisor renewal credentials with a valid supervisor token
+    Then the role was assumed for 2800 seconds
+    And the credentials, the token and the token's expiry end 28800 seconds after the bootstrap
+    When the broker is asked for turn credentials with a valid supervisor token
+    Then the role was assumed for 2800 seconds
+    And the gateway token and the credentials end 28800 seconds after the bootstrap
+
+  Scenario: The last session the broker grants is the shortest one STS allows
+    Given the broker holds the signing key
+    And the supervisor token names a bootstrap 27900 seconds ago
+    When the broker is asked for supervisor renewal credentials with a valid supervisor token
+    Then the role was assumed for 900 seconds
+    And the credentials, the token and the token's expiry end 28800 seconds after the bootstrap
+
+  Scenario: A turn is refused for a supervisor token without a start time
+    Given the broker holds the signing key
+    When the broker is asked for turn credentials with a supervisor token without a start time
+    Then the broker answers not ok with the code "invalid_authorization"
+    And STS was not asked to assume a role
+
+  Scenario: A turn is refused in the last minimum session of the hard lifetime
+    Given the broker holds the signing key
+    And the supervisor token names a bootstrap 27901 seconds ago
+    When the broker is asked for turn credentials with a valid supervisor token
+    Then the broker answers not ok with the code "owner_lifetime_over"
+    And STS was not asked to assume a role
+
+  Scenario: A renewal reports an STS failure by name only
+    Given the broker holds the signing key
+    And STS refuses the assume-role call with the error "AccessDenied"
+    When the broker is asked for supervisor renewal credentials with a valid supervisor token
+    Then the broker answers not ok with the code "assume_role_failed"
+    And the message is "AccessDenied" and holds no token, key or credential
