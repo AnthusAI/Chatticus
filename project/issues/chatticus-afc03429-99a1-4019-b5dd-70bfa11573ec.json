@@ -3,23 +3,36 @@
   "title": "A refused computer start retries until the dead-letter queue and the user sees no clear reason",
   "description": "Real use on development 2026-10-10: the user's organization (Anthus AI Solutions) had no AWS home, so the ComputerStarter logged computer_start_failed 'computer provisioning refused: Organization has no AWS home' about 20 times for one turn (SQS redelivery) and the user only saw a turn that could not get a computer. A provisioning refusal is permanent, not transient. Required: the start job handler must treat it as final: fail or answer the parked turn right away with a plain message that this organization has no computer set up (and what to do), mark the start job done so it does not redeliver, and keep the message out of the DLQ. Scenario: a parked turn on an organization with no AWS home ends with that message within one probe tick and exactly one start attempt. Mutation check.",
   "type": "bug",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f03850ad-0592-4579-9e90-09e52f6e8884",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/546. The no-AWS-home case was already fixed by #494; this adds the remaining classification: a suspended or unenabled organization is a permanent refusal (turn fails at once, one attempt, no generation claimed), and any transient failure is bounded to 3 SQS deliveries, after which the parked turn fails with a plain reason instead of dead-lettering. Scenarios added to computer_owner_start.feature, shown failing first, mutation-checked. Docs updated in TYPESCRIPT_CONTROL_PLANE.md. No infra or IAM change.",
+      "created_at": "2026-10-14T02:12:00.618280Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "reliability-a"
+      }
+    }
+  ],
   "created_at": "2026-10-10T19:06:24.979332Z",
-  "updated_at": "2026-10-10T19:06:24.979547Z",
+  "updated_at": "2026-10-14T02:12:00.618314Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "A permanent refusal keeps retrying instead of telling the user that the organization has no computer.",
-  "right_now_updated_at": "2026-10-10T19:06:26.951485Z",
+  "right_now_summary": "The handler treats permanent refusals as final, limits retries, and gives users a clear reason.",
+  "right_now_updated_at": "2026-10-14T02:12:02.485443Z",
   "custom": {}
 }
