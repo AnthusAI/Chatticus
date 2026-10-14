@@ -237,7 +237,7 @@ export function bootingHostStartDriver(world: ChatticusWorld): FakeHostStartDriv
 /**
  * Deliver one start job to the starter, as its queue consumer does: take the job off the queue first, hand it to the
  * handler, and put it back when the handler fails. The starter shares the scenario's stores, or those of `store` when a
- * second process is meant.
+ * second process is meant. `receiveCount` is how many times the queue has delivered the job, this delivery included.
  *
  * @returns How the handler ended; the error is kept on the scenario state instead of raised.
  */
@@ -246,6 +246,7 @@ export async function deliverStartJob(
 	job: ComputerStartJob,
 	driver: HostStartDriver,
 	store: MessagingStore = world.messagingStore(),
+	receiveCount = 1,
 ): Promise<ComputerStartOutcome | null> {
 	const state = computerScenarioOf(world);
 	world.queues.take(COMPUTER_START_QUEUE, (body) => (body as ComputerStartJob).jobId === job.jobId);
@@ -279,6 +280,7 @@ export async function deliverStartJob(
 					).then(() => undefined),
 			},
 			job,
+			{ receiveCount },
 		);
 	} catch (error) {
 		world.queues.send(COMPUTER_START_QUEUE, job);

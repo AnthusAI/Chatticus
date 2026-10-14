@@ -6,6 +6,9 @@
  * host start under the computer's lease (one start per generation, however many jobs arrive), and calls the host start
  * driver once. It does not wait for the host: the host finds its work by claiming actions when it boots.
  *
+ * Every ending of a job is either a start or a settled turn. A refusal retrying cannot cure fails the parked turn at
+ * once; a failure retrying might cure is retried a bounded number of times and then fails the parked turn too.
+ *
  * Ported from python/src/chatticus/worker/computer.py `_dispatch_host_start_if_needed` and
  * `_deny_continuation_for_spend_ceiling`.
  */
@@ -17,9 +20,10 @@ import {
 	OrganizationComputerProvisioningError,
 	OrganizationSpendCeilingExceededError,
 } from "../http/errors.ts";
-import { consoleLogEmitter } from "../observability/log-line.ts";
+import { consoleLogEmitter, errorNameOf } from "../observability/log-line.ts";
 import { answerComputerActionOnOwnAccount, type ActionDependencies, expireLostComputerActions } from "./actions.ts";
 import { type HostStartClaim, type HostStartDependencies, liveOwnerOfOrganization, requestComputerHostStart } from "./computers.ts";
+import type { Organization } from "./organizations.ts";
 import { failStaleTurn, type TurnDependencies } from "./turns.ts";
 import type { TurnJob } from "./workers.ts";
 
@@ -63,39 +67,88 @@ export type ComputerStartOutcome =
 	| { readonly kind: "started"; readonly hostStartGeneration: number }
 	| { readonly kind: "already_started"; readonly hostStartGeneration: number }
 	| { readonly kind: "already_serving"; readonly hostStartGeneration: number; readonly ownerId: string }
-	| { readonly kind: "refused"; readonly reason: string };
+	| { readonly kind: "refused"; readonly reason: string }
+	| { readonly kind: "gave_up"; readonly reason: string };
+
+/** What the queue says about one delivery of a start job. */
+export type ComputerStartDelivery = {
+	/** How many times the queue has delivered the job, this delivery included (SQS `ApproximateReceiveCount`). */
+	readonly receiveCount: number;
+};
+
+/**
+ * How many deliveries a start job gets before the starter gives up on it. It is lower than the queue's own redrive limit,
+ * so a job that keeps failing is ended here, with the parked turn told why, and never reaches the dead-letter queue.
+ */
+export const COMPUTER_START_MAX_DELIVERIES = 3;
 
 /** What a person reads on a turn whose organization has no computer set up. */
 export const COMPUTER_NOT_SET_UP_REASON =
 	"This organization has no computer set up yet. Ask your Chatticus operator to set one up, then send your message again.";
 
+/**
+ * What a person reads on a turn whose organization is not enabled, so its computer will not start.
+ *
+ * @param status The organization status, or null when the organization record is gone.
+ * @returns The plain-language reason.
+ */
+export const organizationNotEnabledReason = (status: Organization["status"] | null): string =>
+	`This organization ${status === "suspended" ? "is suspended" : "is not enabled"}, so its computer will not start. Ask your Chatticus operator to enable it, then send your message again.`;
+
+/** What a person reads on a turn whose computer could not be started within the retry budget. */
+export const COMPUTER_START_GAVE_UP_REASON =
+	"The computer for this organization could not be started after several tries. Please send your message again in a few minutes. If it keeps happening, ask your Chatticus operator to check the organization's computer setup.";
+
 /** The result a turn reads for an action the spend ceiling stopped after it was parked. */
 export const deniedActionResult = (reason: string): string => `denied: ${reason}`;
 
+async function failParkedTurn(deps: ComputerStarterDependencies, job: ComputerStartJob, reason: string): Promise<void> {
+	const turn = await deps.turns.store.getTurn(job.tenantId, job.turnId);
+	if (turn !== null && turn.status === "active" && turn.waitingFor !== null) {
+		await failStaleTurn(deps.turns, turn, "waiting", reason);
+	}
+}
+
 /**
- * Handle one start job. First it settles the actions whose host was lost, so a lost lease needs no scheduler: whoever
- * handles the next start job notices it. A refused job (the spend ceiling) answers the turn's open actions with a denial
- * and resumes the turn, so it ends visibly instead of waiting out its limit; the job is then done. A job that finds the
- * generation already started does nothing more.
+ * Handle one delivery of a start job. A failure that retrying can cure (ECS or STS failed, a customer stack is still
+ * being created) is thrown so the queue redelivers the job, up to `COMPUTER_START_MAX_DELIVERIES` deliveries; the last
+ * delivery fails the parked turn with a plain reason and ends the job. A refusal that retrying cannot cure (the
+ * organization is not enabled, has no AWS home, or has no cross-account role) fails the parked turn at once and ends the
+ * job. A refused spend ceiling answers the turn's open actions with a denial. Every ending but a retry leaves the job
+ * done: never redelivered, never dead-lettered.
  *
  * @param deps Stores, clock, the host start driver and how to resume a turn.
  * @param job The start job.
+ * @param delivery What the queue says about this delivery.
  * @returns How it ended.
  * @throws ComputerWorkerRequiresComputerCapability If the job does not need the computer capability.
- * A permanent refusal (the organization has no AWS home, or no cross-account role) fails the parked turn with a plain
- * reason and ends the job without retry; every other driver failure is transient and the job should be retried.
- *
- * @throws ComputerWorkerHostNotReady If the driver could not start the host for a transient reason; the job should be retried.
+ * @throws Error If the start failed for a transient reason and the job has deliveries left; the job should be retried.
  */
 export async function handleComputerStartJob(
 	deps: ComputerStarterDependencies,
 	job: ComputerStartJob,
+	delivery: ComputerStartDelivery,
 ): Promise<ComputerStartOutcome> {
 	if (!job.requiredCapabilities.includes("computer")) {
 		throw new ComputerWorkerRequiresComputerCapability(
 			`Job ${JSON.stringify(job.jobId)} does not require the computer capability.`,
 		);
 	}
+	try {
+		return await attemptComputerStart(deps, job);
+	} catch (error) {
+		if (delivery.receiveCount < COMPUTER_START_MAX_DELIVERIES) throw error;
+		consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId })("computer_start_gave_up", {
+			reason_class: "start_attempts_exhausted",
+			deliveries: delivery.receiveCount,
+			error_name: errorNameOf(error),
+		});
+		await failParkedTurn(deps, job, COMPUTER_START_GAVE_UP_REASON);
+		return { kind: "gave_up", reason: "start_attempts_exhausted" };
+	}
+}
+
+async function attemptComputerStart(deps: ComputerStarterDependencies, job: ComputerStartJob): Promise<ComputerStartOutcome> {
 	for (const settled of await expireLostComputerActions(deps, job.tenantId)) {
 		if (settled.status === "done") await deps.resumeTurn(settled.tenantId, settled.turnId, settled.actionId);
 	}
@@ -106,6 +159,12 @@ export async function handleComputerStartJob(
 			generation: liveOwner.computer.hostStartGeneration,
 		});
 		return { kind: "already_serving", hostStartGeneration: liveOwner.computer.hostStartGeneration, ownerId: liveOwner.ownerId };
+	}
+	const organization = await deps.store.getOrganization(job.tenantId);
+	if (organization === null || organization.status !== "enabled") {
+		consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId })("computer_start_refused", { reason_class: "organization_not_enabled" });
+		await failParkedTurn(deps, job, organizationNotEnabledReason(organization?.status ?? null));
+		return { kind: "refused", reason: "organization_not_enabled" };
 	}
 	let claim: HostStartClaim;
 	try {
@@ -124,10 +183,7 @@ export async function handleComputerStartJob(
 		await deps.store.releaseHostStartDispatch(job.tenantId, claim.hostStartGeneration);
 		if (error instanceof OrganizationComputerNotSetUpError) {
 			consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId })("computer_start_refused", { reason_class: error.reasonClass });
-			const turn = await deps.turns.store.getTurn(job.tenantId, job.turnId);
-			if (turn !== null && turn.status === "active" && turn.waitingFor !== null) {
-				await failStaleTurn(deps.turns, turn, "waiting", COMPUTER_NOT_SET_UP_REASON);
-			}
+			await failParkedTurn(deps, job, COMPUTER_NOT_SET_UP_REASON);
 			return { kind: "refused", reason: error.reasonClass };
 		}
 		if (error instanceof OrganizationComputerProvisioningError) {

@@ -320,3 +320,32 @@ Then("the start failed and the parked turn is still waiting", async function (th
 Then("the start job is queued again", function (this: ChatticusWorld) {
 	assert.equal(queuedStartJobs(this).length, 1);
 });
+
+Given("the organization is suspended", async function (this: ChatticusWorld) {
+	const store = this.messagingStore();
+	await store.putOrganization({ ...(await store.getOrganization(STORY_TENANT))!, status: "suspended" });
+});
+
+When("the starter handles the start job on delivery {int}", async function (this: ChatticusWorld, receiveCount: number) {
+	const composed = await composeStarter(this);
+	assert.ok(composed, `The starter was not composed: ${ownerStartOf(this).composeError?.message}`);
+	await withCapturedLogs(this, () =>
+		deliverStartJob(this, startJobOf(this), composed.driver, this.messagingStore(), receiveCount),
+	);
+});
+
+Then("the parked turn failed telling the person the organization is suspended", async function (this: ChatticusWorld) {
+	const job = startJobOf(this);
+	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
+	assert.equal(turn.status, "failed");
+	assert.ok(turn.terminalReason?.includes("is suspended"), String(turn.terminalReason));
+	assert.ok(turn.terminalReason?.includes("Ask your Chatticus operator"), String(turn.terminalReason));
+});
+
+Then("the parked turn failed telling the person the computer could not be started after several tries", async function (this: ChatticusWorld) {
+	const job = startJobOf(this);
+	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
+	assert.equal(turn.status, "failed");
+	assert.ok(turn.terminalReason?.includes("could not be started after several tries"), String(turn.terminalReason));
+	assert.ok(turn.terminalReason?.includes("send your message again"), String(turn.terminalReason));
+});
