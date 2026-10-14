@@ -29,6 +29,8 @@ import type { z } from "zod";
 import {
 	ownerBootstrapRequestSchema,
 	ownerBootstrapResponseSchema,
+	ownerCredentialsRequestSchema,
+	ownerCredentialsResponseSchema,
 	ownerErrorSchema,
 	ownerPollRequestSchema,
 	ownerPollResponseSchema,
@@ -36,6 +38,8 @@ import {
 	ownerStopResponseSchema,
 	type OwnerBootstrapRequest,
 	type OwnerBootstrapResponse,
+	type OwnerCredentialsRequest,
+	type OwnerCredentialsResponse,
 	type OwnerErrorCode,
 	type OwnerPollRequest,
 	type OwnerPollResponse,
@@ -282,6 +286,11 @@ export class OwnerSupervisorClient extends HostProtocolClient {
 	/** POST /owner/poll: say what the owner is doing and ask for work. */
 	async poll(request: OwnerPollRequest): Promise<OwnerPollResponse> {
 		return this.request("POST", "/owner/poll", ownerPollResponseSchema, ownerPollRequestSchema.parse(request));
+	}
+
+	/** POST /owner/credentials: ask for the next set of credentials, the supervisor's own or those of the turn it serves. */
+	async renewCredentials(request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse> {
+		return this.request("POST", "/owner/credentials", ownerCredentialsResponseSchema, ownerCredentialsRequestSchema.parse(request));
 	}
 
 	/** POST /owner/file-results: post the answer to one file request. */

@@ -12,11 +12,17 @@ import type { OwnerCredentialBrokerErrorCode, OwnerCredentialBrokerRequest, Owne
 /** The grant the broker issues for `purpose: supervisor`: the supervisor role's credentials and the supervisor token. */
 export type SupervisorGrant = Extract<OwnerCredentialBrokerResponse, { ok: true; purpose: "supervisor" }>;
 
+/** The grant the broker issues for `purpose: supervisor_renewal`: the next set of the supervisor role's credentials and a new supervisor token of the same owner. */
+export type SupervisorRenewalGrant = Extract<OwnerCredentialBrokerResponse, { ok: true; purpose: "supervisor_renewal" }>;
+
 /** The grant the broker issues for `purpose: turn`: the per-turn role's credentials and the model gateway token. */
 export type TurnGrant = Extract<OwnerCredentialBrokerResponse, { ok: true; purpose: "turn" }>;
 
 /** The request of a supervisor grant: authorized by the bootstrap token. */
 export type SupervisorGrantRequest = Extract<OwnerCredentialBrokerRequest, { purpose: "supervisor" }>;
+
+/** The request of a supervisor renewal: authorized by the supervisor token, which must still be valid. */
+export type SupervisorRenewalGrantRequest = Extract<OwnerCredentialBrokerRequest, { purpose: "supervisor_renewal" }>;
 
 /** The request of a turn grant: authorized by the supervisor token and naming the turn. */
 export type TurnGrantRequest = Extract<OwnerCredentialBrokerRequest, { purpose: "turn" }>;
@@ -47,5 +53,6 @@ export class OwnerCredentialBrokerError extends Error {
  */
 export interface OwnerCredentialBrokerPort {
 	issue(request: SupervisorGrantRequest): Promise<SupervisorGrant>;
+	issue(request: SupervisorRenewalGrantRequest): Promise<SupervisorRenewalGrant>;
 	issue(request: TurnGrantRequest): Promise<TurnGrant>;
 }

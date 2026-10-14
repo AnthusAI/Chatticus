@@ -38,13 +38,15 @@ function refusal(code: OwnerCredentialBrokerErrorCode, message: string): OwnerCr
 	return { ok: false, error: { code, message } };
 }
 
-function roleSessionNameFor(request: OwnerCredentialBrokerRequest): string {
+type ServedBrokerRequest = Exclude<OwnerCredentialBrokerRequest, { purpose: "supervisor_renewal" }>;
+
+function roleSessionNameFor(request: ServedBrokerRequest): string {
 	return `${request.purpose}-${request.owner_id}`.replace(ROLE_SESSION_NAME_DISALLOWED, "-").slice(0, ROLE_SESSION_NAME_MAXIMUM_CHARACTERS);
 }
 
 function authorizationMatches(
 	claims: { tenantId: string; computerId: string; ownerId: string; startGeneration: number },
-	request: OwnerCredentialBrokerRequest,
+	request: ServedBrokerRequest,
 ): boolean {
 	return (
 		claims.tenantId === request.tenant_id &&
@@ -54,7 +56,7 @@ function authorizationMatches(
 	);
 }
 
-function tagsFor(request: OwnerCredentialBrokerRequest): SessionTag[] {
+function tagsFor(request: ServedBrokerRequest): SessionTag[] {
 	if (request.purpose === "supervisor") {
 		return supervisorSessionTags({ tenantId: request.tenant_id, computerId: request.computer_id });
 	}
@@ -113,6 +115,10 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 			emit("owner_broker_refused", { ...scope, code, ...extra });
 			return refusal(code, message);
 		};
+
+		if (request.purpose === "supervisor_renewal") {
+			return refuse("invalid_request", "The purpose supervisor_renewal is not served by this broker yet.");
+		}
 
 		const key = await signingKey();
 		if (key === null) return refuse("signing_key_unavailable", "The signing key could not be read.");
@@ -181,6 +187,7 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 					computerId: request.computer_id,
 					ownerId: request.owner_id,
 					startGeneration: request.generation,
+					ownerStartedAtSeconds: nowSeconds,
 					issuedAtSeconds: nowSeconds,
 					expiresAtSeconds,
 				}),

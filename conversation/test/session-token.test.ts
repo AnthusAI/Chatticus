@@ -53,6 +53,7 @@ describe("session token", () => {
 			computerId: "computer-1",
 			ownerId: "owner-1",
 			startGeneration: 3,
+			ownerStartedAtSeconds: claims.expiresAtSeconds - 300,
 			issuedAtSeconds: claims.expiresAtSeconds - 300,
 			expiresAtSeconds: claims.expiresAtSeconds,
 		});
