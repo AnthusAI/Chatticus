@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "de547158-f8e6-4e78-a362-4bc133957ea1",
+      "author": "home",
+      "text": "Part D is in PR 557 on branch ts/credential-renewal-child. Socket server, child credential providers, new registered feature, structure guards and container script checks. Socket file mode is set by chmod at bind, not umask, because worker threads refuse umask; the answer cap is 16 KiB. Mutation checks on the active-turn authorization, the socket mode, the child environment list, token caching and an AWS client without credentials all failed the tests. Left in_progress until the PR merges.",
+      "created_at": "2026-10-14T15:20:00.627868Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-d"
+      }
+    }
+  ],
   "created_at": "2026-10-14T03:32:56.697290Z",
-  "updated_at": "2026-10-14T14:58:50.627141Z",
+  "updated_at": "2026-10-14T15:20:10.675078Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The child fetches per-turn credentials over a protected supervisor socket instead of using environment variables.",
-  "right_now_updated_at": "2026-10-14T14:58:53.497235Z",
+  "right_now_summary": "PR 557 contains the socket and child credential changes, with tests passing and the merge still pending.",
+  "right_now_updated_at": "2026-10-14T15:20:13.115286Z",
   "custom": {}
 }
