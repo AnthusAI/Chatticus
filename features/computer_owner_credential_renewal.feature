@@ -5,7 +5,9 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
 
   DRAFT. The @server scenarios of the renewal route moved to
   computer_owner_credential_renewal_route.feature (part A2) and the drain's to
-  computer_owner_credential_drain.feature (part A1). The rest of this file is
+  computer_owner_credential_drain.feature (part A1); the broker's fault switch
+  and the infrastructure assertions moved to
+  owner_credential_broker_fault_switch.feature (part B2). The rest of this file is
   the Phase 2b contract's behavior and is not in
   features/cucumber-features.txt. Each part of docs/OWNER_CREDENTIAL_RENEWAL.md
   section 15 moves the scenarios it owns into the real run together with their
@@ -34,35 +36,6 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
     And tenant "anthus" user "ryan" has a bot named "Researcher"
     And tenant "anthus" user "ryan" has a bot named "Analyst"
     And a fake owner credential broker
-
-  # ---------------------------------------------------------------- broker
-
-  @broker
-  Scenario: The development fault switch denies a renewal and shortens the credentials
-    Given the broker holds the signing key
-    And the broker runs in the environment "development" with the fault "deny_supervisor_renewal"
-    When the broker is asked for supervisor renewal credentials with a valid supervisor token
-    Then the broker answers not ok with the code "assume_role_failed"
-    Given the broker runs in the environment "development" with credentials limited to 900 seconds
-    When the broker is asked for supervisor credentials with a valid bootstrap token
-    Then the role "ComputerSupervisorRole" was assumed for 900 seconds
-    When the broker runs in the environment "development" with credentials limited to 7200 seconds
-    Then the broker refuses to start
-
-  @broker
-  Scenario Outline: The broker refuses to start with a fault switch outside development
-    Given the broker holds the signing key
-    When the broker is started in the environment <environment> with the fault "deny_supervisor_renewal"
-    Then the broker refuses to start
-    And every invocation of the deployed entry point fails
-    And STS was not asked to assume a role
-
-    Examples:
-      | environment  |
-      | "production" |
-      | "staging"    |
-      | ""           |
-      | not set      |
 
   # ------------------------------------------------------------ supervisor
 
@@ -184,34 +157,3 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
     And bot "Researcher" works its turn until it waits for the computer
     Then a computer start job is queued for the turn
     And the host start driver was invoked once
-
-  # ----------------------------------------------------------------- infra
-
-  @infra
-  Scenario: Renewal adds no permission to the broker and no role changes its trust or session limit
-    Given the synthesized control plane stack
-    Then the broker's role holds the permission to read the signing key and to assume the two owner roles and nothing else
-    And the supervisor role and the per-turn role still trust only the broker's role with their exact session tag keys
-    And both roles keep a maximum session of 3600 seconds
-
-  @infra
-  Scenario Outline: The staging and production brokers hold no fault variable and know their environment
-    Given the control plane stack synthesized for <environment>
-    Then the broker's environment holds "CHATTICUS_ENVIRONMENT" set to "<environment>"
-    And the broker's environment holds neither "CHATTICUS_OWNER_BROKER_FAULT" nor "CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS"
-
-    Examples:
-      | environment |
-      | staging     |
-      | production  |
-
-  @infra
-  Scenario Outline: The broker's development fault switch exists in development only
-    Given the control plane stack synthesized for <environment> with the broker fault switch set
-    Then the synthesis <outcome>
-
-    Examples:
-      | environment | outcome                         |
-      | development | sets the broker's environment   |
-      | staging     | fails and names the switch      |
-      | production  | fails and names the switch      |

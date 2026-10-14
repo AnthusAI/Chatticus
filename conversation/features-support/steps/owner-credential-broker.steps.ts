@@ -4,7 +4,7 @@ import { Given, Then, When } from "@cucumber/cucumber";
 import type { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import type { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { ownerCredentialBrokerResponseSchema, type OwnerCredentialBrokerResponse } from "@chatticus/host-protocol/supervisor";
-import { createOwnerCredentialBrokerHandler } from "../../src/lambdas/owner-credential-broker.ts";
+import { createDeployedOwnerCredentialBrokerHandler, createOwnerCredentialBrokerHandler } from "../../src/lambdas/owner-credential-broker.ts";
 import {
 	mintComputerOwnerToken,
 	mintOwnerBootstrapToken,
@@ -29,6 +29,8 @@ type BrokerScenario = {
 	ownerAgeSeconds: number;
 	signingKeyReadable: boolean;
 	stsFailure: string | null;
+	deployedEnvironment: Record<string, string | undefined> | null;
+	startFailure: string | null;
 	readonly clock: FakeClock;
 	readonly stsInputs: AssumeRoleInput[];
 	response: OwnerCredentialBrokerResponse | null;
@@ -39,7 +41,7 @@ const scenarios = new WeakMap<ChatticusWorld, BrokerScenario>();
 function scenarioOf(world: ChatticusWorld): BrokerScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { ownerAgeSeconds: 0, signingKeyReadable: true, stsFailure: null, clock: new FakeClock(), stsInputs: [], response: null };
+		scenario = { ownerAgeSeconds: 0, signingKeyReadable: true, stsFailure: null, deployedEnvironment: null, startFailure: null, clock: new FakeClock(), stsInputs: [], response: null };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -145,7 +147,19 @@ async function ask(world: ChatticusWorld, payload: Record<string, unknown>): Pro
 			return { SecretString: SIGNING_KEY };
 		},
 	} as unknown as Pick<SecretsManagerClient, "send">;
-	const handler = createOwnerCredentialBrokerHandler({
+	const handler = handlerOf(scenario, sts, secrets);
+	scenario.response = ownerCredentialBrokerResponseSchema.parse(await handler(payload));
+}
+
+function handlerOf(
+	scenario: BrokerScenario,
+	sts: Pick<STSClient, "send">,
+	secrets: Pick<SecretsManagerClient, "send">,
+): (event: unknown) => Promise<OwnerCredentialBrokerResponse> {
+	if (scenario.deployedEnvironment !== null) {
+		return createDeployedOwnerCredentialBrokerHandler(scenario.deployedEnvironment, { sts, secrets, now: () => scenario.clock.now() });
+	}
+	return createOwnerCredentialBrokerHandler({
 		sts,
 		secrets,
 		now: () => scenario.clock.now(),
@@ -153,7 +167,6 @@ async function ask(world: ChatticusWorld, payload: Record<string, unknown>): Pro
 		scopedRoleArn: SCOPED_ROLE_ARN,
 		signingKeySecretArn: SIGNING_KEY_SECRET_ARN,
 	});
-	scenario.response = ownerCredentialBrokerResponseSchema.parse(await handler(payload));
 }
 
 Given("the broker holds the signing key", function (this: ChatticusWorld) {
@@ -442,4 +455,70 @@ Then("the message is {string} and holds no token, key or credential", function (
 	for (const secret of [SIGNING_KEY, STS_SECRET_ACCESS_KEY, STS_SESSION_TOKEN, "ct1.", "raw AWS message"]) {
 		assert.equal(text.includes(secret), false, "The answer leaks a secret.");
 	}
+});
+
+function deployedEnvironmentWith(variables: Record<string, string | undefined>): Record<string, string | undefined> {
+	return {
+		CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN: SUPERVISOR_ROLE_ARN,
+		CHATTICUS_OWNER_SCOPED_ROLE_ARN: SCOPED_ROLE_ARN,
+		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: SIGNING_KEY_SECRET_ARN,
+		...variables,
+	};
+}
+
+Given("the broker runs in the environment {string} with the fault {string}", function (this: ChatticusWorld, environment: string, fault: string) {
+	scenarioOf(this).deployedEnvironment = deployedEnvironmentWith({ CHATTICUS_ENVIRONMENT: environment, CHATTICUS_OWNER_BROKER_FAULT: fault });
+});
+
+Given(
+	"the broker runs in the environment {string} with credentials limited to {int} seconds",
+	function (this: ChatticusWorld, environment: string, seconds: number) {
+		scenarioOf(this).deployedEnvironment = deployedEnvironmentWith({
+			CHATTICUS_ENVIRONMENT: environment,
+			CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS: String(seconds),
+		});
+	},
+);
+
+async function invokeDeployedEntryPoint(world: ChatticusWorld): Promise<string | null> {
+	const scenario = scenarioOf(world);
+	scenario.stsInputs.length = 0;
+	const environment = scenario.deployedEnvironment;
+	assert.ok(environment, "No deployed environment was set in this scenario.");
+	const sts = { send: async (command: AssumeRoleCommand) => void scenario.stsInputs.push(command.input) } as unknown as Pick<STSClient, "send">;
+	const secrets = { send: async () => ({ SecretString: SIGNING_KEY }) } as unknown as Pick<SecretsManagerClient, "send">;
+	const entryPoint = createDeployedOwnerCredentialBrokerHandler(environment, { sts, secrets, now: () => scenario.clock.now() });
+	const request = requestFor("supervisor", bootstrapToken(scenario));
+	const failures: Array<string | null> = [];
+	for (let invocation = 0; invocation < 3; invocation += 1) {
+		try {
+			await entryPoint(request);
+			failures.push(null);
+		} catch (error) {
+			failures.push(error instanceof Error ? error.message : String(error));
+		}
+	}
+	return failures.every((failure) => failure !== null) ? (failures[0] as string) : null;
+}
+
+When(
+	/^the broker is started in the environment ("[^"]*"|not set) with the fault "([^"]+)"$/,
+	async function (this: ChatticusWorld, environment: string, fault: string) {
+		const scenario = scenarioOf(this);
+		scenario.deployedEnvironment = deployedEnvironmentWith({
+			CHATTICUS_ENVIRONMENT: environment === "not set" ? undefined : environment.slice(1, -1),
+			CHATTICUS_OWNER_BROKER_FAULT: fault,
+		});
+		scenario.startFailure = await invokeDeployedEntryPoint(this);
+	},
+);
+
+Then("the broker refuses to start", async function (this: ChatticusWorld) {
+	const scenario = scenarioOf(this);
+	scenario.startFailure = await invokeDeployedEntryPoint(this);
+	assert.notEqual(scenario.startFailure, null, "The broker started.");
+});
+
+Then("every invocation of the deployed entry point fails", function (this: ChatticusWorld) {
+	assert.notEqual(scenarioOf(this).startFailure, null, "An invocation of the deployed entry point succeeded.");
 });

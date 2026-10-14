@@ -57,6 +57,50 @@ export interface ControlPlaneStackProps extends cdk.StackProps {
  * TurnProbe and ComputerStarter Lambdas. CloudFront fronts /api/* with the
  * FrontDoor function URL.
  */
+const OWNER_BROKER_FAULT_CONTEXT_VALUES = ["none", "deny_supervisor_renewal", "deny_turn_renewal"];
+const OWNER_BROKER_CREDENTIAL_SECONDS_MINIMUM = 900;
+const OWNER_BROKER_CREDENTIAL_SECONDS_MAXIMUM = 3600;
+
+/**
+ * The development fault switch of the owner credential broker (docs/OWNER_CREDENTIAL_RENEWAL.md, R22, gates G1 and G2).
+ * The CDK context ownerBrokerFault and ownerBrokerCredentialSeconds is accepted for the development environment only:
+ * any value for another environment fails synthesis and names the switch. The two broker variables it returns are the only
+ * place infra/lib names them, and nothing is returned unless a context value asks for a fault.
+ */
+function ownerBrokerFaultVariablesFromContext(scope: Construct, environmentName: ChatticusCloudEnvironment): Record<string, string> {
+  const faultContext = scope.node.tryGetContext("ownerBrokerFault");
+  const secondsContext = scope.node.tryGetContext("ownerBrokerCredentialSeconds");
+  if (faultContext === undefined && secondsContext === undefined) return {};
+  if (environmentName !== "development") {
+    throw new Error(
+      `The broker fault switch (ownerBrokerFault, ownerBrokerCredentialSeconds) exists in the development environment only; it is set for ${environmentName}.`,
+    );
+  }
+  const variables: Record<string, string> = {};
+  if (faultContext !== undefined) {
+    const fault = String(faultContext);
+    if (!OWNER_BROKER_FAULT_CONTEXT_VALUES.includes(fault)) {
+      throw new Error(`ownerBrokerFault must be one of ${OWNER_BROKER_FAULT_CONTEXT_VALUES.join(", ")}.`);
+    }
+    if (fault !== "none") variables.CHATTICUS_OWNER_BROKER_FAULT = fault;
+  }
+  if (secondsContext !== undefined) {
+    const secondsText = String(secondsContext);
+    const seconds = Number(secondsText);
+    if (
+      !/^\d+$/.test(secondsText) ||
+      seconds < OWNER_BROKER_CREDENTIAL_SECONDS_MINIMUM ||
+      seconds > OWNER_BROKER_CREDENTIAL_SECONDS_MAXIMUM
+    ) {
+      throw new Error(
+        `ownerBrokerCredentialSeconds must be a whole number from ${OWNER_BROKER_CREDENTIAL_SECONDS_MINIMUM} to ${OWNER_BROKER_CREDENTIAL_SECONDS_MAXIMUM}.`,
+      );
+    }
+    variables.CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS = secondsText;
+  }
+  return variables;
+}
+
 export class ControlPlaneStack extends cdk.Stack {
   readonly conversationsTable: dynamodb.Table;
   readonly piSessionsBucket: s3.Bucket;
@@ -84,6 +128,7 @@ export class ControlPlaneStack extends cdk.Stack {
     const isDevelopment = environmentName === "development";
     const dataRetention = isDevelopment ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN;
     const messagingTable = props.messagingTable;
+    const ownerBrokerFaultVariables = ownerBrokerFaultVariablesFromContext(this, environmentName);
 
     const conversationsTable = new dynamodb.Table(this, "Conversations", {
       partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
@@ -388,7 +433,11 @@ export class ControlPlaneStack extends cdk.Stack {
           256,
           15,
           "Owner credential broker: the only principal that assumes the supervisor and per-turn roles and signs the owner tokens.",
-          { CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: signingKeySecret.secretArn },
+          {
+            CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: signingKeySecret.secretArn,
+            CHATTICUS_ENVIRONMENT: environmentName,
+            ...ownerBrokerFaultVariables,
+          },
         );
         credentialBrokerFunction.addToRolePolicy(
           new iam.PolicyStatement({
@@ -420,6 +469,9 @@ export class ControlPlaneStack extends cdk.Stack {
       }
     }
 
+    if (Object.keys(ownerBrokerFaultVariables).length > 0 && this.ownerCredentialBrokerFunction === undefined) {
+      throw new Error("The broker fault switch is set but the owner credential broker is not wired in this stack.");
+    }
 
     new cdk.CfnOutput(this, "ControlPlaneFunctionUrl", {
       value: this.frontDoorFunctionUrl.url,

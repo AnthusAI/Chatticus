@@ -278,10 +278,12 @@ describe("ControlPlane credential broker and owner roles", () => {
   it("gives the broker the signing key secret and the two role ARNs, and nothing else", () => {
     const names = Object.keys(brokerProperties.Environment.Variables).sort();
     assert.deepEqual(names, [
+      "CHATTICUS_ENVIRONMENT",
       "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN",
       "CHATTICUS_OWNER_SCOPED_ROLE_ARN",
       "CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN",
     ]);
+    assert.equal(brokerProperties.Environment.Variables.CHATTICUS_ENVIRONMENT, "development");
     assert.deepEqual(brokerProperties.Environment.Variables.CHATTICUS_OWNER_SCOPED_ROLE_ARN, { "Fn::GetAtt": [scopedId, "Arn"] });
     assert.deepEqual(brokerProperties.Environment.Variables.CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN, { "Fn::GetAtt": [supervisorId, "Arn"] });
   });
@@ -502,6 +504,74 @@ describe("ControlPlane credential broker and owner roles", () => {
   it("creates no IAM users or access keys", () => {
     template.resourceCountIs("AWS::IAM::User", 0);
     template.resourceCountIs(["AWS::IAM::Access", "Key"].join(""), 0);
+  });
+});
+
+describe("ControlPlane broker development fault switch", () => {
+  const FAULT_VARIABLE = "CHATTICUS_OWNER_BROKER_FAULT";
+  const SECONDS_VARIABLE = "CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS";
+  const SWITCH_CONTEXT = { ...OWNER_CONTEXT, ownerBrokerFault: "deny_supervisor_renewal", ownerBrokerCredentialSeconds: "900" };
+
+  it("holds neither variable by default and always names the environment", () => {
+    const variables = functionVariables(synthControlPlane("development", OWNER_CONTEXT), "credential broker");
+    assert.equal(variables.CHATTICUS_ENVIRONMENT, "development");
+    assert.equal(variables[FAULT_VARIABLE], undefined);
+    assert.equal(variables[SECONDS_VARIABLE], undefined);
+  });
+
+  it("sets both variables on the development broker and on no other function", () => {
+    const template = synthControlPlane("development", SWITCH_CONTEXT);
+    const variables = functionVariables(template, "credential broker");
+    assert.equal(variables[FAULT_VARIABLE], "deny_supervisor_renewal");
+    assert.equal(variables[SECONDS_VARIABLE], "900");
+    assert.equal(variables.CHATTICUS_ENVIRONMENT, "development");
+    const carriers = Object.values(resourcesOfType(template, "AWS::Lambda::Function")).filter((resource) =>
+      JSON.stringify(resource.Properties.Environment ?? {}).includes("CHATTICUS_OWNER_BROKER_"),
+    );
+    assert.equal(carriers.length, 1);
+  });
+
+  it("emits a variable only for the context value it was given, and none for the fault none", () => {
+    const secondsOnly = functionVariables(synthControlPlane("development", { ...OWNER_CONTEXT, ownerBrokerCredentialSeconds: "1200" }), "credential broker");
+    assert.equal(secondsOnly[SECONDS_VARIABLE], "1200");
+    assert.equal(secondsOnly[FAULT_VARIABLE], undefined);
+    const none = functionVariables(synthControlPlane("development", { ...OWNER_CONTEXT, ownerBrokerFault: "none" }), "credential broker");
+    assert.equal(none[FAULT_VARIABLE], undefined);
+  });
+
+  it("refuses a fault or a duration the switch does not define", () => {
+    assert.throws(() => synthControlPlane("development", { ...OWNER_CONTEXT, ownerBrokerFault: "deny_everything" }), /ownerBrokerFault/);
+    for (const seconds of ["899", "3601", "7200", "abc"]) {
+      assert.throws(() => synthControlPlane("development", { ...OWNER_CONTEXT, ownerBrokerCredentialSeconds: seconds }), /ownerBrokerCredentialSeconds/);
+    }
+  });
+
+  it("refuses the switch when no broker is wired", () => {
+    assert.throws(() => synthControlPlane("development", { ...HOST_CONTEXT, ownerBrokerFault: "deny_supervisor_renewal" }), /not wired/);
+  });
+
+  it("fails synthesis and names the switch for staging and production, for every context value", () => {
+    for (const environmentName of ["staging", "production"] as const) {
+      for (const switchContext of [
+        { ownerBrokerFault: "deny_supervisor_renewal" },
+        { ownerBrokerFault: "none" },
+        { ownerBrokerCredentialSeconds: "900" },
+        SWITCH_CONTEXT,
+      ]) {
+        assert.throws(
+          () => synthControlPlane(environmentName, { ...OWNER_CONTEXT, ...switchContext }),
+          /ownerBrokerFault, ownerBrokerCredentialSeconds\) exists in the development environment only/,
+        );
+      }
+    }
+  });
+
+  it("leaves no trace of either variable in the staging and production templates", () => {
+    for (const environmentName of ["staging", "production"] as const) {
+      const text = JSON.stringify(synthControlPlane(environmentName, OWNER_CONTEXT).toJSON());
+      assert.ok(!text.includes(FAULT_VARIABLE));
+      assert.ok(!text.includes(SECONDS_VARIABLE));
+    }
   });
 });
 
