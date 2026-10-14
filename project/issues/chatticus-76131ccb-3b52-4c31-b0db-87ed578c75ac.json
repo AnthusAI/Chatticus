@@ -3,7 +3,7 @@
   "title": "2b-B1: credential broker renews supervisor credentials and caps every credential at the hard lifetime",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R7 R8 R20, 7, 17 B1). Gherkin first (features/computer_owner_credential_renewal.feature, tag @broker; also keep features/owner_credential_broker.feature green).\n\nFiles:\n- conversation/src/lambdas/owner-credential-broker.ts: purpose supervisor_renewal (the authorization is the supervisor token, audience computer-owner); ownerStartedAtSeconds set at the bootstrap and copied at renewal; hard end = anchor + OWNER_HARD_LIFETIME_SECONDS; refuse with owner_lifetime_over when hardEnd - now is less than OWNER_BROKER_MINIMUM_SESSION_SECONDS (also for purpose turn); DurationSeconds = min(3600, hardEnd - now) for supervisor_renewal and turn (3600 at the bootstrap); token expiry = min(now + duration, floor of the STS expiration); RoleSessionName supervisor-<ownerId> for both supervisor purposes and turn-<ownerId> for turn; log lines gain purpose supervisor_renewal and duration_seconds; never a token, key or credential.\n- conversation/test/owner-credential-broker.test.ts, lambda-owner-credential-broker.test.ts; conversation/features-support/steps/owner-credential-broker.steps.ts and features/owner_credential_broker.feature (existing scenarios keep their meaning; the claim is added to their answers).\n\nScenarios owned (all @broker scenarios of the draft): 'The broker renews supervisor credentials with the role and tags of the bootstrap', 'The broker refuses what it should not renew', 'No credential the broker issues outlives the hard lifetime', 'A renewal reports an STS failure by name only', 'A supervisor token issued at bootstrap names the moment the owner started'.\n\nAcceptance (from conversation/): typecheck; npm test; npm run test:features; owned scenarios in features/cucumber-features.txt.\n\nDependencies: P0. Blocks the fault switch of B2 and E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -27,17 +27,41 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-planner"
       }
+    },
+    {
+      "id": "d6194a02-f6e3-4801-9117-2d5a2c0800b5",
+      "author": "home",
+      "text": "B1 implemented in PR 554 and open for review. The broker serves supervisor_renewal with the same role, tags and session name, anchors the hard end on the signed ownerStartedAtSeconds, refuses with owner_lifetime_over below 900 seconds, and cuts duration and token expiry to the hard end for renewal and turn. The B1 scenarios moved into owner_credential_broker.feature, 30 scenarios pass. No IAM change.",
+      "created_at": "2026-10-14T13:23:11.903914Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-b1"
+      }
+    },
+    {
+      "id": "0ac88d3c-70fd-4457-8a67-798d10705e7a",
+      "author": "home",
+      "text": "Contract mismatch fixed in PR 554: the draft feature and section 7 refused at exactly 27900 seconds, but the P0 fake and this ticket refuse only when hardEnd minus now is below 900, and STS grants 900. Docs, code and fake now agree.",
+      "created_at": "2026-10-14T13:23:22.763468Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-b1"
+      }
     }
   ],
   "created_at": "2026-10-14T03:32:16.285633Z",
-  "updated_at": "2026-10-14T09:54:22.871661Z",
+  "updated_at": "2026-10-14T13:23:22.763506Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The broker renews supervisor credentials, enforces the hard lifetime, and rejects tokens without a signed start time.",
-  "right_now_updated_at": "2026-10-14T09:54:23.968824Z",
+  "right_now_summary": "B1 is implemented in PR 554 and awaiting review, with tests and feature scenarios passing.",
+  "right_now_updated_at": "2026-10-14T13:23:23.813726Z",
   "custom": {}
 }
