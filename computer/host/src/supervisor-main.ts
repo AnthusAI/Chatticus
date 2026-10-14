@@ -15,6 +15,7 @@ import { ProcessChildSpawner } from "./process-child-spawner.ts";
 import { OwnerSupervisorClient } from "./protocol-client.ts";
 import { OwnerSupervisor } from "./supervisor.ts";
 import { supervisorConfigurationFromEnvironment } from "./supervisor-configuration.ts";
+import { SupervisorSocketServer } from "./supervisor-socket.ts";
 import { runtimeSupervisorClock, SUPERVISOR_EXIT_CONFIGURATION } from "./supervisor-ports.ts";
 import { procProcessTable, ShellUserProcessSweeper } from "./unprivileged-process-sweeper.ts";
 import { shareWorkspaceWithShell } from "./workspace-sharing.ts";
@@ -139,11 +140,25 @@ export async function supervisorMain(environment: NodeJS.ProcessEnv = process.en
 		fileHelperLauncher,
 		workspaceRoot: configuration.workspaceRoot,
 	});
+	const socketServer = new SupervisorSocketServer({
+		source: supervisor.turnCredentials,
+		serving: () => supervisor.servingTurn,
+		nowMilliseconds: () => runtimeSupervisorClock.nowMilliseconds(),
+		log,
+	});
+	try {
+		await socketServer.start();
+	} catch (error) {
+		clearInterval(liveness);
+		console.error(`owner_socket_unavailable error_name=${error instanceof Error ? error.name : "unknown"}`);
+		return SUPERVISOR_EXIT_CONFIGURATION;
+	}
 	process.once("SIGTERM", () => supervisor.requestTermination());
 	try {
 		return await supervisor.run();
 	} finally {
 		clearInterval(liveness);
+		await socketServer.close();
 	}
 }
 

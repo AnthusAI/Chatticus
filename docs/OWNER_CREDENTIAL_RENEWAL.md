@@ -295,7 +295,7 @@ z.object({
 "owner_lifetime_over",   // the owner's hard end is less than OWNER_BROKER_MINIMUM_SESSION_SECONDS away, or past
 ```
 
-The local socket (newline-delimited JSON, one request and one answer per connection, at most 1 KiB each way):
+The local socket (newline-delimited JSON, one request and one answer per connection, a request of at most 1 KiB and an answer the child reads up to 16 KiB of):
 
 ```ts
 /** What the per-turn child asks its supervisor for over the socket. The dispatch id is the one in its environment. */
@@ -515,9 +515,13 @@ request, and `consecutiveFailures`. The supervisor's loop gains deadlines (`wait
 
 ### 8.3 The socket and the child
 
-The supervisor creates the socket after it has made and locked the directory (`supervisor-main.ts:79-80`), with a
-`umask` of 0o177 around `listen`, removes a stale socket first, and removes it at exit. It accepts connections only while a
-child runs, at most four at once, one newline-terminated JSON request of at most 1 KiB per connection, answers once, and closes.
+The supervisor creates the socket after it has made and locked the directory (`supervisor-main.ts:79-80`), sets the file to
+mode 0600 as soon as it is bound (the runtime directory keeps every other user out in the instant before; a `umask` around
+`listen` is not used because Node refuses to set it in a worker thread, where the behavior scenarios run) and refuses to serve
+on a file with any other mode, removes a stale socket first, and removes it at exit. It serves connections only while a
+child runs (a connection while none runs is closed unread), at most four at once, one newline-terminated JSON request of at
+most 1 KiB per connection, answers once, and closes. The answer is not held to 1 KiB: a session token and a gateway token
+together can exceed it, so the child reads up to 16 KiB.
 A request that does not parse, or names another dispatch, is answered `no_turn`. Each request is logged
 (`owner_credential_socket`: `op`, `outcome`, never a value).
 

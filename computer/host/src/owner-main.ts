@@ -21,6 +21,7 @@ import {
 	runOwnerEntryPoint,
 	runShellProbe,
 } from "./owner.ts";
+import { supervisorSocketClientFromEnvironment, turnCredentialProviders } from "./supervisor-socket-client.ts";
 
 const workspaceRoot = (process.env["CHATTICUS_WORKSPACE_ROOT"] ?? "").trim() || DEFAULT_WORKSPACE_ROOT;
 const fileHelperCommand = [process.execPath, join(dirname(fileURLToPath(import.meta.url)), "file-helper.mjs")];
@@ -30,7 +31,9 @@ const shellLauncherPath = (process.env["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim()
  * Entry point of the per-turn container owner program, started by the supervisor with a subcommand.
  *
  * `turn` takes over the one turn the supervisor dispatched, named in the environment the supervisor built (tenant, turn, bot,
- * dispatch, owner id, the member, the gateway token and the AWS credentials of that one conversation): it runs the turn under
+ * dispatch, owner id, the member and the path of the supervisor's socket): it reads the AWS credentials of that one conversation
+ * and its model gateway token from the supervisor over the socket each time the SDK or a model request needs them, and holds
+ * none in its environment. It runs the turn under
  * the supervisor's owner id with model-chosen commands started through the shell launcher, writes the turn's lines and one
  * `owner_exit` line, and exits 0 for a turn that reached a terminal state or was parked or yielded for another owner, 1 for a
  * lost claim race or a turn left for reconciliation, 2 for wrong settings, 3 for an unusable shell launcher and 70 for an
@@ -87,11 +90,12 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 	try {
 		const identity = ownerIdentityFromEnvironment();
 		const { job } = ownerTurnJobFromEnvironment();
-		const stores = ownerStoresConfigFromEnvironment();
+		const credentials = turnCredentialProviders(supervisorSocketClientFromEnvironment());
+		const stores = ownerStoresConfigFromEnvironment(process.env, credentials.gatewayToken);
 		const log = ownerLogEmitter({ tenantId: identity.tenantId, turnId: job.turnId, ownerId: identity.ownerId });
 		process.umask(0o002);
 		const outcome = await observeOwnerTurn(log, () =>
-			runOwnerEntryPoint(job, createContainerOwnerDeps(stores, log), { workspaceRoot, shellLauncherPath, fileHelperCommand, workerId: identity.ownerId }),
+			runOwnerEntryPoint(job, createContainerOwnerDeps(stores, credentials.awsCredentials, log), { workspaceRoot, shellLauncherPath, fileHelperCommand, workerId: identity.ownerId }),
 		);
 		console.info(`owner_outcome=${outcome} tenant_id=${job.tenantId} turn_id=${job.turnId}`);
 		return ownerExitCodeFor(outcome);

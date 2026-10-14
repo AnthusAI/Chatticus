@@ -179,6 +179,11 @@ export class OwnerSupervisor {
 	 */
 	readonly turnCredentials: TurnCredentialSource = { current: (dispatchId) => this.turnLease?.current(dispatchId) ?? null };
 
+	/** Whether a per-turn child is running: the socket serves no one while it is not. */
+	get servingTurn(): boolean {
+		return this.turnLease !== null;
+	}
+
 	constructor(options: OwnerSupervisorOptions) {
 		this.options = options;
 		this.identity = options.identity;
