@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "reliability-b"
       }
+    },
+    {
+      "id": "290c9aa7-5770-4267-8669-ee4437d32b7b",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Status update: PR 547 is merged (2026-10-14T02:56Z): conversation/src/gateway/role-access-manifest.json and role-access-manifest.ts, features/role_access_manifest.feature, docs/ROLE_ACCESS_GUARD.md, docs/COMPUTER_IMAGE_PROMOTION.md, .github/workflows/promote-computer-image-development.yml, conversation/bin/simulate-role-access.ts all exist on origin/develop. PR 549 (role access simulation: one IAM call per group, with backoff) is still open. Left: merge PR 549, and decide whether simulate-role-access.ts should run in a deploy workflow (it is not referenced by any workflow yet; the in-process manifest checks run in CI). Then close.",
+      "created_at": "2026-10-14T03:11:59.897670Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
     }
   ],
   "created_at": "2026-10-13T07:04:45.040678Z",
-  "updated_at": "2026-10-14T02:45:02.843674Z",
+  "updated_at": "2026-10-14T03:11:59.897702Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "PR 547 adds IAM and image-promotion guards; all tests pass, and it awaits merge.",
-  "right_now_updated_at": "2026-10-14T02:45:06.303496Z",
+  "right_now_summary": "PR 549 needs merging, and the team must decide whether deploy workflows should run IAM checks.",
+  "right_now_updated_at": "2026-10-14T03:12:01.692236Z",
   "custom": {}
 }

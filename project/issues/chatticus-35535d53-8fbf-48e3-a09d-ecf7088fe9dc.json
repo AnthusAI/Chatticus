@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3a9213ce-7872-41b7-8553-b2d8d8040db0",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Code half is done: PR 518 (commit e86f9bcc) removed the ComputerTask, ComputerTaskRole and FargateHost resources from infra/lib/computer-stack.ts (only ComputerOwnerTask and ComputerOwnerTaskRole remain) and infra/lib/computer-host-start.ts reads the cluster, repository, subnets and security group from explicit ChatticusComputers stack outputs (ComputerClusterName, ComputerRepositoryUri, ComputerSubnetIds, ComputerSecurityGroupId). Not verifiable from the repo: whether ChatticusComputers has been redeployed by hand since, so the live stack may still hold the old host service. README still says the old host task definition and service exist. Close after confirming a Computers deploy, then redeploy ControlPlane.",
+      "created_at": "2026-10-14T03:11:46.717832Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-09T20:57:22.433303Z",
-  "updated_at": "2026-10-09T20:57:22.433359Z",
+  "updated_at": "2026-10-14T03:11:46.717855Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The old own-account host resources must be removed after owner setup uses explicit stack outputs.",
-  "right_now_updated_at": "2026-10-09T20:57:24.093978Z",
+  "right_now_summary": "The code is updated, but a hand redeploy of Computers and ControlPlane still needs confirmation.",
+  "right_now_updated_at": "2026-10-14T03:11:48.558269Z",
   "custom": {}
 }

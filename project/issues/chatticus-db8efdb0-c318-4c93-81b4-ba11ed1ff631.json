@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7748345b-0329-4857-bb87-d3cf380828b9",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Not done on origin/develop: conversation/src/turn/executor.ts settleError rethrows an infrastructure error (line ~449) and relinquish is used only for the near-time-limit yield (turn/yield.ts). The question stays a design choice (about 50 s faster recovery after a rare infrastructure error versus an added path); see needs-owner-decision in the triage report.",
+      "created_at": "2026-10-14T03:11:39.773394Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-07T03:28:41.700066Z",
-  "updated_at": "2026-10-07T03:28:41.700109Z",
+  "updated_at": "2026-10-14T03:11:39.773426Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is weighing faster recovery after infrastructure errors against the added executor complexity.",
-  "right_now_updated_at": "2026-10-07T03:28:43.096164Z",
+  "right_now_summary": "The team is deciding whether to release leases sooner after rare infrastructure errors.",
+  "right_now_updated_at": "2026-10-14T03:11:40.871153Z",
   "custom": {}
 }

@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "b19d7c0a-3226-485b-b3ee-7549308c2e33",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Verified on origin/develop: the docs half is done (PR 467), and web/lib/voice-line-delivery.ts still exists and is imported by web/components/EnabledWorkspace.tsx and web/test-support/voice-harness.ts, and is named in docs/VOICE.md and docs/TYPESCRIPT_CONTROL_PLANE.md. Still on hold for the iPad voice retest; features/web_voice_control.feature must pass unchanged. Needs an owner go-ahead after the retest.",
+      "created_at": "2026-10-14T03:11:32.050708Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
     }
   ],
   "created_at": "2026-10-06T16:01:58.042730Z",
-  "updated_at": "2026-10-07T02:55:04.334584Z",
+  "updated_at": "2026-10-14T03:11:32.050737Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The docs are updated, but code removal awaits the iPad voice retest and harness checks.",
-  "right_now_updated_at": "2026-10-07T02:55:05.935177Z",
+  "right_now_summary": "Docs are updated; removing the voice queue awaits the iPad retest and unchanged cucumber-js scenarios.",
+  "right_now_updated_at": "2026-10-14T03:11:34.182269Z",
   "custom": {}
 }

@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "77f05b20-cff3-4474-8041-d2ddbdbdbb01",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Not done on origin/develop. conversation/src/http/routes/messages.ts accepts enqueue_turn but no route starts a created-but-not-enqueued turn and the message post has no grant field. The run_terminal empty-output text is still 'run_terminal:exit=N' in computer/host/src/executors/terminal.ts (line 155), but that executor now serves customer-account computers only; own-account owners use Pi's bash, so the empty-output half applies to the customer path and to whatever Pi's bash returns. Left: choose grant-on-post or a start-turn route, with a scenario and mutation check.",
+      "created_at": "2026-10-14T03:11:36.229818Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-06T22:27:39.707734Z",
-  "updated_at": "2026-10-06T22:27:39.707792Z",
+  "updated_at": "2026-10-14T03:11:36.229842Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is deciding how to start unenqueued turns and make empty terminal output explicit.",
-  "right_now_updated_at": "2026-10-06T22:27:41.381757Z",
+  "right_now_summary": "The API still cannot start unqueued turns, and empty terminal output remains unclear.",
+  "right_now_updated_at": "2026-10-14T03:11:37.787694Z",
   "custom": {}
 }

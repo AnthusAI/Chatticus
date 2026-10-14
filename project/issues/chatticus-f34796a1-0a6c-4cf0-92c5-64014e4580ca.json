@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e6487267-87ec-4a18-a7c3-b2e56c51dfc6",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Still true: docs/COST_ACCOUNTING.md (G7, open question 9) records that the gateway has no per-call or per-turn dollar ceiling and the only ceiling is the monthly AWS spend ceiling. The cost ledger now exists (PR 537 to 542: call records in the session, rollups, cost API, Costs tab), so the data a ceiling check would need is available. It is a product decision, not a bug: see needs-owner-decision.",
+      "created_at": "2026-10-14T03:11:53.907483Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-11T17:37:36.754465Z",
-  "updated_at": "2026-10-11T17:37:36.754500Z",
+  "updated_at": "2026-10-14T03:11:53.907508Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The gateway still lacks an organization ceiling check and a decision on a separate model-spend limit.",
-  "right_now_updated_at": "2026-10-11T17:37:38.193053Z",
+  "right_now_summary": "The cost data is ready, but an organization-level model spend ceiling still needs a product decision.",
+  "right_now_updated_at": "2026-10-14T03:11:55.498868Z",
   "custom": {}
 }

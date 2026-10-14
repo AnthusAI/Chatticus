@@ -1,7 +1,7 @@
 {
   "id": "chatticus-7366ffda-84a7-405d-8c68-e5605bc12200",
   "title": "Refresh TYPESCRIPT_CONTROL_PLANE 4.1 and 4.3 to describe the owner runtime",
-  "description": "Sections 4.1 and 4.3 still read as host-worker design for own-account computers. Rewrite to the built owner path; customer accounts keep the host protocol.",
+  "description": "Sections 4.1 and 4.3 still read as host-worker design for own-account computers. Rewrite to the built owner path; customer accounts keep the host protocol.\n\nWhat remains (triage 2026-10-14): Sections 4.1, 4.2 and 4.3 of docs/TYPESCRIPT_CONTROL_PLANE.md now open with status notes that the host worker and the nine routes are the customer-account path and that own-account computers run a Pi owner (PR 488). Left: the 4.1 status paragraph still says the owner 'exits' and 'one owner runs per computer at a time'; it should describe the long-lived supervisor (poll protocol, idle timeout, per-turn child) from Phase 2a, and the file view/edit path, with links to docs/LONG_LIVED_COMPUTER.md, docs/OWNER_SUPERVISOR_PROTOCOL.md and docs/LIVE_FILES_PROTOCOL.md. Small, docs only.",
   "type": "task",
   "status": "open",
   "priority": 3,
@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7ec56ac9-5e38-4d8e-83ec-c6b371c04211",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Sections 4.1, 4.2 and 4.3 of docs/TYPESCRIPT_CONTROL_PLANE.md now open with status notes that the host worker and the nine routes are the customer-account path and that own-account computers run a Pi owner (PR 488). Left: the 4.1 status paragraph still says the owner 'exits' and 'one owner runs per computer at a time'; it should describe the long-lived supervisor (poll protocol, idle timeout, per-turn child) from Phase 2a, and the file view/edit path, with links to docs/LONG_LIVED_COMPUTER.md, docs/OWNER_SUPERVISOR_PROTOCOL.md and docs/LIVE_FILES_PROTOCOL.md. Small, docs only.",
+      "created_at": "2026-10-14T03:10:43.929423Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-09T20:57:26.419238Z",
-  "updated_at": "2026-10-09T20:57:26.419283Z",
+  "updated_at": "2026-10-14T03:10:43.929452Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Sections 4.1 and 4.3 need updates for the built owner path; customer accounts keep the host protocol.",
-  "right_now_updated_at": "2026-10-09T20:57:28.513834Z",
+  "right_now_summary": "Section 4.1 still needs updates to describe the long-lived owner supervisor and file view/edit path.",
+  "right_now_updated_at": "2026-10-14T03:10:45.135305Z",
   "custom": {}
 }

@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2ea62be4-7cec-41e2-ad35-bf9514f96af5",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Not decided or documented: docs/COMPUTER_SNAPSHOTS.md describes dirty on write but not what a clean exit with unchanged content does. features/owner_observability.feature shows the owner skipping the publish for an unchanged workspace (snapshot_skipped reason unchanged), and features/computer_owner_snapshot.feature clears dirty only after a publish. Still needs the decision (clear the flag on a clean unchanged exit, or document that it stays) and a scenario.",
+      "created_at": "2026-10-14T03:11:43.179075Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-09T17:01:18.593432Z",
-  "updated_at": "2026-10-09T17:01:18.593466Z",
+  "updated_at": "2026-10-14T03:11:43.179099Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is deciding whether a clean, unchanged exit should clear `disk_dirty` or be documented.",
-  "right_now_updated_at": "2026-10-09T17:01:20.225857Z",
+  "right_now_summary": "The team still needs to decide whether clean exits clear disk_dirty, document it, and add a scenario.",
+  "right_now_updated_at": "2026-10-14T03:11:44.890655Z",
   "custom": {}
 }

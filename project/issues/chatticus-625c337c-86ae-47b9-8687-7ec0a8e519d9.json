@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "54454138-430e-4f91-988f-c1272a8644a6",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Not done on origin/develop: no CloudWatch alarm or metric filter on provider_failed or insufficient_quota exists in infra/lib (only the Cognito federation-flood alarm), and no billing-usage check exists. PR 512 provides the log lines and the specific reason shown to the user. Left: an alarm on the provider_failed insufficient_quota log line (cheap, in CDK) and/or a daily usage-API check, plus auto-recharge on the account (an owner action outside the repo).",
+      "created_at": "2026-10-14T03:11:50.511717Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
   "created_at": "2026-10-12T10:49:56.690575Z",
-  "updated_at": "2026-10-12T10:49:56.690606Z",
+  "updated_at": "2026-10-14T03:11:50.511736Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "No alert or billing check exists yet, so bots can still fail when OpenAI credits run out.",
+  "right_now_updated_at": "2026-10-14T03:11:51.691084Z",
   "custom": {}
 }
