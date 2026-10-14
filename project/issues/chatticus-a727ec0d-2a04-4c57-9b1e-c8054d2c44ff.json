@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript control plane is deployed, Python is removed, and only voice-line cleanup remains.",
-  "right_now_updated_at": "2026-10-14T10:16:27.617346Z",
+  "right_now_summary": "The TypeScript control plane is deployed, but voice cleanup and promotion to staging and production remain.",
+  "right_now_updated_at": "2026-10-14T10:23:54.872471Z",
   "custom": {}
 }

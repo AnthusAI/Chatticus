@@ -10,16 +10,29 @@
   "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cd8c499a-10dc-4199-a2be-eee15a417802",
+      "author": "home",
+      "text": "Runbook written in docs/OWNER_CREDENTIAL_REVOCATION.md and opened as PR 551 on AnthusAI/Chatticus, not merged. Sections are triage, containment, role session revoke with an aws:TokenIssueTime deny, tokens, signing key rotation by manual steps because no script exists, invoke key, deny removal, decision table, audit trail, recovery, checklist and an UNVERIFIED list U1 to U13. Run read-only on development were the simulator dry run of the deny, simulate-role-access at 42 of 42 allowed, the audit query shape, lookup-events and logs start-query. Not done are the second reader pass U13 and the CDK deny switch, which is a follow-up. The ticket stays in_progress.",
+      "created_at": "2026-10-14T10:23:49.732039Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-r"
+      }
+    }
+  ],
   "created_at": "2026-10-14T09:53:45.127752Z",
-  "updated_at": "2026-10-14T10:16:21.672357Z",
+  "updated_at": "2026-10-14T10:23:49.732060Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The emergency credential revocation runbook is being written and linked to the threat model and contract.",
-  "right_now_updated_at": "2026-10-14T10:16:24.192420Z",
+  "right_now_summary": "The runbook is in PR 551; a second-reader pass and CDK deny follow-up remain.",
+  "right_now_updated_at": "2026-10-14T10:23:51.692348Z",
   "custom": {}
 }
