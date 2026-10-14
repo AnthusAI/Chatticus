@@ -60,3 +60,13 @@ Feature: An enabled organization always has an AWS home
     When the operator calls the enable endpoint for that pending organization
     Then the operator response status is 200
     And that pending organization is enabled in the deployment account as Anthus-managed
+
+  Scenario: An organization created in the app and enabled by the operator starts its computer in the deployment account
+    Given an empty control plane
+    And a turn parked on the workspace with its start job queued
+    And the organization was created in the app and then enabled by the operator
+    And the starter has the owner settings
+    When the starter handles the start job
+    Then the start ended "started"
+    And the starter ran exactly 1 ECS task
+    And the task ran task definition "owner-computer:3" in cluster "computers"

@@ -134,6 +134,7 @@ features/owner_observability.feature
 features/model_gateway_observability.feature
 features/owner_start_observability.feature
 features/organization_aws_home_on_enable.feature
+features/organization_aws_home_migration.feature
 features/owner_host_token.feature
 features/owner_supervisor_server.feature
 features/computer_file_live_owner.feature

@@ -60,6 +60,27 @@ placeholder). No computer row is created.
 re-run for `anthus` (or the tenant) with live AWS credentials so the
 home account is recorded.
 
+**AWS home of organizations created in the app:** an organization created in
+the app is `pending` with no home and no setup path. Its owner may choose the
+customer-account setup path while it is pending. When the operator enables (or
+reinstates) it with no path chosen, it becomes Anthus-managed and is homed in
+the deployment account; that rule lives in the organization lifecycle, so
+`members enable` and `POST /operator/orgs/{tenant_id}/enable` behave the same.
+Organizations enabled before the rule hold no home. Home them once, as a dry
+run first (the script never writes without `--execute`):
+
+```bash
+export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
+export CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID=<deployment-account-id-from-AGENTS.local.md>
+
+node conversation/bin/migrate-organization-aws-home.ts --environment development
+node conversation/bin/migrate-organization-aws-home.ts --environment development --execute
+```
+
+Add `--tenant <tenant_id>` to limit either run to one organization. Only enabled
+organizations with no home and no setup path are touched, and a second run
+changes nothing.
+
 ## Cold bootstrap (empty org records, arbitrary tenant)
 
 Use this on a fresh environment or to prove the escape hatch with no web

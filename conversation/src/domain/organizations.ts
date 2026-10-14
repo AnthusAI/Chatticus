@@ -181,6 +181,19 @@ export interface OrganizationAwsHome {
 	setupPath: AwsSetupPath;
 }
 
+/**
+ * Whether an organization has neither an AWS home nor a chosen setup path. Such an organization is Anthus-managed by
+ * default: when it is enabled it runs its computer in the deployment account.
+ */
+export function hasUnchosenAwsHome(organization: Organization): boolean {
+	return organization.awsAccountId === null && organization.awsSetupPath === null;
+}
+
+/** Return the organization homed in the deployment account as Anthus-managed, with its cross-account fields untouched. */
+export function withDeploymentAccountHome(organization: Organization, deploymentAwsAccountId: string): Organization {
+	return { ...organization, awsAccountId: deploymentAwsAccountId, awsSetupPath: "anthus-managed" };
+}
+
 /** IdSource generates unique identifiers. */
 export interface IdSource {
 	next(): string;
@@ -290,10 +303,10 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		organization: Organization,
 		deps: LifecycleDependencies,
 	): Promise<Organization> {
-		if (organization.awsAccountId !== null || organization.awsSetupPath !== null || deps.callerAwsAccountId === undefined) {
+		if (!hasUnchosenAwsHome(organization) || deps.callerAwsAccountId === undefined) {
 			return organization;
 		}
-		return { ...organization, awsAccountId: await deps.callerAwsAccountId(), awsSetupPath: "anthus-managed" };
+		return withDeploymentAccountHome(organization, await deps.callerAwsAccountId());
 	}
 
 	private async applySeedAwsHome(organization: Organization, deps: SeedDependencies): Promise<Organization> {
