@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3c3ffcda-048e-41f4-b8f6-51050730bed7",
+      "author": "home",
+      "text": "PR 543: own concurrency group per development workflow (deploy-auth, deploy-controlplane, deploy-thinturn, deploy-web with -development suffix, and build-computer-image-development), cancel-in-progress false, each deploy pinned to the triggering sha, deploy script waits out IN_PROGRESS stacks since ThinTurn and Web workflows also deploy control-plane, structural guards in infra/test/deploy-workflows.test.ts, AGENTS.md updated. Image tag order stays with chatticus-d88a0f. Live proof: next merge to develop, all five workflows succeed with none cancelled.\n",
+      "created_at": "2026-10-14T00:53:31.723802Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "reliability-c"
+      }
+    }
+  ],
   "created_at": "2026-10-12T17:49:46.505462Z",
-  "updated_at": "2026-10-14T00:46:31.032615Z",
+  "updated_at": "2026-10-14T00:53:31.724379Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "A merge triggers three CI workflows, and shared concurrency cancels or displaces some runs.",
-  "right_now_updated_at": "2026-10-14T00:46:32.481364Z",
+  "right_now_summary": "Each development workflow now has its own concurrency group, preventing cancellations during merged deploys.",
+  "right_now_updated_at": "2026-10-14T00:53:33.896314Z",
   "custom": {}
 }
