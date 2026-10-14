@@ -44,7 +44,7 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team has defined the renewal contract and is building the broker, credential route, socket, tests, and live proof.",
-  "right_now_updated_at": "2026-10-14T10:23:52.825120Z",
+  "right_now_summary": "The team is building credential renewal, secure child access, broker limits, tests, and a live deployment plan.",
+  "right_now_updated_at": "2026-10-14T13:15:01.179217Z",
   "custom": {}
 }
