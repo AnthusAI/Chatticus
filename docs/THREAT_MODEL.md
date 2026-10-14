@@ -162,6 +162,13 @@ discipline applies to the **human's** session token.
 
 This section records the tradeoff; silence was the defect.
 
+## Leaked owner credentials
+
+The credentials of the organization computer's owner path (the supervisor and per-turn AWS role sessions, the supervisor,
+bootstrap and model gateway tokens, and the token signing key) have a bounded blast radius, analysed in
+[Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md) 12.2. What to do when one is suspected leaked, in order and with the
+cost of each step, is the [emergency revocation runbook](OWNER_CREDENTIAL_REVOCATION.md).
+
 ## What a reviewer should attack
 
 Whether rule 1 is achievable at all with current models, and what the
