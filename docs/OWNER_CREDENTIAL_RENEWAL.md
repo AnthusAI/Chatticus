@@ -352,7 +352,9 @@ After authentication:
    recorded, so the owner may ask again at once (the rate limit counts only recorded grants).
 6. **Record** with one conditional update (`renewOwnerCredentials`, section 6.3): the owner is still live, no stop is
    approved, and the renewal attribute still has the value read in step 4. A failed condition discards the grant unseen: 409
-   `owner_stopping` if a stop was approved meanwhile, otherwise 429 `renewal_too_soon`. For `supervisor` the update also
+   `owner_stopping` if a stop was approved meanwhile, 403 `not_current_owner` if the owner ended or was replaced meanwhile,
+   409 `turn_not_served` (turn kind) if a new dispatch replaced the one named, otherwise 429 `renewal_too_soon`. The
+   `owner_credentials_refresh_failed` Front Door line records the broker's code when the broker could not serve. For `supervisor` the update also
    sets `ownerCredentialsExpireAt` to `min(aws_credentials.expires_at, supervisor_token_expires_at)`.
 7. Respond 200. Log `owner_credentials_refresh_ok` (section 13).
 

@@ -18,6 +18,8 @@ import type { ChatticusWorld } from "./world.ts";
  */
 export class ScenarioOwnerCredentialBroker implements OwnerCredentialBrokerPort {
 	readonly fake: FakeOwnerCredentialBroker;
+	/** How many calls reached the port, counted when a call arrives, before the broker answers or is held. */
+	arrivals = 0;
 	private unreachable = false;
 
 	constructor(world: ChatticusWorld) {
@@ -35,6 +37,7 @@ export class ScenarioOwnerCredentialBroker implements OwnerCredentialBrokerPort 
 	async issue(
 		request: SupervisorGrantRequest | SupervisorRenewalGrantRequest | TurnGrantRequest,
 	): Promise<SupervisorGrant | SupervisorRenewalGrant | TurnGrant> {
+		this.arrivals += 1;
 		if (this.unreachable) {
 			this.fake.calls.push({ request, tags: [] });
 			throw new OwnerCredentialBrokerError("broker_unreachable", "The scenario made the broker unreachable.");

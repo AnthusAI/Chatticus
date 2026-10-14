@@ -9,6 +9,7 @@
 
 import {
 	OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS,
+	OWNER_CREDENTIAL_RENEWAL_MINIMUM_INTERVAL_SECONDS,
 	OWNER_DISPATCH_LEASE_SECONDS,
 	OWNER_ERROR_STATUS,
 	OWNER_HARD_LIFETIME_SECONDS,
@@ -25,6 +26,8 @@ import {
 	type OwnerBootstrapRequest,
 	type OwnerBootstrapResponse,
 	type OwnerBootstrapTokenClaims,
+	type OwnerCredentialsRequest,
+	type OwnerCredentialsResponse,
 	type OwnerDispatch,
 	type OwnerErrorCode,
 	type OwnerPollRequest,
@@ -37,7 +40,7 @@ import { OwnerCredentialBrokerError, type OwnerCredentialBrokerPort } from "../c
 import type { Clock } from "../http/app.ts";
 import { consoleLogEmitter, type LogEmitter } from "../observability/log-line.ts";
 import type { Computer } from "../store/codecs/computer.ts";
-import type { MessagingStore } from "../store/messaging-store.ts";
+import type { MessagingStore, OwnerCredentialsRenewal } from "../store/messaging-store.ts";
 import { type ParkedWork, type ParkDependencies, actionDependenciesOf, computerWorkRefusal, parkedWork, resumeTurnForAction } from "../turn/park.ts";
 import { expireLostComputerActions } from "./actions.ts";
 import { denyOpenActionsOfTurn } from "./computer-start.ts";
@@ -84,7 +87,16 @@ export type OwnerDrainReason = "protocol_version" | "lifetime" | "credentials";
 
 const STOP_JUDGMENT_ATTEMPTS = 3;
 
-const dispatchWithheldLogged = new Set<string>();
+const dispatchWithheldLogged = new WeakMap<object, Set<string>>();
+
+function dispatchWithheldOwnersOf(store: object): Set<string> {
+	let owners = dispatchWithheldLogged.get(store);
+	if (owners === undefined) {
+		owners = new Set<string>();
+		dispatchWithheldLogged.set(store, owners);
+	}
+	return owners;
+}
 
 const secondsBetween = (later: Date, earlier: Date): number => (later.getTime() - earlier.getTime()) / 1000;
 
@@ -270,8 +282,8 @@ export async function pollOwner(deps: OwnerSupervisorDependencies, identity: Own
 		const offered = await chooseDispatch(deps, identity, computer);
 		if (offered !== null) dispatches.push(offered);
 	}
-	if (mayDispatch && issuanceClosed && !dispatchWithheldLogged.has(identity.ownerId)) {
-		dispatchWithheldLogged.add(identity.ownerId);
+	if (mayDispatch && issuanceClosed && !dispatchWithheldOwnersOf(deps.store).has(identity.ownerId)) {
+		dispatchWithheldOwnersOf(deps.store).add(identity.ownerId);
 		log("owner_dispatch_withheld", { reason: "issuance_cutoff" });
 	}
 	if (computer.ownerStartedAt !== undefined && secondsBetween(now, computer.ownerStartedAt) >= OWNER_HARD_LIFETIME_SECONDS) {
@@ -390,6 +402,147 @@ async function grantDispatch(
 		logOf(identity)("owner_dispatch_failed", { code: error.code });
 		return null;
 	}
+}
+
+/**
+ * Renew the credentials of the live owner, its own or those of the turn it serves (docs/OWNER_CREDENTIAL_RENEWAL.md 6.2).
+ *
+ * The broker keeps reading no store, so this function is where the lifecycle is decided, in this order: the body names
+ * the token's owner; the computer still names this owner; no stop was approved; for the supervisor kind the owner is not
+ * draining and the issuance cutoff has not passed; for the turn kind the cutoff has not passed (a drain does not refuse)
+ * and the dispatch and the turn are the ones this owner serves; the kind was not renewed within the minimum interval.
+ * Only then is the broker asked. A broker that fails changes nothing, so the owner may ask again at once. A grant is
+ * recorded in one conditional update; a grant that loses the race with an approved stop is discarded unseen.
+ *
+ * @param deps Stores, clock and the broker.
+ * @param identity The verified owner, with the supervisor token that authorizes the broker.
+ * @param request The body of the renewal request.
+ * @returns The next credentials of the requested kind.
+ * @throws OwnerRefusal With `credential_mismatch`, `not_current_owner`, `owner_stopping`, `owner_draining`, `turn_not_served`,
+ * `renewal_too_soon` or `credentials_unavailable`.
+ */
+export async function renewOwnerCredentials(deps: OwnerSupervisorDependencies, identity: OwnerIdentity, request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse> {
+	const log = logOf(identity);
+	const refuse = (code: OwnerErrorCode, detail: string): never => {
+		log("owner_credentials_refresh_refused", { kind: request.kind, code });
+		throw new OwnerRefusal(code, detail);
+	};
+	if (request.owner_id !== identity.ownerId || request.generation !== identity.startGeneration) {
+		refuse("credential_mismatch", "request does not match the owner credential");
+	}
+	const now = deps.clock.now();
+	const computer = await deps.store.getComputer(identity.tenantId);
+	if (computer === null || computer.ownerId !== identity.ownerId || computer.ownerGeneration !== identity.startGeneration) {
+		return refuse("not_current_owner", "owner credential is not valid for the current owner of this computer");
+	}
+	if (computer.ownerStopApprovedAt !== undefined) return refuse("owner_stopping", "a stop of this owner was approved");
+	if (ownerIssuanceClosed(computer, now)) return refuse("owner_draining", "the owner is in the last stretch of its lifetime");
+	let served: { botId: string; channelId: string } | null = null;
+	if (request.kind === "supervisor") {
+		if (ownerDrainReason(computer, now, deps.minimumProtocolVersion ?? OWNER_MINIMUM_PROTOCOL_VERSION) !== null) {
+			return refuse("owner_draining", "the control plane is draining this owner");
+		}
+	} else {
+		served = await servedDispatchedTurn(deps, identity, computer, request, now);
+		if (served === null) return refuse("turn_not_served", "the dispatch or the turn is not the one this owner serves");
+	}
+	const seenRenewedAt = (request.kind === "supervisor" ? computer.ownerCredentialsRenewedAt : computer.dispatchCredentialsRenewedAt) ?? null;
+	if (seenRenewedAt !== null && secondsBetween(now, seenRenewedAt) < OWNER_CREDENTIAL_RENEWAL_MINIMUM_INTERVAL_SECONDS) {
+		return refuse("renewal_too_soon", "this kind of credentials was renewed less than a minute ago");
+	}
+	let granted: GrantedRenewal;
+	try {
+		granted = await grantRenewal(deps, identity, request, served, seenRenewedAt, now);
+	} catch (error) {
+		if (!(error instanceof OwnerCredentialBrokerError)) throw error;
+		if (error.code === "owner_lifetime_over") return refuse("owner_draining", "the owner is in the last stretch of its lifetime");
+		log("owner_credentials_refresh_failed", { kind: request.kind, code: error.code });
+		throw new OwnerRefusal("credentials_unavailable", "owner credentials are unavailable");
+	}
+	if (!(await deps.store.renewOwnerCredentials(identity.tenantId, identity.ownerId, identity.startGeneration, granted.record))) {
+		const after = await deps.store.getComputer(identity.tenantId);
+		if (after === null || after.ownerId !== identity.ownerId || after.ownerGeneration !== identity.startGeneration) {
+			return refuse("not_current_owner", "owner credential is not valid for the current owner of this computer");
+		}
+		if (after.ownerStopApprovedAt !== undefined) return refuse("owner_stopping", "a stop of this owner was approved");
+		if (request.kind === "turn" && after.dispatchId !== request.dispatch_id) return refuse("turn_not_served", "the dispatch or the turn is not the one this owner serves");
+		return refuse("renewal_too_soon", "this kind of credentials was renewed less than a minute ago");
+	}
+	log("owner_credentials_refresh_ok", {
+		kind: request.kind,
+		expires_at: granted.expiresAt,
+		owner_age_seconds: computer.ownerStartedAt === undefined ? undefined : Math.floor(secondsBetween(now, computer.ownerStartedAt)),
+	});
+	return granted.response;
+}
+
+type GrantedRenewal = {
+	readonly response: OwnerCredentialsResponse;
+	readonly record: OwnerCredentialsRenewal;
+	readonly expiresAt: string;
+};
+
+async function grantRenewal(
+	deps: OwnerSupervisorDependencies,
+	identity: OwnerIdentity,
+	request: OwnerCredentialsRequest,
+	served: { botId: string; channelId: string } | null,
+	seenRenewedAt: Date | null,
+	now: Date,
+): Promise<GrantedRenewal> {
+	const brokerBase = {
+		version: 1 as const,
+		tenant_id: identity.tenantId,
+		computer_id: identity.computerId,
+		owner_id: identity.ownerId,
+		generation: identity.startGeneration,
+		authorization: identity.token,
+	};
+	if (request.kind === "supervisor") {
+		const grant = await deps.broker.issue({ ...brokerBase, purpose: "supervisor_renewal" });
+		return {
+			response: {
+				kind: "supervisor",
+				supervisor_token: grant.supervisor_token,
+				supervisor_token_expires_at: grant.supervisor_token_expires_at,
+				aws_credentials: grant.aws_credentials,
+			},
+			record: {
+				kind: "supervisor",
+				seenRenewedAt,
+				renewedAt: now,
+				credentialsExpireAt: new Date(Math.min(Date.parse(grant.aws_credentials.expires_at), Date.parse(grant.supervisor_token_expires_at))),
+			},
+			expiresAt: grant.supervisor_token_expires_at,
+		};
+	}
+	const grant = await deps.broker.issue({ ...brokerBase, purpose: "turn", turn: { turn_id: request.turn_id, bot_id: served!.botId, channel_id: served!.channelId } });
+	return {
+		response: {
+			kind: "turn",
+			dispatch_id: request.dispatch_id,
+			turn_id: request.turn_id,
+			gateway_token: grant.gateway_token,
+			aws_credentials: grant.aws_credentials,
+			expires_at: grant.expires_at,
+		},
+		record: { kind: "turn", dispatchId: request.dispatch_id, seenRenewedAt, renewedAt: now },
+		expiresAt: grant.expires_at,
+	};
+}
+
+async function servedDispatchedTurn(
+	deps: OwnerSupervisorDependencies,
+	identity: OwnerIdentity,
+	computer: Computer,
+	request: { dispatch_id: string; turn_id: string },
+	now: Date,
+): Promise<{ botId: string; channelId: string } | null> {
+	if (computer.dispatchId !== request.dispatch_id || computer.dispatchTurnId !== request.turn_id) return null;
+	const turn = await deps.park.turns.store.getTurn(identity.tenantId, request.turn_id);
+	if (turn === null || turn.status !== "active" || turn.claimedBy !== identity.ownerId) return null;
+	if (turn.leaseExpiresAt === null || turn.leaseExpiresAt.getTime() <= now.getTime()) return null;
+	return { botId: turn.botId, channelId: turn.channelId };
 }
 
 /**

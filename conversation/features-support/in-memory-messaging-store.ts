@@ -7,7 +7,7 @@ import { withoutOwner, type Computer } from "../src/store/codecs/computer.ts";
 import type { FileAuditRecord } from "../src/store/codecs/file-audit.ts";
 import { isExpired, type LiveFileOperation, type LiveFileOperationStatus } from "../src/store/codecs/live-file-operation.ts";
 import { DuplicateBotNameError } from "../src/http/errors.ts";
-import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "../src/store/messaging-store.ts";
+import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerCredentialsRenewal, OwnerDispatchRecord } from "../src/store/messaging-store.ts";
 
 /** In-memory messaging store for scenarios that do not need DynamoDB. */
 export class InMemoryMessagingStore implements MessagingStore {
@@ -414,8 +414,9 @@ export class InMemoryMessagingStore implements MessagingStore {
 		const computer = this.computers.get(tenantId);
 		if (computer === undefined || computer.ownerId !== ownerId || computer.ownerStopApprovedAt !== undefined) return false;
 		if ((computer.dispatchId ?? null) !== expectedDispatchId) return false;
+		const { dispatchCredentialsRenewedAt: _renewedForPreviousDispatch, ...withoutDispatchRenewal } = computer;
 		this.computers.set(tenantId, {
-			...computer,
+			...withoutDispatchRenewal,
 			dispatchId: dispatch.dispatchId,
 			dispatchTurnId: dispatch.turnId,
 			dispatchActionId: dispatch.actionId,
@@ -436,6 +437,27 @@ export class InMemoryMessagingStore implements MessagingStore {
 		if (computer === undefined || computer.ownerId !== ownerId || (computer.dispatchId ?? null) !== expectedDispatchId) return false;
 		if ((computer.fileOperationId ?? null) !== expectedFileOperationId) return false;
 		this.computers.set(tenantId, { ...computer, ownerStopApprovedAt: new Date(Math.floor(approvedAt.getTime() / 1000) * 1000) });
+		return true;
+	}
+
+	async renewOwnerCredentials(tenantId: string, ownerId: string, generation: number, change: OwnerCredentialsRenewal): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.ownerId !== ownerId || computer.ownerGeneration !== generation || computer.ownerStopApprovedAt !== undefined) return false;
+		const stored = change.kind === "supervisor" ? computer.ownerCredentialsRenewedAt : computer.dispatchCredentialsRenewedAt;
+		const storedSeconds = stored === undefined ? null : Math.floor(stored.getTime() / 1000);
+		const seenSeconds = change.seenRenewedAt === null ? null : Math.floor(change.seenRenewedAt.getTime() / 1000);
+		if (storedSeconds !== seenSeconds) return false;
+		const renewedAt = new Date(Math.floor(change.renewedAt.getTime() / 1000) * 1000);
+		if (change.kind === "supervisor") {
+			this.computers.set(tenantId, {
+				...computer,
+				ownerCredentialsRenewedAt: renewedAt,
+				ownerCredentialsExpireAt: new Date(Math.floor(change.credentialsExpireAt.getTime() / 1000) * 1000),
+			});
+			return true;
+		}
+		if (computer.dispatchId !== change.dispatchId) return false;
+		this.computers.set(tenantId, { ...computer, dispatchCredentialsRenewedAt: renewedAt });
 		return true;
 	}
 

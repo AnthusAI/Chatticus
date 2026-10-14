@@ -556,6 +556,96 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				expect(await store.getComputer("tenant-a")).toMatchObject({ dispatchId: "d-2", dispatchAttempt: 2, ownerStopApprovedAt: T0 });
 			});
 
+			describe("recording a credential renewal", () => {
+				const supervisorRenewal = (seenRenewedAt: Date | null, renewedAtSeconds: number, expireSeconds: number) =>
+					({
+						kind: "supervisor" as const,
+						seenRenewedAt,
+						renewedAt: new Date(T0.getTime() + renewedAtSeconds * 1000 + 400),
+						credentialsExpireAt: new Date(T0.getTime() + expireSeconds * 1000 + 700),
+					});
+				const turnRenewal = (dispatchId: string, seenRenewedAt: Date | null, renewedAtSeconds: number) =>
+					({ kind: "turn" as const, dispatchId, seenRenewedAt, renewedAt: new Date(T0.getTime() + renewedAtSeconds * 1000 + 400) });
+				const liveOwner = async (store: MessagingStore): Promise<void> => {
+					await store.putComputer(computerOnGeneration(1));
+					await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				};
+
+				it("records a supervisor renewal once for the value that was read, at second precision, and moves the credential expiry", async () => {
+					const store = await makeStore();
+					await liveOwner(store);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(null, 2400, 6000))).toBe(true);
+					const renewed = await store.getComputer("tenant-a");
+					expect(renewed?.ownerCredentialsRenewedAt?.getTime()).toBe(T0.getTime() + 2400 * 1000);
+					expect(renewed?.ownerCredentialsExpireAt?.getTime()).toBe(T0.getTime() + 6000 * 1000);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(null, 2401, 6001))).toBe(false);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(new Date(T0.getTime() + 1000), 2402, 6002))).toBe(false);
+					expect((await store.getComputer("tenant-a"))?.ownerCredentialsExpireAt?.getTime()).toBe(T0.getTime() + 6000 * 1000);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(new Date(T0.getTime() + 2400 * 1000), 4800, 8400))).toBe(true);
+					expect((await store.getComputer("tenant-a"))?.ownerCredentialsExpireAt?.getTime()).toBe(T0.getTime() + 8400 * 1000);
+				});
+
+				it("records a renewal only for the live owner of the generation with no approved stop", async () => {
+					const store = await makeStore();
+					expect(await store.renewOwnerCredentials("tenant-none", "owner-a", 1, supervisorRenewal(null, 10, 3600))).toBe(false);
+					await liveOwner(store);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-someone-else", 1, supervisorRenewal(null, 10, 3600))).toBe(false);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 2, supervisorRenewal(null, 10, 3600))).toBe(false);
+					expect(await store.approveOwnerStop("tenant-a", "owner-a", null, null, T0)).toBe(true);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(null, 10, 3600))).toBe(false);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-1", null, 10))).toBe(false);
+					expect((await store.getComputer("tenant-a"))?.ownerCredentialsRenewedAt).toBeUndefined();
+				});
+
+				it("limits a turn renewal to the stored dispatch and keeps the two kinds apart", async () => {
+					const store = await makeStore();
+					await liveOwner(store);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-1", null, 10))).toBe(false);
+					expect(await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-1"))).toBe(true);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-ghost", null, 10))).toBe(false);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-1", null, 10))).toBe(true);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-1", null, 11))).toBe(false);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(null, 12, 3700))).toBe(true);
+					const renewed = await store.getComputer("tenant-a");
+					expect(renewed?.dispatchCredentialsRenewedAt?.getTime()).toBe(T0.getTime() + 10 * 1000);
+					expect(renewed?.ownerCredentialsRenewedAt?.getTime()).toBe(T0.getTime() + 12 * 1000);
+				});
+
+				it("starts the turn renewal limit over with every dispatch offer and clears both marks with the owner", async () => {
+					const store = await makeStore();
+					await liveOwner(store);
+					await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-1"));
+					await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-1", null, 10));
+					await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(null, 12, 3700));
+					expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-1", dispatch("d-2", 2))).toBe(true);
+					const offered = await store.getComputer("tenant-a");
+					expect(offered?.dispatchCredentialsRenewedAt).toBeUndefined();
+					expect(offered?.ownerCredentialsRenewedAt?.getTime()).toBe(T0.getTime() + 12 * 1000);
+					expect(await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-2", null, 20))).toBe(true);
+					const claimed = await store.claimHostStartGeneration("tenant-a", 1, new Date("2026-01-01T00:12:00Z"));
+					expect(claimed?.ownerCredentialsRenewedAt).toBeUndefined();
+					expect(claimed?.dispatchCredentialsRenewedAt).toBeUndefined();
+				});
+
+				it("clears the renewal marks of a previous owner when the next bootstrap is consumed", async () => {
+					const store = await makeStore();
+					await liveOwner(store);
+					await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-1"));
+					await store.renewOwnerCredentials("tenant-a", "owner-a", 1, turnRenewal("d-1", null, 10));
+					await store.renewOwnerCredentials("tenant-a", "owner-a", 1, supervisorRenewal(null, 12, 3700));
+					const previous = await store.getComputer("tenant-a");
+					await store.putComputer({ ...previous!, hostStartGeneration: 2, hostStartDispatchedGeneration: 2 });
+					const next = await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-b", 2));
+					expect(next?.ownerId).toBe("owner-b");
+					expect(next?.ownerCredentialsRenewedAt).toBeUndefined();
+					expect(next?.dispatchCredentialsRenewedAt).toBeUndefined();
+					const stored = await store.getComputer("tenant-a");
+					expect(stored?.ownerCredentialsRenewedAt).toBeUndefined();
+					expect(stored?.dispatchCredentialsRenewedAt).toBeUndefined();
+					expect(stored?.ownerCredentialsExpireAt?.getTime()).toBe(new Date("2026-01-01T01:10:00Z").getTime());
+				});
+			});
+
 			const racingAfterFirstComputerRead = (store: MessagingStore, race: () => Promise<unknown>): MessagingStore => {
 				let raced = false;
 				return new Proxy(store, {
