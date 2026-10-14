@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript port is deployed, Python is gone, and only voice-line cleanup remains.",
-  "right_now_updated_at": "2026-10-14T13:33:31.662865Z",
+  "right_now_summary": "The TypeScript control plane is deployed, and only voice-line cleanup remains.",
+  "right_now_updated_at": "2026-10-14T13:55:53.627452Z",
   "custom": {}
 }

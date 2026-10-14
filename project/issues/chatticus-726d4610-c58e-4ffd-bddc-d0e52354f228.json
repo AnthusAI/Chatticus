@@ -19,16 +19,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "43a40053-edf9-476c-98b4-4cb3817017f1",
+      "author": "home",
+      "text": "PR 555 opened for part A2: the credentials route, domain renewOwnerCredentials, the conditional store method for both stores, 32 Gherkin scenarios (features/computer_owner_credential_renewal_route.feature) and contract tests. Mutations on the live-owner, stop-approved and rate-limit checks were detected. No IAM change. The deployed broker answers supervisor_renewal only after B1 (PR 554) merges.\n",
+      "created_at": "2026-10-14T13:55:46.777430Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-a2"
+      }
+    }
+  ],
   "created_at": "2026-10-14T03:32:05.601347Z",
-  "updated_at": "2026-10-14T13:33:26.283608Z",
+  "updated_at": "2026-10-14T13:55:46.777456Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "Implement the owner credential renewal route for supervisor and turn credentials.",
-  "right_now_updated_at": "2026-10-14T13:33:28.318406Z",
+  "right_now_summary": "PR 555 adds the credentials route, renewal logic, store updates, and 32 Gherkin scenarios.",
+  "right_now_updated_at": "2026-10-14T13:55:49.113350Z",
   "custom": {}
 }
