@@ -1,6 +1,20 @@
 #!/bin/sh
 # Deploy ONE stack of ONE environment into its dedicated account. Never --all.
 # Run with that environment account's credentials, never the legacy account's.
+#
+# Development fault switch of the owner credential broker
+# (docs/OWNER_CREDENTIAL_RENEWAL.md, R22). It exists for the development
+# control-plane only; this script refuses it for any other environment and CDK
+# synthesis fails for staging and production when the context is set. To prove
+# renewal failure live, deploy the development ControlPlane with one or both of
+#   OWNER_BROKER_FAULT=deny_supervisor_renewal   (none, deny_supervisor_renewal, deny_turn_renewal)
+#   OWNER_BROKER_CREDENTIAL_SECONDS=900          (900 to 3600)
+# for example:
+#   OWNER_BROKER_FAULT=deny_supervisor_renewal OWNER_BROKER_CREDENTIAL_SECONDS=900 \
+#     sh deploy-chatticus-dedicated-account.sh development control-plane
+# They become the CDK context ownerBrokerFault and ownerBrokerCredentialSeconds.
+# To restore, run the same deploy again with neither variable set: the broker's
+# two variables are then removed from the function.
 set -eu
 
 cd "$(dirname "$0")"
@@ -49,6 +63,20 @@ if { [ "${ENVIRONMENT}" = "development" ] || [ "${ENVIRONMENT}" = "staging" ]; }
     exit 1
   fi
   INTEGRATION_TEST_CDK_CONTEXT="-c integrationTestAllowedRoleArn=${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN}"
+fi
+
+BROKER_FAULT_CDK_CONTEXT=""
+if [ "${OWNER_BROKER_FAULT:-}" != "" ] || [ "${OWNER_BROKER_CREDENTIAL_SECONDS:-}" != "" ]; then
+  if [ "${ENVIRONMENT}" != "development" ] || [ "$2" != "control-plane" ]; then
+    echo "The broker fault switch exists for the development control-plane only." >&2
+    exit 1
+  fi
+  if [ "${OWNER_BROKER_FAULT:-}" != "" ]; then
+    BROKER_FAULT_CDK_CONTEXT="${BROKER_FAULT_CDK_CONTEXT} -c ownerBrokerFault=${OWNER_BROKER_FAULT}"
+  fi
+  if [ "${OWNER_BROKER_CREDENTIAL_SECONDS:-}" != "" ]; then
+    BROKER_FAULT_CDK_CONTEXT="${BROKER_FAULT_CDK_CONTEXT} -c ownerBrokerCredentialSeconds=${OWNER_BROKER_CREDENTIAL_SECONDS}"
+  fi
 fi
 
 unset AWS_PROFILE || true
@@ -126,7 +154,7 @@ DEPLOY_OUTPUT_FILE="${DEPLOY_WORK_DIRECTORY}/deploy-output.txt"
 DEPLOY_STATUS_FILE="${DEPLOY_WORK_DIRECTORY}/deploy-status.txt"
 
 # shellcheck disable=SC2086
-npx cdk synth "${STACK}" --exclusively --quiet --output "${CLOUD_ASSEMBLY_DIRECTORY}" -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT} ${INTEGRATION_TEST_CDK_CONTEXT} ${INVOKE_KEY_CDK_CONTEXT}
+npx cdk synth "${STACK}" --exclusively --quiet --output "${CLOUD_ASSEMBLY_DIRECTORY}" -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT} ${INTEGRATION_TEST_CDK_CONTEXT} ${INVOKE_KEY_CDK_CONTEXT} ${BROKER_FAULT_CDK_CONTEXT}
 
 DEPLOY_ATTEMPT=0
 while :; do

@@ -11,6 +11,7 @@ import {
 } from "@chatticus/host-protocol/supervisor";
 import { consoleLogEmitter, errorNameOf, type LogEmitter } from "../observability/log-line.ts";
 import { OwnerSessionTagError, ownerSessionTags, supervisorSessionTags, type SessionTag } from "../gateway/session-tags.ts";
+import { NO_OWNER_BROKER_FAULTS, ownerBrokerFaultsFromEnvironment, type OwnerBrokerFaults } from "./owner-credential-broker-faults.ts";
 import { mintComputerOwnerToken, mintSessionToken, verifyComputerOwnerToken, verifyOwnerBootstrapToken } from "../gateway/session-token.ts";
 
 /** Seconds the broker keeps the signing key it read from Secrets Manager before it reads it again. */
@@ -31,6 +32,8 @@ export type OwnerCredentialBrokerDependencies = {
 	/** The secret that holds the key tokens are signed with. */
 	readonly signingKeySecretArn: string;
 	readonly emit?: LogEmitter;
+	/** The development fault switch. Defaults to none; only the deployed entry point sets it, from the environment. */
+	readonly faults?: OwnerBrokerFaults;
 };
 
 /** The broker as Lambda invokes it: the payload in, the answer out. It never throws for a refusal. */
@@ -82,6 +85,7 @@ function tagsFor(request: OwnerCredentialBrokerRequest): SessionTag[] {
  */
 export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredentialBrokerDependencies): OwnerCredentialBrokerHandler {
 	const emit = dependencies.emit ?? consoleLogEmitter();
+	const faults = dependencies.faults ?? NO_OWNER_BROKER_FAULTS;
 	let cachedSigningKey: { readonly value: string; readonly readAtMilliseconds: number } | null = null;
 
 	async function signingKey(): Promise<string | null> {
@@ -137,7 +141,7 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 		if (secondsUntilHardEnd < OWNER_BROKER_MINIMUM_SESSION_SECONDS) {
 			return refuse("owner_lifetime_over", "The owner is within the minimum session of its hard lifetime, or past it.");
 		}
-		const durationSeconds = Math.min(OWNER_CREDENTIAL_LIFETIME_SECONDS, secondsUntilHardEnd);
+		const durationSeconds = Math.min(OWNER_CREDENTIAL_LIFETIME_SECONDS, secondsUntilHardEnd, faults.maximumCredentialSeconds ?? OWNER_CREDENTIAL_LIFETIME_SECONDS);
 
 		let tags: SessionTag[];
 		try {
@@ -145,6 +149,10 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 		} catch (error) {
 			if (!(error instanceof OwnerSessionTagError)) throw error;
 			return refuse("unsafe_tag_value", "An identifier cannot be a session tag value.");
+		}
+
+		if (faults.deniedPurposes.has(request.purpose)) {
+			return refuse("assume_role_failed", "FaultSwitchDenied", { error_name: "FaultSwitchDenied" });
 		}
 
 		let credentials: { accessKeyId: string; secretAccessKey: string; sessionToken: string; expiration: Date };
@@ -217,25 +225,42 @@ export function createOwnerCredentialBrokerHandler(dependencies: OwnerCredential
 	};
 }
 
-function requiredEnvironment(name: string): string {
-	const value = process.env[name] ?? "";
+function requiredEnvironment(environment: Readonly<Record<string, string | undefined>>, name: string): string {
+	const value = environment[name] ?? "";
 	if (value === "") throw new Error(`The environment variable ${name} is required.`);
 	return value;
 }
 
-let deployedHandler: OwnerCredentialBrokerHandler | null = null;
+/** The clients and clock the deployed entry point uses; scenarios replace them to run it without AWS. */
+export type DeployedOwnerCredentialBrokerClients = Pick<OwnerCredentialBrokerDependencies, "sts" | "secrets" | "now">;
 
-/** The deployed entry point: composes the broker from its environment on the first invocation. */
-export const handler: OwnerCredentialBrokerHandler = async (event) => {
-	if (deployedHandler === null) {
-		deployedHandler = createOwnerCredentialBrokerHandler({
-			sts: new STSClient({}),
-			secrets: new SecretsManagerClient({}),
-			now: () => new Date(),
-			supervisorRoleArn: requiredEnvironment("CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN"),
-			scopedRoleArn: requiredEnvironment("CHATTICUS_OWNER_SCOPED_ROLE_ARN"),
-			signingKeySecretArn: requiredEnvironment("CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN"),
-		});
-	}
-	return deployedHandler(event);
-};
+/**
+ * Build the entry point Lambda invokes. The broker is composed from the environment on the first invocation, including
+ * the development fault switch. When composition throws (a missing variable, or a fault variable outside development)
+ * the error propagates, and every later invocation composes again and fails again, so the function issues nothing.
+ *
+ * @param environment The process environment of the function.
+ * @param clients The STS and Secrets Manager clients and the clock; the real ones by default.
+ * @returns The Lambda handler.
+ */
+export function createDeployedOwnerCredentialBrokerHandler(
+	environment: Readonly<Record<string, string | undefined>>,
+	clients: DeployedOwnerCredentialBrokerClients = { sts: new STSClient({}), secrets: new SecretsManagerClient({}), now: () => new Date() },
+): OwnerCredentialBrokerHandler {
+	let composed: OwnerCredentialBrokerHandler | null = null;
+	return async (event) => {
+		if (composed === null) {
+			composed = createOwnerCredentialBrokerHandler({
+				...clients,
+				supervisorRoleArn: requiredEnvironment(environment, "CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN"),
+				scopedRoleArn: requiredEnvironment(environment, "CHATTICUS_OWNER_SCOPED_ROLE_ARN"),
+				signingKeySecretArn: requiredEnvironment(environment, "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN"),
+				faults: ownerBrokerFaultsFromEnvironment(environment),
+			});
+		}
+		return composed(event);
+	};
+}
+
+/** The deployed entry point. */
+export const handler: OwnerCredentialBrokerHandler = createDeployedOwnerCredentialBrokerHandler(process.env);
