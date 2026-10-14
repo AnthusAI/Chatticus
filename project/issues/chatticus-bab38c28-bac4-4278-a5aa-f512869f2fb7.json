@@ -3,7 +3,7 @@
   "title": "2b-C: supervisor renews its credentials in place, swaps them atomically, and stops before they expire",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R3 R13 R14 R15 R17 R21, 8.1, 8.2, 8.5, 8.6, 9, 10, 11, 17 C). Gherkin first (features/computer_owner_credential_renewal.feature, tag @supervisor); steps against the fake plane, a fake clock and a fake spawner as in features/computer_owner_supervisor.feature.\n\nThe supervisor renews its own credentials in place, swaps them atomically, holds the active turn's credentials in memory, and stops before they expire.\n\nFiles:\n- computer/host/src/credential-lease.ts (new): CredentialHolder (immutable value, replace()) and CredentialLease (expiry, single in flight, consecutive failures, schedule: due at 1200 s remaining, never less than 60 s after the previous success, pauses 15, 30, 60, 60...), with a vitest unit test of the schedule and the swap.\n- computer/host/src/supervisor.ts: the renewal as a second activity like clearInFlight (never in the poll loop); the swap in one synchronous step after the response is parsed and checked newer; local drain at E - 600 with the reason credentials (replaces credentialsStopAtMilliseconds and CREDENTIAL_STOP_MARGIN_MILLISECONDS); stop request reason credentials; hard deadline E - 30 s: kill the child, exit 9, log owner_stopping reason=credentials_expired; no renewal while stopping; refusals per section 10 (409 owner_draining and owner_stopping are final; 401 and superseding 403 end the owner with exit 5); the active turn's lease (renewed on the same schedule, dropped when the child exits) behind the TurnCredentialSource interface of P0; the new log lines of section 13 (owner_credentials_refreshed, owner_credentials_refresh_failed, owner_credentials_refresh_refused, owner_credentials_expiring). Never a token, key or credential in a line.\n- host-protocol/src/supervisor.ts: OWNER_PROTOCOL_VERSION to 3. computer/host/src/supervisor-ports.ts: SUPERVISOR_EXIT_CREDENTIALS_EXPIRED = 9.\n- computer/host/src/protocol-client.ts: renewCredentials (POST /owner/credentials with ownerCredentialsRequestSchema and ownerCredentialsResponseSchema) and replaceBearerToken; conversation/test/owner-supervisor-client.test.ts.\n- computer/host/src/supervisor-main.ts: the S3 client built once with a credentials provider returning the holder's current credentials (never throws while valid); openDisk takes the provider; host-disk-lifecycle.ts if it holds credentials.\n- conversation/features-support/fakes/fake-supervisor-plane.ts, fake-child-spawner.ts (a child that runs until told), a storage fake that records the credentials of each request; steps in conversation/features-support/steps/owner-supervisor-process.steps.ts.\n\nScenarios owned (the @supervisor ones of the draft, except the watchdog one that A1 owns): 'The supervisor renews its credentials twenty minutes before they expire', 'The supervisor keeps polling while a renewal is in flight', 'A renewal that fails is repeated with growing pauses until it succeeds', 'A renewal the control plane refuses for good is not repeated', 'A renewal that says the owner is not the owner ends it', 'An owner whose renewals keep failing drains ten minutes before its credentials expire and stops before they do', 'An owner that cannot finish its stop before the credentials end exits at the hard deadline', 'A publish in flight when the credentials are swapped finishes and the next request uses the new ones', 'The token and the credentials are swapped in one step', 'A renewal does not start the supervisor's idle clock over', 'The supervisor renews nothing once it is stopping', 'A live file request is answered while a renewal is in flight', 'The supervisor renews the credentials of the turn it serves and keeps them in memory', 'A turn credential renewal that fails is repeated until it succeeds or the child ends', 'The supervisor logs about credentials carry no token, key or credential'. (The scenario 'A turn that is not the one being served gets nothing over the socket' is D's.)\n\nAcceptance (from conversation/): typecheck; npm test; npm run test:features with computer_owner_supervisor.feature still green ('An owner stops before the credentials it holds expire' is rewritten for the lease); the supervisor bundle imports nothing forbidden by computer-image-structure.test.ts.\n\nDependencies: P0. Integrates with A2, B1 and D in E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -39,17 +39,29 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-c"
       }
+    },
+    {
+      "id": "296ea8b4-e31f-4a50-80ed-1c5a8f044da7",
+      "author": "home",
+      "text": "Verified on development and closing. Landed in PR 556 (C); all Phase 2b PRs merged: P0 552, A1 553, B1 554, A2 555, C 556, D 557, B2 558, container check fix 559. Live proof 1 (success path): 81 minutes on one owner task, supervisor credential renewals at minute 40 and minute 80 each with 1200 s remaining, 13 trivial computer turns including after minute 63, no self-stop, computer record owner_credentials_expire_at and renewed_at moved forward. Live proof 2 (failure path): development broker fault switch deny_supervisor_renewal with 900 s credentials; renewals answered 503 credentials_unavailable with 15/30/60 s backoff, owner drained at 600 s remaining, stopped itself with reason=credentials, container exit code 5, next message started a fresh owner; fault variables removed by a restore deploy and verified absent; no tasks left running. IAM simulation 42 of 42 allowed. Dev image tag moved to the commit c090c4a2 image.",
+      "created_at": "2026-10-14T23:10:50.624960Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-14T03:32:42.716187Z",
-  "updated_at": "2026-10-14T14:45:15.238879Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T23:10:56.686179Z",
+  "closed_at": "2026-10-14T23:10:56.686140Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The renewal work passes all local checks and awaits D before image promotion.",
-  "right_now_updated_at": "2026-10-14T14:45:17.994817Z",
+  "right_now_summary": "Credential renewal now works in development, with successful renewals and safe stops verified live.",
+  "right_now_updated_at": "2026-10-14T23:10:59.235568Z",
   "custom": {}
 }

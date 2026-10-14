@@ -3,7 +3,7 @@
   "title": "2b-A2: POST /host/owner/credentials: renewal route for supervisor and turn credentials",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R1 R2 R6 R9, 6.1 to 6.3, 17 A2). Gherkin first (features/computer_owner_credential_renewal.feature, tag @server).\n\nPOST /host/owner/credentials for the supervisor's and the turn's credentials.\n\nFiles:\n- conversation/src/http/owner-host-auth.ts: add { POST, '/owner/credentials' } to OWNER_COMPUTER_ROUTES; the stopped replay exception stays for POST /computer/state only.\n- conversation/src/http/owner-supervisor.ts: ownerCredentialsHandler (parse ownerCredentialsRequestSchema, 422 with code); conversation/src/http/app.ts: declareRoute audience computer-owner; 429 body with code.\n- conversation/src/domain/owner-supervisor.ts: renewOwnerCredentials in the exact handler order of 6.2 (live owner, stop approved, drain and cutoff for the supervisor kind, dispatch and turn checks for the turn kind, rate limit, broker, conditional record, 200).\n- Store (in-memory and DynamoDB): renewOwnerCredentials(tenantId, ownerId, generation, change) conditional update per 6.3; fields ownerCredentialsRenewedAt and dispatchCredentialsRenewedAt; offerOwnerDispatch resets dispatchCredentialsRenewedAt; cleared with ownerId. Contract tests in conversation/test/dynamo-messaging-store.contract.test.ts.\n- conversation/src/computer/owner-credential-broker.ts: the Lambda adapter passes supervisor_renewal.\n- conversation/test/route-audience.test.ts.\n- Steps in conversation/features-support/steps/owner-supervisor-server.steps.ts (shared with A1; rebase).\n\nScenarios owned (every other @server scenario of the draft): 'The owner renews its supervisor credentials and keeps its generation', 'A renewal that is not good is refused', 'A renewal that names another owner than its token is refused', 'A renewal is refused after the computer stopped', 'The credentials route is not part of the stopped report replay', 'A renewal is refused once a stop was approved', 'A renewal is refused once the control plane drains the owner', 'No renewal is granted in the last 900 seconds of the hard lifetime', 'Renewals are limited to one a minute for each kind', 'A renewal the broker cannot serve changes nothing and may be asked again at once', 'A renewal that lost the race with an approved stop is discarded unseen', 'The owner renews the credentials of the turn it serves', 'Turn credentials are refused for a turn the owner is not serving', 'Turn credentials are renewed while the owner drains but not after a stop is approved', 'Turn credentials and supervisor credentials are limited separately', 'A new dispatch starts the turn credential limit over', 'The credentials route cannot be opened with the invoke key alone', 'A renewal does not count as work'.\n\nAcceptance (from conversation/): typecheck; npm test; npm run test:features; the owned scenarios in features/cucumber-features.txt; the role-access coverage hook shows no unlisted request (no new manifest row is expected).\n\nDependencies: P0, A1. Blocks E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -31,17 +31,29 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-a2"
       }
+    },
+    {
+      "id": "c5dc1fc7-ebfa-455c-bbb5-10d9bea4a02b",
+      "author": "home",
+      "text": "Verified on development and closing. Landed in PR 555 (A2); all Phase 2b PRs merged: P0 552, A1 553, B1 554, A2 555, C 556, D 557, B2 558, container check fix 559. Live proof 1 (success path): 81 minutes on one owner task, supervisor credential renewals at minute 40 and minute 80 each with 1200 s remaining, 13 trivial computer turns including after minute 63, no self-stop, computer record owner_credentials_expire_at and renewed_at moved forward. Live proof 2 (failure path): development broker fault switch deny_supervisor_renewal with 900 s credentials; renewals answered 503 credentials_unavailable with 15/30/60 s backoff, owner drained at 600 s remaining, stopped itself with reason=credentials, container exit code 5, next message started a fresh owner; fault variables removed by a restore deploy and verified absent; no tasks left running. IAM simulation 42 of 42 allowed. Dev image tag moved to the commit c090c4a2 image.",
+      "created_at": "2026-10-14T23:10:12.673378Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-14T03:32:05.601347Z",
-  "updated_at": "2026-10-14T13:55:46.777456Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T23:10:18.111622Z",
+  "closed_at": "2026-10-14T23:10:18.111567Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "PR 555 adds the credentials route, renewal logic, store updates, and 32 Gherkin scenarios.",
-  "right_now_updated_at": "2026-10-14T13:55:49.113350Z",
+  "right_now_summary": "The credentials renewal route is implemented, tested, deployed, and verified in development.",
+  "right_now_updated_at": "2026-10-14T23:10:19.290951Z",
   "custom": {}
 }

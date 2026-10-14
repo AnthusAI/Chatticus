@@ -3,7 +3,7 @@
   "title": "2b-A1: server derives the drain from issued credentials; lifetime constants to 8 hours; protocol-version drain; issuance cutoff",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R4 R5 R14 R16 R17, 4, 6.4, 6.5, 17 A1). Gherkin first: scenarios in features/computer_owner_credential_renewal.feature (draft, tag @server); move the ones this ticket owns into the real run (features/cucumber-features.txt) with their steps.\n\nThe drain is derived from the credentials the control plane issued; the lifetime constants become the 8 hour ones. Behavior-preserving for an image that does not renew: its observable drain moment stays 3000 seconds.\n\nFiles:\n- host-protocol/src/supervisor.ts: OWNER_MAX_LIFETIME_SECONDS = OWNER_HARD_LIFETIME_SECONDS - OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS (28200); derived OWNER_WATCHDOG_TERMINATE_SECONDS and OWNER_WATCHDOG_KILL_SECONDS (28500 and 28620); declaration order.\n- computer/chatticus-watchdog: terminate_after=28500, kill_after=28620, header comment.\n- conversation/test/computer-image-structure.test.ts, conversation/features-support/steps/owner-watchdog.steps.ts, features/computer_owner_supervisor.feature (scenario 'The watchdog asks, then forces, at the end of the lifetime' gets the new numbers; new scenario 'The watchdog is sized for eight hours').\n- conversation/src/store/codecs/computer.ts, store/messaging-store.ts, store/dynamo-messaging-store.ts, features-support/in-memory-messaging-store.ts: ownerCredentialsExpireAt (owner_credentials_expire_at, epoch seconds); consumeOwnerBootstrap stores it (from the grant: the minimum of the credentials and token expiry); cleared with ownerId. Contract test in conversation/test/dynamo-messaging-store.contract.test.ts.\n- conversation/src/domain/owner-supervisor.ts: ownerDrainReason (protocol_version, lifetime, credentials) and ownerIssuanceClosed replace ownerLifetimeIsOver; poll: drain with drain_reason, no dispatch when issuance is closed (log owner_dispatch_withheld reason=issuance_cutoff once per owner), owner_overdue log, a minimumProtocolVersion dependency replacing the owner_protocol_version_low log; stop request: lifetime approved for any drain reason, credentials always approved, unhealthy unchanged; exchangeOwnerBootstrap passes the grant expiry.\n- Existing scenarios whose steps set ownerStartedAt also set ownerCredentialsExpireAt: features/owner_supervisor_server.feature (the two scenarios that move the clock 3000 s past the bootstrap), features/computer_owner_long_lived.feature (the step 'the owner was bootstrapped 3000 seconds ago'). Steps in conversation/features-support/steps/owner-supervisor-server.steps.ts.\n\nScenarios owned: 'No dispatch is offered in the last 900 seconds of the hard lifetime', 'The control plane drains an owner that does not renew when its credentials are ten minutes from the end', 'An owner that renews is not drained at fifty minutes and is drained at seven hours and fifty', 'A stop for the drain is approved whatever the drain was for', 'A stop for credentials the owner could not renew is approved whatever is pending', 'An owner below the minimum protocol version is told to drain and is offered nothing', 'An owner far past its lifetime is reported', 'The watchdog is sized for eight hours'.\n\nAcceptance (from conversation/): typecheck; npm test; npm run test:features (moto per AGENTS.md); the owned scenarios in features/cucumber-features.txt; infra tests still pass.\n\nDependencies: P0. Blocks A2. Note: the watchdog script change and the TS constants must land together (computer-image-structure.test.ts ties them).\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-a1"
       }
+    },
+    {
+      "id": "3a7873f3-1dd3-44b1-b1f3-9f75e763e937",
+      "author": "home",
+      "text": "Verified on development and closing. Landed in PR 553 (A1); all Phase 2b PRs merged: P0 552, A1 553, B1 554, A2 555, C 556, D 557, B2 558, container check fix 559. Live proof 1 (success path): 81 minutes on one owner task, supervisor credential renewals at minute 40 and minute 80 each with 1200 s remaining, 13 trivial computer turns including after minute 63, no self-stop, computer record owner_credentials_expire_at and renewed_at moved forward. Live proof 2 (failure path): development broker fault switch deny_supervisor_renewal with 900 s credentials; renewals answered 503 credentials_unavailable with 15/30/60 s backoff, owner drained at 600 s remaining, stopped itself with reason=credentials, container exit code 5, next message started a fresh owner; fault variables removed by a restore deploy and verified absent; no tasks left running. IAM simulation 42 of 42 allowed. Dev image tag moved to the commit c090c4a2 image.",
+      "created_at": "2026-10-14T23:09:51.234449Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-14T03:31:45.001625Z",
-  "updated_at": "2026-10-14T13:14:57.604295Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T23:09:59.053681Z",
+  "closed_at": "2026-10-14T23:09:59.053638Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "A1 is implemented in PR 553 and awaits merge.",
-  "right_now_updated_at": "2026-10-14T13:14:59.906804Z",
+  "right_now_summary": "PR 553 landed, live success and failure proofs passed, and all Phase 2b changes merged.",
+  "right_now_updated_at": "2026-10-14T23:10:02.023603Z",
   "custom": {}
 }

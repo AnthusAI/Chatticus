@@ -70,7 +70,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-13.** Git **`develop`** is ahead of **`main`**.
+**Last updated: 2026-10-14.** Git **`develop`** is ahead of **`main`**.
 
 ### The control plane is TypeScript on `develop`
 
@@ -86,6 +86,22 @@ until it runs, do not assume staging or production behave like development.
 The Gherkin features run under cucumber-js with TypeScript steps. The sections
 below that predate this change describe the Python-era stack on the environments
 that still run it.
+
+### Credential renewal is live on development (Phase 2b)
+
+On **development only**, a long-lived computer owner no longer stops when its
+first credentials run out. Owner credentials last 8 hours. The supervisor
+renews them in place 1200 s before expiry, swaps them atomically, and stops
+itself with reason `credentials` if renewal keeps failing, so the next message
+starts a fresh owner. The per-turn child reads its credentials over a socket to
+the supervisor and holds none in its environment. A development-only broker
+fault switch (`deny_supervisor_renewal`, behind four gates) exists to rehearse
+the failure path. Verified live on development: an 81 minute run on one owner
+task with renewals at minute 40 and minute 80 and turns served after minute 63,
+and a forced-denial run that drained at 600 s remaining and exited with code 5.
+Not yet done: raising the owner minimum protocol version and the final docs
+pass (Kanbus chatticus-3a31bb, chatticus-816a1a). Staging and production do not
+run this path.
 
 ### The computer runs Pi on development (Pi session handoff)
 

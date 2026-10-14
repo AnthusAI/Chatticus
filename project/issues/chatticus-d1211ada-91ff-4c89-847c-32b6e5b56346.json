@@ -3,7 +3,7 @@
   "title": "2b-D: per-turn child reads its credentials over the supervisor socket and holds none in its environment",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 2 F2 F3 F9 F16, 3 R10 R11 R12, 5 socket schemas, 8.3, 8.4, 12.2, 17 D). Gherkin first (features/computer_owner_credential_renewal.feature, tags @child and @image).\n\nThe per-turn child holds no credential in its environment and reads its turn's credentials from the supervisor over a local filesystem socket, so a turn can run longer than an hour.\n\nFiles:\n- computer/host/src/supervisor-socket.ts (new): the server on OWNER_SUPERVISOR_SOCKET_PATH (listen under umask 0o177 after the directory is made and locked, remove a stale socket first and the socket at exit, only while a child runs, at most 4 connections, one newline-terminated JSON request of at most 1 KiB, ownerSocketRequestSchema, answers from the TurnCredentialSource of P0, no_turn for a dispatch that is not served, expired when the held credentials are past their end, log owner_credential_socket with op and outcome and never a value); supervisor-main.ts creates it. Never an abstract socket, never TCP.\n- computer/host/src/supervisor-child-environment.ts: no AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN or CHATTICUS_MODEL_GATEWAY_TOKEN; adds CHATTICUS_SUPERVISOR_SOCKET; its vitest.\n- computer/host/src/owner-deps.ts, owner-models.ts, owner-main.ts: SupervisorSocketClient; new DynamoDBClient with a credentials provider and new S3Client with a credentials provider; ModelGatewayConfig.token becomes a token provider applied per HTTP request in the fetch wrapper (unconditional, sets Authorization; the Pi resolve returns a placeholder); the provider throws on no_turn or expired (the turn ends as an error, exit 70); nothing falls back to the environment or the default chain.\n- conversation/test/container-owner-config.test.ts, owner-session-env.test.ts: updated for the missing environment.\n- conversation/test/computer-image-structure.test.ts: a guard over the child's sources: no AWS client constructed without credentials, no reference to the container credentials endpoint or the instance metadata service.\n- computer/test_owner_container.sh: as the unprivileged shell user the command cannot list /run/chatticus, open the socket, or read the environment of the supervisor or the child, and cannot reach a loopback port of the supervisor (it holds none).\n- Steps: conversation/features-support/steps/ (a new file for the socket and the child provider; reuse the fake spawner and clock).\n\nScenarios owned: 'A child reads its credentials from the supervisor and holds none in its environment', 'A turn that runs past the first hour keeps working', 'A child whose credentials could not be renewed fails closed', 'The model gateway token is read for each request', 'The child holds no AWS client without explicit credentials', 'The shell cannot reach the supervisor socket or the credentials', 'A turn that is not the one being served gets nothing over the socket'.\n\nAcceptance (from conversation/): typecheck; npm test; npm run test:features; computer/test_owner_container.sh passes against a built image (CI builds sha-<commit>; do not promote).\n\nDependencies: P0. Integrates with C in E.\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-d"
       }
+    },
+    {
+      "id": "9259d24b-2f72-4e7e-a99a-371e936c0eb2",
+      "author": "home",
+      "text": "Verified on development and closing. Landed in PR 557 (D); all Phase 2b PRs merged: P0 552, A1 553, B1 554, A2 555, C 556, D 557, B2 558, container check fix 559. Live proof 1 (success path): 81 minutes on one owner task, supervisor credential renewals at minute 40 and minute 80 each with 1200 s remaining, 13 trivial computer turns including after minute 63, no self-stop, computer record owner_credentials_expire_at and renewed_at moved forward. Live proof 2 (failure path): development broker fault switch deny_supervisor_renewal with 900 s credentials; renewals answered 503 credentials_unavailable with 15/30/60 s backoff, owner drained at 600 s remaining, stopped itself with reason=credentials, container exit code 5, next message started a fresh owner; fault variables removed by a restore deploy and verified absent; no tasks left running. IAM simulation 42 of 42 allowed. Dev image tag moved to the commit c090c4a2 image.",
+      "created_at": "2026-10-14T23:11:03.763395Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-14T03:32:56.697290Z",
-  "updated_at": "2026-10-14T15:20:10.675078Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T23:11:09.814603Z",
+  "closed_at": "2026-10-14T23:11:09.814562Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "PR 557 contains the socket and child credential changes, with tests passing and the merge still pending.",
-  "right_now_updated_at": "2026-10-14T15:20:13.115286Z",
+  "right_now_summary": "Part D is merged, verified in development, and both live renewal paths passed.",
+  "right_now_updated_at": "2026-10-14T23:11:12.370340Z",
   "custom": {}
 }

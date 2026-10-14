@@ -3,7 +3,7 @@
   "title": "2b-E: end-to-end scenarios, deploy verification and live proof of credential renewal",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 17 E, 18, 19, 20). Whoever finishes last of A1, A2, B1, C and D does this (B2 for the failure proof).\n\nWork:\n1. The four @end-to-end scenarios of features/computer_owner_credential_renewal.feature ('An owner keeps serving across a credential renewal', 'A turn longer than an hour finishes', 'An owner that was replaced cannot renew and ends', 'An owner at its eight hour limit drains, stops, and the next message starts a new owner') in one steps file with the real routes, the real supervisor and a fake clock (see features/computer_owner_long_lived.feature for the shape); register them in features/cucumber-features.txt.\n2. conversation/bin/acceptance.ts (and conversation/src/acceptance/): an --owner-soak <minutes> mode (a message every 8 minutes that appends the time to /workspace/soak.log) and a --long-turn mode (one message asking for seven sleeps of 590 seconds).\n3. Deploy per section 18 (no owner running before P0; A1 and B1, then A2 and B2; C and D build the image sha-<commit>; run npx tsx conversation/bin/simulate-role-access.ts --environment development; promote the image with the Promote computer image (development) workflow, never by hand) and record each step in a Kanbus comment.\n4. The live proof of section 19, steps 1 to 5 (steps 3 and 4 need the B2 fault switch and two ControlPlane deploys; restore the deploy afterwards), each result recorded in a Kanbus comment with the log lines and CloudTrail events named in the section.\n5. The milestone sub-agent required by AGENTS.md: Kanbus statuses (unwire blocked-by edges when closing), README 'What is live today', docs/LONG_LIVED_COMPUTER.md Phase 2b marked live, docs/OWNER_CREDENTIAL_RENEWAL.md status block BUILT, the draft header of the feature file removed.\n\nAcceptance: all of the above; npm run test:features green with every scenario of the draft registered; live proof recorded; rollback tested once (image first).\n\nDependencies: A1, A2, B1, C, D merged and deployed; B2 for the failure proof. Closes the parent chatticus-3a31bb.\n\nRules: no emojis. Never merge a red PR (gate on all-green CI); push with HEAD:refs/heads/<branch>. Do not read or write project/.",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -47,17 +47,29 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-planner"
       }
+    },
+    {
+      "id": "5cd1677e-a12e-484e-a88c-c8a4855f80a4",
+      "author": "home",
+      "text": "Verified on development and closing. Landed in the full PR set 552-559; all Phase 2b PRs merged: P0 552, A1 553, B1 554, A2 555, C 556, D 557, B2 558, container check fix 559. Live proof 1 (success path): 81 minutes on one owner task, supervisor credential renewals at minute 40 and minute 80 each with 1200 s remaining, 13 trivial computer turns including after minute 63, no self-stop, computer record owner_credentials_expire_at and renewed_at moved forward. Live proof 2 (failure path): development broker fault switch deny_supervisor_renewal with 900 s credentials; renewals answered 503 credentials_unavailable with 15/30/60 s backoff, owner drained at 600 s remaining, stopped itself with reason=credentials, container exit code 5, next message started a fresh owner; fault variables removed by a restore deploy and verified absent; no tasks left running. IAM simulation 42 of 42 allowed. Dev image tag moved to the commit c090c4a2 image.",
+      "created_at": "2026-10-14T23:11:17.039681Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-14T03:33:07.661953Z",
-  "updated_at": "2026-10-14T09:54:28.154481Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T23:11:23.294260Z",
+  "closed_at": "2026-10-14T23:11:23.294218Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The deployment and live-proof plan is clarified, with the B2 failure test required and protocol changes deferred.",
-  "right_now_updated_at": "2026-10-14T09:54:29.900327Z",
+  "right_now_summary": "Development live proof confirms renewal, failure recovery, rollback, and a clean handoff to a new owner.",
+  "right_now_updated_at": "2026-10-14T23:11:26.012464Z",
   "custom": {}
 }

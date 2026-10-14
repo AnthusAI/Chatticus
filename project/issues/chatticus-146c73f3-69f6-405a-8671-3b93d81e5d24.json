@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-146c73f3-69f6-405a-8671-3b93d81e5d24",
+  "title": "promote-computer-image workflow cannot be dispatched until it exists on main",
+  "description": "The promote-computer-image workflow file is not on main (the default branch), so workflow_dispatch cannot run it. The manual script infra/promote-computer-image-development.sh is the working path until the next release promotes develop to main.",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-14T23:12:00.603859Z",
+  "updated_at": "2026-10-14T23:12:00.603902Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The workflow is not on main yet, so use the manual promotion script until the next release.",
+  "right_now_updated_at": "2026-10-14T23:12:02.458035Z",
+  "custom": {}
+}
