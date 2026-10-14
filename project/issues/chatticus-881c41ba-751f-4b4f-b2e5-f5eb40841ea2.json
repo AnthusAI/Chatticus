@@ -10,16 +10,29 @@
   "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b2fce428-b4ab-4834-ae55-acf43a341110",
+      "author": "home",
+      "text": "P0 implemented in PR https://github.com/AnthusAI/Chatticus/pull/552 (branch ts/credential-renewal-foundation): section 4 constants, section 5 schemas, required ownerStartedAtSeconds claim, supervisor_renewal broker port and fake (hard end, hold, fail), SupervisorPlane.renewCredentials, TurnCredentialSource, fake plane renewals, R10 child environment lists, SDK re-read pin test. Not merged. Deploy note: no owner task may be running when this merges (new required claim); do not promote the image before C and D (child env no longer carries credentials).",
+      "created_at": "2026-10-14T12:29:29.973553Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-p0"
+      }
+    }
+  ],
   "created_at": "2026-10-14T03:31:29.282779Z",
-  "updated_at": "2026-10-14T10:13:33.639610Z",
+  "updated_at": "2026-10-14T12:29:29.973582Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The shared renewal contract is being defined across schemas, token claims, broker ports, fakes, and tests.",
-  "right_now_updated_at": "2026-10-14T10:13:36.037727Z",
+  "right_now_summary": "The contract changes are implemented in PR 552 but have not merged.",
+  "right_now_updated_at": "2026-10-14T12:29:32.006489Z",
   "custom": {}
 }
