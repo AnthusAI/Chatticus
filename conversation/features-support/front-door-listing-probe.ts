@@ -1,6 +1,7 @@
 import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { S3Client } from "@aws-sdk/client-s3";
-import { recordingDynamoClient, recordingS3Client, type RecordedAwsRequest } from "./aws-request-recorder.ts";
+import { recordingDynamoClient, recordingS3Client, teeSinks, type RecordedAwsRequest } from "./aws-request-recorder.ts";
+import { frontDoorRequestsOf } from "./front-door-request-recording.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 type ListingProbe = { readonly requests: RecordedAwsRequest[]; deniedReads: boolean };
@@ -55,8 +56,8 @@ export function probedListingClients(
 ): { client: DynamoDBClient; s3: S3Client } {
 	const probe = probeOf(world);
 	return {
-		client: denyingReads(world, recordingDynamoClient(clients.client, probe.requests), sessionTableName),
-		s3: denyingReads(world, recordingS3Client(clients.s3, probe.requests), null),
+		client: denyingReads(world, recordingDynamoClient(clients.client, teeSinks(probe.requests, frontDoorRequestsOf(world))), sessionTableName),
+		s3: denyingReads(world, recordingS3Client(clients.s3, teeSinks(probe.requests, frontDoorRequestsOf(world))), null),
 	};
 }
 

@@ -1,0 +1,311 @@
+{
+	"rows": [
+		{
+			"role": "frontDoor",
+			"action": "dynamodb:Query",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"index": true,
+			"note": "The message listing queries the Pi session items of a channel through the local secondary index."
+		},
+		{
+			"role": "frontDoor",
+			"action": "dynamodb:GetItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"note": "The message listing reads the Pi session items of a channel."
+		},
+		{
+			"role": "frontDoor",
+			"action": "dynamodb:Query",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"note": "The message listing reads the Pi session items of a channel."
+		},
+		{
+			"role": "frontDoor",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^MB#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "MB#{tenantId}#{botId}#{channelId}",
+			"note": "The message listing reads the mailbox of a channel."
+		},
+		{
+			"role": "frontDoor",
+			"action": "s3:GetObject",
+			"store": "piSessionsBucket",
+			"keyPattern": "^conversations/[^/]+/commits/[0-9]+-[0-9]+\\.json$",
+			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/commits/000000000001-00000001.json",
+			"note": "The message listing reads commit objects of a channel."
+		},
+		{
+			"role": "frontDoor",
+			"action": "s3:GetObject",
+			"store": "snapshotBucket",
+			"keyPattern": "^tenants/[^/]+/computers/[^/]+/(manifest\\.json|snapshot\\.tar\\.gz|index/[0-9a-f]{64}\\.json)$",
+			"exampleKey": "tenants/{tenantId}/computers/{computerId}/manifest.json",
+			"note": "The file routes read the snapshot of a computer; a computer that never published has none, so the read may find the key missing."
+		},
+		{
+			"role": "frontDoor",
+			"action": "s3:GetObject",
+			"store": "snapshotBucket",
+			"keyPattern": "^tenants/[^/]+/computers/[^/]+/overlay/(index\\.json|blobs/[0-9a-f]+)$",
+			"exampleKey": "tenants/{tenantId}/computers/{computerId}/overlay/index.json",
+			"note": "The edit overlay of a computer that was never edited has no index, so the read finds the key missing."
+		},
+		{
+			"role": "frontDoor",
+			"action": "s3:PutObject",
+			"store": "snapshotBucket",
+			"keyPattern": "^tenants/[^/]+/computers/[^/]+/overlay/(index\\.json|blobs/[0-9a-f]+)$",
+			"exampleKey": "tenants/{tenantId}/computers/{computerId}/overlay/index.json",
+			"note": "The Front Door is the only writer of the edit overlay."
+		},
+		{
+			"role": "frontDoor",
+			"action": "s3:DeleteObject",
+			"store": "snapshotBucket",
+			"keyPattern": "^tenants/[^/]+/computers/[^/]+/overlay/(index\\.json|blobs/[0-9a-f]+)$",
+			"exampleKey": "tenants/{tenantId}/computers/{computerId}/overlay/blobs/abc",
+			"note": "The Front Door removes overlay objects it replaced."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:BatchGetItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:PutItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:UpdateItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:Query",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:ConditionCheckItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:Query",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"index": true,
+			"note": "The Pi session items of a channel are queried through the local secondary index."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^MB#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "MB#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:DeleteItem",
+			"store": "messagingTable",
+			"keyPattern": "^MB#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "MB#{tenantId}#{botId}#{channelId}"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:DeleteItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "The turn record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "The turn record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "The turn record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "The turn record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#computer#actions$",
+			"exampleKey": "{tenantId}#computer#actions",
+			"note": "The computer action ledger."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#computer#actions$",
+			"exampleKey": "{tenantId}#computer#actions",
+			"note": "The computer action ledger."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#computer#actions$",
+			"exampleKey": "{tenantId}#computer#actions",
+			"note": "The computer action ledger."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#computer#record$",
+			"exampleKey": "{tenantId}#computer#record",
+			"note": "The computer record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#computer#record$",
+			"exampleKey": "{tenantId}#computer#record",
+			"note": "The computer record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#vendor_ledger$",
+			"exampleKey": "{tenantId}#vendor_ledger",
+			"note": "The vendor ledger."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#cost#[0-9]{4}-[0-9]{2}$",
+			"exampleKey": "{tenantId}#cost#2026-08",
+			"note": "The monthly cost rollup."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#org$",
+			"exampleKey": "{tenantId}#org",
+			"note": "The organization record, read only."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#budget_rollup$",
+			"exampleKey": "{tenantId}#budget_rollup",
+			"note": "The budget rollup, read only."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#roster$",
+			"exampleKey": "{tenantId}#roster",
+			"note": "The roster, read for the bot lookup."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "s3:PutObject",
+			"store": "piSessionsBucket",
+			"keyPattern": "^conversations/[^/]+/commits/[0-9]+-[0-9]+\\.json$",
+			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/commits/000000000001-00000001.json"
+		},
+		{
+			"role": "ownerTurn",
+			"action": "s3:GetObject",
+			"store": "piSessionsBucket",
+			"keyPattern": "^conversations/[^/]+/commits/[0-9]+-[0-9]+\\.json$",
+			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/commits/000000000001-00000001.json",
+			"keyAlwaysExists": true,
+			"note": "A commit object is read only by the key an item of the Conversations table names, and it is written before that item, so the key exists."
+		},
+		{
+			"role": "supervisor",
+			"action": "s3:GetObject",
+			"store": "snapshotBucket",
+			"keyPattern": "^tenants/[^/]+/computers/[^/]+/(manifest\\.json|snapshot\\.tar\\.gz|index/[0-9a-f]{64}\\.json)$",
+			"exampleKey": "tenants/{tenantId}/computers/{computerId}/manifest.json",
+			"keyAlwaysExists": true,
+			"note": "The supervisor hydrates only from the snapshot URI of the computer record, which is written after the snapshot objects, and nothing deletes them."
+		},
+		{
+			"role": "supervisor",
+			"action": "s3:PutObject",
+			"store": "snapshotBucket",
+			"keyPattern": "^tenants/[^/]+/computers/[^/]+/(manifest\\.json|snapshot\\.tar\\.gz|index/[0-9a-f]{64}\\.json)$",
+			"exampleKey": "tenants/{tenantId}/computers/{computerId}/snapshot.tar.gz",
+			"note": "The supervisor publishes the snapshot of its computer."
+		}
+	]
+}

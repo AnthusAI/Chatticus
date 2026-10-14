@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { existingModelScenario } from "./executor-harness.ts";
 import { closeGatewayScenario } from "./model-gateway-support.ts";
 import { dropPiStorage } from "./pi-storage.ts";
+import { roleAccessProblemsOf } from "./role-access-coverage.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 const scenarioTimes: number[] = [];
@@ -18,6 +19,7 @@ Before(async function (this: ChatticusWorld) {
 });
 
 After(async function (this: ChatticusWorld) {
+	const roleAccessProblems = roleAccessProblemsOf(this);
 	await existingModelScenario(this)?.watcher?.disconnect();
 	if (this.httpServer) {
 		await this.httpServer.close();
@@ -34,6 +36,10 @@ After(async function (this: ChatticusWorld) {
 	const scenarioEndTime = Date.now();
 	const duration = scenarioEndTime - this.scenarioStartTime;
 	scenarioTimes.push(duration);
+
+	if (roleAccessProblems.length > 0) {
+		throw new Error(`A role made a request that the role access manifest does not cover:\n${roleAccessProblems.join("\n")}`);
+	}
 });
 
 AfterAll(function () {

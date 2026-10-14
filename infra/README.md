@@ -268,7 +268,7 @@ Deploy **one** stack at a time. `cdk deploy --all` and `npm run deploy`
 are forbidden (`npm run deploy` exits nonzero). Do not destroy
 `ChatticusSnapshots` or `ChatticusComputers`.
 
-Push the computer image to `ComputerRepositoryUri:dev` before the first owner start.
+The first owner start needs a `dev` tag in `ComputerRepositoryUri`: let the build workflow push `sha-<commit>`, then run the promotion workflow (`docs/COMPUTER_IMAGE_PROMOTION.md`).
 Publishing a snapshot does not require a running task.
 
 ## Budgets (account-level AWS meter)
@@ -353,8 +353,11 @@ synth them only when those definitions change. Never `cdk deploy --all`.
 ## Computer image pipeline
 
 `.github/workflows/build-computer-image-development.yml` builds, checks and
-pushes the computer image to the `ChatticusComputers` ECR repository (tags
-`sha-<git sha>` and `dev`); the image is no longer pushed by hand.
+pushes the computer image to the `ChatticusComputers` ECR repository under the
+immutable `sha-<git sha>` tag only; the image is no longer pushed by hand. The
+`dev` tag moves only through
+`.github/workflows/promote-computer-image-development.yml` (see
+`docs/COMPUTER_IMAGE_PROMOTION.md`).
 `computer/push-computer-image.sh` is break-glass only. The workflow assumes the
 development deploy role (`AWS_DEPLOY_ROLE_ARN`). The `ChatticusAccountDeploy`
 stack grants that role `ecr:GetAuthorizationToken`, the ECR push actions on the
