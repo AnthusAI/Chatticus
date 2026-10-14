@@ -180,13 +180,19 @@ describe("deploy workflow YAML", () => {
       ]);
     });
 
-    it(`${environment}: every deploy workflow shares one queueing concurrency group`, () => {
+    it(`${environment}: the four deploy workflows exist`, () => {
       const names = deployWorkflowFiles().filter((name) => name.endsWith(`-${environment}.yml`));
       assert.deepEqual(
         names,
         ["auth", "controlplane", "thinturn", "web"].map((kind) => `deploy-${kind}-${environment}.yml`),
       );
-      for (const name of names) {
+    });
+  }
+
+  for (const environment of ["staging", "production"]) {
+    it(`${environment}: manual dispatches share one queueing concurrency group`, () => {
+      for (const kind of ["auth", "controlplane", "thinturn", "web"]) {
+        const name = `deploy-${kind}-${environment}.yml`;
         const contents = readFileSync(join(workflowsDir, name), "utf8");
         assert.match(
           contents,
@@ -196,4 +202,57 @@ describe("deploy workflow YAML", () => {
       }
     });
   }
+
+  const DEVELOPMENT_PUSH_WORKFLOWS = [
+    ...["auth", "controlplane", "thinturn", "web"].map((kind) => ({
+      fileName: `deploy-${kind}-development.yml`,
+      group: `deploy-${kind}-development`,
+    })),
+    {
+      fileName: "build-computer-image-development.yml",
+      group: "build-computer-image-development",
+    },
+  ];
+
+  function concurrencyBlock(fileName: string): { group: string; cancelInProgress: string } {
+    const contents = readFileSync(join(workflowsDir, fileName), "utf8");
+    const match = contents.match(/^concurrency:\n  group: (\S+)\n  cancel-in-progress: (\S+)\n/m);
+    assert.ok(match, `${fileName} has a concurrency block`);
+    return { group: match[1], cancelInProgress: match[2] };
+  }
+
+  describe("development push-triggered workflows do not displace each other", () => {
+    it("gives each workflow its own concurrency group named for the workflow and environment", () => {
+      for (const { fileName, group } of DEVELOPMENT_PUSH_WORKFLOWS) {
+        assert.equal(concurrencyBlock(fileName).group, group, fileName);
+      }
+    });
+
+    it("never lets two development workflows share a concurrency group", () => {
+      const groups = DEVELOPMENT_PUSH_WORKFLOWS.map(({ fileName }) => concurrencyBlock(fileName).group);
+      assert.equal(new Set(groups).size, groups.length);
+      for (const group of groups) assert.notEqual(group, "deploy-development");
+    });
+
+    it("never cancels a run that is already deploying", () => {
+      for (const fileName of readdirSync(workflowsDir).filter((name) => name.endsWith(".yml"))) {
+        const contents = readFileSync(join(workflowsDir, fileName), "utf8");
+        assert.doesNotMatch(contents, /cancel-in-progress:\s*true/, fileName);
+      }
+    });
+
+    it("checks out the commit the run was triggered for, so a replaced pending run is always superseded by a later commit", () => {
+      for (const kind of ["auth", "controlplane", "thinturn", "web"]) {
+        const contents = readFileSync(join(workflowsDir, `deploy-${kind}-development.yml`), "utf8");
+        assert.match(contents, /- uses: actions\/checkout@v4\n        with:\n          ref: \$\{\{ github\.sha \}\}\n/, kind);
+      }
+    });
+  });
+
+  it("the deploy script waits for a stack that another workflow is updating instead of racing it", () => {
+    const script = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../deploy-chatticus-dedicated-account.sh"), "utf8");
+    const waitIndex = script.indexOf("*_IN_PROGRESS");
+    assert.ok(waitIndex > 0);
+    assert.ok(waitIndex < script.indexOf("npx cdk deploy"));
+  });
 });

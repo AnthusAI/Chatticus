@@ -87,6 +87,22 @@ if [ "$2" = "web" ]; then
   INVOKE_KEY_CDK_CONTEXT="-c invokeKeyVersionId=${INVOKE_KEY_VERSION_ID}"
 fi
 
+STACK_WAIT_ATTEMPTS=0
+while :; do
+  STACK_STATUS="$(aws cloudformation describe-stacks --stack-name "${STACK}" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo ABSENT)"
+  case "${STACK_STATUS}" in
+    *_IN_PROGRESS) ;;
+    *) break ;;
+  esac
+  STACK_WAIT_ATTEMPTS=$((STACK_WAIT_ATTEMPTS + 1))
+  if [ "${STACK_WAIT_ATTEMPTS}" -gt 120 ]; then
+    echo "${STACK} stayed ${STACK_STATUS} for 30 minutes; refusing to start a competing update." >&2
+    exit 1
+  fi
+  echo "${STACK} is ${STACK_STATUS} (another workflow deploying it); waiting."
+  sleep 15
+done
+
 # shellcheck source=budgets-deploy-context.sh
 . ./budgets-deploy-context.sh
 
