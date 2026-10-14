@@ -34,7 +34,7 @@ When("computer owner {string} takes over the turn through the model gateway", as
 	const scriptedDeps = await computerOwnerDepsFor(this);
 	const deps = {
 		...scriptedDeps,
-		models: createGatewayModels({ baseUrl, token }),
+		models: createGatewayModels({ baseUrl, tokenProvider: async () => token }),
 		model: { provider: "openai", modelId: GATEWAY_MODEL_ID, thinkingLevel: "minimal" as const },
 	};
 	const scenario = computerOwnerScenarioOf(this);

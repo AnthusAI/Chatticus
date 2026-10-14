@@ -222,7 +222,7 @@ When(
 		const turn = turnOf(this);
 		const baseUrl = `${await httpBaseUrl(this)}/orgs/${turn.tenantId}/model-gateway/v1`;
 		const models = createGatewayModels(
-			{ baseUrl, token: gatewayScenarioOf(this).lastToken },
+			{ baseUrl, tokenProvider: async () => gatewayScenarioOf(this).lastToken },
 			consoleLogEmitter({ tenant_id: turn.tenantId, turn_id: turn.turnId, owner_id: turn.ownerId }),
 		);
 		const model = models.getModel("openai", GATEWAY_MODEL);
@@ -236,7 +236,7 @@ When(
 );
 
 async function askWithPi(world: ChatticusWorld, baseUrl: string, token: string): Promise<void> {
-	const models = createGatewayModels({ baseUrl, token });
+	const models = createGatewayModels({ baseUrl, tokenProvider: async () => token });
 	const model = models.getModel("openai", GATEWAY_MODEL);
 	assert.ok(model, "Pi has no model to ask");
 	const answer = await models.complete(model, { messages: [{ role: "user", content: "Say good morning.", timestamp: Date.now() }] });

@@ -252,55 +252,20 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
       | ""           |
       | not set      |
 
-  # ------------------------------------------------------------ supervisor
+  # ---------------------------------------------------------- supervisor, child
+  #
+  # The supervisor's socket and the per-turn child's providers are told in
+  # computer_owner_credential_renewal_child.feature, which is registered. The
+  # structural half of "The child holds no AWS client without explicit
+  # credentials" (no client built without credentials, no reference to the
+  # container credentials endpoint or the instance metadata service) is a guard
+  # in conversation/test/computer-image-structure.test.ts.
 
-  @supervisor
-  Scenario: A turn that is not the one being served gets nothing over the socket
-    Given a supervisor whose task environment holds a bootstrap token
-    And a child is serving a turn that never ends on its own
-    When the supervisor starts
-    And the control plane dispatches the turn
-    And a process asks the socket for the credentials of another dispatch
-    Then the socket answers "no_turn"
-
-  # ----------------------------------------------------------------- child
-
-  @child
-  Scenario: A child reads its credentials from the supervisor and holds none in its environment
-    Given a supervisor that dispatched a turn to a child
-    Then the child's environment holds the socket path and no AWS access key, secret key, session token or gateway token
-    And the child's storage clients and its model gateway requests use the credentials the supervisor holds
-
-  @child
-  Scenario: A turn that runs past the first hour keeps working
-    Given a supervisor that dispatched a turn to a child
-    And the child runs a tool that takes 4000 seconds
-    When 4000 seconds go by
-    Then the turn ended "done"
-    And every storage request of the child after 3600 seconds carried credentials issued after 2400 seconds
-    And every model gateway request of the child after 3600 seconds carried a token issued after 2400 seconds
-
-  @child
-  Scenario: A child whose credentials could not be renewed fails closed
-    Given a supervisor that dispatched a turn to a child
-    And the control plane answers every turn credential renewal with 503 "credentials_unavailable"
-    When 3660 seconds go by
-    Then the child's next storage request failed for expired credentials
-    And the child ended with a failure exit code
-    And the child never used credentials from its environment or from the container's metadata service
-
-  @child
-  Scenario: The model gateway token is read for each request
-    Given a supervisor that dispatched a turn to a child
-    When the supervisor swaps the gateway token it holds
-    And the child sends its next request to the model gateway
-    Then the request carried the swapped token
-
-  @child
-  Scenario: The child holds no AWS client without explicit credentials
-    Given the sources the per-turn child bundle is built from
-    Then every storage client the child creates is given a credential provider
-    And no code the child bundles reads the container credentials endpoint or the instance metadata service
+  # ----------------------------------------------------------------- image
+  #
+  # The only scenario here that cucumber-js cannot run: it needs the built
+  # image. computer/test_owner_container.sh runs it against the image CI builds
+  # for every image build.
 
   @image
   Scenario: The shell cannot reach the supervisor's socket or the credentials
