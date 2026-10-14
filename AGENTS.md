@@ -299,7 +299,10 @@ workflow can be replaced, always by a run for a later `develop` commit (each
 deploy checks out `github.sha`). Because the ThinTurn workflow deploys
 control-plane and web before thin-turn, workflows overlap on stacks;
 `infra/deploy-chatticus-dedicated-account.sh` waits for its target stack to
-leave `*_IN_PROGRESS` before `cdk deploy`. The image build does not wait for
+leave `*_IN_PROGRESS`, synthesizes once, and retries `cdk deploy` (up to five
+attempts, each after another bounded wait) only when cdk reports the stack "is in
+... IN_PROGRESS state and can not be updated", because a sibling workflow can
+start updating the stack during synthesis; every other failure exits at once. The image build does not wait for
 the Lambda deploys; the image tag promotion order is owned by chatticus-d88a0f.
 Staging and production keep one group each, since they are manual dispatches.
 A cancelled development run is now a defect to investigate, not routine.
