@@ -270,6 +270,11 @@ export class OwnerSupervisorClient extends HostProtocolClient {
 		return this.token;
 	}
 
+	/** Speak with this token from the next request on. A request already sent keeps the token it was sent with. */
+	replaceBearerToken(token: string): void {
+		this.token = token;
+	}
+
 	/**
 	 * POST /owner/bootstrap: exchange the bootstrap token once. On success the client holds the supervisor token and the
 	 * bootstrap token is gone.

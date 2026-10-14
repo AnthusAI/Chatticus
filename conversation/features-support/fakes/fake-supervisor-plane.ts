@@ -87,8 +87,27 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	renewalScript: Array<OwnerCredentialsResponse | Error> = [];
 	/** Every credentials request fails with this error. */
 	renewalsFailWith: Error | null = null;
+	/** The answer to each credentials request for a turn, taken in turn before {@link renewalScript} is consulted. */
+	turnRenewalScript: Array<OwnerCredentialsResponse | Error> = [];
+	/** Every credentials request for a turn fails with this error. */
+	turnRenewalsFailWith: Error | null = null;
+	/** Poll answers held back until the fake time they name; the first poll at or after that time receives the answer. */
+	timedPollAnswers: Array<{ readonly atMilliseconds: number; readonly answer: OwnerPollResponse; deliveredAtMilliseconds: number | null }> = [];
 	/** Milliseconds of fake time every credentials request waits before it is answered. */
 	renewalDelayMilliseconds = 0;
+	/** How long the credentials the bootstrap and every renewal issue last. */
+	credentialLifetimeMilliseconds = 3600_000;
+	/** Called with the fake time of each renewal answer, just before the answer is returned to the supervisor. */
+	onRenewalAnswered: (() => void) | null = null;
+	/** The bearer token the supervisor speaks with right now: empty until the bootstrap, then the issued token, then each renewed token. */
+	bearerToken = "";
+	/** The bearer token each request carried, in the order the requests arrived. */
+	readonly requestTokens: Array<{ readonly route: string; readonly token: string; readonly atMilliseconds: number }> = [];
+	/** Called as each request arrives, after its token is noted, so a scenario can look at the supervisor at that moment. */
+	requestObserver: ((route: string) => void) | null = null;
+	/** Every secret value a renewal issued, so a scenario can search the logs for them. */
+	readonly issuedSecrets: string[] = [];
+	private renewalCount = 0;
 	stoppedReportScript: Array<Error | "ok"> = [];
 	heldRunningReport: { readonly promise: Promise<void>; release: () => void } | null = null;
 	defaultNextPollMilliseconds = 1000;
@@ -133,7 +152,8 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 		this.bootstraps.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
 		const outcome = this.bootstrapScript.shift() ?? this.bootstrapRepeat;
 		if (outcome !== "ok") throw outcome;
-		const expiresAt = new Date(this.clock.nowMilliseconds() + 3600_000).toISOString();
+		const expiresAt = new Date(this.clock.nowMilliseconds() + this.credentialLifetimeMilliseconds).toISOString();
+		this.bearerToken = FAKE_SUPERVISOR_SECRETS.supervisorToken;
 		return {
 			computer_id: "household-computer",
 			supervisor_token: FAKE_SUPERVISOR_SECRETS.supervisorToken,
@@ -149,6 +169,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 
 	async poll(request: OwnerPollRequest): Promise<OwnerPollResponse> {
 		this.polls.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("poll");
 		if (this.sequenceToTimeOut === request.sequence) {
 			this.sequenceToTimeOut = null;
 			const error = new DOMException("The operation timed out.", "TimeoutError");
@@ -165,6 +186,11 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 			throw scripted;
 		}
 		if (scripted !== undefined) return scripted;
+		const timed = this.timedPollAnswers.find((candidate) => candidate.deliveredAtMilliseconds === null && this.clock.nowMilliseconds() >= candidate.atMilliseconds);
+		if (timed !== undefined) {
+			timed.deliveredAtMilliseconds = this.clock.nowMilliseconds();
+			return timed.answer;
+		}
 		if (this.stopRequestedSincePoll && this.pollAfterNextStopRequest !== null) {
 			const offered = this.pollAfterNextStopRequest;
 			this.pollAfterNextStopRequest = null;
@@ -177,6 +203,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 
 	async stopRequest(request: OwnerStopRequest): Promise<OwnerStopResponse> {
 		this.stopRequests.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("stop_request");
 		this.stopRequestedSincePoll = true;
 		const scripted = this.stopScript.shift();
 		if (scripted !== undefined) return scripted;
@@ -199,37 +226,70 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 
 	async renewCredentials(request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse> {
 		this.renewals.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("renewal");
 		const held = this.heldRenewal;
 		this.heldRenewal = null;
 		if (held !== null) await held;
 		if (this.renewalDelayMilliseconds > 0) await this.clock.sleep(this.renewalDelayMilliseconds);
 		if (this.renewalsFailWith !== null) throw this.renewalsFailWith;
-		const scripted = this.renewalScript.shift();
+		if (request.kind === "turn" && this.turnRenewalsFailWith !== null) throw this.turnRenewalsFailWith;
+		const scripted = request.kind === "turn" ? (this.turnRenewalScript.shift() ?? this.renewalScript.shift()) : this.renewalScript.shift();
 		if (scripted instanceof Error) throw scripted;
-		if (scripted !== undefined) return scripted;
-		const expiresAt = new Date(this.clock.nowMilliseconds() + 3600_000).toISOString();
+		const answer = scripted ?? this.issueRenewal(request);
+		this.onRenewalAnswered?.();
+		return answer;
+	}
+
+	/** Replace the token the supervisor speaks with, as the real client does. */
+	replaceBearerToken(token: string): void {
+		this.bearerToken = token;
+	}
+
+	private noteRequestToken(route: string): void {
+		this.requestTokens.push({ route, token: this.bearerToken, atMilliseconds: this.clock.nowMilliseconds() });
+		this.requestObserver?.(route);
+	}
+
+	private issueRenewal(request: OwnerCredentialsRequest): OwnerCredentialsResponse {
+		this.renewalCount += 1;
+		const suffix = `-renewal-${this.renewalCount}`;
+		const expiresAt = new Date(this.clock.nowMilliseconds() + this.credentialLifetimeMilliseconds).toISOString();
 		if (request.kind === "supervisor") {
+			const issued = {
+				supervisor_token: `${FAKE_SUPERVISOR_SECRETS.supervisorToken}${suffix}`,
+				access_key_id: `${FAKE_SUPERVISOR_SECRETS.supervisorAccessKeyId}${suffix}`,
+				secret_access_key: `${FAKE_SUPERVISOR_SECRETS.supervisorSecretAccessKey}${suffix}`,
+				session_token: `${FAKE_SUPERVISOR_SECRETS.supervisorSessionToken}${suffix}`,
+			};
+			this.issuedSecrets.push(...Object.values(issued));
 			return {
 				kind: "supervisor",
-				supervisor_token: FAKE_SUPERVISOR_SECRETS.supervisorToken,
+				supervisor_token: issued.supervisor_token,
 				supervisor_token_expires_at: expiresAt,
 				aws_credentials: {
-					access_key_id: FAKE_SUPERVISOR_SECRETS.supervisorAccessKeyId,
-					secret_access_key: FAKE_SUPERVISOR_SECRETS.supervisorSecretAccessKey,
-					session_token: FAKE_SUPERVISOR_SECRETS.supervisorSessionToken,
+					access_key_id: issued.access_key_id,
+					secret_access_key: issued.secret_access_key,
+					session_token: issued.session_token,
 					expires_at: expiresAt,
 				},
 			};
 		}
+		const issued = {
+			gateway_token: `${FAKE_SUPERVISOR_SECRETS.gatewayToken}${suffix}`,
+			access_key_id: `${FAKE_SUPERVISOR_SECRETS.turnAccessKeyId}${suffix}`,
+			secret_access_key: `${FAKE_SUPERVISOR_SECRETS.turnSecretAccessKey}${suffix}`,
+			session_token: `${FAKE_SUPERVISOR_SECRETS.turnSessionToken}${suffix}`,
+		};
+		this.issuedSecrets.push(...Object.values(issued));
 		return {
 			kind: "turn",
 			dispatch_id: request.dispatch_id,
 			turn_id: request.turn_id,
-			gateway_token: FAKE_SUPERVISOR_SECRETS.gatewayToken,
+			gateway_token: issued.gateway_token,
 			aws_credentials: {
-				access_key_id: FAKE_SUPERVISOR_SECRETS.turnAccessKeyId,
-				secret_access_key: FAKE_SUPERVISOR_SECRETS.turnSecretAccessKey,
-				session_token: FAKE_SUPERVISOR_SECRETS.turnSessionToken,
+				access_key_id: issued.access_key_id,
+				secret_access_key: issued.secret_access_key,
+				session_token: issued.session_token,
 				expires_at: expiresAt,
 			},
 			expires_at: expiresAt,
@@ -238,6 +298,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 
 	async postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }> {
 		this.fileResults.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("file_result");
 		const outcome = this.fileResultScript.shift() ?? "ok";
 		if (outcome !== "ok") throw outcome;
 		return { recorded: true };

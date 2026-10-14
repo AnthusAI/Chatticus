@@ -33,6 +33,9 @@ export const SUPERVISOR_EXIT_CONFIGURATION = 7;
 /** The exit code of a supervisor that could not restore the disk. */
 export const SUPERVISOR_EXIT_BOOT_FAILED = 8;
 
+/** The exit code of a supervisor that was still stopping when its credentials were about to end, and killed everything. */
+export const SUPERVISOR_EXIT_CREDENTIALS_EXPIRED = 9;
+
 /** The exit code of a supervisor stopped by SIGTERM. */
 export const SUPERVISOR_EXIT_SIGTERM = 143;
 
@@ -65,6 +68,20 @@ export const runtimeSupervisorClock: SupervisorClock = {
 		}),
 };
 
+/** The AWS credentials the supervisor hands the storage client: the shape the AWS SDK reads from a credentials provider. */
+export type StorageCredentialIdentity = {
+	readonly accessKeyId: string;
+	readonly secretAccessKey: string;
+	readonly sessionToken: string;
+	readonly expiration: Date;
+};
+
+/**
+ * What the storage client calls for the credentials of each request. It returns whichever set the supervisor holds when it is
+ * called, and rejects only when that set is past its end, so a renewal needs no new client.
+ */
+export type StorageCredentialsProvider = () => Promise<StorageCredentialIdentity>;
+
 /**
  * What the supervisor asks of the Front Door: the bootstrap exchange, the poll, the stop request and the result of a file
  * request, and the computer routes the boot driver and the disk lifecycle call. A refusal is thrown as a `HostProtocolError` carrying the status and
@@ -76,6 +93,8 @@ export interface SupervisorPlane extends HostBootPlane {
 	stopRequest(request: OwnerStopRequest): Promise<OwnerStopResponse>;
 	/** Ask for the next set of credentials, the supervisor's own or those of the turn it serves; the response has the kind that was asked. */
 	renewCredentials(request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse>;
+	/** Speak with this token from the next request on; the supervisor calls it in the same synchronous step that replaces its AWS credentials. */
+	replaceBearerToken(token: string): void;
 	/** Post the owner's answer to one file request; a repeat of an answer already recorded is recorded again without harm. */
 	postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }>;
 	/** Close the edit overlay to member writes after the snapshot is extracted, and receive the entries to apply. */

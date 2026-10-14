@@ -265,13 +265,14 @@ Feature: The owner supervisor keeps the computer on between turns and switches i
     And it exits with code 143
     And the log has "owner_stopping" with reason "sigterm"
 
-  Scenario: An owner stops before the credentials it holds expire
-    Given an idle supervisor
+  Scenario: An owner whose credentials cannot be renewed stops before they expire
+    Given the control plane answers every renewal with 503 "credentials_unavailable"
+    And an idle supervisor
     And the control plane vetoes every idle stop with "work_pending"
-    When 3419 seconds go by
+    When 2999 seconds go by
     Then the supervisor is still running
     When 1 seconds go by
-    Then the supervisor asks to stop with reason "unhealthy"
+    Then the supervisor asks to stop with reason "credentials"
     And after the approval it reports the computer stopped and exits with code 0
 
   Scenario: A stopped report that fails is repeated

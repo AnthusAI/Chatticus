@@ -142,6 +142,7 @@ features/computer_file_live_owner.feature
 features/computer_file_live_member.feature
 features/computer_file_live_operations.feature
 features/computer_owner_supervisor.feature
+features/computer_owner_credential_renewal_supervisor.feature
 features/invoke_key_rotation.feature
 features/rich_turn_events.feature
 features/supervisor_role_policy.feature

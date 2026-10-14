@@ -6,7 +6,7 @@ import { ProcessFileHelperLauncher } from "../../computer/host/src/live-file-hel
 import { SealingOverlayApplier } from "../../computer/host/src/overlay-applier.ts";
 import { OwnerSupervisor } from "../../computer/host/src/supervisor.ts";
 import { supervisorConfigurationFromEnvironment, type SupervisorConfiguration } from "../../computer/host/src/supervisor-configuration.ts";
-import type { SupervisorDisk } from "../../computer/host/src/supervisor-ports.ts";
+import type { StorageCredentialsProvider, SupervisorDisk } from "../../computer/host/src/supervisor-ports.ts";
 import { ShellUserProcessSweeper } from "../../computer/host/src/unprivileged-process-sweeper.ts";
 import { scrubbedShellEnvironment } from "../src/pi/shell-environment.ts";
 import { SOURCE_FILE_HELPER_COMMAND } from "../src/pi/unprivileged-execution-env.ts";
@@ -51,6 +51,11 @@ export type SupervisorScenario = {
 	memoryUsedPercent: number | undefined;
 	supervisor: OwnerSupervisor | null;
 	exitCode: number | null;
+	/** The fake time the supervisor started at and the fake time it ended at, when it has. */
+	startedAtMilliseconds: number;
+	exitedAtMilliseconds: number | null;
+	/** How many times the supervisor opened the disk. */
+	diskOpens: number;
 	turnsStarted: number;
 	childExitedAtMilliseconds: number;
 	logIndexAtChildExit: number;
@@ -119,6 +124,9 @@ export function createSupervisorScenario(world: ChatticusWorld): SupervisorScena
 		memoryUsedPercent: undefined,
 		supervisor: null,
 		exitCode: null,
+		startedAtMilliseconds: 0,
+		exitedAtMilliseconds: null,
+		diskOpens: 0,
 		turnsStarted: 0,
 		childExitedAtMilliseconds: -1,
 		logIndexAtChildExit: 0,
@@ -144,8 +152,10 @@ export async function startSupervisor(world: ChatticusWorld): Promise<void> {
 		scenario.logs.push(formatLogLine(event, { tenant_id: configuration.tenantId, owner_id: configuration.ownerId, ...fields }));
 	};
 	assert.ok(world.snapshotTmpdir, "The scenario has no temporary directory.");
-	const openDisk = (): SupervisorDisk =>
-		scenario.useRealDisk
+	const openDisk = (credentials: StorageCredentialsProvider): SupervisorDisk => {
+		scenario.diskOpens += 1;
+		scenario.disk.attachCredentials(credentials);
+		return scenario.useRealDisk
 			? new HostDiskLifecycle(scenario.plane, {
 					tenantId: configuration.tenantId,
 					ownerId: configuration.ownerId,
@@ -164,6 +174,7 @@ export async function startSupervisor(world: ChatticusWorld): Promise<void> {
 					}),
 				})
 			: scenario.disk;
+	};
 	const supervisor = new OwnerSupervisor({
 		identity: { tenantId: configuration.tenantId, ownerId: configuration.ownerId, generation: configuration.generation },
 		environment: scenario.environment,
@@ -178,8 +189,10 @@ export async function startSupervisor(world: ChatticusWorld): Promise<void> {
 		workspaceRoot: scenario.workspaceRoot,
 	});
 	scenario.supervisor = supervisor;
+	scenario.startedAtMilliseconds = scenario.clock.nowMilliseconds();
 	void supervisor.run().then((code) => {
 		scenario.exitCode = code;
+		scenario.exitedAtMilliseconds = scenario.clock.nowMilliseconds();
 	});
 	await scenario.clock.settle();
 }
@@ -232,4 +245,9 @@ export function logLinesOf(world: ChatticusWorld, event: string): string[] {
 /** Every secret value the scenario handed out, for the log search. */
 export function allScenarioSecrets(): string[] {
 	return [...Object.values(TASK_ENVIRONMENT_SECRETS), ...Object.values(FAKE_SUPERVISOR_SECRETS)];
+}
+
+/** Every secret value the scenario handed out, the values the control plane issued in renewals included. */
+export function allIssuedScenarioSecrets(world: ChatticusWorld): string[] {
+	return [...allScenarioSecrets(), ...supervisorScenarioOf(world).plane.issuedSecrets];
 }

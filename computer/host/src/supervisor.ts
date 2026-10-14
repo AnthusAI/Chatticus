@@ -9,6 +9,8 @@ import {
 	OWNER_QUIET_PUBLISH_SECONDS,
 	OWNER_STOP_RETRY_SECONDS,
 	type AwsCredentials,
+	type OwnerCredentialsRequest,
+	type OwnerCredentialsResponse,
 	type OwnerDispatch,
 	type OwnerPollRequest,
 	type OwnerPollResponse,
@@ -17,6 +19,7 @@ import {
 } from "@chatticus/host-protocol/supervisor";
 import type { LiveFileOutcome } from "@chatticus/host-protocol/live-files";
 import { errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
+import { CredentialHolder, CredentialLease, TurnCredentialLease } from "./credential-lease.ts";
 import { LiveFileOperations } from "./live-file-operations.ts";
 import type { FileHelperLauncher } from "./live-file-helper-launcher.ts";
 import { OverlayApplyError, type OverlayEntryReference } from "./overlay-applier.ts";
@@ -25,6 +28,7 @@ import { buildOwnerChildEnvironment } from "./supervisor-child-environment.ts";
 import {
 	SUPERVISOR_EXIT_BOOTSTRAP_FAILED,
 	SUPERVISOR_EXIT_BOOT_FAILED,
+	SUPERVISOR_EXIT_CREDENTIALS_EXPIRED,
 	SUPERVISOR_EXIT_FENCED,
 	SUPERVISOR_EXIT_SIGTERM,
 	SUPERVISOR_EXIT_STOPPED,
@@ -32,9 +36,12 @@ import {
 	type ChildExit,
 	type ChildSpawner,
 	type SpawnedChild,
+	type StorageCredentialIdentity,
+	type StorageCredentialsProvider,
 	type SupervisorClock,
 	type SupervisorDisk,
 	type SupervisorPlane,
+	type TurnCredentialSource,
 	type UnprivilegedProcessSweeper,
 } from "./supervisor-ports.ts";
 
@@ -45,7 +52,6 @@ const TERMINATE_GRACE_AT_SIGTERM_MILLISECONDS = 5000;
 const TERMINATE_GRACE_AT_DRAIN_MILLISECONDS = 10_000;
 const STOPPED_REPORT_ATTEMPTS = 3;
 const STOPPED_REPORT_PAUSE_MILLISECONDS = 2000;
-const CREDENTIAL_STOP_MARGIN_MILLISECONDS = 180_000;
 const IDLE_LOG_INTERVAL_MILLISECONDS = 300_000;
 const POLLING_LOG_INTERVAL_MILLISECONDS = 60_000;
 
@@ -67,8 +73,11 @@ export type OwnerSupervisorOptions = {
 	/** The supervisor's own environment: the source of the settings the child shares. It is never modified. */
 	readonly environment: NodeJS.ProcessEnv;
 	readonly plane: SupervisorPlane;
-	/** Opens the computer's disk with the supervisor's AWS credentials once the bootstrap exchange has issued them. */
-	readonly openDisk: (credentials: AwsCredentials) => SupervisorDisk;
+	/**
+	 * Opens the computer's disk once the bootstrap exchange has issued the supervisor's AWS credentials. It is called once; the
+	 * storage client it builds asks the provider for the credentials of every request, so a renewal reaches it without a new client.
+	 */
+	readonly openDisk: (credentials: StorageCredentialsProvider) => SupervisorDisk;
 	readonly spawner: ChildSpawner;
 	readonly sweeper: UnprivilegedProcessSweeper;
 	readonly clock: SupervisorClock;
@@ -91,12 +100,34 @@ type RunningChild = {
 
 type StopCause = OwnerStopReason | "sigterm";
 
+type RenewalKind = "supervisor" | "turn";
+
+type RenewalAttempt = {
+	readonly kind: RenewalKind;
+	readonly schedule: CredentialLease;
+	readonly turn: TurnCredentialLease | null;
+	readonly startedAtMilliseconds: number;
+	readonly attempts: number;
+	readonly remainingSecondsBefore: number;
+};
+
+class RenewalMismatchError extends Error {
+	constructor() {
+		super("the renewal answered a different kind, a different turn or no later end");
+		this.name = "RenewalMismatchError";
+	}
+}
+
 /**
  * The long-lived owner of the organization computer. After the bootstrap exchange it asks the control plane for work with a
  * poll that is also its heartbeat, restores the disk, runs each dispatched turn in a per-turn child that holds only that
  * turn's credentials, publishes a changed disk between turns, and stops itself when it has been idle, when the control plane
  * drains it, when it is unhealthy, or when the container is stopped. It fences itself when the control plane has not
  * answered for longer than the control plane waits before it counts the owner dead.
+ *
+ * It renews its own AWS credentials and token, and those of the turn it serves, twenty minutes before they end, as an
+ * activity next to the poll. When its own renewals fail it drains ten minutes before its credentials end, stops with the
+ * reason `credentials`, and exits with code 9 thirty seconds before they end if the stop is still running.
  */
 export class OwnerSupervisor {
 	private readonly options: OwnerSupervisorOptions;
@@ -111,7 +142,10 @@ export class OwnerSupervisor {
 	private activity: Promise<void> | null = null;
 	private child: RunningChild | null = null;
 	private startedAtMilliseconds = 0;
-	private credentialsStopAtMilliseconds = Number.POSITIVE_INFINITY;
+	private awsCredentials: CredentialHolder<AwsCredentials> | null = null;
+	private supervisorLease: CredentialLease | null = null;
+	private turnLease: TurnCredentialLease | null = null;
+	private drainStopReason: "lifetime" | "credentials" = "lifetime";
 	private lastSuccessfulPollAtMilliseconds = 0;
 	private nextPollAtMilliseconds = 0;
 	private consecutivePollFailures = 0;
@@ -138,6 +172,12 @@ export class OwnerSupervisor {
 	private nextClearAttemptAtMilliseconds = 0;
 	private clearInFlight: Promise<boolean> | null = null;
 	private readonly files: LiveFileOperations;
+
+	/**
+	 * The credentials of the turn being served, as the supervisor holds and renews them. The socket server reads them for the
+	 * child; it answers nothing for any dispatch but the one being served.
+	 */
+	readonly turnCredentials: TurnCredentialSource = { current: (dispatchId) => this.turnLease?.current(dispatchId) ?? null };
 
 	constructor(options: OwnerSupervisorOptions) {
 		this.options = options;
@@ -171,7 +211,7 @@ export class OwnerSupervisor {
 	/**
 	 * Run the supervisor from its first log line to the end of its life.
 	 *
-	 * @returns The process exit code: 0 stopped in good order, 4 fenced, 5 no longer the owner, 6 bootstrap failed, 8 the disk could not be restored, 143 stopped by SIGTERM.
+	 * @returns The process exit code: 0 stopped in good order, 4 fenced, 5 no longer the owner, 6 bootstrap failed, 8 the disk could not be restored, 9 still stopping when its credentials were about to end, 143 stopped by SIGTERM.
 	 */
 	async run(): Promise<number> {
 		this.log("owner_started", { generation: this.identity.generation, pid: process.pid });
@@ -229,8 +269,10 @@ export class OwnerSupervisor {
 					protocol_version: OWNER_PROTOCOL_VERSION,
 				});
 				const expiresAt = Math.min(Date.parse(response.aws_credentials.expires_at), Date.parse(response.supervisor_token_expires_at));
-				this.credentialsStopAtMilliseconds = expiresAt - CREDENTIAL_STOP_MARGIN_MILLISECONDS;
-				this.disk = this.options.openDisk(response.aws_credentials);
+				const holder = new CredentialHolder(response.aws_credentials);
+				this.awsCredentials = holder;
+				this.supervisorLease = new CredentialLease(expiresAt, this.now());
+				this.disk = this.options.openDisk(() => this.storageCredentials());
 				this.log("owner_bootstrapped", { expires_at: new Date(expiresAt).toISOString() });
 				this.lastSuccessfulPollAtMilliseconds = this.now();
 				this.nextPollAtMilliseconds = this.now();
@@ -273,7 +315,12 @@ export class OwnerSupervisor {
 			this.lastSuccessfulPollAtMilliseconds + OWNER_POLL_SILENCE_FENCE_SECONDS * 1000,
 			this.nextPollingLogAtMilliseconds,
 		];
-		if (!this.stopping) deadlines.push(Math.max(this.credentialsStopAtMilliseconds, this.stopRetryAtMilliseconds));
+		const supervisorLease = this.supervisorLease;
+		if (supervisorLease !== null) {
+			deadlines.push(supervisorLease.hardDeadlineAtMilliseconds());
+			if (!this.stopping && !this.draining) deadlines.push(supervisorLease.localDrainAtMilliseconds(), supervisorLease.dueAtMilliseconds());
+		}
+		if (!this.stopping && this.turnLease !== null) deadlines.push(this.turnLease.schedule.dueAtMilliseconds());
 		if (this.canAskToStopForIdleness()) deadlines.push(Math.max(this.idleDeadline(), this.stopRetryAtMilliseconds));
 		if (this.currentState === "idle" && this.idleStartedAtMilliseconds !== null) deadlines.push(this.nextIdleLogAtMilliseconds);
 		if (this.canPublish() && this.nextPublishCheckAtMilliseconds !== null) deadlines.push(this.nextPublishCheckAtMilliseconds);
@@ -297,6 +344,10 @@ export class OwnerSupervisor {
 
 	private async doDueWork(): Promise<void> {
 		const now = this.now();
+		if (this.supervisorLease !== null && now >= this.supervisorLease.hardDeadlineAtMilliseconds()) {
+			this.endAtCredentialDeadline();
+			return;
+		}
 		if (this.sigtermRequested && !this.stopping) {
 			this.beginStop("sigterm");
 			return;
@@ -315,11 +366,8 @@ export class OwnerSupervisor {
 		}
 		if (this.stopping) return;
 		if (this.entriesAwaitingClear.length > 0 && this.clearInFlight === null && now >= this.nextClearAttemptAtMilliseconds) this.beginClear();
-		if (now >= this.credentialsStopAtMilliseconds && now >= this.stopRetryAtMilliseconds) {
-			this.log("owner_credentials_expiring");
-			await this.askToStop("unhealthy");
-			return;
-		}
+		this.startDueRenewals(now);
+		this.beginCredentialDrainWhenExpiring(now);
 		if (this.consecutiveChildFailures >= OWNER_CHILD_FAILURE_LIMIT && this.child === null && this.activity === null && now >= this.stopRetryAtMilliseconds) {
 			await this.askToStop("unhealthy");
 			return;
@@ -329,7 +377,7 @@ export class OwnerSupervisor {
 				this.drainKillStarted = true;
 				void this.terminateChild(TERMINATE_GRACE_AT_DRAIN_MILLISECONDS);
 			}
-			if (this.child === null && this.activity === null && now >= this.stopRetryAtMilliseconds) await this.askToStop("lifetime");
+			if (this.child === null && this.activity === null && now >= this.stopRetryAtMilliseconds) await this.askToStop(this.drainStopReason);
 			return;
 		}
 		if (this.currentState !== "idle" || this.activity !== null || this.idleStartedAtMilliseconds === null) return;
@@ -342,6 +390,143 @@ export class OwnerSupervisor {
 			return;
 		}
 		if (now >= this.idleDeadline() && now >= this.stopRetryAtMilliseconds) await this.askToStop("idle");
+	}
+
+	private async storageCredentials(): Promise<StorageCredentialIdentity> {
+		const holder = this.awsCredentials;
+		if (holder === null) throw new Error("the supervisor holds no storage credentials");
+		const credentials = holder.current();
+		const expiration = new Date(credentials.expires_at);
+		if (expiration.getTime() <= this.now()) throw new Error("the supervisor's storage credentials have ended");
+		return {
+			accessKeyId: credentials.access_key_id,
+			secretAccessKey: credentials.secret_access_key,
+			sessionToken: credentials.session_token,
+			expiration,
+		};
+	}
+
+	private startDueRenewals(now: number): void {
+		const supervisorLease = this.supervisorLease;
+		if (supervisorLease !== null && !this.draining && supervisorLease.isDue(now)) this.startRenewal("supervisor", supervisorLease, null);
+		const turn = this.turnLease;
+		if (turn !== null && turn.schedule.isDue(now)) this.startRenewal("turn", turn.schedule, turn);
+	}
+
+	private startRenewal(kind: RenewalKind, schedule: CredentialLease, turn: TurnCredentialLease | null): void {
+		const request: OwnerCredentialsRequest =
+			turn === null
+				? { kind: "supervisor", owner_id: this.identity.ownerId, generation: this.identity.generation }
+				: { kind: "turn", owner_id: this.identity.ownerId, generation: this.identity.generation, dispatch_id: turn.dispatchId, turn_id: turn.turnId };
+		const startedAtMilliseconds = this.now();
+		const attempt: RenewalAttempt = {
+			kind,
+			schedule,
+			turn,
+			startedAtMilliseconds,
+			attempts: schedule.consecutiveFailures + 1,
+			remainingSecondsBefore: Math.floor(schedule.remainingMilliseconds(startedAtMilliseconds) / 1000),
+		};
+		schedule.beginRenewal();
+		void this.runRenewal(request, attempt).finally(() => this.wake());
+	}
+
+	private async runRenewal(request: OwnerCredentialsRequest, attempt: RenewalAttempt): Promise<void> {
+		try {
+			const response = await this.options.plane.renewCredentials(request);
+			this.onRenewalAnswered(response, attempt);
+		} catch (error) {
+			this.onRenewalFailed(error, attempt);
+		}
+	}
+
+	private renewalIsMoot(attempt: RenewalAttempt): boolean {
+		return this.stopping || this.exitCode !== undefined || (attempt.turn !== null && this.turnLease !== attempt.turn);
+	}
+
+	private onRenewalAnswered(response: OwnerCredentialsResponse, attempt: RenewalAttempt): void {
+		if (this.renewalIsMoot(attempt)) {
+			attempt.schedule.abandon();
+			return;
+		}
+		const expiresAtMilliseconds = attempt.turn === null ? this.swapSupervisorCredentials(response, attempt.schedule) : this.swapTurnCredentials(response, attempt.turn);
+		if (expiresAtMilliseconds === null) {
+			this.onRenewalFailed(new RenewalMismatchError(), attempt);
+			return;
+		}
+		attempt.schedule.succeeded(this.now(), expiresAtMilliseconds);
+		this.log("owner_credentials_refreshed", {
+			kind: attempt.kind,
+			expires_at: new Date(expiresAtMilliseconds).toISOString(),
+			attempts: attempt.attempts,
+			duration_ms: this.now() - attempt.startedAtMilliseconds,
+			remaining_seconds_before: attempt.remainingSecondsBefore,
+		});
+	}
+
+	private swapSupervisorCredentials(response: OwnerCredentialsResponse, schedule: CredentialLease): number | null {
+		const holder = this.awsCredentials;
+		if (response.kind !== "supervisor" || holder === null) return null;
+		const expiresAtMilliseconds = Math.min(Date.parse(response.aws_credentials.expires_at), Date.parse(response.supervisor_token_expires_at));
+		if (!(expiresAtMilliseconds > schedule.expiresAt)) return null;
+		holder.replace(response.aws_credentials);
+		this.options.plane.replaceBearerToken(response.supervisor_token);
+		return expiresAtMilliseconds;
+	}
+
+	private swapTurnCredentials(response: OwnerCredentialsResponse, turn: TurnCredentialLease): number | null {
+		if (response.kind !== "turn" || response.dispatch_id !== turn.dispatchId || response.turn_id !== turn.turnId) return null;
+		const expiresAtMilliseconds = Date.parse(response.expires_at);
+		if (!(expiresAtMilliseconds > turn.schedule.expiresAt)) return null;
+		turn.replace({ aws_credentials: response.aws_credentials, gateway_token: response.gateway_token, expires_at: response.expires_at });
+		return expiresAtMilliseconds;
+	}
+
+	private onRenewalFailed(error: unknown, attempt: RenewalAttempt): void {
+		const { kind, schedule, turn } = attempt;
+		if (this.renewalIsMoot(attempt)) {
+			schedule.abandon();
+			return;
+		}
+		if (error instanceof HostProtocolError) {
+			if (this.refusalEndsOwnership(error)) {
+				schedule.abandon();
+				this.endAsSuperseded();
+				return;
+			}
+			const refusedForGood = error.status === 409 && (error.code === "owner_draining" || error.code === "owner_stopping" || (turn !== null && error.code === "turn_not_served"));
+			if (refusedForGood) {
+				schedule.refuse();
+				if (turn !== null && error.code === "turn_not_served" && this.turnLease === turn) this.turnLease = null;
+				this.log("owner_credentials_refresh_refused", { kind, code: error.code });
+				return;
+			}
+		}
+		schedule.failed(this.now());
+		this.log("owner_credentials_refresh_failed", {
+			kind,
+			status: error instanceof HostProtocolError ? error.status : undefined,
+			code: error instanceof HostProtocolError ? error.code : undefined,
+			error_name: error instanceof HostProtocolError ? undefined : errorNameOf(error),
+			consecutive_failures: schedule.consecutiveFailures,
+			remaining_seconds: Math.floor(schedule.remainingMilliseconds(this.now()) / 1000),
+		});
+	}
+
+	private beginCredentialDrainWhenExpiring(now: number): void {
+		const lease = this.supervisorLease;
+		if (lease === null || this.draining) return;
+		const state = lease.state(now);
+		if (state !== "expiring" && state !== "expired") return;
+		this.log("owner_credentials_expiring", { remaining_seconds: Math.floor(lease.remainingMilliseconds(now) / 1000) });
+		this.beginDrain("credentials", "credentials");
+	}
+
+	private endAtCredentialDeadline(): void {
+		this.stopping = true;
+		this.log("owner_stopping", { reason: "credentials_expired", uptime_ms: this.now() - this.startedAtMilliseconds, turns_served: this.turnsServed });
+		this.child?.handle.kill("SIGKILL");
+		this.finish(SUPERVISOR_EXIT_CREDENTIALS_EXPIRED);
 	}
 
 	private activeTurns(): OwnerPollRequest["active_turns"] {
@@ -570,8 +755,9 @@ export class OwnerSupervisor {
 		})();
 	}
 
-	private beginDrain(reason: string): void {
+	private beginDrain(reason: string, stopReason: "lifetime" | "credentials" = "lifetime"): void {
 		this.draining = true;
+		this.drainStopReason = stopReason;
 		this.drainStartedAtMilliseconds = this.now();
 		if (this.currentState !== "hydrating" && this.currentState !== "publishing") this.currentState = "draining";
 		this.log("owner_draining", { reason });
@@ -608,6 +794,12 @@ export class OwnerSupervisor {
 			startedAtMilliseconds: this.now(),
 		};
 		this.child = child;
+		this.turnLease = new TurnCredentialLease(
+			dispatch.dispatch_id,
+			dispatch.turn_id,
+			{ aws_credentials: dispatch.aws_credentials, gateway_token: dispatch.gateway_token, expires_at: dispatch.expires_at },
+			this.now(),
+		);
 		this.currentState = "serving";
 		this.idleStartedAtMilliseconds = null;
 		const waitingSince = dispatch.waiting_since === null ? null : Date.parse(dispatch.waiting_since);
@@ -623,6 +815,7 @@ export class OwnerSupervisor {
 	}
 
 	private async onChildExit(child: RunningChild, exit: ChildExit): Promise<void> {
+		if (this.turnLease?.dispatchId === child.dispatchId) this.turnLease = null;
 		const failed = !(exit.code === 0 || exit.code === 1);
 		this.consecutiveChildFailures = failed ? this.consecutiveChildFailures + 1 : 0;
 		await this.files.pause();

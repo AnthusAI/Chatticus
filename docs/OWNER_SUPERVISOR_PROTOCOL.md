@@ -600,8 +600,10 @@ seconds on the owner container.
 
 **Maximum lifetime.** 3000 seconds from the bootstrap exchange, decided by the server (poll step 5). With the drain grace
 and the final publish budget the owner is gone before its credentials expire (3000 + 300 + 120 = 3420 < 3600). The
-supervisor additionally starts the final stop sequence 180 seconds before `aws_credentials.expires_at` if it is not
-already stopping.
+supervisor additionally drains itself 600 seconds before the end of the credentials it holds if no renewal has succeeded,
+stops with the reason `credentials`, and exits with code 9 at 30 seconds before they end if it is still stopping
+([Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md), 8.5; this replaces the single 180 second deadline of the first
+version, which did not know about renewals).
 
 ## 9. The container
 
@@ -709,7 +711,7 @@ New and changed lines (fields in addition to the scope):
 | `owner_draining` | `reason` |
 | `owner_stop_requested` | `reason` |
 | `owner_stop_vetoed` | `reason` |
-| `owner_stopping` | `reason` (`idle`, `lifetime`, `unhealthy`, `sigterm`, `fenced`, `superseded`), `uptime_ms`, `turns_served` |
+| `owner_stopping` | `reason` (`idle`, `lifetime`, `unhealthy`, `credentials`, `credentials_expired`, `sigterm`, `fenced`, `superseded`), `uptime_ms`, `turns_served` |
 | `snapshot_published`, `snapshot_skipped` (existing) | existing |
 | `owner_exit` (existing, `owner.ts:256`) | `code`, `outcome`, `duration_ms` |
 | `owner_watchdog_fired` (watchdog, `sh` echo) | `action` (`term`, `kill`), `reason` (`deadline`, `stale`) |
@@ -780,7 +782,7 @@ mode 0700. uid 2000 cannot signal a root process. The watchdog holds no credenti
 | stopping | `stopping` | stop approved; SIGTERM handled | stopped report sent, exit |
 | stopped | not reported | exit | |
 
-Fatal exits from any state: 4 fenced, 5 superseded, 6 bootstrap failed, 7 configuration, 8 boot failed, 143 SIGTERM, 137
+Fatal exits from any state: 4 fenced, 5 superseded, 6 bootstrap failed, 7 configuration, 8 boot failed, 9 still stopping when its credentials were about to end, 143 SIGTERM, 137
 watchdog kill (signal).
 
 ### 10.2 Dispatch
