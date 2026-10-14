@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2ad359ac-933e-4085-8083-39796224dea6",
+      "author": "home",
+      "text": "PR 547 (branch ts/iam-predeploy-guard, not merged).\n\nGuard 1 (IAM): a role access manifest (conversation/src/gateway/role-access-manifest.json) lists the request shapes of the Front Door, the per-turn owner and the supervisor. Recording clients note every DynamoDB and S3 request of those roles in every cucumber scenario; an After hook fails a scenario whose request has no manifest row, or that reads a missing key on a row claiming the key always exists. features/role_access_manifest.feature judges the manifest against the deployed JSON policy files and the 404-versus-403 rule; infra/test/role-access-policy.test.ts judges every row against the policies CDK synthesizes. conversation/bin/simulate-role-access.ts runs iam:SimulatePrincipalPolicy for the deployed roles (read-only).\n\nGuard 2 (image tag): the build pushes sha-<commit> only; promote-computer-image-development.yml (workflow_dispatch) refuses unless the latest ControlPlane and ThinTurn development deploys for the commit succeeded, then moves dev and prints the previous digest and the rollback command. Break-glass scripts no longer push dev. Docs: docs/COMPUTER_IMAGE_PROMOTION.md, docs/ROLE_ACCESS_GUARD.md, AGENTS.md.\n\nEvidence: full cucumber suite 1656/1656, conversation vitest green, infra 566 green, typecheck clean. Ticket stays in_progress until the PR merges.",
+      "created_at": "2026-10-14T02:45:02.843638Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "reliability-b"
+      }
+    }
+  ],
   "created_at": "2026-10-13T07:04:45.040678Z",
-  "updated_at": "2026-10-14T01:09:36.989893Z",
+  "updated_at": "2026-10-14T02:45:02.843674Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The team is adding real IAM checks and will flip image tags only after server verification.",
-  "right_now_updated_at": "2026-10-14T01:09:39.614014Z",
+  "right_now_summary": "PR 547 adds IAM and image-promotion guards; all tests pass, and it awaits merge.",
+  "right_now_updated_at": "2026-10-14T02:45:06.303496Z",
   "custom": {}
 }
