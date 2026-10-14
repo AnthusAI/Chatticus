@@ -38,7 +38,7 @@ const OWNER_INVOKE_KEY = "deployment-invoke-key";
 const OTHER_SIGNING_KEY = "a-different-signing-key-0123456789abcdef";
 const BOOT_SECONDS = 61;
 
-type AnswerRecord = { status: number; body: any };
+export type AnswerRecord = { status: number; body: any };
 
 /** What a scenario about the owner routes remembers between its steps. */
 export type OwnerServerScenario = {
@@ -93,11 +93,11 @@ export function ownerServerOf(world: ChatticusWorld): OwnerServerScenario {
 	return scenario;
 }
 
-const nowSeconds = (world: ChatticusWorld): number => Math.floor(world.clock.now().getTime() / 1000);
+export const nowSeconds = (world: ChatticusWorld): number => Math.floor(world.clock.now().getTime() / 1000);
 
-const hostPath = (suffix: string): string => `/orgs/${STORY_TENANT}/host${suffix}`;
+export const hostPath = (suffix: string): string => `/orgs/${STORY_TENANT}/host${suffix}`;
 
-async function send(
+export async function send(
 	world: ChatticusWorld,
 	method: string,
 	path: string,
@@ -167,7 +167,7 @@ async function startOwner(world: ChatticusWorld, options: { registerOwnerWorker:
 	world.clock.advanceSeconds(BOOT_SECONDS);
 }
 
-function mintBootstrap(world: ChatticusWorld, overrides: Record<string, unknown>, key = SCENARIO_GATEWAY_SIGNING_KEY): string {
+export function mintBootstrap(world: ChatticusWorld, overrides: Record<string, unknown>, key = SCENARIO_GATEWAY_SIGNING_KEY): string {
 	const scenario = ownerServerOf(world);
 	return mintOwnerBootstrapToken(key, {
 		audience: "owner-bootstrap",
@@ -181,7 +181,7 @@ function mintBootstrap(world: ChatticusWorld, overrides: Record<string, unknown>
 	} as Parameters<typeof mintOwnerBootstrapToken>[1]);
 }
 
-function mintSupervisor(world: ChatticusWorld, overrides: Record<string, unknown>, key = SCENARIO_GATEWAY_SIGNING_KEY): string {
+export function mintSupervisor(world: ChatticusWorld, overrides: Record<string, unknown>, key = SCENARIO_GATEWAY_SIGNING_KEY): string {
 	const scenario = ownerServerOf(world);
 	return mintComputerOwnerToken(key, {
 		audience: "computer-owner",
@@ -256,13 +256,13 @@ export async function poll(world: ChatticusWorld, state: string, sequence?: numb
 	return answer;
 }
 
-const lastPollOf = (world: ChatticusWorld): OwnerPollResponse => {
+export const lastPollOf = (world: ChatticusWorld): OwnerPollResponse => {
 	const poll = ownerServerOf(world).polls.at(-1);
 	assert.ok(poll, "The owner has not been answered a poll.");
 	return poll;
 };
 
-async function parkTurnOf(world: ChatticusWorld, botName: string): Promise<string> {
+export async function parkTurnOf(world: ChatticusWorld, botName: string): Promise<string> {
 	await ensureMember(world, STORY_TENANT, STORY_USER);
 	modelScenarioOf(world).scripted.toolCall("write_workspace", { path: `/workspace/${botName.toLowerCase()}.md`, content: "draft" }, "Working on it.");
 	await openChannelWithNamedBot(world, STORY_TENANT, STORY_USER, botName);
@@ -278,7 +278,7 @@ function turnIdOfBot(world: ChatticusWorld, botName: string): string {
 	return turnId;
 }
 
-const computerNow = async (world: ChatticusWorld) => {
+export const computerNow = async (world: ChatticusWorld) => {
 	const computer = await world.messagingStore().getComputer(STORY_TENANT);
 	assert.ok(computer, "The organization has no computer.");
 	return computer;
@@ -894,6 +894,9 @@ Then("the computer's snapshot is unchanged", async function (this: ChatticusWorl
 
 const capturedLogLines = new WeakMap<ChatticusWorld, string[]>();
 const restoreConsole = new WeakMap<ChatticusWorld, () => void>();
+
+/** The log lines the control plane wrote since the scenario began, one string for each line. */
+export const capturedLogLinesOf = (world: ChatticusWorld): readonly string[] => capturedLogLines.get(world) ?? [];
 
 Before({ tags: "@server" }, function (this: ChatticusWorld) {
 	const lines: string[] = [];

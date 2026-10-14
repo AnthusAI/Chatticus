@@ -4,6 +4,7 @@ import {
 	OWNER_BOOTSTRAP_AUDIENCE,
 	OWNER_ERROR_STATUS,
 	ownerBootstrapRequestSchema,
+	ownerCredentialsRequestSchema,
 	ownerPollRequestSchema,
 	ownerStopRequestSchema,
 	type OwnerErrorCode,
@@ -12,7 +13,7 @@ import { ownerFileResultRequestSchema } from "@chatticus/host-protocol/live-file
 import { ownerOverlayAppliedRequestSchema, ownerOverlaySealRequestSchema } from "@chatticus/host-protocol/edit-overlay";
 import { parseBearerToken, PrincipalHttpError } from "../auth/principal.ts";
 import { EditOverlayRefusal, clearOverlay, sealOverlay, type EditOverlayDependencies } from "../domain/edit-overlay.ts";
-import { exchangeOwnerBootstrap, judgeOwnerStop, OwnerRefusal, pollOwner, recordOwnerFileResult, type OwnerIdentity, type OwnerSupervisorDependencies } from "../domain/owner-supervisor.ts";
+import { exchangeOwnerBootstrap, judgeOwnerStop, OwnerRefusal, pollOwner, recordOwnerFileResult, renewOwnerCredentials, type OwnerIdentity, type OwnerSupervisorDependencies } from "../domain/owner-supervisor.ts";
 import { verifyOwnerBootstrapToken } from "../gateway/session-token.ts";
 import { ownerHostPrincipalOf } from "./owner-host-auth.ts";
 import { pathParameter } from "./user-principal.ts";
@@ -33,7 +34,7 @@ export type OwnerSupervisorRouteDependencies = OwnerSupervisorDependencies & {
  * @returns The response with the status the code maps to.
  */
 export function ownerErrorResponse(c: Context, code: OwnerErrorCode, detail: string): Response {
-	return c.json({ detail, code }, OWNER_ERROR_STATUS[code] as 401 | 403 | 409 | 422 | 503);
+	return c.json({ detail, code }, OWNER_ERROR_STATUS[code] as 401 | 403 | 409 | 422 | 429 | 503);
 }
 
 async function parseOwnerBody<T>(c: Context, schema: ZodType<T>): Promise<{ readonly value: T } | { readonly refusal: Response }> {
@@ -134,6 +135,20 @@ export async function ownerOverlayAppliedHandler(c: Context, overlay: EditOverla
 		if ("refusal" in body) return body.refusal;
 		requireNamedOwner(owner, body.value);
 		return c.json(await clearOverlay(dependencies, owner, body.value), 200);
+	});
+}
+
+/**
+ * POST /orgs/{tenant_id}/host/owner/credentials: the supervisor asks for the next set of credentials, its own or the
+ * turn's it serves. Every refusal carries the code the supervisor branches on; a broker that cannot serve is a 503 that
+ * changes nothing and may be asked again at once.
+ */
+export async function ownerCredentialsHandler(c: Context, deps: OwnerSupervisorRouteDependencies): Promise<Response> {
+	return guarded(c, async () => {
+		const owner = ownerOf(c);
+		const body = await parseOwnerBody(c, ownerCredentialsRequestSchema);
+		if ("refusal" in body) return body.refusal;
+		return c.json(await renewOwnerCredentials(deps, owner, body.value), 200);
 	});
 }
 

@@ -47,7 +47,7 @@ import { formatIsoDateTime } from "./codecs/util.ts";
 import * as workerCodec from "./codecs/worker.ts";
 import type { Worker } from "./codecs/worker.ts";
 import { computerRecordKey, fileAuditKey, fileAuditPartition, liveFileOperationKey, liveFileOperationPartition, postIdempotencyKey } from "./keys.ts";
-import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "./messaging-store.ts";
+import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerCredentialsRenewal, OwnerDispatchRecord } from "./messaging-store.ts";
 import { retryTransient } from "./transient-retry.ts";
 
 type Item = Record<string, AttributeValue>;
@@ -782,7 +782,8 @@ export class DynamoMessagingStore implements MessagingStore {
 		if (expectedDispatchId !== null) values[":expectedDispatch"] = { S: expectedDispatchId };
 		return (
 			(await this.updateComputerWhere(tenantId, {
-				update: "SET dispatch_id = :dispatchId, dispatch_turn_id = :turnId, dispatch_action_id = :actionId, dispatch_attempt = :attempt, dispatch_lease_expires_at = :lease",
+				update:
+					"SET dispatch_id = :dispatchId, dispatch_turn_id = :turnId, dispatch_action_id = :actionId, dispatch_attempt = :attempt, dispatch_lease_expires_at = :lease REMOVE dispatch_credentials_renewed_at",
 				condition: `attribute_exists(pk) AND owner_id = :owner AND attribute_not_exists(owner_stop_approved_at) AND ${dispatchCondition}`,
 				values,
 			})) !== null
@@ -808,6 +809,27 @@ export class DynamoMessagingStore implements MessagingStore {
 				values,
 			})) !== null
 		);
+	}
+
+	async renewOwnerCredentials(tenantId: string, ownerId: string, generation: number, change: OwnerCredentialsRenewal): Promise<boolean> {
+		const renewedAttribute = change.kind === "supervisor" ? "owner_credentials_renewed_at" : "dispatch_credentials_renewed_at";
+		const seenCondition = change.seenRenewedAt === null ? `attribute_not_exists(${renewedAttribute})` : `${renewedAttribute} = :seen`;
+		const values: Item = {
+			":owner": { S: ownerId },
+			":generation": { N: String(generation) },
+			":renewedAt": { N: String(Math.floor(change.renewedAt.getTime() / 1000)) },
+		};
+		if (change.seenRenewedAt !== null) values[":seen"] = { N: String(Math.floor(change.seenRenewedAt.getTime() / 1000)) };
+		let update = `SET ${renewedAttribute} = :renewedAt`;
+		let condition = `attribute_exists(pk) AND owner_id = :owner AND owner_generation = :generation AND attribute_not_exists(owner_stop_approved_at) AND ${seenCondition}`;
+		if (change.kind === "supervisor") {
+			update += ", owner_credentials_expire_at = :credentialsExpireAt";
+			values[":credentialsExpireAt"] = { N: String(Math.floor(change.credentialsExpireAt.getTime() / 1000)) };
+		} else {
+			condition += " AND dispatch_id = :dispatchId";
+			values[":dispatchId"] = { S: change.dispatchId };
+		}
+		return (await this.updateComputerWhere(tenantId, { update, condition, values })) !== null;
 	}
 
 	async touchInteractiveWindow(tenantId: string, ownerId: string, generation: number, until: Date): Promise<boolean> {

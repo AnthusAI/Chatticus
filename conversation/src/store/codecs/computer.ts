@@ -40,6 +40,10 @@ export interface Computer {
 	ownerStartedAt?: Date;
 	/** When the credentials the control plane last issued the owner end, at second precision: the minimum of the credentials and the supervisor token. The drain counts back from it. Removed with the owner fields. */
 	ownerCredentialsExpireAt?: Date;
+	/** When the control plane last recorded a supervisor credential renewal, at second precision; the one-a-minute limit counts from it. Removed with the owner fields. */
+	ownerCredentialsRenewedAt?: Date;
+	/** When the control plane last recorded a renewal of the dispatched turn's credentials, at second precision. Removed with the owner fields and by every new dispatch offer. */
+	dispatchCredentialsRenewedAt?: Date;
 	/** When the owner first reported idle since it last served; absent while it is busy. */
 	idleSinceAt?: Date;
 	/** When the control plane approved the owner's stop request; no dispatch is offered afterwards. */
@@ -62,6 +66,8 @@ export const OWNER_ATTRIBUTE_NAMES = [
 	"owner_protocol_version",
 	"owner_started_at",
 	"owner_credentials_expire_at",
+	"owner_credentials_renewed_at",
+	"dispatch_credentials_renewed_at",
 	"idle_since_at",
 	"owner_stop_approved_at",
 	"dispatch_id",
@@ -85,6 +91,8 @@ export function withoutOwner(computer: Computer): Computer {
 		ownerProtocolVersion: _protocolVersion,
 		ownerStartedAt: _startedAt,
 		ownerCredentialsExpireAt: _credentialsExpireAt,
+		ownerCredentialsRenewedAt: _credentialsRenewedAt,
+		dispatchCredentialsRenewedAt: _dispatchCredentialsRenewedAt,
 		idleSinceAt: _idleSinceAt,
 		ownerStopApprovedAt: _stopApprovedAt,
 		dispatchId: _dispatchId,
@@ -160,6 +168,8 @@ export function encode(value: Computer): Item {
 	if (value.ownerProtocolVersion !== undefined) item.owner_protocol_version = { N: String(value.ownerProtocolVersion) };
 	if (value.ownerStartedAt !== undefined) item.owner_started_at = epochSeconds(value.ownerStartedAt);
 	if (value.ownerCredentialsExpireAt !== undefined) item.owner_credentials_expire_at = epochSeconds(value.ownerCredentialsExpireAt);
+	if (value.ownerCredentialsRenewedAt !== undefined) item.owner_credentials_renewed_at = epochSeconds(value.ownerCredentialsRenewedAt);
+	if (value.dispatchCredentialsRenewedAt !== undefined) item.dispatch_credentials_renewed_at = epochSeconds(value.dispatchCredentialsRenewedAt);
 	if (value.idleSinceAt !== undefined) item.idle_since_at = epochSeconds(value.idleSinceAt);
 	if (value.ownerStopApprovedAt !== undefined) item.owner_stop_approved_at = epochSeconds(value.ownerStopApprovedAt);
 	if (value.dispatchId !== undefined) item.dispatch_id = { S: value.dispatchId };
@@ -244,6 +254,8 @@ export function decode(item: Item): Computer {
 		...(item.owner_protocol_version?.N === undefined ? {} : { ownerProtocolVersion: Number(item.owner_protocol_version.N) }),
 		...optionalDate("ownerStartedAt", dateFromSeconds(item.owner_started_at)),
 		...optionalDate("ownerCredentialsExpireAt", dateFromSeconds(item.owner_credentials_expire_at)),
+		...optionalDate("ownerCredentialsRenewedAt", dateFromSeconds(item.owner_credentials_renewed_at)),
+		...optionalDate("dispatchCredentialsRenewedAt", dateFromSeconds(item.dispatch_credentials_renewed_at)),
 		...optionalDate("idleSinceAt", dateFromSeconds(item.idle_since_at)),
 		...optionalDate("ownerStopApprovedAt", dateFromSeconds(item.owner_stop_approved_at)),
 		...(item.dispatch_id?.S === undefined ? {} : { dispatchId: item.dispatch_id.S }),

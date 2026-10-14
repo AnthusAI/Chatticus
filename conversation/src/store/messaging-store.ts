@@ -181,6 +181,16 @@ export interface MessagingStore {
 		approvedAt: Date,
 	): Promise<boolean>;
 	/**
+	 * Record one granted credential renewal, in one conditional update, only while `ownerId` is still the live owner of
+	 * `generation`, no stop is approved, and the renewal attribute of the kind still has the value the caller read
+	 * (`seenRenewedAt`; null: it was absent). A `supervisor` change also records when the credentials the grant issued end;
+	 * a `turn` change also requires the stored dispatch id to be `dispatchId`. A grant whose condition fails is discarded
+	 * unseen by the caller.
+	 *
+	 * @returns false when the owner changed, a stop was approved, the dispatch moved, or another renewal was recorded first.
+	 */
+	renewOwnerCredentials(tenantId: string, ownerId: string, generation: number, change: OwnerCredentialsRenewal): Promise<boolean>;
+	/**
 	 * Move the interactive window of the live owner (the time until which it polls at the interactive pace), only while
 	 * `ownerId` is the live owner of `generation` and no stop is approved.
 	 *
@@ -270,6 +280,24 @@ export type OwnerBootstrapRecord = {
 	/** When the credentials the bootstrap grant issued end: the minimum of the AWS credentials and the supervisor token. */
 	readonly credentialsExpireAt: Date;
 };
+
+/** What one granted renewal records on the computer record, by kind. */
+export type OwnerCredentialsRenewal =
+	| {
+			readonly kind: "supervisor";
+			/** The value of the supervisor renewal attribute the caller read; null when it was absent. */
+			readonly seenRenewedAt: Date | null;
+			readonly renewedAt: Date;
+			/** When the credentials the grant issued end: the minimum of the AWS credentials and the supervisor token. */
+			readonly credentialsExpireAt: Date;
+	  }
+	| {
+			readonly kind: "turn";
+			readonly dispatchId: string;
+			/** The value of the dispatch renewal attribute the caller read; null when it was absent. */
+			readonly seenRenewedAt: Date | null;
+			readonly renewedAt: Date;
+	  };
 
 /** The dispatch the control plane offers to the owner, as the computer record stores it. */
 export type OwnerDispatchRecord = {
