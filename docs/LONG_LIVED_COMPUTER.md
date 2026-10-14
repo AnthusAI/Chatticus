@@ -4,7 +4,10 @@
 > (snapshot index and the read-only Files view) and Phase 2a (the long-lived owner; contract in
 > [Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md)) are merged and live on development;
 > Phase 3 has a contract, [Live files protocol](LIVE_FILES_PROTOCOL.md), that settles where this page
-> is wrong or silent (section 2 of that page lists them). Sections 4.1 to 4.3 describe the system
+> is wrong or silent (section 2 of that page lists them). Phase 2b (credential renewal and the 8 hour
+> lifetime) has a contract, [Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md), whose section 2 lists
+> what this page gets wrong about it (sections 6.5 and 6.8 and the Phase 2 list below are corrected there
+> and here). Sections 4.1 to 4.3 describe the system
 > **before** Phase 2a; every other statement about today's system carries a `file:line` reference into
 > `origin/develop` at the time it was written, and every statement about the proposal is labelled
 > PROPOSED or ASSUMPTION. Where a section below disagrees with a contract page, the contract wins.
@@ -470,23 +473,40 @@ signing key it already needs.
 | R3. Give the task role the permissions | Credentials arrive from the task metadata endpoint | Rejected: the shell can reach `169.254.170.2` ([Pi session handoff](PI_SESSION_HANDOFF.md), Limits) |
 | R4. OIDC web identity | Control plane is an OIDC issuer; owner calls `AssumeRoleWithWebIdentity` | Rejected for now: needs a public JWKS endpoint and an IAM provider; R2 is enough |
 
-A stolen supervisor token can renew only while the owner is the live generation and
-healthy, and never past the 8 hour cap; stopping the computer or bumping the
-generation cuts it off, and what was already minted expires within an hour. That is
-the same exposure window as today with a kill switch added.
+A stolen supervisor token can renew only while the owner is the live generation, not
+stopping and not draining, and never past the hard end of 8 hours; stopping the
+computer or bumping the generation cuts it off, and what was already minted expires
+within an hour. The exposure window of a stolen token plus its credentials is
+therefore the owner's life (up to 8 hours), not one hour: the kill switch is what
+bounds it, and this is question S4 of the contract. **Corrected by the contract
+([Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md)):** the route is one route
+with two kinds (supervisor and turn); the cap is enforced by the credential broker
+itself from a signed start time in the token, because the broker reads no store; the
+drain is derived from the credentials the control plane issued, not from a fixed 50
+minutes; every credential stays at most one hour, because a role session cannot be
+revoked for one tenant and the shell must never see one.
 
 **Inside the container.** The AWS SDK takes a credential provider function, not
 static environment values, so the child process reads whichever credentials the
 supervisor currently holds over the local socket and never restarts to renew. Pi's
 per-call `apiKey` for the gateway is read the same way
-(`computer/host/src/owner-models.ts`).
+(`computer/host/src/owner-models.ts`). **Today (Phase 2a) the child gets everything
+in its environment at fork**, and builds its clients from the default credential
+chain; Phase 2b removes the credentials from the child's environment, renews the turn's
+credentials in the supervisor, serves them over `/run/chatticus/supervisor.sock`
+(a filesystem socket in a root-only directory, never TCP, never an abstract socket),
+and sets the gateway token per HTTP request. A turn longer than an hour needs this,
+because a turn has no time limit and its AWS credentials and gateway token end after
+an hour.
 
 **Bootstrap (D15).** Today the tokens and AWS keys sit in the RunTask overrides,
 readable by `ecs:DescribeTasks` for about an hour after the task stops
 ([Pi session handoff](PI_SESSION_HANDOFF.md), Limits, "Secrets in ECS task
-descriptions"). PROPOSED: the override holds one value, a bootstrap token valid for
-five minutes and usable once, exchanged on the first poll for the real tokens and
-credentials. After that nothing usable remains in the task description.
+descriptions"). **Built in Phase 2a, on its own route** (`POST /host/owner/bootstrap`,
+not "on the first poll"; C1 of the [2a contract](OWNER_SUPERVISOR_PROTOCOL.md)): the
+override holds one value, a bootstrap token valid for five minutes and usable once,
+exchanged for the supervisor token and the supervisor's credentials. After that nothing
+usable remains in the task description.
 
 ### 6.6 Snapshot cadence and crash loss
 
@@ -550,20 +570,33 @@ drift.
 
 - **Protocol version.** The poll request carries `protocol_version`. The control
   plane has a minimum; an owner below it receives `drain: true`. A drain stops
-  accepting dispatches, finishes the turn in hand (bounded at 10 minutes), publishes
-  and reports stopped. Raising the minimum is the operator's way to retire old
-  owners without an SHA match (a build-hash match would thrash whenever the image
-  pipeline and the Lambda deploy finish at different times).
-- **Maximum lifetime.** 8 hours, then drain (D3). This also bounds credential
-  exposure and picks up a new image, because the task definition uses a mutable tag
-  (`computer-stack.ts:130`).
-- **Watchdog.** A bug in the idle timer must not become an idle floor. When the
-  starter starts an owner it publishes a delayed `OwnerLifetimeCheck` message,
-  re-published every 15 minutes the same way probes re-arm
-  (`probes.ts:15`); no cron and no EventBridge rule. The check stops the task
-  (`ecs:StopTask`, a new permission) if the owner is older than the cap plus a 30
-  minute grace, or if its heartbeat has been silent for 2 minutes while the task is
-  still running.
+  accepting dispatches, finishes the turn in hand (bounded at **5 minutes**, C9 of the
+  2a contract; this page said 10), publishes and reports stopped. Raising the minimum is the
+  operator's way to retire old owners without an SHA match (a build-hash match would
+  thrash whenever the image pipeline and the Lambda deploy finish at different times).
+  **The minimum must not be raised in the rollout itself:** the server deploys before the
+  image moves, so raising it then would drain every new owner (the failure class of
+  [Computer image promotion](COMPUTER_IMAGE_PROMOTION.md)). Phase 2b builds the drain and
+  leaves the minimum at 1; lifetime does not depend on the version at all.
+- **Maximum lifetime.** The hard end is 8 hours (D3), measured from the bootstrap
+  exchange. The owner is told to drain at 8 hours **minus 600 seconds** (the 300 second
+  drain grace, the 120 second final publish and a 180 second margin), so that it is gone
+  before its last credentials end; and the drain is derived from the credentials the
+  control plane issued, so an owner that cannot renew (or whose renewal failed) is drained
+  600 seconds before its credentials end, exactly as the 50 minute cap of Phase 2a did.
+  This also bounds credential exposure and picks up a new image, because the task
+  definition uses a mutable tag (`computer-stack.ts:130`).
+  See [Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md), sections 3 (R4, R5) and 4.
+- **Watchdog.** A bug in the idle timer must not become an idle floor. **Phase 2a built
+  the in-container watchdog** (a separate process, `computer/chatticus-watchdog`, no
+  credentials; its numbers become 28500 and 28620 seconds in 2b). The **external**
+  mechanism proposed here, a delayed `OwnerLifetimeCheck` message re-published every 15
+  minutes like the probes (`probes.ts:15`) that stops the task with `ecs:StopTask` (a new
+  permission) if the owner is older than the cap plus a 30 minute grace (which would let
+  credentials expire under a running owner) or silent for 2 minutes, is **not built and not
+  planned for 2b** (C10 of the 2a contract; open question P5 of the 2b contract). The
+  Front Door logs `owner_overdue` for a live owner past the hard lifetime, and a metric
+  filter alarms on it.
 
 ### 6.9 Observability
 
@@ -581,9 +614,9 @@ PROPOSED lines:
 | `owner_polling` | `polls`, `interval_ms`, `dispatches`, per minute only |
 | `owner_serving_turn` | `turn_id`, `bot_id`, `queue_wait_ms`, `concurrent` |
 | `owner_turn_finished` | `outcome`, `duration_ms` |
-| `owner_credentials_refreshed` | `kind` (supervisor or turn), `expires_at` |
-| `owner_draining` | `reason` (protocol, lifetime, resize) |
-| `owner_stopping` | `reason` (idle, lifetime, drain, sigterm, vetoed), `uptime_ms`, `turns_served` |
+| `owner_credentials_refreshed` | `kind` (supervisor or turn), `expires_at`, `attempts`, `duration_ms`, `remaining_seconds_before`; with `owner_credentials_refresh_failed` and `owner_credentials_refresh_refused` (contract, section 13) |
+| `owner_draining` | `reason` (`protocol_version`, `lifetime`, `credentials`; resize later) |
+| `owner_stopping` | `reason` (idle, lifetime, unhealthy, credentials, credentials_expired, sigterm, fenced, superseded), `uptime_ms`, `turns_served` |
 | `owner_memory_pressure` | `used_percent`, `stopped_process` |
 | `process_started`, `process_exited`, `port_discovered` | `process_id`, `exit_code`, `port` |
 | `file_op` | `op`, `bytes`, `path_hash` (a short hash, not the path), `source` |
@@ -999,14 +1032,22 @@ events, and need the larger task.
 
 - **Contract.** [Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md) is the exact interface of 2a and settles
   the places where the sections of this page disagree (the bootstrap exchange is in 2a; the in-container watchdog is
-  in 2a and the external one in 2b; a 5 minute drain grace; no host token for the per-turn child).
+  in 2a and the external one was to be in 2b, which the 2b contract does not build; a 5 minute drain grace; no host token
+  for the per-turn child).
 - **2a, supervisor and poll.** Supervisor loop, poll route (heartbeat merged),
   dispatch of parked turns, per-turn child, per-turn credentials through the
   broker, idle timeout and stop-request with veto, quiet publish, the
   `already_serving` start check, max lifetime 50 minutes (no renewal yet), the
   watchdog, new log lines, removal of the legacy host service.
-- **2b, renewal.** Refresh route, credential providers in the child, bootstrap
-  exchange, protocol-version drain, lifetime raised to 8 hours.
+- **2b, renewal.** Contract: [Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md) (draft behavior in
+  `features/computer_owner_credential_renewal.feature`). `POST /host/owner/credentials` for the supervisor's and the
+  turn's credentials, the supervisor renewing in place with an atomic swap, credential providers in the child that
+  read from `/run/chatticus/supervisor.sock`, the drain derived from the issued credentials, the protocol-version
+  drain (mechanism only; the minimum stays 1), the lifetime raised to 8 hours (drain at 28200 seconds), the
+  watchdog resized, the broker enforcing the hard end. **Not** the bootstrap exchange: that is 2a and live
+  (this line used to list it). **Not** the external `OwnerLifetimeCheck` chain: not planned (open question P5).
+  Parts: P0 foundation, A1 and A2 server, B1 and B2 broker and infrastructure, C supervisor, D child and socket,
+  E integration and live proof.
 - **Gherkin.** `features/computer_owner_long_lived.feature`: a second turn is served
   by the live owner without a start; a turn parked behind a busy owner waits and
   then runs; idle timeout publishes and stops; stop is vetoed by pending work; a
@@ -1017,8 +1058,13 @@ events, and need the larger task.
 - **Live proof.** Two messages five minutes apart: the second one's first computer
   action starts within 5 seconds with no `owner_started` between them; idle
   shutdown logs `owner_stopping reason=idle` and a published snapshot; stop the
-  task mid-turn and watch recovery; leave a computer up across a credential
-  refresh.
+  task mid-turn and watch recovery. For 2b: keep a computer busy with a message every
+  8 minutes for 75 minutes (an idle computer stops after 15; "leave a computer up"
+  alone proves nothing) and see two supervisor renewals and a publish after the first
+  credentials ended; run a turn of about 70 minutes; shorten the supervisor credentials
+  to 900 seconds with the development-only broker switch to prove the swap across an
+  expiry and the failure path in 15 minutes. The exact procedure is section 19 of the
+  2b contract.
 - **Depends on.** Phase 1 only for the snapshot streaming and exclusions.
 
 ### Phase 3: live file view and edit
@@ -1094,7 +1140,7 @@ out-of-memory.
 | 1 | **Memory at 512 MiB.** Supervisor plus Pi plus a dev server does not fit; pack builds the archive in memory | Streaming pack, exclusions, 0.5 vCPU / 1 GiB by Phase 4, a memory guard, measured in Phase 1 |
 | 2 | **Preview page-load time** through a poll-based relay | Measure first; document the limit; bundled targets first; gzip at the owner |
 | 3 | **Two live disks** if a late start job races a live owner | `already_serving` check; scenario; generation compare stays |
-| 4 | **An idle-timer bug becomes an idle floor** | 8 hour cap, drain, independent watchdog message chain, log alarm on uptime beyond the cap |
+| 4 | **An idle-timer bug becomes an idle floor** | 8 hour hard end, drain, the in-container watchdog (built in 2a), log alarm on uptime beyond the cap (`owner_overdue`); the external message chain is not planned (2b contract, P5) |
 | 5 | **Isolation headers break the embedded preview** on development | Test early in Phase 4; narrow the headers or add `credentialless` |
 | 6 | **Credential broker** is a new privileged component | One function, no other secrets, fixed role ARNs, tag allow-list from `ownerSessionTags` |
 | 7 | **Dev-server compatibility** (host checks, absolute URLs, failing WebSocket clients) | Host rewrite, `Location` rewrite, per-framework start recipes, a test matrix |
@@ -1154,7 +1200,7 @@ named test in the phase that depends on it.
 
 | Threat | Why it is new | Mitigation |
 | --- | --- | --- |
-| Longer credential window | Owner lives up to 8 h instead of one turn | Two tiers, per-turn keys expire in 1 h, renewal refused for a stale generation or stopped computer, kill switch, hard cap, bootstrap token replaces secrets in the task description |
+| Longer credential window | Owner lives up to 8 h instead of one turn | Two tiers, every credential expires in 1 h and is renewed, renewal refused for a stale generation, a stopped, stopping or draining owner, kill switch, a hard end enforced by the broker from a signed start time, bootstrap token replaces secrets in the task description. A stolen token plus credentials can renew for as long as the owner is the live owner: up to 8 h, not 1 h (2b contract, 12.2 and S4) |
 | A persistent foothold in the sandbox | A prompt-injected turn can leave a background process running past the turn | Same user (uid 2000), same filesystem reach as the snapshot already persists; processes die at shutdown; egress control remains the open item it already is |
 | Larger privileged component | The supervisor persists, holds computer-level keys and a local socket | Supervisor credentials limited to the snapshot prefix; socket mode 0600 root; child per turn holds the session keys |
 | Preview as a phishing and exfiltration surface | Bot-authored pages are shown inside the app | Separate registrable domain, sandboxed frame, fixed banner, no cookies, capability address with expiry |
@@ -1171,7 +1217,7 @@ named test in the phase that depends on it.
 | --- | --- |
 | 1. Symlink escape in file tools | Holds: fixed by the unprivileged helper (`owner-file-helper.ts:1-17`); the new file operations reuse it and add no path the owner opens itself. A scenario with a planted link covers each new operation. |
 | 2. Invoke key reaches every owner | Holds: the owner holds a signed token, not the invoke key (`owner-host-auth.ts:6-14`). The new supervisor audience adds no shared secret. |
-| 3. Secrets in RunTask overrides | Improved by D15: only a five-minute single-use bootstrap token remains there. If D15 is declined it is unchanged and, with refresh, the first credentials are still one hour. |
+| 3. Secrets in RunTask overrides | Closed by D15 in Phase 2a (live): only a five-minute single-use bootstrap token remains there. Renewal (2b) never puts a credential in the task or its environment. |
 | 4. Tenant-wide table reach | Holds: the supervisor role is narrower than the per-turn role; the per-turn role is the current policy file. |
 | 5. Gateway has no per-call ceiling | Unchanged; a longer-lived owner makes a runaway loop last longer until the monthly ceiling. |
 | 6. Invoke key in the CloudFront configuration | Unchanged for the API; the preview distribution does not use a shared header (8.5). |
@@ -1215,3 +1261,4 @@ receipts the command writes next to the output.
 - [AWS authentication](AWS_AUTH.md): origin protection and key rules.
 - [Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md): the Phase 2a contract.
 - [Live files protocol](LIVE_FILES_PROTOCOL.md): the Phase 3 contract.
+- [Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md): the Phase 2b contract.
