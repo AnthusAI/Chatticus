@@ -44,7 +44,7 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is building and testing credential renewal, broker controls, and child socket access for eight-hour runs.",
-  "right_now_updated_at": "2026-10-14T13:57:48.663050Z",
+  "right_now_summary": "Phase 2b is defined, with server and broker changes built while reviews, merges, socket work, and tests continue.",
+  "right_now_updated_at": "2026-10-14T14:44:48.444299Z",
   "custom": {}
 }

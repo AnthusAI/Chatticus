@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "adb7941b-e326-4af1-bae7-13df17c3b2a9",
+      "author": "home",
+      "text": "PR 556 (ts/credential-renewal-supervisor) opened against develop, not merged. Implemented: credential-lease.ts (CredentialHolder, CredentialLease, TurnCredentialLease), the renewal activity, atomic swap, local drain at E-600 with stop reason credentials, hard deadline E-30 with exit 9, turn credential renewal behind TurnCredentialSource (supervisor.turnCredentials), S3 client built once with a credentials provider, replaceBearerToken, protocol version 3. Scenarios: 14 owned scenarios (plus 5 added) moved out of the draft into features/computer_owner_credential_renewal_supervisor.feature (registered); computer_owner_supervisor.feature scenario rewritten for the lease. Evidence: all new scenarios except 3 that pass on the old supervisor by construction failed against the unmodified supervisor; mutations caught: margin 1199 and 1201, drain E-599 and E-601, hard deadline E-29 and E-31, token or credentials replaced one microtask late, credentials never swapped, renewal answer accepted while stopping, answer accepted without checking it is newer, local drain stopped with lifetime, pauses a third as long, renewal restarting the idle clock, no renewals started; renewal started while stopping makes the run exhaust memory (detected as a crashed run). Full local gates: typecheck, vitest 91 files 1304 tests, cucumber-js 1725 scenarios 1725 passed. Contract mismatches: the draft scenario timings that were off by design (2500 s for four turn attempts, 3571 s for the hard deadline, idle scenarios without a veto) were adjusted; steps live in owner-supervisor-renewal.steps.ts, not owner-supervisor-process.steps.ts; SupervisorPlane also declares replaceBearerToken. Image must not be promoted before D.",
+      "created_at": "2026-10-14T14:44:44.458800Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-c"
+      }
+    }
+  ],
   "created_at": "2026-10-14T03:32:42.716187Z",
-  "updated_at": "2026-10-14T13:57:45.165765Z",
+  "updated_at": "2026-10-14T14:44:44.458827Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The supervisor is being updated to renew credentials, swap them safely, and stop before they expire.",
-  "right_now_updated_at": "2026-10-14T13:57:47.039791Z",
+  "right_now_summary": "PR 556 implements credential renewal and awaits review before merging.",
+  "right_now_updated_at": "2026-10-14T14:44:46.773327Z",
   "custom": {}
 }
