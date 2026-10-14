@@ -214,6 +214,53 @@ exit "\${line%%|*}"
       assert.match(result.stderr, /lost the race to another workflow 5 times; giving up/);
     });
 
+    const overlappingDeployMessages = [
+      "Cannot delete ChangeSet in status CREATE_IN_PROGRESS",
+      "AlreadyExistsException: ChangeSet cdk-deploy-change-set already exists",
+      "ConcurrentModificationException: a concurrent update of the stack was detected",
+      "An error occurred (ValidationError): a concurrent update is in progress",
+    ];
+
+    for (const message of overlappingDeployMessages) {
+      it(`retries after the stack settles when two deploys of one stack overlap: ${message}`, () => {
+        const result = runWithStubs({
+          deployOutcomes: [
+            { exitCode: 1, output: message },
+            { exitCode: 0, output: "deployed" },
+          ],
+          stackStatuses: ["UPDATE_COMPLETE", "UPDATE_IN_PROGRESS", "UPDATE_COMPLETE"],
+        });
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.deployCalls, 2);
+        assert.equal(result.synthCalls, 1);
+      });
+
+      it(`still gives up after the attempt bound when the overlap persists: ${message}`, () => {
+        const result = runWithStubs({
+          deployOutcomes: [{ exitCode: 1, output: message }],
+          stackStatuses: ["UPDATE_COMPLETE"],
+        });
+        assert.equal(result.status, 1);
+        assert.equal(result.deployCalls, 5);
+      });
+    }
+
+    it("does not retry an unrelated change set or stack error", () => {
+      for (const output of ["ChangeSet creation failed: Template format error", "Stack ChatticusWeb is in ROLLBACK_COMPLETE state", "Resource handler returned message: already exists as a bucket"]) {
+        const result = runWithStubs({
+          deployOutcomes: [{ exitCode: 4, output }],
+          stackStatuses: ["UPDATE_COMPLETE"],
+        });
+        assert.equal(result.status, 4, output);
+        assert.equal(result.deployCalls, 1, output);
+      }
+    });
+
+    it("keeps the overlap messages in one named list in the script", () => {
+      assert.match(contents, /OVERLAPPING_DEPLOY_MESSAGE_PATTERNS=/);
+      assert.match(contents, /Cannot delete ChangeSet in status CREATE_IN_PROGRESS/);
+    });
+
     it("keeps the retry loop, the matched error text and the attempt bound in the script", () => {
       assert.match(contents, /is in \[A-Z_\]\*IN_PROGRESS state and can not be updated/);
       assert.match(contents, /DEPLOY_MAXIMUM_ATTEMPTS=5/);

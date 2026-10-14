@@ -90,6 +90,11 @@ fi
 STACK_POLL_SECONDS="${CHATTICUS_STACK_POLL_SECONDS:-15}"
 STACK_WAIT_MAXIMUM_POLLS=120
 DEPLOY_MAXIMUM_ATTEMPTS=5
+OVERLAPPING_DEPLOY_MESSAGE_PATTERNS="is in [A-Z_]*IN_PROGRESS state and can not be updated
+Cannot delete ChangeSet in status CREATE_IN_PROGRESS
+ChangeSet .* already exists
+ConcurrentModificationException
+concurrent update"
 
 wait_for_stack_to_settle() {
   STACK_WAIT_ATTEMPTS=0
@@ -133,7 +138,7 @@ while :; do
   if [ "${DEPLOY_EXIT_CODE}" -eq 0 ]; then
     exit 0
   fi
-  if ! grep -Eq 'is in [A-Z_]*IN_PROGRESS state and can not be updated' "${DEPLOY_OUTPUT_FILE}"; then
+  if ! printf '%s\n' "${OVERLAPPING_DEPLOY_MESSAGE_PATTERNS}" | grep -Eif - "${DEPLOY_OUTPUT_FILE}" >/dev/null; then
     exit "${DEPLOY_EXIT_CODE}"
   fi
   if [ "${DEPLOY_ATTEMPT}" -ge "${DEPLOY_MAXIMUM_ATTEMPTS}" ]; then
