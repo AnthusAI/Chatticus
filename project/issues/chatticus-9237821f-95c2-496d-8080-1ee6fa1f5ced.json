@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "49014b25-ae76-4b5b-be93-4f84908f69d7",
+      "author": "home",
+      "text": "Root cause: the enable-time home rule from PR 494 already homes unchosen organizations in the deployment account. Organizations enabled before it hold no home and no setup path and are refused with no_aws_home. Fix in PR 544: shared rule helpers, an idempotent migrate-organization-aws-home script that is a dry run unless --execute, and Gherkin for the migration and for app-created to first computer start. Home is assigned at enable not at creation because the owner may choose the customer-account path while pending. Open product question: should open-signup development auto-enable new organizations.",
+      "created_at": "2026-10-14T01:30:11.815860Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "reliability-d"
+      }
+    }
+  ],
   "created_at": "2026-10-10T19:06:28.926709Z",
-  "updated_at": "2026-10-14T01:29:51.184167Z",
+  "updated_at": "2026-10-14T01:30:11.816268Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "App-created organizations lack an AWS home, so their computers cannot start until provisioning is handled.",
-  "right_now_updated_at": "2026-10-14T01:29:53.757544Z",
+  "right_now_summary": "PR 544 adds home migration and tests while the team decides whether signup should auto-enable organizations.",
+  "right_now_updated_at": "2026-10-14T01:30:14.012366Z",
   "custom": {}
 }
