@@ -3,7 +3,7 @@
   "title": "2b-P0: renewal contract code: constants, schemas, token claim, broker port and fake",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R8 R10 R13, 4, 5, 7, 17 P0). Draft behavior: features/computer_owner_credential_renewal.feature (not registered; do not register scenarios in this ticket).\n\nShared contracts only, merged first so that A1, A2, B1, C and D can be built in parallel. Its merge deploys the strict token claim: before it merges, no owner task may be running (aws ecs list-tasks on the Computers cluster), or a running owner gets 401, exits 5 and publishes nothing (section 18 step 1).\n\nFiles:\n- host-protocol/src/supervisor.ts: every NEW constant of section 4 (OWNER_HARD_LIFETIME_SECONDS, OWNER_LIFETIME_MARGIN_SECONDS, OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS, OWNER_BROKER_MINIMUM_SESSION_SECONDS, OWNER_ISSUANCE_CUTOFF_SECONDS, OWNER_CREDENTIAL_RENEWAL_MARGIN_SECONDS, OWNER_CREDENTIAL_RENEWAL_MINIMUM_INTERVAL_SECONDS, OWNER_CREDENTIAL_RENEWAL_RETRY_SECONDS, OWNER_CREDENTIAL_HARD_DEADLINE_MARGIN_SECONDS, OWNER_SUPERVISOR_SOCKET_PATH); the schemas of section 5 (claim ownerStartedAtSeconds on computerOwnerTokenClaimsSchema, ownerCredentialsRequestSchema and ownerCredentialsResponseSchema, broker purpose supervisor_renewal and error code owner_lifetime_over, error codes owner_draining / owner_stopping / renewal_too_soon / turn_not_served and status 429, stop reason credentials, ownerSocketRequestSchema and ownerSocketResponseSchema); the child environment list changes (R10). Do NOT change OWNER_MAX_LIFETIME_SECONDS (3000), OWNER_PROTOCOL_VERSION (2) or the watchdog constants: A1 and C do.\n- conversation/test/owner-supervisor-protocol-schema.test.ts: a test of every new schema, claim strictness, constants arithmetic (600, 27900, the formula for 28200).\n- Every place that mints a supervisor token supplies the claim: conversation/src/lambdas/owner-credential-broker.ts (bootstrap sets ownerStartedAtSeconds to its own nowSeconds; renewal and clamp are B1), conversation/features-support/fakes/fake-owner-credential-broker.ts, steps that mint tokens (owner-host-token.steps.ts and whatever the compiler finds), conversation/test/session-token.test.ts, supervisor-session-token.test.ts, fake-owner-credential-broker.test.ts, lambda-owner-credential-broker.test.ts.\n- conversation/src/computer/owner-credential-broker.ts: the supervisor_renewal overload and grant type.\n- FakeOwnerCredentialBroker: handles supervisor_renewal, enforces the hard end (anchor + 28800, refuse within 900 s), records requests, can hold and release an answer, can be told to fail.\n- computer/host/src/supervisor-ports.ts: SupervisorPlane.renewCredentials and the TurnCredentialSource interface (current(dispatchId) returns { aws_credentials, gateway_token, expires_at } or null); conversation/features-support/fakes/fake-supervisor-plane.ts implements renewCredentials (scriptable answers, delays, failures, request record).\n- A vitest test that pins the AWS SDK behavior the design relies on (section 2 F9, assumption A2): a provider is re-read only inside the last 5 minutes before expiration (read from the installed @smithy/core).\n\nAcceptance (from conversation/): npm run typecheck; npm test; npm run test:features green with no scenario of the draft feature registered; cd ../infra && npm test. Every existing scenario stays green.\n\nDependencies: none (the contract PR). Blocks A1, A2, B1, B2, C, D.\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
   "type": "sub-task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,14 +12,14 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-10-14T03:31:29.282779Z",
-  "updated_at": "2026-10-14T03:31:29.282813Z",
+  "updated_at": "2026-10-14T10:13:33.639610Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The shared renewal contract is being defined so dependent work can proceed in parallel.",
-  "right_now_updated_at": "2026-10-14T03:31:30.724882Z",
+  "right_now_summary": "The shared renewal contract is being defined across schemas, token claims, broker ports, fakes, and tests.",
+  "right_now_updated_at": "2026-10-14T10:13:36.037727Z",
   "custom": {}
 }
