@@ -3,7 +3,7 @@
   "title": "CI deploy workflows are cancelled by concurrency when one merge triggers ThinTurn, ControlPlane and the image build together",
   "description": "Observed after the Phase 2a merges (PRs 516, 517, 518): a single merge to develop triggers the ThinTurn deploy, the ControlPlane deploy and the computer image build at once, and GitHub concurrency cancels or displaces some of them (one pending run per group). Fix: separate concurrency groups per workflow, or sequence them (image first, then Lambdas, or the reverse), without cancelling in-progress deploys. Related: chatticus-96e12b (same family, image build vs Lambda deploys).",
   "type": "bug",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -34,17 +34,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude-main"
       }
+    },
+    {
+      "id": "4f8d85cf-51bf-4b09-9f3d-ca71be5d873d",
+      "author": "home",
+      "text": "Closing: PRs 543, 545 and 548 merged. Live on development 2026-10-14: the merge of PR 548 and 549 (3c1e7660) ran CI, Auth, ControlPlane, ThinTurn, Web and the image build and all six succeeded, none cancelled or colliding; each development stack is now deployed by exactly one workflow, each workflow has its own concurrency group, deploys check out the commit that triggered them, and the deploy script synthesizes once and retries only on the overlapping-deploy messages. A pending run replaced by a later commit's run is by design. The retry path itself has not fired live (it is covered by stub tests); reopen if a deploy log shows a retry that fails.",
+      "created_at": "2026-10-14T03:33:32.970990Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-12T17:49:46.505462Z",
-  "updated_at": "2026-10-14T02:02:08.121590Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T03:33:36.467810Z",
+  "closed_at": "2026-10-14T03:33:36.467762Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Separate workflow groups prevent cancellation; overlapping deploys now succeed, with retry-path proof still pending.",
-  "right_now_updated_at": "2026-10-14T02:02:10.352671Z",
+  "right_now_summary": "Separate workflow groups and deploy retries now let all six development workflows finish without cancellations or",
+  "right_now_updated_at": "2026-10-14T03:33:38.910383Z",
   "custom": {}
 }

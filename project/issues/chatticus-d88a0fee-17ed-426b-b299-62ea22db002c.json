@@ -3,7 +3,7 @@
   "title": "Incident follow-up: pre-deploy check of real IAM for new S3 access paths, and image tag flips only after server side is verified",
   "description": "Incident 2026-10-13: the computer image was pushed to development before the Front Door IAM for the overlay was proven, and every computer start on development failed for about 40 minutes. Tests passed because moto does not enforce IAM. Add (1) a pre-deploy CI check that exercises real IAM for new S3 access paths, for example an IAM policy simulator check of the Front Door and supervisor roles against the keys they need; (2) a rule, in docs and the deploy scripts, that the image tag flips only after the server side is deployed and verified. Related fix: PR 531 (Front Door ListBucket).",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -34,17 +34,29 @@
         "model": "claude-sonnet-5-5",
         "name": "triage-agent"
       }
+    },
+    {
+      "id": "c9125294-4303-41da-a73e-9465d86f7192",
+      "author": "home",
+      "text": "Closing: PR 547 (role access manifest with 39 rows recorded and enforced after every cucumber scenario, offline evaluation of the synthesized policies, a separate manual image promotion workflow that refuses unless the matching Lambda deploys succeeded, bypass scripts closed) and PR 549 (the read-only post-deploy simulation, batched and backed off). Verified live on development 2026-10-14: conversation/bin/simulate-role-access.ts --environment development printed PASS 42 of 42 allowed (frontDoor 12, ownerTurn 28, supervisor 2). Follow-up not done: the simulation needs operator credentials, so no workflow runs it; run it after any deploy that changes a role or adds a store path.",
+      "created_at": "2026-10-14T03:33:40.847101Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-13T07:04:45.040678Z",
-  "updated_at": "2026-10-14T03:11:59.897702Z",
-  "closed_at": null,
+  "updated_at": "2026-10-14T03:33:44.905111Z",
+  "closed_at": "2026-10-14T03:33:44.905070Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "PR 549 needs merging, and the team must decide whether deploy workflows should run IAM checks.",
-  "right_now_updated_at": "2026-10-14T03:12:01.692236Z",
+  "right_now_summary": "IAM guards are merged and verified; post-deploy role checks still require a manual run.",
+  "right_now_updated_at": "2026-10-14T03:33:47.232294Z",
   "custom": {}
 }

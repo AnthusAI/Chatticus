@@ -46,17 +46,29 @@
         "model": "claude-sonnet-5-5",
         "name": "triage-agent"
       }
+    },
+    {
+      "id": "47614032-bbd5-44c6-8945-3152eacb2eda",
+      "author": "home",
+      "text": "Mostly done by PRs 543, 547 and 548: the image build has its own concurrency group and no longer moves the dev tag (a separate manual promotion workflow does, after the Lambda deploys succeed). Open remainder: the starter's retry loop for an owner that exits on a configuration error is not pinned.",
+      "created_at": "2026-10-14T03:33:49.317915Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
     }
   ],
   "created_at": "2026-10-11T17:37:40.103261Z",
-  "updated_at": "2026-10-14T03:11:12.335196Z",
+  "updated_at": "2026-10-14T03:33:49.317945Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The build and deploys are separated; only the starter’s config-error retry loop remains.",
-  "right_now_updated_at": "2026-10-14T03:11:13.981161Z",
+  "right_now_summary": "Image and deploy sequencing is separated; the starter still retries owners that exit with configuration errors.",
+  "right_now_updated_at": "2026-10-14T03:33:51.491106Z",
   "custom": {}
 }
