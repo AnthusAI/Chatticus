@@ -44,7 +44,7 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is implementing credential renewal, broker controls, and the supervisor socket while PRs await review.",
-  "right_now_updated_at": "2026-10-14T13:23:25.951560Z",
+  "right_now_summary": "The team has defined the contract and is implementing credential renewal, broker controls, and the supervisor socket.",
+  "right_now_updated_at": "2026-10-14T13:33:29.881075Z",
   "custom": {}
 }
