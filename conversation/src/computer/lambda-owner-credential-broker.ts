@@ -11,6 +11,8 @@ import {
 	type OwnerCredentialBrokerPort,
 	type SupervisorGrant,
 	type SupervisorGrantRequest,
+	type SupervisorRenewalGrant,
+	type SupervisorRenewalGrantRequest,
 	type TurnGrant,
 	type TurnGrantRequest,
 } from "./owner-credential-broker.ts";
@@ -33,8 +35,11 @@ export class LambdaOwnerCredentialBroker implements OwnerCredentialBrokerPort {
 	}
 
 	issue(request: SupervisorGrantRequest): Promise<SupervisorGrant>;
+	issue(request: SupervisorRenewalGrantRequest): Promise<SupervisorRenewalGrant>;
 	issue(request: TurnGrantRequest): Promise<TurnGrant>;
-	async issue(request: SupervisorGrantRequest | TurnGrantRequest): Promise<SupervisorGrant | TurnGrant> {
+	async issue(
+		request: SupervisorGrantRequest | SupervisorRenewalGrantRequest | TurnGrantRequest,
+	): Promise<SupervisorGrant | SupervisorRenewalGrant | TurnGrant> {
 		const checked = ownerCredentialBrokerRequestSchema.safeParse(request);
 		if (!checked.success) {
 			throw new OwnerCredentialBrokerError("invalid_request", "The broker request does not match the broker request schema, so nothing was sent.");

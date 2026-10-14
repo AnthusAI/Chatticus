@@ -370,6 +370,7 @@ describe("front door composition of the owner routes", () => {
 				computerId: "household",
 				ownerId,
 				startGeneration: 1,
+				ownerStartedAtSeconds: issuedAtSeconds,
 				issuedAtSeconds,
 				expiresAtSeconds: issuedAtSeconds + 600,
 			});

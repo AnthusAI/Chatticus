@@ -3,6 +3,8 @@ import {
 	type OwnerCredentialBrokerPort,
 	type SupervisorGrant,
 	type SupervisorGrantRequest,
+	type SupervisorRenewalGrant,
+	type SupervisorRenewalGrantRequest,
 	type TurnGrant,
 	type TurnGrantRequest,
 } from "../src/computer/owner-credential-broker.ts";
@@ -28,13 +30,18 @@ export class ScenarioOwnerCredentialBroker implements OwnerCredentialBrokerPort 
 	}
 
 	issue(request: SupervisorGrantRequest): Promise<SupervisorGrant>;
+	issue(request: SupervisorRenewalGrantRequest): Promise<SupervisorRenewalGrant>;
 	issue(request: TurnGrantRequest): Promise<TurnGrant>;
-	async issue(request: SupervisorGrantRequest | TurnGrantRequest): Promise<SupervisorGrant | TurnGrant> {
+	async issue(
+		request: SupervisorGrantRequest | SupervisorRenewalGrantRequest | TurnGrantRequest,
+	): Promise<SupervisorGrant | SupervisorRenewalGrant | TurnGrant> {
 		if (this.unreachable) {
 			this.fake.calls.push({ request, tags: [] });
 			throw new OwnerCredentialBrokerError("broker_unreachable", "The scenario made the broker unreachable.");
 		}
-		return request.purpose === "supervisor" ? this.fake.issue(request) : this.fake.issue(request);
+		if (request.purpose === "supervisor") return this.fake.issue(request);
+		if (request.purpose === "supervisor_renewal") return this.fake.issue(request);
+		return this.fake.issue(request);
 	}
 }
 

@@ -64,12 +64,12 @@ Feature: The owner supervisor keeps the computer on between turns and switches i
     And it started no child and published nothing
     And it reported no stop
 
-  Scenario: A dispatch starts a child that holds the turn's credentials and nothing of the supervisor's
+  Scenario: A dispatch starts a child that holds the supervisor's socket path and no credential of its own
     Given an idle supervisor
     When the control plane offers a dispatch for turn "turn-1" of bot "bot-1"
     Then the supervisor starts one child with the subcommand "turn"
     And the child's environment holds exactly the names in the child list
-    And the child's environment holds the dispatch's gateway token and the dispatch's AWS credentials
+    And the child's environment holds the socket path and no AWS access key, secret key, session token or gateway token
     And the child's environment holds none of the bootstrap token, the supervisor token, the Front Door address, the snapshot bucket, the live root, the invoke key, the old host token or a model key
     And the supervisor's next poll is in state "serving" with the turn and the dispatch id
     And it logged "owner_dispatch_received" and "owner_serving_turn"

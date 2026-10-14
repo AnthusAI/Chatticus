@@ -64,6 +64,36 @@ export const OWNER_DRAIN_GRACE_SECONDS = 300;
 /** Seconds of the budget the final publish and the stopped report get after the drain grace. */
 export const OWNER_FINAL_PUBLISH_BUDGET_SECONDS = 120;
 
+/** Seconds of a margin the stop sequence keeps before credentials end. */
+export const OWNER_LIFETIME_MARGIN_SECONDS = 180;
+
+/** Seconds before the end of the credentials at which an owner must be draining: the grace, the final publish and a margin. */
+export const OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS = OWNER_DRAIN_GRACE_SECONDS + OWNER_FINAL_PUBLISH_BUDGET_SECONDS + OWNER_LIFETIME_MARGIN_SECONDS;
+
+/** Seconds after the bootstrap exchange at which nothing the owner holds is valid: no token, no credential. Eight hours. */
+export const OWNER_HARD_LIFETIME_SECONDS = 28800;
+
+/** The shortest session STS issues; the broker issues nothing in the last this many seconds of the hard lifetime. */
+export const OWNER_BROKER_MINIMUM_SESSION_SECONDS = 900;
+
+/** Seconds after the bootstrap exchange from which no renewal is granted and no dispatch is offered. */
+export const OWNER_ISSUANCE_CUTOFF_SECONDS = OWNER_HARD_LIFETIME_SECONDS - OWNER_BROKER_MINIMUM_SESSION_SECONDS;
+
+/** Seconds of remaining credentials at which the supervisor starts asking for new ones. */
+export const OWNER_CREDENTIAL_RENEWAL_MARGIN_SECONDS = 1200;
+
+/** Seconds that must pass between two renewals of the same kind for one owner. */
+export const OWNER_CREDENTIAL_RENEWAL_MINIMUM_INTERVAL_SECONDS = 60;
+
+/** Pauses, in seconds, between the attempts of a renewal that fails; the last repeats. */
+export const OWNER_CREDENTIAL_RENEWAL_RETRY_SECONDS = [15, 30, 60] as const;
+
+/** Seconds before its credentials end at which a supervisor kills everything and exits. */
+export const OWNER_CREDENTIAL_HARD_DEADLINE_MARGIN_SECONDS = 30;
+
+/** Where the supervisor listens for its child. A filesystem socket inside a directory only root can enter. */
+export const OWNER_SUPERVISOR_SOCKET_PATH = "/run/chatticus/supervisor.sock";
+
 /** Seconds without a successful poll after which the supervisor fences itself. Below the 30 second window in which the control plane still counts it as the live owner. */
 export const OWNER_POLL_SILENCE_FENCE_SECONDS = 25;
 
@@ -107,14 +137,11 @@ export const OWNER_CHILD_ENVIRONMENT_NAMES = [
 	"CHATTICUS_PI_SESSIONS_BUCKET",
 	"CHATTICUS_ENVIRONMENT",
 	"CHATTICUS_MODEL_GATEWAY_URL",
-	"CHATTICUS_MODEL_GATEWAY_TOKEN",
+	"CHATTICUS_SUPERVISOR_SOCKET",
 	"CHATTICUS_WORKSPACE_ROOT",
 	"CHATTICUS_SHELL_LAUNCHER",
 	"AWS_REGION",
 	"AWS_DEFAULT_REGION",
-	"AWS_ACCESS_KEY_ID",
-	"AWS_SECRET_ACCESS_KEY",
-	"AWS_SESSION_TOKEN",
 ] as const;
 
 /** The names a per-turn child must never hold: they belong to the supervisor alone. */
@@ -127,6 +154,11 @@ export const OWNER_CHILD_FORBIDDEN_ENVIRONMENT_NAMES = [
 	"CHATTICUS_INVOKE_KEY",
 	"CHATTICUS_OWNER_HOST_TOKEN",
 	"OPENAI_API_KEY",
+	"CHATTICUS_MODEL_GATEWAY_TOKEN",
+	"AWS_ACCESS_KEY_ID",
+	"AWS_SECRET_ACCESS_KEY",
+	"AWS_SESSION_TOKEN",
+	"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
 ] as const;
 
 const identifier = z.string().min(1).max(256);
@@ -161,10 +193,14 @@ export const ownerErrorCodeSchema = z.enum([
 	"credentials_unavailable",
 	"operation_closed",
 	"overlay_not_sealed",
+	"owner_draining",
+	"owner_stopping",
+	"renewal_too_soon",
+	"turn_not_served",
 ]);
 
 /** The status of each owner error code. */
-export const OWNER_ERROR_STATUS: Readonly<Record<z.infer<typeof ownerErrorCodeSchema>, 401 | 403 | 409 | 422 | 503>> = {
+export const OWNER_ERROR_STATUS: Readonly<Record<z.infer<typeof ownerErrorCodeSchema>, 401 | 403 | 409 | 422 | 429 | 503>> = {
 	invalid_credential: 401,
 	wrong_organization: 403,
 	credential_mismatch: 403,
@@ -177,6 +213,10 @@ export const OWNER_ERROR_STATUS: Readonly<Record<z.infer<typeof ownerErrorCodeSc
 	credentials_unavailable: 503,
 	operation_closed: 409,
 	overlay_not_sealed: 409,
+	owner_draining: 409,
+	owner_stopping: 409,
+	renewal_too_soon: 429,
+	turn_not_served: 409,
 };
 
 /** The body of every refusal of an owner route. */
@@ -203,6 +243,8 @@ export const computerOwnerTokenClaimsSchema = z
 		computerId: identifier,
 		ownerId: identifier,
 		startGeneration: generation,
+		/** When the owner's bootstrap exchange was granted, in seconds since the epoch; every renewal keeps it, and the broker ends every credential by this plus the hard lifetime. */
+		ownerStartedAtSeconds: z.number().int().positive(),
 		issuedAtSeconds: z.number().int().nonnegative(),
 		expiresAtSeconds: z.number().int().positive(),
 	})
@@ -278,8 +320,43 @@ export const ownerPollResponseSchema = z
 		message: "a draining owner is offered no dispatch",
 	});
 
-/** Why a supervisor asks to stop: no work for the idle timeout, the drain the control plane ordered at the maximum lifetime, or the owner's own failure. */
-export const ownerStopReasonSchema = z.enum(["idle", "lifetime", "unhealthy"]);
+/** Why a supervisor asks to stop: no work for the idle timeout, the drain the control plane ordered at the maximum lifetime, the owner's own failure, or credentials it could not renew (always approved). */
+export const ownerStopReasonSchema = z.enum(["idle", "lifetime", "unhealthy", "credentials"]);
+
+/** POST /orgs/{tenant}/host/owner/credentials: the supervisor asks for the next set of credentials, its own or its turn's. */
+export const ownerCredentialsRequestSchema = z.discriminatedUnion("kind", [
+	z.object({ kind: z.literal("supervisor"), owner_id: identifier, generation }).strict(),
+	z
+		.object({ kind: z.literal("turn"), owner_id: identifier, generation, dispatch_id: identifier, turn_id: identifier })
+		.strict(),
+]);
+
+/** The next set. Both kinds end their token and their credentials at the same moment, never later than the owner's hard end. */
+export const ownerCredentialsResponseSchema = z.discriminatedUnion("kind", [
+	z.object({
+		kind: z.literal("supervisor"),
+		supervisor_token: z.string().min(1),
+		supervisor_token_expires_at: timestamp,
+		aws_credentials: awsCredentialsSchema,
+	}),
+	z.object({
+		kind: z.literal("turn"),
+		dispatch_id: identifier,
+		turn_id: identifier,
+		gateway_token: z.string().min(1),
+		aws_credentials: awsCredentialsSchema,
+		expires_at: timestamp,
+	}),
+]);
+
+/** What the per-turn child asks its supervisor for over the local socket. The dispatch id is the one in its environment. */
+export const ownerSocketRequestSchema = z.object({ v: z.literal(1), op: z.literal("turn_credentials"), dispatch_id: identifier }).strict();
+
+/** What the supervisor answers over the local socket: the active turn's credentials, or a refusal that carries no secret. */
+export const ownerSocketResponseSchema = z.union([
+	z.object({ ok: z.literal(true), aws_credentials: awsCredentialsSchema, gateway_token: z.string().min(1), expires_at: timestamp }),
+	z.object({ ok: z.literal(false), code: z.enum(["no_turn", "expired"]) }),
+]);
 
 /** POST /orgs/{tenant}/host/owner/stop-request: the supervisor asks whether it may stop. */
 export const ownerStopRequestSchema = z
@@ -315,6 +392,7 @@ const brokerBase = {
  */
 export const ownerCredentialBrokerRequestSchema = z.discriminatedUnion("purpose", [
 	z.object({ ...brokerBase, purpose: z.literal("supervisor") }).strict(),
+	z.object({ ...brokerBase, purpose: z.literal("supervisor_renewal") }).strict(),
 	z
 		.object({
 			...brokerBase,
@@ -332,6 +410,7 @@ export const ownerCredentialBrokerErrorCodeSchema = z.enum([
 	"authorization_mismatch",
 	"assume_role_failed",
 	"signing_key_unavailable",
+	"owner_lifetime_over",
 ]);
 
 /** What the broker answers: the credentials of the role it assumed and the token it signed, or a refusal. */
@@ -339,6 +418,13 @@ export const ownerCredentialBrokerResponseSchema = z.union([
 	z.object({
 		ok: z.literal(true),
 		purpose: z.literal("supervisor"),
+		aws_credentials: awsCredentialsSchema,
+		supervisor_token: z.string().min(1),
+		supervisor_token_expires_at: timestamp,
+	}),
+	z.object({
+		ok: z.literal(true),
+		purpose: z.literal("supervisor_renewal"),
 		aws_credentials: awsCredentialsSchema,
 		supervisor_token: z.string().min(1),
 		supervisor_token_expires_at: timestamp,
@@ -368,7 +454,11 @@ export type OwnerBootstrapResponse = z.infer<typeof ownerBootstrapResponseSchema
 export type OwnerPollRequest = z.infer<typeof ownerPollRequestSchema>;
 export type OwnerDispatch = z.infer<typeof ownerDispatchSchema>;
 export type OwnerPollResponse = z.infer<typeof ownerPollResponseSchema>;
-export type OwnerStopReason = z.infer<typeof ownerStopReasonSchema>;
+export type OwnerCredentialsRequest = z.infer<typeof ownerCredentialsRequestSchema>;
+export type OwnerCredentialsResponse = z.infer<typeof ownerCredentialsResponseSchema>;
+export type OwnerSocketRequest = z.infer<typeof ownerSocketRequestSchema>;
+export type OwnerSocketResponse = z.infer<typeof ownerSocketResponseSchema>;
+export type OwnerStopReason =z.infer<typeof ownerStopReasonSchema>;
 export type OwnerStopRequest = z.infer<typeof ownerStopRequestSchema>;
 export type OwnerStopVetoReason = z.infer<typeof ownerStopVetoReasonSchema>;
 export type OwnerStopResponse = z.infer<typeof ownerStopResponseSchema>;

@@ -69,7 +69,8 @@ function bootstrapToken(scenario: BrokerScenario, overrides: ClaimOverrides = {}
 }
 
 function supervisorToken(scenario: BrokerScenario, overrides: ClaimOverrides = {}): string {
-	return mintComputerOwnerToken(SIGNING_KEY, { audience: "computer-owner", ...baseClaims(scenario, overrides, SESSION_SECONDS) });
+	const ownerStartedAtSeconds = Math.floor(scenario.clock.now().getTime() / 1000);
+	return mintComputerOwnerToken(SIGNING_KEY, { audience: "computer-owner", ownerStartedAtSeconds, ...baseClaims(scenario, overrides, SESSION_SECONDS) });
 }
 
 type TurnPayload = { turn_id: string; bot_id: string; channel_id: string };
@@ -234,6 +235,7 @@ Then("the answer holds a supervisor token for the audience {string} that names n
 	assert.equal(verification.claims.computerId, "computer-1");
 	assert.equal(verification.claims.ownerId, "owner-1");
 	assert.equal(verification.claims.startGeneration, 2);
+	assert.equal(verification.claims.ownerStartedAtSeconds, Math.floor(scenarioOf(this).clock.now().getTime() / 1000));
 	assert.equal(
 		Object.keys(verification.claims).some((key) => ["turnId", "botId", "channelId"].includes(key)),
 		false,

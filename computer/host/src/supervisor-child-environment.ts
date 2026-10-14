@@ -1,7 +1,7 @@
-import { OWNER_CHILD_ENVIRONMENT_NAMES, type OwnerDispatch } from "@chatticus/host-protocol/supervisor";
+import { OWNER_CHILD_ENVIRONMENT_NAMES, OWNER_SUPERVISOR_SOCKET_PATH, type OwnerDispatch } from "@chatticus/host-protocol/supervisor";
 
 /** The parts of a dispatch the per-turn child's environment is built from. */
-export type ChildEnvironmentDispatch = Pick<OwnerDispatch, "dispatch_id" | "turn_id" | "bot_id" | "user_id" | "gateway_token" | "aws_credentials">;
+export type ChildEnvironmentDispatch = Pick<OwnerDispatch, "dispatch_id" | "turn_id" | "bot_id" | "user_id">;
 
 type ChildEnvironmentName = (typeof OWNER_CHILD_ENVIRONMENT_NAMES)[number];
 
@@ -24,8 +24,9 @@ const SUPERVISOR_VALUE_NAMES: readonly ChildEnvironmentName[] = [
 
 /**
  * Build the environment of one per-turn child from nothing: the names of {@link OWNER_CHILD_ENVIRONMENT_NAMES} and no other
- * key. Settings the supervisor shares come from its own environment; the member, the turn, the bot, the gateway token and
- * the per-turn AWS credentials come from the dispatch. Nothing of the supervisor's secrets can pass through, because a name
+ * key. Settings the supervisor shares come from its own environment; the member, the turn and the bot come from the
+ * dispatch. The child holds no AWS credential and no gateway token: it reads them from the supervisor's socket, whose path
+ * is the only trace of them in its environment. Nothing of the supervisor's secrets can pass through, because a name
  * that is not listed is never copied.
  *
  * @param supervisorEnvironment The supervisor's environment. Names it does not set are left out of the child's.
@@ -42,9 +43,6 @@ export function buildOwnerChildEnvironment(supervisorEnvironment: NodeJS.Process
 	environment["CHATTICUS_DISPATCH_ID"] = dispatch.dispatch_id;
 	environment["CHATTICUS_TAKEOVER_TURN_ID"] = dispatch.turn_id;
 	environment["CHATTICUS_TAKEOVER_BOT_ID"] = dispatch.bot_id;
-	environment["CHATTICUS_MODEL_GATEWAY_TOKEN"] = dispatch.gateway_token;
-	environment["AWS_ACCESS_KEY_ID"] = dispatch.aws_credentials.access_key_id;
-	environment["AWS_SECRET_ACCESS_KEY"] = dispatch.aws_credentials.secret_access_key;
-	environment["AWS_SESSION_TOKEN"] = dispatch.aws_credentials.session_token;
+	environment["CHATTICUS_SUPERVISOR_SOCKET"] = OWNER_SUPERVISOR_SOCKET_PATH;
 	return environment;
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import {
 	OWNER_CHILD_ENVIRONMENT_NAMES,
+	OWNER_SUPERVISOR_SOCKET_PATH,
 	type OwnerErrorCode,
 	type OwnerPollResponse,
 	type OwnerStopReason,
@@ -322,12 +323,21 @@ Then("the child's environment holds exactly the names in the child list", functi
 	assert.deepEqual(names, [...OWNER_CHILD_ENVIRONMENT_NAMES].sort());
 });
 
-Then("the child's environment holds the dispatch's gateway token and the dispatch's AWS credentials", function (this: ChatticusWorld) {
+Then("the child's environment holds the socket path and no AWS access key, secret key, session token or gateway token", function (this: ChatticusWorld) {
 	const environment = supervisorScenarioOf(this).spawner.lastChild.environment;
-	assert.equal(environment["CHATTICUS_MODEL_GATEWAY_TOKEN"], FAKE_SUPERVISOR_SECRETS.gatewayToken);
-	assert.equal(environment["AWS_ACCESS_KEY_ID"], FAKE_SUPERVISOR_SECRETS.turnAccessKeyId);
-	assert.equal(environment["AWS_SECRET_ACCESS_KEY"], FAKE_SUPERVISOR_SECRETS.turnSecretAccessKey);
-	assert.equal(environment["AWS_SESSION_TOKEN"], FAKE_SUPERVISOR_SECRETS.turnSessionToken);
+	assert.equal(environment["CHATTICUS_SUPERVISOR_SOCKET"], OWNER_SUPERVISOR_SOCKET_PATH);
+	for (const name of ["CHATTICUS_MODEL_GATEWAY_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]) {
+		assert.equal(environment[name], undefined, `${name} is set in the child's environment`);
+	}
+	const values = Object.values(environment);
+	for (const secret of [
+		FAKE_SUPERVISOR_SECRETS.gatewayToken,
+		FAKE_SUPERVISOR_SECRETS.turnAccessKeyId,
+		FAKE_SUPERVISOR_SECRETS.turnSecretAccessKey,
+		FAKE_SUPERVISOR_SECRETS.turnSessionToken,
+	]) {
+		assert.ok(!values.includes(secret), `The child holds ${secret.slice(0, 8)}...`);
+	}
 	assert.equal(environment["CHATTICUS_TAKEOVER_BOT_ID"], "bot-1");
 	assert.equal(environment["CHATTICUS_USER_ID"], "ryan");
 });

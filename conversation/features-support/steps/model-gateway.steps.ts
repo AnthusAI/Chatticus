@@ -102,7 +102,7 @@ Given("the container holds a session token for its turn signed with another key"
 });
 
 Given("the container holds a session token minted for the supervisor routes", function (this: ChatticusWorld) {
-	remember(this, mintComputerOwnerToken(SCENARIO_GATEWAY_SIGNING_KEY, { audience: "computer-owner", tenantId: turnOf(this).tenantId, computerId: "computer-1", ownerId: turnOf(this).ownerId, startGeneration: 1, issuedAtSeconds: nowSeconds(this), expiresAtSeconds: nowSeconds(this) + 300 }));
+	remember(this, mintComputerOwnerToken(SCENARIO_GATEWAY_SIGNING_KEY, { audience: "computer-owner", tenantId: turnOf(this).tenantId, computerId: "computer-1", ownerId: turnOf(this).ownerId, startGeneration: 1, ownerStartedAtSeconds: nowSeconds(this), issuedAtSeconds: nowSeconds(this), expiresAtSeconds: nowSeconds(this) + 300 }));
 });
 
 Given("the container holds a session token for a turn that does not exist", function (this: ChatticusWorld) {

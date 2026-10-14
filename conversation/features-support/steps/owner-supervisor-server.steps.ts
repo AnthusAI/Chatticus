@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
 import {
 	OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS,
@@ -184,10 +185,26 @@ function mintSupervisor(world: ChatticusWorld, overrides: Record<string, unknown
 		computerId: scenario.computerId,
 		ownerId: scenario.ownerId,
 		startGeneration: scenario.generation,
+		ownerStartedAtSeconds: nowSeconds(world),
 		issuedAtSeconds: nowSeconds(world),
 		expiresAtSeconds: nowSeconds(world) + OWNER_CREDENTIAL_LIFETIME_SECONDS,
 		...overrides,
 	} as Parameters<typeof mintComputerOwnerToken>[1]);
+}
+
+function signedSupervisorTokenWithoutStartTime(world: ChatticusWorld): string {
+	const scenario = ownerServerOf(world);
+	const claims = {
+		audience: "computer-owner",
+		tenantId: STORY_TENANT,
+		computerId: scenario.computerId,
+		ownerId: scenario.ownerId,
+		startGeneration: scenario.generation,
+		issuedAtSeconds: nowSeconds(world),
+		expiresAtSeconds: nowSeconds(world) + OWNER_CREDENTIAL_LIFETIME_SECONDS,
+	};
+	const signedPart = `ct1.${Buffer.from(JSON.stringify(claims)).toString("base64url")}`;
+	return `${signedPart}.${createHmac("sha256", SCENARIO_GATEWAY_SIGNING_KEY).update(signedPart).digest("base64url")}`;
 }
 
 export async function presentBootstrap(world: ChatticusWorld, token: string, body: Record<string, unknown> = {}): Promise<AnswerRecord> {
@@ -463,6 +480,7 @@ When(/^the owner polls with a supervisor token that is (.+)$/, async function (t
 			expiresAtSeconds: nowSeconds(this) + 300,
 		}),
 		"a bootstrap token": mintBootstrap(this, {}),
+		"signed without the start time of the owner": signedSupervisorTokenWithoutStartTime(this),
 		"for another organization": mintSupervisor(this, { tenantId: "other-organization" }),
 		"for another owner id": mintSupervisor(this, { ownerId: "owner-another" }),
 		"for a computer that is not this one": mintSupervisor(this, { computerId: "computer-another" }),
@@ -616,7 +634,7 @@ Then("the answer holds a supervisor token valid for {int} seconds and supervisor
 	assert.equal(body.computer_id, ownerServerOf(this).computerId);
 });
 
-Then("the supervisor token names the organization, the computer, the owner and generation {int} and no turn", function (this: ChatticusWorld, generation: number) {
+Then("the supervisor token names the organization, the computer, the owner and generation {int} and no turn", async function (this: ChatticusWorld, generation: number) {
 	const scenario = ownerServerOf(this);
 	const verification = verifyComputerOwnerToken(SCENARIO_GATEWAY_SIGNING_KEY, scenario.supervisorToken, this.clock.now());
 	assert.ok(verification.valid, JSON.stringify(verification));
@@ -626,9 +644,13 @@ Then("the supervisor token names the organization, the computer, the owner and g
 		"expiresAtSeconds",
 		"issuedAtSeconds",
 		"ownerId",
+		"ownerStartedAtSeconds",
 		"startGeneration",
 		"tenantId",
 	]);
+	const computer = await computerNow(this);
+	assert.ok(computer.ownerStartedAt, "No owner start time is recorded.");
+	assert.equal(verification.claims.ownerStartedAtSeconds, Math.floor(computer.ownerStartedAt.getTime() / 1000));
 	assert.equal(verification.claims.tenantId, STORY_TENANT);
 	assert.equal(verification.claims.computerId, scenario.computerId);
 	assert.equal(verification.claims.ownerId, scenario.ownerId);

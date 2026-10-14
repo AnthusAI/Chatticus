@@ -26,7 +26,7 @@ const bootstrapClaims = {
 	expiresAtSeconds: nowSeconds + 300,
 } as const;
 
-const supervisorClaims = { ...bootstrapClaims, audience: "computer-owner", expiresAtSeconds: nowSeconds + 3600 } as const;
+const supervisorClaims = { ...bootstrapClaims, audience: "computer-owner", ownerStartedAtSeconds: nowSeconds, expiresAtSeconds: nowSeconds + 3600 } as const;
 
 function forge(claims: Record<string, unknown>): string {
 	const signed = `ct1.${Buffer.from(JSON.stringify(claims)).toString("base64url")}`;
@@ -39,9 +39,14 @@ describe("supervisor protocol tokens", () => {
 		expect(verifyOwnerBootstrapToken(KEY, token, NOW)).toEqual({ valid: true, claims: bootstrapClaims });
 	});
 
-	it("round-trips the supervisor claims", () => {
+	it("round-trips the supervisor claims, including the start time of the owner", () => {
 		const token = mintComputerOwnerToken(KEY, supervisorClaims);
 		expect(verifyComputerOwnerToken(KEY, token, NOW)).toEqual({ valid: true, claims: supervisorClaims });
+	});
+
+	it("does not mint a supervisor token without the start time of the owner", () => {
+		const { ownerStartedAtSeconds: _removed, ...withoutStartTime } = supervisorClaims;
+		expect(() => mintComputerOwnerToken(KEY, withoutStartTime as unknown as Parameters<typeof mintComputerOwnerToken>[1])).toThrow();
 	});
 
 	it("verifies by audience through the generic functions", () => {
@@ -95,6 +100,9 @@ describe("supervisor protocol tokens", () => {
 
 	it.each([
 		["a missing owner", { ...supervisorClaims, ownerId: undefined }],
+		["a missing start time", { ...supervisorClaims, ownerStartedAtSeconds: undefined }],
+		["a zero start time", { ...supervisorClaims, ownerStartedAtSeconds: 0 }],
+		["a string start time", { ...supervisorClaims, ownerStartedAtSeconds: "1700000000" }],
 		["a numeric tenant", { ...supervisorClaims, tenantId: 7 }],
 		["a fractional generation", { ...supervisorClaims, startGeneration: 1.5 }],
 		["a zero generation", { ...supervisorClaims, startGeneration: 0 }],

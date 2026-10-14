@@ -191,14 +191,15 @@ Feature: The control plane serves the long-lived computer owner: bootstrap, poll
     Then the answer is <status> with the code "<code>"
 
     Examples:
-      | fault                                   | status | code               |
-      | expired                                 | 401    | invalid_credential |
-      | signed with another key                 | 401    | invalid_credential |
-      | a model gateway token                   | 401    | invalid_credential |
-      | a bootstrap token                       | 401    | invalid_credential |
-      | for another organization                | 403    | wrong_organization |
-      | for another owner id                    | 403    | not_current_owner  |
-      | for a computer that is not this one     | 403    | not_current_owner  |
+      | fault                                      | status | code               |
+      | expired                                    | 401    | invalid_credential |
+      | signed with another key                    | 401    | invalid_credential |
+      | a model gateway token                      | 401    | invalid_credential |
+      | a bootstrap token                          | 401    | invalid_credential |
+      | signed without the start time of the owner | 401    | invalid_credential |
+      | for another organization                   | 403    | wrong_organization |
+      | for another owner id                       | 403    | not_current_owner  |
+      | for a computer that is not this one        | 403    | not_current_owner  |
 
   Scenario Outline: The supervisor token is refused on every route the supervisor does not call
     Given a bootstrapped owner of the household computer

@@ -5,6 +5,8 @@ import type { z } from "zod";
 import type {
 	OwnerBootstrapRequest,
 	OwnerBootstrapResponse,
+	OwnerCredentialsRequest,
+	OwnerCredentialsResponse,
 	OwnerDispatch,
 	OwnerErrorCode,
 	OwnerPollRequest,
@@ -63,6 +65,8 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	readonly polls: Array<Recorded<OwnerPollRequest>> = [];
 	readonly stopRequests: Array<Recorded<OwnerStopRequest>> = [];
 	readonly fileResults: Array<Recorded<OwnerFileResultRequest>> = [];
+	/** Every credentials request the supervisor sent, answered or not. */
+	readonly renewals: Array<Recorded<OwnerCredentialsRequest>> = [];
 	readonly computerCalls: string[] = [];
 	readonly stoppedReports: Array<{ readonly generation: number | undefined; readonly atMilliseconds: number; readonly order: number }> = [];
 	readonly overlaySeals: Array<Ordered<z.input<typeof ownerOverlaySealRequestSchema>>> = [];
@@ -79,6 +83,12 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	vetoesByReason = new Map<OwnerStopReason, OwnerStopVetoReason>();
 	pollAfterNextStopRequest: OwnerPollResponse | null = null;
 	fileResultScript: Array<Error | "ok"> = [];
+	/** The answer to each credentials request, taken in turn; a fresh set that ends in an hour once the script is used up. */
+	renewalScript: Array<OwnerCredentialsResponse | Error> = [];
+	/** Every credentials request fails with this error. */
+	renewalsFailWith: Error | null = null;
+	/** Milliseconds of fake time every credentials request waits before it is answered. */
+	renewalDelayMilliseconds = 0;
 	stoppedReportScript: Array<Error | "ok"> = [];
 	heldRunningReport: { readonly promise: Promise<void>; release: () => void } | null = null;
 	defaultNextPollMilliseconds = 1000;
@@ -100,6 +110,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	private readonly clock: SupervisorClock;
 	private stopRequestedSincePoll = false;
 	private requestOrder = 0;
+	private heldRenewal: Promise<void> | null = null;
 
 	constructor(clock: SupervisorClock) {
 		this.clock = clock;
@@ -171,6 +182,58 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 		if (scripted !== undefined) return scripted;
 		const veto = this.vetoesByReason.get(request.reason);
 		return veto === undefined ? { approved: true } : { approved: false, reason: veto };
+	}
+
+	/**
+	 * Make the next credentials request, and only the next, wait before it is answered.
+	 *
+	 * @returns The function that releases the held request.
+	 */
+	holdNextRenewal(): () => void {
+		let release: () => void = () => undefined;
+		this.heldRenewal = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		return release;
+	}
+
+	async renewCredentials(request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse> {
+		this.renewals.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		const held = this.heldRenewal;
+		this.heldRenewal = null;
+		if (held !== null) await held;
+		if (this.renewalDelayMilliseconds > 0) await this.clock.sleep(this.renewalDelayMilliseconds);
+		if (this.renewalsFailWith !== null) throw this.renewalsFailWith;
+		const scripted = this.renewalScript.shift();
+		if (scripted instanceof Error) throw scripted;
+		if (scripted !== undefined) return scripted;
+		const expiresAt = new Date(this.clock.nowMilliseconds() + 3600_000).toISOString();
+		if (request.kind === "supervisor") {
+			return {
+				kind: "supervisor",
+				supervisor_token: FAKE_SUPERVISOR_SECRETS.supervisorToken,
+				supervisor_token_expires_at: expiresAt,
+				aws_credentials: {
+					access_key_id: FAKE_SUPERVISOR_SECRETS.supervisorAccessKeyId,
+					secret_access_key: FAKE_SUPERVISOR_SECRETS.supervisorSecretAccessKey,
+					session_token: FAKE_SUPERVISOR_SECRETS.supervisorSessionToken,
+					expires_at: expiresAt,
+				},
+			};
+		}
+		return {
+			kind: "turn",
+			dispatch_id: request.dispatch_id,
+			turn_id: request.turn_id,
+			gateway_token: FAKE_SUPERVISOR_SECRETS.gatewayToken,
+			aws_credentials: {
+				access_key_id: FAKE_SUPERVISOR_SECRETS.turnAccessKeyId,
+				secret_access_key: FAKE_SUPERVISOR_SECRETS.turnSecretAccessKey,
+				session_token: FAKE_SUPERVISOR_SECRETS.turnSessionToken,
+				expires_at: expiresAt,
+			},
+			expires_at: expiresAt,
+		};
 	}
 
 	async postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }> {

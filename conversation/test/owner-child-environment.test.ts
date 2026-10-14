@@ -79,17 +79,24 @@ describe("buildOwnerChildEnvironment", () => {
 		for (const secret of secrets) expect(values, secret).not.toContain(secret);
 	});
 
-	it("takes the member, the turn, the bot, the gateway token and the AWS credentials from the dispatch", () => {
+	it("takes the member, the turn and the bot from the dispatch", () => {
 		expect(environment).toMatchObject({
 			CHATTICUS_USER_ID: "member-from-dispatch",
 			CHATTICUS_DISPATCH_ID: "dispatch-1",
 			CHATTICUS_TAKEOVER_TURN_ID: "turn-1",
 			CHATTICUS_TAKEOVER_BOT_ID: "bot-1",
-			CHATTICUS_MODEL_GATEWAY_TOKEN: "gateway-token-of-the-dispatch",
-			AWS_ACCESS_KEY_ID: "ASIATURNKEY",
-			AWS_SECRET_ACCESS_KEY: "turn-secret",
-			AWS_SESSION_TOKEN: "turn-session",
 		});
+	});
+
+	it("holds no credential of the dispatch and names the supervisor's socket instead", () => {
+		expect(environment).toMatchObject({ CHATTICUS_SUPERVISOR_SOCKET: "/run/chatticus/supervisor.sock" });
+		for (const name of ["CHATTICUS_MODEL_GATEWAY_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]) {
+			expect(environment, name).not.toHaveProperty(name);
+		}
+		const values = Object.values(environment);
+		for (const secret of ["gateway-token-of-the-dispatch", "ASIATURNKEY", "turn-secret", "turn-session"]) {
+			expect(values, secret).not.toContain(secret);
+		}
 	});
 
 	it("takes the shared settings from the supervisor", () => {

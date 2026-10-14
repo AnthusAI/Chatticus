@@ -1,8 +1,11 @@
 import type { ownerOverlayAppliedRequestSchema, ownerOverlayAppliedResponseSchema, ownerOverlaySealRequestSchema, ownerOverlaySealResponseSchema } from "@chatticus/host-protocol/edit-overlay";
 import type { OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
 import type {
+	AwsCredentials,
 	OwnerBootstrapRequest,
 	OwnerBootstrapResponse,
+	OwnerCredentialsRequest,
+	OwnerCredentialsResponse,
 	OwnerPollRequest,
 	OwnerPollResponse,
 	OwnerStopRequest,
@@ -71,12 +74,33 @@ export interface SupervisorPlane extends HostBootPlane {
 	bootstrap(request: OwnerBootstrapRequest): Promise<OwnerBootstrapResponse>;
 	poll(request: OwnerPollRequest): Promise<OwnerPollResponse>;
 	stopRequest(request: OwnerStopRequest): Promise<OwnerStopResponse>;
+	/** Ask for the next set of credentials, the supervisor's own or those of the turn it serves; the response has the kind that was asked. */
+	renewCredentials(request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse>;
 	/** Post the owner's answer to one file request; a repeat of an answer already recorded is recorded again without harm. */
 	postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }>;
 	/** Close the edit overlay to member writes after the snapshot is extracted, and receive the entries to apply. */
 	sealOverlay(request: z.input<typeof ownerOverlaySealRequestSchema>): Promise<z.output<typeof ownerOverlaySealResponseSchema>>;
 	/** Ask the Front Door to clear applied entries once a publish that began after the apply is recorded, and report entries that were not applied. */
 	postOverlayApplied(request: z.input<typeof ownerOverlayAppliedRequestSchema>): Promise<z.output<typeof ownerOverlayAppliedResponseSchema>>;
+}
+
+/** The credentials of the turn being served, as the supervisor holds them right now. */
+export type TurnCredentials = {
+	readonly aws_credentials: AwsCredentials;
+	readonly gateway_token: string;
+	readonly expires_at: string;
+};
+
+/**
+ * What the socket server reads and the supervisor's turn credential lease implements: the credentials of the dispatch being
+ * served, which the supervisor renews and the child only reads.
+ */
+export interface TurnCredentialSource {
+	/**
+	 * @param dispatchId The dispatch the child names.
+	 * @returns The credentials held for that dispatch right now, or null when it is not the dispatch being served.
+	 */
+	current(dispatchId: string): TurnCredentials | null;
 }
 
 /**

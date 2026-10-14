@@ -2,6 +2,8 @@ import type { HostComputer } from "@chatticus/host-protocol";
 import type {
 	OwnerBootstrapRequest,
 	OwnerBootstrapResponse,
+	OwnerCredentialsRequest,
+	OwnerCredentialsResponse,
 	OwnerPollRequest,
 	OwnerPollResponse,
 	OwnerStopRequest,
@@ -82,6 +84,10 @@ class DiskScenarioPlane implements SupervisorPlane {
 
 	async stopRequest(_request: OwnerStopRequest): Promise<OwnerStopResponse> {
 		return { approved: true };
+	}
+
+	async renewCredentials(_request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse> {
+		throw new Error("The disk scenario plane serves no credential renewal.");
 	}
 
 	async postFileResult(): Promise<{ readonly recorded: true }> {
