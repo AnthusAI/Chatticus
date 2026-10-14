@@ -44,7 +44,7 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is implementing credential renewal, broker controls, and child socket access; several PRs await review.",
-  "right_now_updated_at": "2026-10-14T13:55:51.006540Z",
+  "right_now_summary": "The team is building and testing credential renewal, broker controls, and child socket access for eight-hour runs.",
+  "right_now_updated_at": "2026-10-14T13:57:48.663050Z",
   "custom": {}
 }
