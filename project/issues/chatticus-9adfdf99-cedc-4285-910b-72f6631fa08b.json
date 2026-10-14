@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-9adfdf99-cedc-4285-910b-72f6631fa08b",
+  "title": "2b-A1: server derives the drain from issued credentials; lifetime constants to 8 hours; protocol-version drain; issuance cutoff",
+  "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R4 R5 R14 R16 R17, 4, 6.4, 6.5, 17 A1). Gherkin first: scenarios in features/computer_owner_credential_renewal.feature (draft, tag @server); move the ones this ticket owns into the real run (features/cucumber-features.txt) with their steps.\n\nThe drain is derived from the credentials the control plane issued; the lifetime constants become the 8 hour ones. Behavior-preserving for an image that does not renew: its observable drain moment stays 3000 seconds.\n\nFiles:\n- host-protocol/src/supervisor.ts: OWNER_MAX_LIFETIME_SECONDS = OWNER_HARD_LIFETIME_SECONDS - OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS (28200); derived OWNER_WATCHDOG_TERMINATE_SECONDS and OWNER_WATCHDOG_KILL_SECONDS (28500 and 28620); declaration order.\n- computer/chatticus-watchdog: terminate_after=28500, kill_after=28620, header comment.\n- conversation/test/computer-image-structure.test.ts, conversation/features-support/steps/owner-watchdog.steps.ts, features/computer_owner_supervisor.feature (scenario 'The watchdog asks, then forces, at the end of the lifetime' gets the new numbers; new scenario 'The watchdog is sized for eight hours').\n- conversation/src/store/codecs/computer.ts, store/messaging-store.ts, store/dynamo-messaging-store.ts, features-support/in-memory-messaging-store.ts: ownerCredentialsExpireAt (owner_credentials_expire_at, epoch seconds); consumeOwnerBootstrap stores it (from the grant: the minimum of the credentials and token expiry); cleared with ownerId. Contract test in conversation/test/dynamo-messaging-store.contract.test.ts.\n- conversation/src/domain/owner-supervisor.ts: ownerDrainReason (protocol_version, lifetime, credentials) and ownerIssuanceClosed replace ownerLifetimeIsOver; poll: drain with drain_reason, no dispatch when issuance is closed (log owner_dispatch_withheld reason=issuance_cutoff once per owner), owner_overdue log, a minimumProtocolVersion dependency replacing the owner_protocol_version_low log; stop request: lifetime approved for any drain reason, credentials always approved, unhealthy unchanged; exchangeOwnerBootstrap passes the grant expiry.\n- Existing scenarios whose steps set ownerStartedAt also set ownerCredentialsExpireAt: features/owner_supervisor_server.feature (the two scenarios that move the clock 3000 s past the bootstrap), features/computer_owner_long_lived.feature (the step 'the owner was bootstrapped 3000 seconds ago'). Steps in conversation/features-support/steps/owner-supervisor-server.steps.ts.\n\nScenarios owned: 'No dispatch is offered in the last 900 seconds of the hard lifetime', 'The control plane drains an owner that does not renew when its credentials are ten minutes from the end', 'An owner that renews is not drained at fifty minutes and is drained at seven hours and fifty', 'A stop for the drain is approved whatever the drain was for', 'A stop for credentials the owner could not renew is approved whatever is pending', 'An owner below the minimum protocol version is told to drain and is offered nothing', 'An owner far past its lifetime is reported', 'The watchdog is sized for eight hours'.\n\nAcceptance (from conversation/): typecheck; npm test; npm run test:features (moto per AGENTS.md); the owned scenarios in features/cucumber-features.txt; infra tests still pass.\n\nDependencies: P0. Blocks A2. Note: the watchdog script change and the TS constants must land together (computer-image-structure.test.ts ties them).\n\nRules: no emojis, no line comments, TSDoc on public exports. Do not read or write project/.",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-881c41ba-751f-4b4f-b2e5-f5eb40841ea2",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-14T03:31:45.001625Z",
+  "updated_at": "2026-10-14T03:33:18.831877Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "phase2b-planner"
+  },
+  "right_now_summary": "No implementation or test activity is recorded yet.",
+  "right_now_updated_at": "2026-10-14T03:33:20.637068Z",
+  "custom": {}
+}

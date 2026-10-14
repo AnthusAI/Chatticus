@@ -1,0 +1,34 @@
+{
+  "id": "chatticus-4f3fcc9a-e9b7-443e-9cd8-d698f8e1e334",
+  "title": "2b-B2: CDK assertions for renewal and the development-only broker fault switch",
+  "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R18 R22, 13, 15, 17 B2, 19 steps 3 and 4). Gherkin first (features/computer_owner_credential_renewal.feature, tag @infra).\n\nFiles:\n- infra/test/computer-owner-stack.test.ts: assert the broker's role holds no permission beyond GetSecretValue on the signing key and AssumeRole and TagSession on the two owner roles (no DynamoDB, S3 or SQS); both roles' trust (the broker's role, the exact tag keys with the Null and ForAllValues:StringEquals aws:TagKeys conditions) and maxSessionDuration 3600 are unchanged. This part can merge before B1.\n- The development-only fault switch (decision R22; open question P4 of the contract: confirm with the owner before building): infra/lib/control-plane-stack.ts reads a CDK context (ownerBrokerFault: none, deny_supervisor_renewal or deny_turn_renewal; ownerBrokerCredentialSeconds: 900 to 3600) and sets two broker environment variables in development; synthesis throws for any other environment and names the switch. conversation/src/lambdas/owner-credential-broker.ts reads them through a faults dependency (default none): a denied purpose answers assume_role_failed, a shorter duration replaces 3600 (never longer, never below 900). The broker edit is made after B1 merges (same file).\n- The CloudWatch metric filters and alarms of section 13 (owner_overdue; five consecutive owner_credentials_refresh_failed; owner_stopping reason=credentials_expired): optional in the same PR.\n- infra/deploy-*.sh: document in the script header how to deploy the development ControlPlane with the context and how to restore it (the proof of section 19 steps 3 and 4 uses it).\n\nScenarios owned: 'Renewal adds no permission to the broker and no role changes its trust or session limit', 'The broker's development fault switch exists in development only'.\n\nAcceptance: cd infra && npm test; npx cdk synth of the development ControlPlane with and without the context; synth for staging with the context fails and names the switch; cd conversation && npm run test:features for the broker's fault dependency.\n\nDependencies: P0 (assertions); B1 (the switch). Blocks the failure proof in E.\n\nRules: no emojis, no line comments. AWS resources exist only as CDK; never create IAM users or access keys. Do not read or write project/.",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-881c41ba-751f-4b4f-b2e5-f5eb40841ea2",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-76131ccb-3b52-4c31-b0db-87ed578c75ac",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-14T03:32:28.278198Z",
+  "updated_at": "2026-10-14T03:33:44.741350Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "phase2b-planner"
+  },
+  "right_now_summary": "The work covers CDK checks and a development-only broker fault switch, with the broker edit following B1.",
+  "right_now_updated_at": "2026-10-14T03:33:46.976346Z",
+  "custom": {}
+}

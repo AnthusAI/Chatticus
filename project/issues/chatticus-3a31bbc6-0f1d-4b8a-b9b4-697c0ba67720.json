@@ -3,23 +3,36 @@
   "title": "Long-lived computer Phase 2b: credential renewal and 8-hour lifetime",
   "description": "Refresh route, credential providers in the child, bootstrap exchange, protocol-version drain, lifetime raised to 8 hours. Depends on 2a.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0ad047e9-d7a8-4862-badd-522dcb701e97",
+      "author": "home",
+      "text": "Phase 2b contract written: docs/OWNER_CREDENTIAL_RENEWAL.md with the draft behavior in features/computer_owner_credential_renewal.feature (59 scenarios, all traced), PR ts/credential-renewal-contract into develop (not merged). Key decisions: POST /host/owner/credentials (one route, kinds supervisor and turn); the supervisor renews at 40 minutes into each one-hour credential set; the drain is derived from the credentials the server issued (so the 3000 s rule becomes the special case of an owner that never renews) with a hard end at 8 h and a drain at 28200 s; the child holds no credential in its environment and reads its turn's credentials over /run/chatticus/supervisor.sock; the broker enforces the hard end from a signed ownerStartedAtSeconds claim. Parts (sub-tasks): P0 foundation, A1 and A2 server, B1 and B2 broker and infrastructure, C supervisor, D child and socket, E integration and live proof. Open questions for the owner are in section 20 of the contract (P1 to P5 product, S1 to S6 security). P0's merge needs no running owner task (strict token claim).",
+      "created_at": "2026-10-14T03:34:38.081517Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-planner"
+      }
+    }
+  ],
   "created_at": "2026-10-12T13:18:55.826042Z",
-  "updated_at": "2026-10-12T13:18:55.826074Z",
+  "updated_at": "2026-10-14T03:34:38.081548Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is building credential renewal and raising the computer lifetime to eight hours.",
-  "right_now_updated_at": "2026-10-12T13:18:57.484417Z",
+  "right_now_summary": "The renewal contract is drafted, while implementation, tests, and live proof remain underway.",
+  "right_now_updated_at": "2026-10-14T03:34:39.491297Z",
   "custom": {}
 }

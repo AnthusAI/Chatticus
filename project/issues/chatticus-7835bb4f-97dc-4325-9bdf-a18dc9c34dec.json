@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-7835bb4f-97dc-4325-9bdf-a18dc9c34dec",
+  "title": "2b-E: end-to-end scenarios, deploy verification and live proof of credential renewal",
+  "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 17 E, 18, 19, 20). Whoever finishes last of A1, A2, B1, C and D does this (B2 for the failure proof).\n\nWork:\n1. The four @end-to-end scenarios of features/computer_owner_credential_renewal.feature ('An owner keeps serving across a credential renewal', 'A turn longer than an hour finishes', 'An owner that was replaced cannot renew and ends', 'An owner at its eight hour limit drains, stops, and the next message starts a new owner') in one steps file with the real routes, the real supervisor and a fake clock (see features/computer_owner_long_lived.feature for the shape); register them in features/cucumber-features.txt.\n2. conversation/bin/acceptance.ts (and conversation/src/acceptance/): an --owner-soak <minutes> mode (a message every 8 minutes that appends the time to /workspace/soak.log) and a --long-turn mode (one message asking for seven sleeps of 590 seconds).\n3. Deploy per section 18 (no owner running before P0; A1 and B1, then A2 and B2; C and D build the image sha-<commit>; run npx tsx conversation/bin/simulate-role-access.ts --environment development; promote the image with the Promote computer image (development) workflow, never by hand) and record each step in a Kanbus comment.\n4. The live proof of section 19, steps 1 to 5 (steps 3 and 4 need the B2 fault switch and two ControlPlane deploys; restore the deploy afterwards), each result recorded in a Kanbus comment with the log lines and CloudTrail events named in the section.\n5. The milestone sub-agent required by AGENTS.md: Kanbus statuses (unwire blocked-by edges when closing), README 'What is live today', docs/LONG_LIVED_COMPUTER.md Phase 2b marked live, docs/OWNER_CREDENTIAL_RENEWAL.md status block BUILT, the draft header of the feature file removed.\n\nAcceptance: all of the above; npm run test:features green with every scenario of the draft registered; live proof recorded; rollback tested once (image first).\n\nDependencies: A1, A2, B1, C, D merged and deployed; B2 for the failure proof. Closes the parent chatticus-3a31bb.\n\nRules: no emojis. Never merge a red PR (gate on all-green CI); push with HEAD:refs/heads/<branch>. Do not read or write project/.",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-9adfdf99-cedc-4285-910b-72f6631fa08b",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-726d4610-c58e-4ffd-bddc-d0e52354f228",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-76131ccb-3b52-4c31-b0db-87ed578c75ac",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-bab38c28-bac4-4278-a5aa-f512869f2fb7",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-d1211ada-91ff-4c89-847c-32b6e5b56346",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-4f3fcc9a-e9b7-443e-9cd8-d698f8e1e334",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-14T03:33:07.661953Z",
+  "updated_at": "2026-10-14T03:34:27.179215Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "phase2b-planner"
+  },
+  "right_now_summary": "The end-to-end tests, soak modes, deployment checks, and live credential-renewal proof still need completion.",
+  "right_now_updated_at": "2026-10-14T03:34:28.951271Z",
+  "custom": {}
+}
