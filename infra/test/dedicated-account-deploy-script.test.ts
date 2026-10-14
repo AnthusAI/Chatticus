@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
@@ -91,5 +92,133 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
       env: { ...env, CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: "not-an-arn" },
     });
     assert.doesNotMatch(otherStack.stderr, /must be an IAM role ARN/);
+  });
+
+  describe("when another workflow starts updating the stack between the status check and the deploy", () => {
+    const inProgressMessage = "Stack ChatticusWeb is in UPDATE_IN_PROGRESS state and can not be updated.";
+
+    function runWithStubs(options: { deployOutcomes: Array<{ exitCode: number; output: string }>; stackStatuses: string[] }): {
+      status: number | null;
+      stdout: string;
+      stderr: string;
+      synthCalls: number;
+      deployCalls: number;
+    } {
+      const directory = mkdtempSync(join(tmpdir(), "deploy-stub-"));
+      try {
+        const writeExecutable = (name: string, body: string) => {
+          writeFileSync(join(directory, name), body);
+          chmodSync(join(directory, name), 0o755);
+        };
+        writeFileSync(
+          join(directory, "deploy-outcomes.txt"),
+          options.deployOutcomes.map((outcome) => `${outcome.exitCode}|${outcome.output}`).join("\n") + "\n",
+        );
+        writeFileSync(join(directory, "stack-statuses.txt"), options.stackStatuses.join("\n") + "\n");
+        writeExecutable(
+          "aws",
+          `#!/bin/sh
+case "$*" in
+  *"sts get-caller-identity"*) exit 0 ;;
+  *"--stack-name ChatticusDns"*) exit 255 ;;
+  *"ssm get-parameter"*) echo secret-reference; exit 0 ;;
+  *"secretsmanager list-secret-version-ids"*) echo 0123456789abcdef0123456789abcdef; exit 0 ;;
+  *"describe-stacks"*)
+    count=$(cat "${directory}/status-calls" 2>/dev/null || echo 0)
+    count=$((count + 1))
+    echo "$count" > "${directory}/status-calls"
+    total=$(wc -l < "${directory}/stack-statuses.txt")
+    [ "$count" -gt "$total" ] && count="$total"
+    sed -n "\${count}p" "${directory}/stack-statuses.txt"
+    exit 0 ;;
+esac
+exit 0
+`,
+        );
+        writeExecutable(
+          "npx",
+          `#!/bin/sh
+if [ "$1" = "cdk" ] && [ "$2" = "synth" ]; then
+  echo synth >> "${directory}/synth-calls"
+  exit 0
+fi
+echo deploy >> "${directory}/deploy-calls"
+count=$(wc -l < "${directory}/deploy-calls")
+total=$(wc -l < "${directory}/deploy-outcomes.txt")
+[ "$count" -gt "$total" ] && count="$total"
+line=$(sed -n "\${count}p" "${directory}/deploy-outcomes.txt")
+echo "\${line#*|}"
+exit "\${line%%|*}"
+`,
+        );
+        const result = spawnSync("sh", [script, "development", "web"], {
+          encoding: "utf8",
+          env: {
+            PATH: `${directory}:/usr/bin:/bin`,
+            HOME: process.env.HOME ?? "",
+            CHATTICUS_STACK_POLL_SECONDS: "0",
+          },
+        });
+        const countLines = (name: string) => {
+          try {
+            return readFileSync(join(directory, name), "utf8").split("\n").filter(Boolean).length;
+          } catch {
+            return 0;
+          }
+        };
+        return {
+          status: result.status,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          synthCalls: countLines("synth-calls"),
+          deployCalls: countLines("deploy-calls"),
+        };
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }
+
+    it("retries the deploy after the stack settles, synthesizing only once", () => {
+      const result = runWithStubs({
+        deployOutcomes: [
+          { exitCode: 1, output: inProgressMessage },
+          { exitCode: 0, output: "deployed" },
+        ],
+        stackStatuses: ["UPDATE_COMPLETE", "UPDATE_IN_PROGRESS", "UPDATE_COMPLETE"],
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.deployCalls, 2);
+      assert.equal(result.synthCalls, 1);
+      assert.match(result.stdout, /ChatticusWeb deploy attempt 1 hit an in-progress update/);
+      assert.match(result.stdout, /ChatticusWeb is UPDATE_IN_PROGRESS \(another workflow deploying it\); waiting\./);
+      assert.doesNotMatch(result.stdout + result.stderr, /\b\d{12}\b/);
+    });
+
+    it("does not retry any other failure and exits with its code immediately", () => {
+      const result = runWithStubs({
+        deployOutcomes: [{ exitCode: 3, output: "AccessDenied: not authorized" }],
+        stackStatuses: ["UPDATE_COMPLETE"],
+      });
+      assert.equal(result.status, 3);
+      assert.equal(result.deployCalls, 1);
+      assert.match(result.stdout, /AccessDenied: not authorized/);
+    });
+
+    it("gives up after a bounded number of attempts and reports the last exit code", () => {
+      const result = runWithStubs({
+        deployOutcomes: [{ exitCode: 1, output: inProgressMessage }],
+        stackStatuses: ["UPDATE_COMPLETE"],
+      });
+      assert.equal(result.status, 1);
+      assert.equal(result.deployCalls, 5);
+      assert.match(result.stderr, /lost the race to another workflow 5 times; giving up/);
+    });
+
+    it("keeps the retry loop, the matched error text and the attempt bound in the script", () => {
+      assert.match(contents, /is in \[A-Z_\]\*IN_PROGRESS state and can not be updated/);
+      assert.match(contents, /DEPLOY_MAXIMUM_ATTEMPTS=5/);
+      assert.match(contents, /cdk synth/);
+      assert.match(contents, /--app "\$\{CLOUD_ASSEMBLY_DIRECTORY\}"/);
+    });
   });
 });

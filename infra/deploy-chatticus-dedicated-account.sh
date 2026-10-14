@@ -87,24 +87,59 @@ if [ "$2" = "web" ]; then
   INVOKE_KEY_CDK_CONTEXT="-c invokeKeyVersionId=${INVOKE_KEY_VERSION_ID}"
 fi
 
-STACK_WAIT_ATTEMPTS=0
-while :; do
-  STACK_STATUS="$(aws cloudformation describe-stacks --stack-name "${STACK}" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo ABSENT)"
-  case "${STACK_STATUS}" in
-    *_IN_PROGRESS) ;;
-    *) break ;;
-  esac
-  STACK_WAIT_ATTEMPTS=$((STACK_WAIT_ATTEMPTS + 1))
-  if [ "${STACK_WAIT_ATTEMPTS}" -gt 120 ]; then
-    echo "${STACK} stayed ${STACK_STATUS} for 30 minutes; refusing to start a competing update." >&2
-    exit 1
-  fi
-  echo "${STACK} is ${STACK_STATUS} (another workflow deploying it); waiting."
-  sleep 15
-done
+STACK_POLL_SECONDS="${CHATTICUS_STACK_POLL_SECONDS:-15}"
+STACK_WAIT_MAXIMUM_POLLS=120
+DEPLOY_MAXIMUM_ATTEMPTS=5
+
+wait_for_stack_to_settle() {
+  STACK_WAIT_ATTEMPTS=0
+  while :; do
+    STACK_STATUS="$(aws cloudformation describe-stacks --stack-name "${STACK}" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo ABSENT)"
+    case "${STACK_STATUS}" in
+      *_IN_PROGRESS) ;;
+      *) return 0 ;;
+    esac
+    STACK_WAIT_ATTEMPTS=$((STACK_WAIT_ATTEMPTS + 1))
+    if [ "${STACK_WAIT_ATTEMPTS}" -gt "${STACK_WAIT_MAXIMUM_POLLS}" ]; then
+      echo "${STACK} stayed ${STACK_STATUS} for 30 minutes; refusing to start a competing update." >&2
+      exit 1
+    fi
+    echo "${STACK} is ${STACK_STATUS} (another workflow deploying it); waiting."
+    sleep "${STACK_POLL_SECONDS}"
+  done
+}
+
+wait_for_stack_to_settle
 
 # shellcheck source=budgets-deploy-context.sh
 . ./budgets-deploy-context.sh
 
+DEPLOY_WORK_DIRECTORY="$(mktemp -d)"
+trap 'rm -rf "${DEPLOY_WORK_DIRECTORY}"' EXIT
+CLOUD_ASSEMBLY_DIRECTORY="${DEPLOY_WORK_DIRECTORY}/cdk.out"
+DEPLOY_OUTPUT_FILE="${DEPLOY_WORK_DIRECTORY}/deploy-output.txt"
+DEPLOY_STATUS_FILE="${DEPLOY_WORK_DIRECTORY}/deploy-status.txt"
+
 # shellcheck disable=SC2086
-npx cdk deploy "${STACK}" --exclusively --require-approval never -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT} ${INTEGRATION_TEST_CDK_CONTEXT} ${INVOKE_KEY_CDK_CONTEXT}
+npx cdk synth "${STACK}" --exclusively --quiet --output "${CLOUD_ASSEMBLY_DIRECTORY}" -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT} ${INTEGRATION_TEST_CDK_CONTEXT} ${INVOKE_KEY_CDK_CONTEXT}
+
+DEPLOY_ATTEMPT=0
+while :; do
+  DEPLOY_ATTEMPT=$((DEPLOY_ATTEMPT + 1))
+  {
+    npx cdk deploy "${STACK}" --exclusively --require-approval never --app "${CLOUD_ASSEMBLY_DIRECTORY}" && echo 0 >"${DEPLOY_STATUS_FILE}" || echo "$?" >"${DEPLOY_STATUS_FILE}"
+  } 2>&1 | tee "${DEPLOY_OUTPUT_FILE}"
+  DEPLOY_EXIT_CODE="$(cat "${DEPLOY_STATUS_FILE}")"
+  if [ "${DEPLOY_EXIT_CODE}" -eq 0 ]; then
+    exit 0
+  fi
+  if ! grep -Eq 'is in [A-Z_]*IN_PROGRESS state and can not be updated' "${DEPLOY_OUTPUT_FILE}"; then
+    exit "${DEPLOY_EXIT_CODE}"
+  fi
+  if [ "${DEPLOY_ATTEMPT}" -ge "${DEPLOY_MAXIMUM_ATTEMPTS}" ]; then
+    echo "${STACK} deploy lost the race to another workflow ${DEPLOY_ATTEMPT} times; giving up." >&2
+    exit "${DEPLOY_EXIT_CODE}"
+  fi
+  echo "${STACK} deploy attempt ${DEPLOY_ATTEMPT} hit an in-progress update from another workflow; waiting for it to settle, then retrying."
+  wait_for_stack_to_settle
+done
