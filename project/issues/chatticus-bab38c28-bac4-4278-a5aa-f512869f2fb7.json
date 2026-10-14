@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "phase2b-c"
       }
+    },
+    {
+      "id": "e0eb9ca9-eb02-4242-9c18-fffdc7f48f95",
+      "author": "home",
+      "text": "Correction to the PR 556 comment: 8 scenarios were added beyond the 14 owned ones (protocol version, 60 second floor, answer that does not fit, drain ordered first, turn_not_served, draining owner renews its turn only, renewal abandoned when stopping, turn renewal abandoned when the child exits). Fails first: against the unmodified supervisor 27 of the feature's scenarios failed (the rest pass on the old code by construction: protocol constant, drain ordered first, nothing renewed). Draft timings adjusted: 2510 s for four turn attempts, hard deadline at 3570 s, idle veto in the Background, 1 s step after the margin. Steps are in owner-supervisor-renewal.steps.ts; SupervisorPlane also declares replaceBearerToken.",
+      "created_at": "2026-10-14T14:45:15.238854Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-c"
+      }
     }
   ],
   "created_at": "2026-10-14T03:32:42.716187Z",
-  "updated_at": "2026-10-14T14:44:44.458827Z",
+  "updated_at": "2026-10-14T14:45:15.238879Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "PR 556 implements credential renewal and awaits review before merging.",
-  "right_now_updated_at": "2026-10-14T14:44:46.773327Z",
+  "right_now_summary": "The renewal work passes all local checks and awaits D before image promotion.",
+  "right_now_updated_at": "2026-10-14T14:45:17.994817Z",
   "custom": {}
 }
