@@ -713,15 +713,16 @@ export class DynamoMessagingStore implements MessagingStore {
 	}
 
 	async consumeOwnerBootstrap(tenantId: string, bootstrap: OwnerBootstrapRecord): Promise<Computer | null> {
-		const removed = computerCodec.OWNER_ATTRIBUTE_NAMES.filter((name) => !["owner_id", "owner_protocol_version", "owner_started_at"].includes(name));
+		const removed = computerCodec.OWNER_ATTRIBUTE_NAMES.filter((name) => !["owner_id", "owner_protocol_version", "owner_started_at", "owner_credentials_expire_at"].includes(name));
 		return this.updateComputerWhere(tenantId, {
-			update: `SET owner_id = :owner, owner_generation = :generation, owner_protocol_version = :version, owner_started_at = :startedAt REMOVE ${removed.join(", ")}`,
+			update: `SET owner_id = :owner, owner_generation = :generation, owner_protocol_version = :version, owner_started_at = :startedAt, owner_credentials_expire_at = :credentialsExpireAt REMOVE ${removed.join(", ")}`,
 			condition: "attribute_exists(pk) AND host_start_generation = :generation AND (attribute_not_exists(owner_generation) OR owner_generation < :generation)",
 			values: {
 				":owner": { S: bootstrap.ownerId },
 				":generation": { N: String(bootstrap.generation) },
 				":version": { N: String(bootstrap.protocolVersion) },
 				":startedAt": { N: String(Math.floor(bootstrap.startedAt.getTime() / 1000)) },
+				":credentialsExpireAt": { N: String(Math.floor(bootstrap.credentialsExpireAt.getTime() / 1000)) },
 			},
 		});
 	}

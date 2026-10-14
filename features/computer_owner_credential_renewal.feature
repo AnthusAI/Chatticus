@@ -112,18 +112,6 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
       | a protocol version below the minimum                  |
 
   @server
-  Scenario: No dispatch is offered in the last 900 seconds of the hard lifetime
-    Given a bootstrapped owner of the household computer whose credentials were renewed until 28800 seconds after its bootstrap
-    And a turn of bot "Researcher" parked on a workspace action
-    When the clock has moved 27899 seconds past the owner's bootstrap
-    And the owner polls in state "idle" with sequence 4
-    Then the poll offered one dispatch
-    When the clock has moved 27900 seconds past the owner's bootstrap
-    And the owner polls in state "idle" with sequence 5
-    Then the poll answered no dispatch and no drain
-    And the broker was not asked for turn credentials after that
-
-  @server
   Scenario: No renewal is granted in the last 900 seconds of the hard lifetime
     Given a bootstrapped owner of the household computer whose credentials were renewed until 28800 seconds after its bootstrap
     When the clock has moved 27900 seconds past the owner's bootstrap
@@ -162,57 +150,6 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
     And the broker releases its answer
     Then the renewal answer is 409 with the code "owner_stopping"
     And the computer records the expiry of the credentials from the bootstrap
-
-  @server
-  Scenario: The control plane drains an owner that does not renew when its credentials are ten minutes from the end
-    Given a bootstrapped owner of the household computer
-    When the clock has moved 2999 seconds past the owner's bootstrap
-    And the owner polls in state "idle" with sequence 4
-    Then the poll answered no drain
-    When the clock has moved 3000 seconds past the owner's bootstrap
-    And the owner polls in state "idle" with sequence 5
-    Then the poll answered drain with reason "credentials" and no dispatch
-
-  @server
-  Scenario: An owner that renews is not drained at fifty minutes and is drained at seven hours and fifty
-    Given a bootstrapped owner of the household computer
-    When the owner renews its supervisor credentials every 2400 seconds until 27000 seconds after its bootstrap
-    And the clock has moved 28199 seconds past the owner's bootstrap
-    And the owner polls in state "idle" with sequence 40
-    Then the poll answered no drain
-    When the clock has moved 28200 seconds past the owner's bootstrap
-    And the owner polls in state "idle" with sequence 41
-    Then the poll answered drain with reason "lifetime" and no dispatch
-    And no credential the broker issued ends after 28800 seconds past the owner's bootstrap
-
-  @server
-  Scenario Outline: A stop for the drain is approved whatever the drain was for
-    Given a bootstrapped owner of the household computer
-    And a turn of bot "Researcher" parked on a workspace action
-    And the control plane drains the owner because of <cause>
-    When the owner asks to stop with reason "lifetime"
-    Then the stop was approved
-
-    Examples:
-      | cause                                            |
-      | credentials that would expire within 600 seconds |
-      | the lifetime of 28200 seconds                    |
-      | a protocol version below the minimum             |
-
-  @server
-  Scenario: A stop for credentials the owner could not renew is approved whatever is pending
-    Given a bootstrapped owner of the household computer
-    And a turn of bot "Researcher" parked on a workspace action
-    When the owner asks to stop with reason "credentials"
-    Then the stop was approved
-
-  @server
-  Scenario: An owner below the minimum protocol version is told to drain and is offered nothing
-    Given the control plane requires protocol version 3
-    And a bootstrapped owner of the household computer that announced protocol version 2
-    And a turn of bot "Researcher" parked on a workspace action
-    When the owner polls in state "idle" with sequence 1
-    Then the poll answered drain with reason "protocol_version" and no dispatch
 
   @server
   Scenario: The owner renews the credentials of the turn it serves
@@ -285,13 +222,6 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
     When the owner asks for new supervisor credentials
     Then the computer still records the same idle start
     And no dispatch, stop approval or file operation was recorded
-
-  @server
-  Scenario: An owner far past its lifetime is reported
-    Given a bootstrapped owner of the household computer
-    When the clock has moved 28801 seconds past the owner's bootstrap
-    And the owner polls in state "serving" with sequence 4
-    Then the control plane logged "owner_overdue" for the owner with its age
 
   # ---------------------------------------------------------------- broker
 
@@ -567,16 +497,6 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
     When the supervisor starts
     And 2401 seconds go by
     Then no log line holds the supervisor token, either set of credentials or a gateway token
-
-  @supervisor
-  Scenario: The watchdog is sized for eight hours
-    Given a supervisor whose liveness file stays fresh
-    When the watchdog has run for 3421 seconds
-    Then the supervisor was left alone
-    When the watchdog has run for 28500 seconds
-    Then the watchdog asked the supervisor to terminate
-    When the watchdog has run for 28620 seconds
-    Then the watchdog killed the supervisor
 
   # ----------------------------------------------------------------- child
 

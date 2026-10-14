@@ -305,8 +305,21 @@ Feature: The owner supervisor keeps the computer on between turns and switches i
 
   Scenario: The watchdog asks, then forces, at the end of the lifetime
     Given a watchdog watching a supervisor that is still running
-    When 3300 seconds have passed
+    When 28500 seconds have passed
     Then it sends SIGTERM once
-    When 3420 seconds have passed
+    When 28620 seconds have passed
     Then it sends SIGKILL
     And it exits when the supervisor is gone
+
+  Scenario: The watchdog is sized for eight hours
+    Given a watchdog watching a supervisor that is still running
+    When 3421 seconds have passed
+    Then the watched supervisor is still running
+    And the watchdog logged nothing
+    When 28499 seconds have passed
+    Then the watched supervisor is still running
+    And the watchdog logged nothing
+    When 28500 seconds have passed
+    Then it sends SIGTERM once
+    When 28620 seconds have passed
+    Then it sends SIGKILL

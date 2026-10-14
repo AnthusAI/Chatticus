@@ -267,6 +267,8 @@ export type OwnerBootstrapRecord = {
 	readonly generation: number;
 	readonly protocolVersion: number;
 	readonly startedAt: Date;
+	/** When the credentials the bootstrap grant issued end: the minimum of the AWS credentials and the supervisor token. */
+	readonly credentialsExpireAt: Date;
 };
 
 /** The dispatch the control plane offers to the owner, as the computer record stores it. */

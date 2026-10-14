@@ -47,6 +47,8 @@ export type FrontDoorOptions = {
 	migrationGate?: boolean;
 	/** Wire the customer self-setup route to the scenario's in-memory role inspector instead of the live STS and IAM one. */
 	inMemoryRoleInspector?: boolean;
+	/** Raise the lowest owner protocol version the owner routes serve above its default. */
+	ownerMinimumProtocolVersion?: number;
 };
 
 /** The scenario's Cognito test keys, generated on first use. */
@@ -93,7 +95,11 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		voice: { understanding: world.scriptedUnderstanding, ledger: voiceLedgerFor(world), reportCostFailure: voiceCostFailureReporterOf(world) },
 		turnControl: world.turnControlStore(),
 		modelGateway: modelGatewayFor(world),
-		ownerSupervisor: { signingKey: SCENARIO_GATEWAY_SIGNING_KEY, broker: ownerBrokerOf(world) },
+		ownerSupervisor: {
+			signingKey: SCENARIO_GATEWAY_SIGNING_KEY,
+			broker: ownerBrokerOf(world),
+			...(options.ownerMinimumProtocolVersion === undefined ? {} : { minimumProtocolVersion: options.ownerMinimumProtocolVersion }),
+		},
 		snapshotFiles: new SnapshotFileService(snapshotReadStoreOf(world)),
 		editOverlay: editOverlayRuntimeOf(world),
 		fileWait: fileWaitOf(world),

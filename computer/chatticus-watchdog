@@ -4,8 +4,8 @@
 #
 # Every 15 seconds it checks, in this order:
 #   the supervisor is gone                      exit 0
-#   3420 seconds since this process started     SIGKILL the supervisor
-#   3300 seconds since this process started     SIGTERM the supervisor, once
+#   28620 seconds since this process started    SIGKILL the supervisor
+#   28500 seconds since this process started    SIGTERM the supervisor, once
 #   the liveness file is older than 180 seconds SIGKILL the supervisor (a wedged or blocked main loop)
 # A killed supervisor ends the essential container, so the task stops and nothing is left running idle.
 #
@@ -16,8 +16,8 @@ set -u
 supervisor_pid="${1:?usage: chatticus-watchdog SUPERVISOR_PID [LIVENESS_FILE]}"
 liveness_file="${2:-/run/chatticus/supervisor.alive}"
 check_seconds="${CHATTICUS_WATCHDOG_CHECK_SECONDS:-15}"
-terminate_after=3300
-kill_after=3420
+terminate_after=28500
+kill_after=28620
 stale_after=180
 
 now() {

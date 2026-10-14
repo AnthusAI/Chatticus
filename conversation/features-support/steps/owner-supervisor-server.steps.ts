@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
+import { After, Before, Given, Then, When, type DataTable } from "@cucumber/cucumber";
 import {
 	OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS,
 	OWNER_CREDENTIAL_LIFETIME_SECONDS,
@@ -58,6 +58,8 @@ export type OwnerServerScenario = {
 	lastStop: { approved: boolean; reason?: string } | null;
 	concurrent: { stop: AnswerRecord; poll: AnswerRecord } | null;
 	firstOwner: { ownerId: string; supervisorToken: string } | null;
+	protocolVersion: number;
+	turnCallsBeforeCutoffPoll: number;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, OwnerServerScenario>();
@@ -83,6 +85,8 @@ export function ownerServerOf(world: ChatticusWorld): OwnerServerScenario {
 			lastStop: null,
 			concurrent: null,
 			firstOwner: null,
+			protocolVersion: OWNER_PROTOCOL_VERSION,
+			turnCallsBeforeCutoffPoll: 0,
 		};
 		scenarios.set(world, scenario);
 	}
@@ -211,7 +215,7 @@ export async function presentBootstrap(world: ChatticusWorld, token: string, bod
 	const scenario = ownerServerOf(world);
 	const answer = await send(world, "POST", hostPath("/owner/bootstrap"), {
 		token,
-		body: { owner_id: scenario.ownerId, generation: scenario.generation, protocol_version: OWNER_PROTOCOL_VERSION, ...body },
+		body: { owner_id: scenario.ownerId, generation: scenario.generation, protocol_version: scenario.protocolVersion, ...body },
 	});
 	scenario.bootstrapAnswers.push(answer);
 	if (answer.status === 200) scenario.supervisorToken = answer.body.supervisor_token;
@@ -230,7 +234,7 @@ function pollBody(world: ChatticusWorld, state: string, sequence: number, overri
 	return {
 		owner_id: scenario.ownerId,
 		generation: scenario.generation,
-		protocol_version: OWNER_PROTOCOL_VERSION,
+		protocol_version: scenario.protocolVersion,
 		sequence,
 		state,
 		active_turns: state === "serving" ? [{ turn_id: "turn-being-served", dispatch_id: "dispatch-being-served" }] : [],
@@ -887,3 +891,117 @@ Then("the computer's snapshot is unchanged", async function (this: ChatticusWorl
 	assert.equal(computer.snapshotUri, undefined);
 });
 
+
+const capturedLogLines = new WeakMap<ChatticusWorld, string[]>();
+const restoreConsole = new WeakMap<ChatticusWorld, () => void>();
+
+Before({ tags: "@server" }, function (this: ChatticusWorld) {
+	const lines: string[] = [];
+	const original = console.info;
+	console.info = (...parts: unknown[]) => {
+		lines.push(parts.map(String).join(" "));
+		original(...parts);
+	};
+	capturedLogLines.set(this, lines);
+	restoreConsole.set(this, () => {
+		console.info = original;
+	});
+});
+
+After({ tags: "@server" }, function (this: ChatticusWorld) {
+	restoreConsole.get(this)?.();
+	restoreConsole.delete(this);
+});
+
+async function setCredentialExpiry(world: ChatticusWorld, secondsAfterBootstrap: number): Promise<void> {
+	const store = world.messagingStore();
+	const computer = await computerNow(world);
+	assert.ok(computer.ownerStartedAt, "The computer records no owner start.");
+	const startedAtSeconds = Math.floor(computer.ownerStartedAt.getTime() / 1000);
+	await store.putComputer({ ...computer, ownerCredentialsExpireAt: new Date((startedAtSeconds + secondsAfterBootstrap) * 1000) });
+	ownerServerOf(world).supervisorToken = mintSupervisor(world, {
+		ownerStartedAtSeconds: startedAtSeconds,
+		expiresAtSeconds: startedAtSeconds + secondsAfterBootstrap,
+	});
+}
+
+async function rewireWithMinimumProtocolVersion(world: ChatticusWorld, minimum: number): Promise<void> {
+	const options = world.frontDoorOptions ?? { signupMode: "invitation_only" as const, cognitoVerifier: true, invokeKey: OWNER_INVOKE_KEY };
+	await wireFrontDoor(world, { ...options, ownerMinimumProtocolVersion: minimum });
+	ownerServerOf(world).frontDoorWired = true;
+}
+
+Given("a bootstrapped owner of the household computer whose credentials were renewed until {int} seconds after its bootstrap", async function (this: ChatticusWorld, seconds: number) {
+	await bootstrapOwner(this);
+	await setCredentialExpiry(this, seconds);
+});
+
+Given("a bootstrapped owner of the household computer whose credentials were issued to end {int} seconds after its bootstrap", async function (this: ChatticusWorld, seconds: number) {
+	await bootstrapOwner(this);
+	await setCredentialExpiry(this, seconds);
+});
+
+Given("the control plane requires protocol version {int}", async function (this: ChatticusWorld, minimum: number) {
+	await rewireWithMinimumProtocolVersion(this, minimum);
+});
+
+Given("a bootstrapped owner of the household computer that announced protocol version {int}", async function (this: ChatticusWorld, version: number) {
+	ownerServerOf(this).protocolVersion = version;
+	await bootstrapOwner(this);
+});
+
+Given(/^the control plane drains the owner because of (.+)$/, async function (this: ChatticusWorld, cause: string) {
+	const store = this.messagingStore();
+	const computer = await computerNow(this);
+	assert.ok(computer.ownerStartedAt, "The computer records no owner start.");
+	if (cause === "credentials that would expire within 600 seconds") {
+		await store.putComputer({ ...computer, ownerCredentialsExpireAt: new Date(this.clock.now().getTime() + 600 * 1000) });
+	} else if (cause === "the lifetime of 28200 seconds") {
+		const startedAt = new Date(this.clock.now().getTime() - 28200 * 1000);
+		await store.putComputer({ ...computer, ownerStartedAt: startedAt, ownerCredentialsExpireAt: new Date(startedAt.getTime() + 28800 * 1000) });
+	} else if (cause === "a protocol version below the minimum") {
+		await rewireWithMinimumProtocolVersion(this, (computer.ownerProtocolVersion ?? OWNER_PROTOCOL_VERSION) + 1);
+	} else {
+		assert.fail(`Unknown drain cause: ${cause}`);
+	}
+});
+
+Then("the computer records that the owner's credentials end {int} seconds after its bootstrap", async function (this: ChatticusWorld, seconds: number) {
+	const computer = await computerNow(this);
+	assert.ok(computer.ownerStartedAt, "The computer records no owner start.");
+	assert.ok(computer.ownerCredentialsExpireAt, "The computer records no credential expiry.");
+	assert.equal((computer.ownerCredentialsExpireAt.getTime() - computer.ownerStartedAt.getTime()) / 1000, seconds);
+});
+
+Then("the poll offered one dispatch", function (this: ChatticusWorld) {
+	assert.equal(lastPollOf(this).dispatches.length, 1);
+	ownerServerOf(this).turnCallsBeforeCutoffPoll = ownerBrokerOf(this).fake.calls.filter((call) => call.request.purpose === "turn").length;
+});
+
+Then("the poll answered no drain", function (this: ChatticusWorld) {
+	assert.equal(lastPollOf(this).drain, false);
+});
+
+Then("the poll answered no dispatch and no drain", function (this: ChatticusWorld) {
+	const answer = lastPollOf(this);
+	assert.equal(answer.drain, false);
+	assert.deepEqual(answer.dispatches, []);
+});
+
+Then("the broker was not asked for turn credentials after that", function (this: ChatticusWorld) {
+	const turnCalls = ownerBrokerOf(this).fake.calls.filter((call) => call.request.purpose === "turn").length;
+	assert.equal(turnCalls, ownerServerOf(this).turnCallsBeforeCutoffPoll);
+});
+
+Then("the control plane logged {string} for the owner with its age", async function (this: ChatticusWorld, event: string) {
+	const computer = await computerNow(this);
+	assert.ok(computer.ownerStartedAt, "The computer records no owner start.");
+	const age = Math.floor((this.clock.now().getTime() - computer.ownerStartedAt.getTime()) / 1000);
+	const lines = (capturedLogLines.get(this) ?? []).filter((line) => line.startsWith(`${event} `) && line.includes(`owner_id=${ownerServerOf(this).ownerId} `));
+	assert.ok(lines.some((line) => line.includes(`age_seconds=${age}`)), `No ${event} line with age ${age}: ${lines.join(" | ")}`);
+});
+
+Then("the control plane logged {string} once for the owner", function (this: ChatticusWorld, event: string) {
+	const lines = (capturedLogLines.get(this) ?? []).filter((line) => line.startsWith(`${event} `) && line.includes(`owner_id=${ownerServerOf(this).ownerId}`));
+	assert.equal(lines.length, 1, lines.join(" | "));
+});
