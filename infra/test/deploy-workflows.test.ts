@@ -276,12 +276,12 @@ describe("computer image tag rule: the dev tag moves only after the server side 
     assert.doesNotMatch(promote, /^  (push|pull_request|pull_request_target|schedule|workflow_run|release):/m);
   });
 
-  it("the promotion reads workflow runs, assumes the development role by OIDC and shares the development queue", () => {
+  it("the promotion reads workflow runs, assumes the development role by OIDC and queues behind itself only", () => {
     assert.match(promote, /^  actions: read$/m);
     assert.match(promote, /id-token:\s*write/);
     assert.match(promote, /environment: development/);
     assert.match(promote, /role-to-assume: \$\{\{ secrets\.AWS_DEPLOY_ROLE_ARN \}\}/);
-    assert.match(promote, /^concurrency:\n  group: deploy-development\n  cancel-in-progress: false\n/m);
+    assert.match(promote, /^concurrency:\n  group: promote-computer-image-development\n  cancel-in-progress: false\n/m);
     assert.doesNotMatch(promote, /secrets\.AWS_ACCESS_KEY_ID/);
   });
 

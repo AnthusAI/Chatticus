@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: deploy-development
+  group: promote-computer-image-development
   cancel-in-progress: false
 
 jobs:
