@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AccessRow, StoreArns } from "../src/gateway/role-access-manifest.ts";
-import { simulationCasesOf, simulationSummaryOf } from "../src/gateway/role-access-simulation.ts";
+import { simulationCasesOf, simulationGroupsOf, simulationResultsOf, simulationSummaryOf, type SimulationCase } from "../src/gateway/role-access-simulation.ts";
 
 const ARNS: StoreArns = {
 	messagingTable: "arn:aws:dynamodb:us-east-1:111122223333:table/messaging",
@@ -61,5 +61,59 @@ describe("the post-deploy summary line", () => {
 		const line = simulationSummaryOf("development", [{ simulationCase: first!, decision: "allowed" }, { simulationCase: second!, decision: "implicitDeny" }]);
 		expect(line.startsWith("FAIL role access development: 1 of 2 allowed")).toBe(true);
 		expect(line).toContain("listing the bucket without a prefix so a missing key answers 404");
+	});
+});
+
+const baseCase = (overrides: Partial<SimulationCase>): SimulationCase => ({
+	role: "frontDoor",
+	description: "case",
+	action: "s3:GetObject",
+	resourceArn: "arn:aws:s3:::snapshots/a",
+	contextEntries: [{ ContextKeyName: "aws:PrincipalTag/tenant", ContextKeyValues: ["anthus"], ContextKeyType: "string" }],
+	...overrides,
+});
+
+describe("grouping the cases into few policy simulator calls", () => {
+	it("collapses cases with the same role, resource and context into one group holding every action", () => {
+		const groups = simulationGroupsOf([
+			baseCase({ action: "s3:GetObject", description: "one" }),
+			baseCase({ action: "s3:PutObject", description: "two" }),
+			baseCase({ action: "s3:GetObject", description: "three" }),
+		]);
+		expect(groups).toHaveLength(1);
+		expect(groups[0]!.actions).toEqual(["s3:GetObject", "s3:PutObject"]);
+		expect(groups[0]!.cases.map((simulationCase) => simulationCase.description)).toEqual(["one", "two", "three"]);
+	});
+
+	it("keeps cases apart when the role, resource or context differs, in first-seen order", () => {
+		const groups = simulationGroupsOf([
+			baseCase({ role: "supervisor" }),
+			baseCase({ resourceArn: "arn:aws:s3:::snapshots/b" }),
+			baseCase({ contextEntries: [] }),
+			baseCase({ role: "supervisor", action: "s3:PutObject" }),
+		]);
+		expect(groups.map((group) => [group.role, group.resourceArn, group.contextEntries.length, group.actions])).toEqual([
+			["supervisor", "arn:aws:s3:::snapshots/a", 1, ["s3:GetObject", "s3:PutObject"]],
+			["frontDoor", "arn:aws:s3:::snapshots/b", 1, ["s3:GetObject"]],
+			["frontDoor", "arn:aws:s3:::snapshots/a", 0, ["s3:GetObject"]],
+		]);
+	});
+
+	it("maps every evaluation back to each case of its action", () => {
+		const [group] = simulationGroupsOf([baseCase({ action: "s3:GetObject", description: "one" }), baseCase({ action: "s3:PutObject", description: "two" }), baseCase({ action: "s3:GetObject", description: "three" })]);
+		const results = simulationResultsOf(group!, [
+			{ EvalActionName: "s3:PutObject", EvalDecision: "implicitDeny" },
+			{ EvalActionName: "s3:GetObject", EvalDecision: "allowed" },
+		]);
+		expect(results.map((result) => [result.simulationCase.description, result.decision])).toEqual([
+			["one", "allowed"],
+			["two", "implicitDeny"],
+			["three", "allowed"],
+		]);
+	});
+
+	it("fails loudly when an action has no evaluation", () => {
+		const [group] = simulationGroupsOf([baseCase({ action: "s3:GetObject" }), baseCase({ action: "s3:PutObject" })]);
+		expect(() => simulationResultsOf(group!, [{ EvalActionName: "s3:GetObject", EvalDecision: "allowed" }])).toThrow(/s3:PutObject/);
 	});
 });
