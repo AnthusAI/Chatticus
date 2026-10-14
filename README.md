@@ -104,9 +104,10 @@ Pi; they keep the HTTP host protocol and the host worker. See
 **limits**: staging and production do not run this path; the container
 credentials endpoint cannot be blocked on Fargate (mitigated by an empty task
 role, not blocked); credentials and the gateway token last one hour with no
-refresh; the gateway has no model allow-list or per-call spend ceiling; `browse`
-has no executor on the owner path; and the old own-account Fargate host task
-definition and service still exist until a later infra PR.
+refresh; the gateway has a model allow-list and request limits but no per-call
+organization spend ceiling; `browse` has no executor on the owner path; and the old
+own-account Fargate host task definition and service were removed from the
+Computers stack (PR 518, deployed 2026-10-12).
 
 The development environment is **[develop.chattic.us](https://develop.chattic.us)**
 in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
