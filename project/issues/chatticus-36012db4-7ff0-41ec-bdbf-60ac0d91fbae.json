@@ -3,7 +3,7 @@
   "title": "CI deploy workflows are cancelled by concurrency when one merge triggers ThinTurn, ControlPlane and the image build together",
   "description": "Observed after the Phase 2a merges (PRs 516, 517, 518): a single merge to develop triggers the ThinTurn deploy, the ControlPlane deploy and the computer image build at once, and GitHub concurrency cancels or displaces some of them (one pending run per group). Fix: separate concurrency groups per workflow, or sequence them (image first, then Lambdas, or the reverse), without cancelling in-progress deploys. Related: chatticus-96e12b (same family, image build vs Lambda deploys).",
   "type": "bug",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,14 +12,14 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-10-12T17:49:46.505462Z",
-  "updated_at": "2026-10-12T17:49:46.505511Z",
+  "updated_at": "2026-10-14T00:46:31.032615Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "One merge starts three workflows, and shared concurrency groups cancel or displace some runs.",
-  "right_now_updated_at": "2026-10-12T17:49:48.325374Z",
+  "right_now_summary": "A merge triggers three CI workflows, and shared concurrency cancels or displaces some runs.",
+  "right_now_updated_at": "2026-10-14T00:46:32.481364Z",
   "custom": {}
 }
