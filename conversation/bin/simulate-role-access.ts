@@ -20,9 +20,32 @@ import { IAMClient, SimulatePrincipalPolicyCommand } from "@aws-sdk/client-iam";
 import { GetFunctionConfigurationCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { loadRoleAccessManifest, type AccessRole, type StoreArns } from "../src/gateway/role-access-manifest.ts";
-import { simulationCasesOf, simulationSummaryOf, type SimulationResult } from "../src/gateway/role-access-simulation.ts";
+import {
+	simulationCasesOf,
+	simulationGroupsOf,
+	simulationResultsOf,
+	simulationSummaryOf,
+	type SimulationEvaluation,
+	type SimulationResult,
+} from "../src/gateway/role-access-simulation.ts";
 
 const REGION = "us-east-1";
+
+const IAM_MAX_ATTEMPTS = 10;
+
+const DEFAULT_DELAY_BETWEEN_CALLS_MILLISECONDS = 1000;
+
+/**
+ * The pause between simulator calls, which IAM throttles hard. `CHATTICUS_SIMULATION_DELAY_MS` overrides the default of
+ * one second; `0` turns the pause off.
+ */
+function delayMillisecondsOf(environment: NodeJS.ProcessEnv): number {
+	const configured = environment.CHATTICUS_SIMULATION_DELAY_MS;
+	if (configured === undefined || configured === "") return DEFAULT_DELAY_BETWEEN_CALLS_MILLISECONDS;
+	const parsed = Number(configured);
+	if (!Number.isInteger(parsed) || parsed < 0) throw new UsageError("CHATTICUS_SIMULATION_DELAY_MS must be a non-negative integer.");
+	return parsed;
+}
 
 const CONTROL_PLANE_STACKS: Record<string, string> = {
 	development: "ChatticusControlPlane",
@@ -75,18 +98,29 @@ async function main(): Promise<void> {
 		snapshotBucket: `arn:aws:s3:::${variable("CHATTICUS_SNAPSHOT_BUCKET")}`,
 	};
 
-	const iam = new IAMClient({ region: REGION });
+	const iam = new IAMClient({ region: REGION, maxAttempts: IAM_MAX_ATTEMPTS, retryMode: "adaptive" });
+	const groups = simulationGroupsOf(simulationCasesOf(loadRoleAccessManifest(), arns));
+	const delayMilliseconds = delayMillisecondsOf(process.env);
 	const results: SimulationResult[] = [];
-	for (const simulationCase of simulationCasesOf(loadRoleAccessManifest(), arns)) {
-		const response = await iam.send(
-			new SimulatePrincipalPolicyCommand({
-				PolicySourceArn: roleArns[simulationCase.role],
-				ActionNames: [simulationCase.action],
-				ResourceArns: [simulationCase.resourceArn],
-				ContextEntries: simulationCase.contextEntries.map((entry) => ({ ...entry, ContextKeyValues: [...entry.ContextKeyValues] })),
-			}),
-		);
-		results.push({ simulationCase, decision: response.EvaluationResults?.[0]?.EvalDecision ?? "no result" });
+	for (const [index, group] of groups.entries()) {
+		if (index > 0 && delayMilliseconds > 0) await new Promise((resolve) => setTimeout(resolve, delayMilliseconds));
+		console.error(`simulating group ${index + 1} of ${groups.length}: ${group.role}, ${group.actions.length} action(s)`);
+		const evaluations: SimulationEvaluation[] = [];
+		let marker: string | undefined;
+		do {
+			const response = await iam.send(
+				new SimulatePrincipalPolicyCommand({
+					PolicySourceArn: roleArns[group.role],
+					ActionNames: [...group.actions],
+					ResourceArns: [group.resourceArn],
+					ContextEntries: group.contextEntries.map((entry) => ({ ...entry, ContextKeyValues: [...entry.ContextKeyValues] })),
+					Marker: marker,
+				}),
+			);
+			evaluations.push(...(response.EvaluationResults ?? []));
+			marker = response.IsTruncated === true ? response.Marker : undefined;
+		} while (marker !== undefined);
+		results.push(...simulationResultsOf(group, evaluations));
 	}
 
 	console.info(simulationSummaryOf(environment, results));

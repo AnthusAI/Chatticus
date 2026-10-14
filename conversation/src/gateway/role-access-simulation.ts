@@ -59,6 +59,56 @@ export function simulationCasesOf(rows: readonly AccessRow[], arns: StoreArns): 
 	});
 }
 
+/** Cases that share a role, a resource and condition keys, so one simulator call answers all of their actions. */
+export type SimulationGroup = {
+	readonly role: AccessRole;
+	readonly resourceArn: string;
+	readonly contextEntries: readonly SimulationContextEntry[];
+	readonly actions: readonly string[];
+	readonly cases: readonly SimulationCase[];
+};
+
+/** One per-action evaluation as the simulator returns it. */
+export type SimulationEvaluation = { readonly EvalActionName?: string; readonly EvalDecision?: string };
+
+/**
+ * Groups cases by role, resource ARN and context entries so the simulator is called once per group instead of once per case.
+ *
+ * @param cases The cases, in manifest order.
+ * @returns The groups in first-seen order; each holds its distinct actions in first-seen order and all of its cases.
+ */
+export function simulationGroupsOf(cases: readonly SimulationCase[]): SimulationGroup[] {
+	const groups = new Map<string, { role: AccessRole; resourceArn: string; contextEntries: readonly SimulationContextEntry[]; actions: string[]; cases: SimulationCase[] }>();
+	for (const simulationCase of cases) {
+		const key = JSON.stringify([simulationCase.role, simulationCase.resourceArn, simulationCase.contextEntries]);
+		let group = groups.get(key);
+		if (group === undefined) {
+			group = { role: simulationCase.role, resourceArn: simulationCase.resourceArn, contextEntries: simulationCase.contextEntries, actions: [], cases: [] };
+			groups.set(key, group);
+		}
+		if (!group.actions.includes(simulationCase.action)) group.actions.push(simulationCase.action);
+		group.cases.push(simulationCase);
+	}
+	return [...groups.values()];
+}
+
+/**
+ * Maps the per-action evaluations of one grouped simulator call back to the cases of the group.
+ *
+ * @param group The group that was simulated.
+ * @param evaluations The evaluation results the simulator returned.
+ * @returns One result per case, in the order of the group's cases.
+ * @throws When an action of the group has no evaluation, which would otherwise hide a case.
+ */
+export function simulationResultsOf(group: SimulationGroup, evaluations: readonly SimulationEvaluation[]): SimulationResult[] {
+	const decisions = new Map(evaluations.map((evaluation) => [evaluation.EvalActionName, evaluation.EvalDecision]));
+	return group.cases.map((simulationCase) => {
+		const decision = decisions.get(simulationCase.action);
+		if (decision === undefined) throw new Error(`The policy simulator returned no evaluation for ${simulationCase.action} (${simulationCase.description}).`);
+		return { simulationCase, decision };
+	});
+}
+
 /** What the simulator decided for one case. */
 export type SimulationResult = { readonly simulationCase: SimulationCase; readonly decision: string };
 
