@@ -14,6 +14,7 @@ import type { ExecutorDeps, TurnExecutionJob } from "../../../conversation/src/t
 import type { LogEmitter } from "../../../conversation/src/observability/log-line.ts";
 import { requiredPositiveIntegerSetting, requiredSetting } from "./owner-configuration.ts";
 import { createGatewayModels, type ModelGatewayConfig } from "./owner-models.ts";
+import type { StorageCredentialsProvider } from "./supervisor-ports.ts";
 
 /** Where the container owner finds the session store and the model gateway. All of it is injected by the start of the computer. */
 export type OwnerStoresConfig = {
@@ -26,13 +27,15 @@ export type OwnerStoresConfig = {
 };
 
 /**
- * Read the container owner's stores and gateway from the environment the computer was started with.
+ * Read the container owner's stores and gateway address from the environment the computer was started with. The environment
+ * holds no credential: the gateway token comes from the provider the caller hands in, which asks the supervisor.
  *
  * @param environment The process environment.
+ * @param gatewayToken Resolves the model gateway token each time a request to the gateway is sent.
  * @returns The typed configuration.
  * @throws OwnerConfigurationError If a required variable is missing.
  */
-export function ownerStoresConfigFromEnvironment(environment: NodeJS.ProcessEnv = process.env): OwnerStoresConfig {
+export function ownerStoresConfigFromEnvironment(environment: NodeJS.ProcessEnv, gatewayToken: () => Promise<string>): OwnerStoresConfig {
 	return {
 		messagingTableName: requiredSetting(environment, "CHATTICUS_MESSAGING_TABLE"),
 		conversationsTableName: requiredSetting(environment, "CHATTICUS_CONVERSATIONS_TABLE"),
@@ -40,7 +43,7 @@ export function ownerStoresConfigFromEnvironment(environment: NodeJS.ProcessEnv 
 		environment: requiredSetting(environment, "CHATTICUS_ENVIRONMENT"),
 		gateway: {
 			baseUrl: requiredSetting(environment, "CHATTICUS_MODEL_GATEWAY_URL"),
-			token: requiredSetting(environment, "CHATTICUS_MODEL_GATEWAY_TOKEN"),
+			tokenProvider: gatewayToken,
 		},
 	};
 }
@@ -54,20 +57,33 @@ export const NO_OP_COMPUTER_STARTS: ComputerStartQueue = {
 };
 
 /**
- * The executor's dependencies for the container owner: the real session stores through the credentials the container was
- * given, the model gateway in place of the vendor, and queue pieces that publish nothing.
+ * The AWS clients of the container owner. Each is built with an explicit credentials provider and never with the default
+ * chain, so a client whose supervisor holds no credentials fails the request instead of reading the process environment or
+ * the instance metadata service.
+ *
+ * @param credentials Reads the credentials of the turn from the supervisor each time the SDK asks.
+ * @returns The DynamoDB client and the S3 client.
+ */
+export function createOwnerAwsClients(credentials: StorageCredentialsProvider): { readonly dynamo: DynamoDBClient; readonly s3: S3Client } {
+	return { dynamo: new DynamoDBClient({ credentials }), s3: new S3Client({ credentials }) };
+}
+
+/**
+ * The executor's dependencies for the container owner: the real session stores through the credentials the supervisor
+ * holds for the turn, the model gateway in place of the vendor, and queue pieces that publish nothing.
  *
  * @param config Stores and gateway.
+ * @param credentials Reads the AWS credentials of the turn from the supervisor each time the SDK asks.
  * @param log Receives one `model_call` line for each request to the gateway; absent, none is written.
  * @returns The dependencies `takeOverTurn` runs with.
  */
-export function createContainerOwnerDeps(config: OwnerStoresConfig, log?: LogEmitter): ExecutorDeps {
-	const client = new DynamoDBClient({});
+export function createContainerOwnerDeps(config: OwnerStoresConfig, credentials: StorageCredentialsProvider, log?: LogEmitter): ExecutorDeps {
+	const { dynamo: client, s3 } = createOwnerAwsClients(credentials);
 	return {
 		turns: { store: new DynamoTurnControlStore(client, config.messagingTableName), clock: { now: () => new Date() }, ids: { next: () => randomUUID() } },
 		messaging: new DynamoMessagingStore(client, config.messagingTableName),
 		client,
-		s3: new S3Client({}),
+		s3,
 		messagingTableName: config.messagingTableName,
 		conversationsTableName: config.conversationsTableName,
 		piSessionsBucket: config.piSessionsBucket,

@@ -60,6 +60,8 @@ export type SupervisorScenario = {
 	childExitedAtMilliseconds: number;
 	logIndexAtChildExit: number;
 	stopRequestAtMilliseconds: number;
+	/** Runs with the supervisor just before it starts running, so a scenario can attach what the production entry point attaches, such as the socket server. */
+	beforeSupervisorRuns: ((supervisor: OwnerSupervisor) => Promise<void>) | null;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, SupervisorScenario>();
@@ -131,6 +133,7 @@ export function createSupervisorScenario(world: ChatticusWorld): SupervisorScena
 		childExitedAtMilliseconds: -1,
 		logIndexAtChildExit: 0,
 		stopRequestAtMilliseconds: -1,
+		beforeSupervisorRuns: null,
 	};
 	scenarios.set(world, scenario);
 	return scenario;
@@ -190,6 +193,7 @@ export async function startSupervisor(world: ChatticusWorld): Promise<void> {
 	});
 	scenario.supervisor = supervisor;
 	scenario.startedAtMilliseconds = scenario.clock.nowMilliseconds();
+	await scenario.beforeSupervisorRuns?.(supervisor);
 	void supervisor.run().then((code) => {
 		scenario.exitCode = code;
 		scenario.exitedAtMilliseconds = scenario.clock.nowMilliseconds();

@@ -3,7 +3,9 @@
 # owner supervisor starts (settings, runtime directory, liveness file, watchdog,
 # SIGTERM), that the per-turn owner program refuses to run without its settings,
 # that it runs a local command through the shell launcher, and that the command's
-# user cannot reach the credentials the supervisor and the owner process hold.
+# user cannot reach the credentials the supervisor and the owner process hold:
+# the supervisor's socket is a mode 600 filesystem socket that only root can list
+# or open, and the supervisor holds no TCP port.
 # Needs Docker and no AWS. Run from anywhere:
 #   sh computer/test_owner_container.sh
 # CI builds the image once and passes it in: set CHATTICUS_OWNER_TEST_IMAGE and
@@ -94,6 +96,23 @@ if docker exec "${SUPERVISOR_CONTAINER}" sh -c 'cat /proc/[0-9]*/cmdline 2>/dev/
 
 out="$(docker exec --user 2000 "${SUPERVISOR_CONTAINER}" sh -c 'cat /proc/1/environ 2>&1; cat /run/chatticus/supervisor.alive 2>&1' || true)"
 if echo "${out}" | grep -qi 'permission denied' && ! echo "${out}" | grep -q "${SECRET_INVOKE}"; then pass "the unprivileged shell user cannot read the supervisor's environment or its runtime directory"; else fail "the unprivileged user reached the supervisor: ${out}"; fi
+
+mode_and_type="$(docker exec "${SUPERVISOR_CONTAINER}" stat -c '%a %F' /run/chatticus/supervisor.sock 2>&1 || true)"
+if [ "${mode_and_type}" = "600 socket" ]; then pass "the supervisor listens on a filesystem socket of mode 600 in its runtime directory"; else fail "the supervisor socket is '${mode_and_type}', expected '600 socket'"; fi
+
+SOCKET_PROBE='const c=require("node:net").connect("/run/chatticus/supervisor.sock");let got="";c.on("connect",()=>c.write("{}\n"));c.on("data",(d)=>{got+=d});c.on("close",()=>{console.log("closed:"+got);process.exit(0)});c.on("error",(e)=>{console.log("error:"+e.code+":"+got);process.exit(0)})'
+
+out="$(docker exec "${SUPERVISOR_CONTAINER}" node -e "${SOCKET_PROBE}" 2>&1 || true)"
+if echo "${out}" | grep -Eq "^(closed|error:(ECONNRESET|EPIPE|ECONNREFUSED|ENOENT)):$"; then pass "the supervisor's socket answers root nothing while no child runs: the connection is closed or reset with no bytes"; else fail "root at the supervisor's socket: ${out}"; fi
+
+out="$(docker exec --user 2000 "${SUPERVISOR_CONTAINER}" ls /run/chatticus 2>&1 || true)"
+if echo "${out}" | grep -qi 'permission denied' && ! echo "${out}" | grep -q 'supervisor.sock'; then pass "the unprivileged shell user cannot list the runtime directory"; else fail "the unprivileged user listed the runtime directory: ${out}"; fi
+
+out="$(docker exec --user 2000 "${SUPERVISOR_CONTAINER}" node -e "${SOCKET_PROBE}" 2>&1 || true)"
+if [ "${out}" = "error:EACCES:" ]; then pass "the unprivileged shell user cannot open the supervisor's socket"; else fail "the unprivileged user at the supervisor's socket: ${out}"; fi
+
+listeners="$(docker exec "${SUPERVISOR_CONTAINER}" sh -c "awk 'NR>1 && \$4==\"0A\"' /proc/net/tcp /proc/net/tcp6 2>/dev/null | wc -l" | tr -d ' ')"
+if [ "${listeners}" = "0" ]; then pass "the supervisor holds no loopback or other TCP port for the shell user to reach"; else fail "the supervisor container listens on ${listeners} TCP port(s)"; fi
 
 out="$(docker exec "${SUPERVISOR_CONTAINER}" sh -c 'env | grep -c "^AWS_ACCESS_KEY_ID=\|^AWS_SECRET_ACCESS_KEY=\|^AWS_SESSION_TOKEN=" || true')"
 if [ "${out}" = "0" ]; then pass "the supervisor's task environment holds no AWS access key, secret key or session token"; else fail "the task environment holds ${out} AWS credential variable(s)"; fi

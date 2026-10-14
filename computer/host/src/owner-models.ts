@@ -5,24 +5,35 @@ import { openaiProvider } from "@earendil-works/pi-ai/providers/openai";
 
 /**
  * Where the container owner sends model requests: the control plane's model gateway, never the vendor. The container holds
- * the gateway's per-session token and nothing of the vendor's key. The gateway itself is not part of this program; a
- * deployment injects its address and the token it issued for the turn.
+ * no token of its own: the gateway's per-turn token is read from the supervisor each time a request is sent, so a token the
+ * supervisor renewed is the one the next request carries. The gateway itself is not part of this program; a deployment
+ * injects its address.
  */
 export type ModelGatewayConfig = {
 	/** The gateway's address in place of the vendor's API address, for example `https://gateway.example/v1`. */
 	readonly baseUrl: string;
-	/** The token sent in place of the vendor key. It is bound by the gateway to one tenant, bot and turn. */
-	readonly token: string;
+	/** Resolves the token sent in place of the vendor key, which the gateway bound to one tenant, bot and turn. It rejects when the supervisor holds none, and the request then fails. */
+	readonly tokenProvider: () => Promise<string>;
 };
 
 type GatewayStreams = ReturnType<typeof openAIResponsesApi>;
 type GatewaySender = typeof globalThis.fetch;
 
-const timedSender = (log: LogEmitter, model: string, base: GatewaySender | undefined): GatewaySender => {
+const PLACEHOLDER_API_KEY = "replaced-for-each-request-by-the-model-gateway-sender";
+
+const authenticatedSender = (tokenProvider: () => Promise<string>, base: GatewaySender): GatewaySender => {
+	return async (input, init) => {
+		const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+		headers.set("authorization", `Bearer ${await tokenProvider()}`);
+		return base(input, { ...init, headers });
+	};
+};
+
+const timedSender = (log: LogEmitter, model: string, base: GatewaySender): GatewaySender => {
 	return async (input, init) => {
 		const startedAt = Date.now();
 		try {
-			const response = await (base ?? globalThis.fetch)(input, init);
+			const response = await base(input, init);
 			log("model_call", { model, status: response.status, duration_ms: Date.now() - startedAt });
 			return response;
 		} catch (error) {
@@ -32,18 +43,24 @@ const timedSender = (log: LogEmitter, model: string, base: GatewaySender | undef
 	};
 };
 
-const loggedStreams = (streams: GatewayStreams, log: LogEmitter): GatewayStreams => ({
+const gatewaySender = (gateway: ModelGatewayConfig, log: LogEmitter | undefined, model: string, base: GatewaySender | undefined): GatewaySender => {
+	const sender = base ?? globalThis.fetch;
+	return authenticatedSender(gateway.tokenProvider, log === undefined ? sender : timedSender(log, model, sender));
+};
+
+const gatewayStreams = (streams: GatewayStreams, gateway: ModelGatewayConfig, log: LogEmitter | undefined): GatewayStreams => ({
 	...streams,
-	stream: (model, context, options) => streams.stream(model, context, { ...options, fetch: timedSender(log, model.id, options?.fetch) }),
-	streamSimple: (model, context, options) => streams.streamSimple(model, context, { ...options, fetch: timedSender(log, model.id, options?.fetch) }),
+	stream: (model, context, options) => streams.stream(model, context, { ...options, fetch: gatewaySender(gateway, log, model.id, options?.fetch) }),
+	streamSimple: (model, context, options) => streams.streamSimple(model, context, { ...options, fetch: gatewaySender(gateway, log, model.id, options?.fetch) }),
 });
 
 /**
  * The model collection of a container owner: the OpenAI chat models the Lambda owner uses, with every request pointed at
- * the gateway and authenticated by the injected token alone: the Front Door accepts the gateway's session token without the
- * deployment's invoke key, so the container never holds that key.
+ * the gateway and authenticated by the token the supervisor holds when the request is sent: the Front Door accepts the
+ * gateway's session token without the deployment's invoke key, so the container never holds that key. The token is applied
+ * to each HTTP request by a wrapper around the request function, not by Pi's key resolution, which returns a placeholder.
  *
- * @param gateway The gateway address and token.
+ * @param gateway The gateway address and the provider of its token.
  * @param log Receives one `model_call` line for each HTTP request to the gateway, with the status the gateway answered and
  * the milliseconds until its response headers arrived; a request that never got a response writes `status=none` and the
  * error's name. It never receives a header value or a body. Absent, nothing is written.
@@ -62,7 +79,7 @@ export function createGatewayModels(gateway: ModelGatewayConfig, log?: LogEmitte
 					name: "Model gateway token",
 					resolve: async ({ signal }) => {
 						signal.throwIfAborted();
-						return { auth: { apiKey: gateway.token }, source: "model gateway token" };
+						return { auth: { apiKey: PLACEHOLDER_API_KEY }, source: "model gateway token" };
 					},
 				},
 			},
@@ -70,7 +87,7 @@ export function createGatewayModels(gateway: ModelGatewayConfig, log?: LogEmitte
 				...model,
 				baseUrl: gateway.baseUrl,
 			})),
-			api: log === undefined ? openAIResponsesApi() : loggedStreams(openAIResponsesApi(), log),
+			api: gatewayStreams(openAIResponsesApi(), gateway, log),
 		}),
 	);
 	return models;

@@ -74,7 +74,7 @@ When("the container asks the model gateway for an answer through Pi and logs as 
 	assert.ok(dispatch, "No dispatch was offered.");
 	const tenantId = startedEnvironment(this, "CHATTICUS_TENANT_ID");
 	const models = createGatewayModels(
-		{ baseUrl: `${await httpBaseUrl(this)}/orgs/${tenantId}/model-gateway/v1`, token: dispatch.gateway_token },
+		{ baseUrl: `${await httpBaseUrl(this)}/orgs/${tenantId}/model-gateway/v1`, tokenProvider: async () => dispatch.gateway_token },
 		consoleLogEmitter({ tenant_id: tenantId, turn_id: dispatch.turn_id, owner_id: startedEnvironment(this, "CHATTICUS_OWNER_ID") }),
 	);
 	const model = models.getModel("openai", "gpt-5-nano");

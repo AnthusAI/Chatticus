@@ -4,15 +4,16 @@ import { ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment, ownerTu
 import { createGatewayModels } from "../../computer/host/src/owner-models.ts";
 import { CHILD_EXIT_CONFIGURATION, CHILD_EXIT_SHELL_ISOLATION, CHILD_EXIT_UNCAUGHT, ShellIsolationError, ownerChildExitCodeForError, ownerExitCodeFor } from "../../computer/host/src/owner.ts";
 
-const gateway = { baseUrl: "https://gateway.example.test/v1", token: "session-token-1" };
+const gatewayToken = async (): Promise<string> => "session-token-1";
+const gateway = { baseUrl: "https://gateway.example.test/v1", tokenProvider: gatewayToken };
 
 describe("createGatewayModels", () => {
-	it("points every model at the gateway and authenticates with the injected token", async () => {
+	it("points every model at the gateway and resolves a placeholder in place of a key, because the token is applied to each request", async () => {
 		const models = createGatewayModels(gateway);
 		const model = models.getModel("openai", "gpt-5-nano");
 		expect(model?.baseUrl).toBe(gateway.baseUrl);
 		const auth = await models.getAuth("openai");
-		expect(auth?.auth).toEqual({ apiKey: gateway.token });
+		expect(JSON.stringify(auth)).not.toContain("session-token-1");
 	});
 
 	it("does not read the vendor key from the environment", async () => {
@@ -35,11 +36,10 @@ describe("ownerStoresConfigFromEnvironment", () => {
 		CHATTICUS_PI_SESSIONS_BUCKET: "sessions",
 		CHATTICUS_ENVIRONMENT: "development",
 		CHATTICUS_MODEL_GATEWAY_URL: gateway.baseUrl,
-		CHATTICUS_MODEL_GATEWAY_TOKEN: gateway.token,
 	};
 
-	it("reads the stores and the gateway", () => {
-		expect(ownerStoresConfigFromEnvironment(complete)).toEqual({
+	it("reads the stores and the gateway address and takes the token from the provider it is given", () => {
+		expect(ownerStoresConfigFromEnvironment(complete, gatewayToken)).toEqual({
 			messagingTableName: "messaging",
 			conversationsTableName: "conversations",
 			piSessionsBucket: "sessions",
@@ -48,10 +48,16 @@ describe("ownerStoresConfigFromEnvironment", () => {
 		});
 	});
 
+	it("reads no token from the environment, even when one is set", async () => {
+		const config = ownerStoresConfigFromEnvironment({ ...complete, CHATTICUS_MODEL_GATEWAY_TOKEN: "token-from-the-environment" }, gatewayToken);
+		expect(await config.gateway.tokenProvider()).toBe("session-token-1");
+		expect(JSON.stringify(config)).not.toContain("token-from-the-environment");
+	});
+
 	it("names the missing variable", () => {
-		const { CHATTICUS_MODEL_GATEWAY_TOKEN: _omitted, ...incomplete } = complete;
-		expect(() => ownerStoresConfigFromEnvironment(incomplete)).toThrow(OwnerConfigurationError);
-		expect(() => ownerStoresConfigFromEnvironment(incomplete)).toThrow("CHATTICUS_MODEL_GATEWAY_TOKEN");
+		const { CHATTICUS_MODEL_GATEWAY_URL: _omitted, ...incomplete } = complete;
+		expect(() => ownerStoresConfigFromEnvironment(incomplete, gatewayToken)).toThrow(OwnerConfigurationError);
+		expect(() => ownerStoresConfigFromEnvironment(incomplete, gatewayToken)).toThrow("CHATTICUS_MODEL_GATEWAY_URL");
 	});
 });
 

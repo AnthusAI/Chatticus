@@ -64,6 +64,70 @@ describe("computer image structure", () => {
 		}
 	});
 
+	it("keeps the per-turn child's bundle from reading a credential from its environment or building an AWS client without explicit credentials", async () => {
+		const result = await build({
+			entryPoints: { owner: resolve(repositoryRoot, "computer", "host", "src", "owner-main.ts") },
+			outdir: "unused",
+			absWorkingDir: repositoryRoot,
+			write: false,
+			metafile: true,
+			bundle: true,
+			platform: "node",
+			target: "node22",
+			format: "esm",
+			logLevel: "silent",
+		});
+		const sources = new Set<string>();
+		for (const details of Object.values(result.metafile.outputs)) {
+			for (const input of Object.keys(details.inputs)) if (!input.startsWith("node_modules/")) sources.add(input);
+		}
+		expect(sources.size, "the child bundle has no sources of its own").toBeGreaterThan(10);
+		const clientConstruction = /new\s+(\w+Client)\(([^)]*)\)/g;
+		const credentialSources = /AWS_(ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN|CONTAINER_\w+)|CHATTICUS_MODEL_GATEWAY_TOKEN|169\.254\.169\.254|fromEnv|fromContainerMetadata|fromInstanceMetadata|fromNodeProviderChain|defaultProvider|credential-providers|credential-provider-/;
+		let awsClients = 0;
+		for (const source of sources) {
+			const text = readFileSync(resolve(repositoryRoot, source), "utf-8");
+			for (const construction of text.matchAll(clientConstruction)) {
+				if (!/^(DynamoDB|S3)Client$/.test(construction[1]!)) continue;
+				awsClients += 1;
+				expect(construction[2], `${source} builds ${construction[1]} without explicit credentials`).toContain("credentials");
+			}
+			if (source.startsWith("computer/host/src/")) expect(text, `${source} reads a credential from the environment or a credential source the child must never use`).not.toMatch(credentialSources);
+		}
+		expect(awsClients, "the child builds no AWS client the guard could see").toBeGreaterThanOrEqual(2);
+	});
+
+	it("keeps the socket's server in the supervisor's bundle and its client in the child's, and neither in the other", async () => {
+		const result = await build({
+			entryPoints: {
+				owner: resolve(repositoryRoot, "computer", "host", "src", "owner-main.ts"),
+				supervisor: resolve(repositoryRoot, "computer", "host", "src", "supervisor-main.ts"),
+			},
+			outdir: "unused",
+			absWorkingDir: repositoryRoot,
+			write: false,
+			metafile: true,
+			bundle: true,
+			platform: "node",
+			target: "node22",
+			format: "esm",
+			logLevel: "silent",
+		});
+		const inputsOf = (name: string): string[] => {
+			const output = Object.entries(result.metafile.outputs).find(([path]) => path.endsWith(`${name}.js`));
+			expect(output, `the build produced no ${name} bundle`).toBeDefined();
+			return Object.keys(output![1].inputs);
+		};
+		const owner = inputsOf("owner");
+		const supervisor = inputsOf("supervisor");
+		expect(supervisor).toContain("computer/host/src/supervisor-socket.ts");
+		expect(supervisor).not.toContain("computer/host/src/supervisor-socket-client.ts");
+		expect(owner).toContain("computer/host/src/supervisor-socket-client.ts");
+		expect(owner).not.toContain("computer/host/src/supervisor-socket.ts");
+		expect(owner).not.toContain("computer/host/src/supervisor.ts");
+		expect(supervisor.filter((input) => input.startsWith("node_modules/@earendil-works/"))).toEqual([]);
+	});
+
 	it("keeps the supervisor from opening a workspace path: the file runner and overlay applier modules import no file system module", () => {
 		for (const name of ["live-file-operations.ts", "live-file-helper-launcher.ts", "overlay-applier.ts"]) {
 			const source = readFileSync(resolve(repositoryRoot, "computer", "host", "src", name), "utf-8");

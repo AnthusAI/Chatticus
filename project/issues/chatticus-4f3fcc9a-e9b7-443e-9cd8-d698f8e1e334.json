@@ -3,7 +3,7 @@
   "title": "2b-B2: CDK assertions for renewal and the development-only broker fault switch (decided P4)",
   "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R18 R22, 13, 15, 17 B2, 19 steps 3 and 4; decided P4: build it). Gherkin first (features/computer_owner_credential_renewal.feature).\n\nFiles:\n- infra/test/computer-owner-stack.test.ts: the broker's role holds no permission beyond GetSecretValue on the signing key and AssumeRole and TagSession on the two owner roles; both roles' trust and maxSessionDuration 3600 unchanged; staging and production templates hold neither fault variable and do hold CHATTICUS_ENVIRONMENT on the broker. This part can merge before B1.\n- The development-only fault switch with four gates (R22). G1: infra/lib/control-plane-stack.ts reads the CDK context ownerBrokerFault (none, deny_supervisor_renewal, deny_turn_renewal) and ownerBrokerCredentialSeconds (900 to 3600) only when the environment is development, and throws naming the switch for staging or production. G2: the two broker variables CHATTICUS_OWNER_BROKER_FAULT and CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS are emitted only in development; CHATTICUS_ENVIRONMENT is always set on the broker. G3: conversation/src/lambdas/owner-credential-broker-faults.ts (new, the only reader of the variables) throws at initialization if a variable is set and CHATTICUS_ENVIRONMENT is not exactly development (missing counts as not development), so the function fails closed. G4: a fault can only make the broker issue less (deny a purpose, or a duration of 900 to 3600 s, never longer). owner-credential-broker.ts takes a faults dependency (default none); this edit is made after B1 merges (same file).\n- conversation/test/broker-fault-gate.test.ts (structural vitest): the variable names appear in no file under conversation/src or infra/lib except the fault module and the stack's development branch; initializing the fault module with production, staging, empty and missing CHATTICUS_ENVIRONMENT and a fault variable set throws; with development it does not.\n- The CloudWatch metric filters and alarms of section 13 (optional in the same PR).\n- infra/deploy-*.sh: document in the header how to deploy the development ControlPlane with the context and how to restore it.\n\nScenarios owned: 'Renewal adds no permission to the broker and no role changes its trust or session limit', 'The staging and production brokers hold no fault variable and know their environment', 'The broker's development fault switch exists in development only', 'The development fault switch denies a renewal and shortens the credentials', 'The broker refuses to start with a fault switch outside development'.\n\nAcceptance: cd infra && npm test; cd conversation && npm test && npm run test:features; npx cdk synth with and without the context in development, and with it for staging and production (fails naming the switch).\n\nDependencies: P0 (assertions); B1 (the switch). Blocks the failure proof in E.\n\nRules: no emojis, no line comments. AWS resources exist only as CDK; never create IAM users or access keys. Do not read or write project/.",
   "type": "sub-task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -19,16 +19,41 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "80ec16be-51c3-40ad-a8a9-da1ba2e00fb2",
+      "author": "home",
+      "text": "B2 implemented in PR 558, awaiting review",
+      "created_at": "2026-10-14T16:03:24.088584Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-b2"
+      }
+    },
+    {
+      "id": "7e833f15-2a70-4881-9e58-743494c64ec0",
+      "author": "home",
+      "text": "Mismatches found: staging and production wire no broker today, so CHATTICUS_ENVIRONMENT on the broker is asserted for development only; deny_turn_renewal denies all turn grants because the broker cannot tell a renewal from a first grant. Metric filters and alarms not done.",
+      "created_at": "2026-10-14T16:03:32.523495Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-b2"
+      }
+    }
+  ],
   "created_at": "2026-10-14T03:32:28.278198Z",
-  "updated_at": "2026-10-14T09:54:07.745802Z",
+  "updated_at": "2026-10-14T16:03:32.523524Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "phase2b-planner"
   },
-  "right_now_summary": "The team is defining development-only broker fault controls and adding tests for permissions, environment gates, and",
-  "right_now_updated_at": "2026-10-14T09:54:09.334077Z",
+  "right_now_summary": "B2 is implemented in PR 558 and awaiting review, with environment and denial-scope mismatches still unresolved.",
+  "right_now_updated_at": "2026-10-14T16:03:33.804923Z",
   "custom": {}
 }
