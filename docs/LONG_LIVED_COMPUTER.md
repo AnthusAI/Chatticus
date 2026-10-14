@@ -478,7 +478,7 @@ stopping and not draining, and never past the hard end of 8 hours; stopping the
 computer or bumping the generation cuts it off, and what was already minted expires
 within an hour. The exposure window of a stolen token plus its credentials is
 therefore the owner's life (up to 8 hours), not one hour: the kill switch is what
-bounds it, and this is question S4 of the contract. **Corrected by the contract
+bounds it, and this was accepted by the owner (decision S4 of the contract). **Corrected by the contract
 ([Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md)):** the route is one route
 with two kinds (supervisor and turn); the cap is enforced by the credential broker
 itself from a signed start time in the token, because the broker reads no store; the
@@ -594,7 +594,7 @@ drift.
   minutes like the probes (`probes.ts:15`) that stops the task with `ecs:StopTask` (a new
   permission) if the owner is older than the cap plus a 30 minute grace (which would let
   credentials expire under a running owner) or silent for 2 minutes, is **not built and not
-  planned for 2b** (C10 of the 2a contract; open question P5 of the 2b contract). The
+  planned for 2b** (C10 of the 2a contract; decided P5 of the 2b contract: no). The
   Front Door logs `owner_overdue` for a live owner past the hard lifetime, and a metric
   filter alarms on it.
 
@@ -1043,11 +1043,11 @@ events, and need the larger task.
   `features/computer_owner_credential_renewal.feature`). `POST /host/owner/credentials` for the supervisor's and the
   turn's credentials, the supervisor renewing in place with an atomic swap, credential providers in the child that
   read from `/run/chatticus/supervisor.sock`, the drain derived from the issued credentials, the protocol-version
-  drain (mechanism only; the minimum stays 1), the lifetime raised to 8 hours (drain at 28200 seconds), the
+  drain (mechanism only; the minimum stays 1 until the new image is promoted and proven live), the lifetime raised to 8 hours (drain at 28200 seconds), the
   watchdog resized, the broker enforcing the hard end. **Not** the bootstrap exchange: that is 2a and live
-  (this line used to list it). **Not** the external `OwnerLifetimeCheck` chain: not planned (open question P5).
+  (this line used to list it). **Not** the external `OwnerLifetimeCheck` chain: not built (decided P5).
   Parts: P0 foundation, A1 and A2 server, B1 and B2 broker and infrastructure, C supervisor, D child and socket,
-  E integration and live proof.
+  E integration and live proof, R emergency revocation runbook.
 - **Gherkin.** `features/computer_owner_long_lived.feature`: a second turn is served
   by the live owner without a start; a turn parked behind a busy owner waits and
   then runs; idle timeout publishes and stops; stop is vetoed by pending work; a
@@ -1140,7 +1140,7 @@ out-of-memory.
 | 1 | **Memory at 512 MiB.** Supervisor plus Pi plus a dev server does not fit; pack builds the archive in memory | Streaming pack, exclusions, 0.5 vCPU / 1 GiB by Phase 4, a memory guard, measured in Phase 1 |
 | 2 | **Preview page-load time** through a poll-based relay | Measure first; document the limit; bundled targets first; gzip at the owner |
 | 3 | **Two live disks** if a late start job races a live owner | `already_serving` check; scenario; generation compare stays |
-| 4 | **An idle-timer bug becomes an idle floor** | 8 hour hard end, drain, the in-container watchdog (built in 2a), log alarm on uptime beyond the cap (`owner_overdue`); the external message chain is not planned (2b contract, P5) |
+| 4 | **An idle-timer bug becomes an idle floor** | 8 hour hard end, drain, the in-container watchdog (built in 2a), log alarm on uptime beyond the cap (`owner_overdue`); the external message chain is not planned (2b contract, decided P5) |
 | 5 | **Isolation headers break the embedded preview** on development | Test early in Phase 4; narrow the headers or add `credentialless` |
 | 6 | **Credential broker** is a new privileged component | One function, no other secrets, fixed role ARNs, tag allow-list from `ownerSessionTags` |
 | 7 | **Dev-server compatibility** (host checks, absolute URLs, failing WebSocket clients) | Host rewrite, `Location` rewrite, per-framework start recipes, a test matrix |
@@ -1200,7 +1200,7 @@ named test in the phase that depends on it.
 
 | Threat | Why it is new | Mitigation |
 | --- | --- | --- |
-| Longer credential window | Owner lives up to 8 h instead of one turn | Two tiers, every credential expires in 1 h and is renewed, renewal refused for a stale generation, a stopped, stopping or draining owner, kill switch, a hard end enforced by the broker from a signed start time, bootstrap token replaces secrets in the task description. A stolen token plus credentials can renew for as long as the owner is the live owner: up to 8 h, not 1 h (2b contract, 12.2 and S4) |
+| Longer credential window | Owner lives up to 8 h instead of one turn | Two tiers, every credential expires in 1 h and is renewed, renewal refused for a stale generation, a stopped, stopping or draining owner, kill switch, a hard end enforced by the broker from a signed start time, bootstrap token replaces secrets in the task description. A stolen token plus credentials can renew for as long as the owner is the live owner: up to 8 h, not 1 h (2b contract, 12.2, accepted as S4) |
 | A persistent foothold in the sandbox | A prompt-injected turn can leave a background process running past the turn | Same user (uid 2000), same filesystem reach as the snapshot already persists; processes die at shutdown; egress control remains the open item it already is |
 | Larger privileged component | The supervisor persists, holds computer-level keys and a local socket | Supervisor credentials limited to the snapshot prefix; socket mode 0600 root; child per turn holds the session keys |
 | Preview as a phishing and exfiltration surface | Bot-authored pages are shown inside the app | Separate registrable domain, sandboxed frame, fixed banner, no cookies, capability address with expiry |

@@ -320,6 +320,7 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
       | the authorization is an expired supervisor token                   | invalid_authorization  |
       | the authorization names another owner than the payload             | authorization_mismatch |
       | the authorization names another computer than the payload         | authorization_mismatch |
+      | the authorization is a supervisor token without a start time       | invalid_authorization  |
       | the owner was bootstrapped 27900 seconds ago                       | owner_lifetime_over    |
       | the owner was bootstrapped 30000 seconds ago                       | owner_lifetime_over    |
       | the payload names a turn                                           | invalid_request        |
@@ -342,6 +343,40 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
     When the broker is asked for supervisor renewal credentials with a valid supervisor token
     Then the broker answers not ok with the code "assume_role_failed"
     And the message is "AccessDenied" and holds no token, key or credential
+
+  @broker
+  Scenario: A turn is refused for a supervisor token without a start time
+    Given the broker holds the signing key
+    When the broker is asked for turn credentials with a supervisor token without a start time
+    Then the broker answers not ok with the code "invalid_authorization"
+    And STS was not asked to assume a role
+
+  @broker
+  Scenario: The development fault switch denies a renewal and shortens the credentials
+    Given the broker holds the signing key
+    And the broker runs in the environment "development" with the fault "deny_supervisor_renewal"
+    When the broker is asked for supervisor renewal credentials with a valid supervisor token
+    Then the broker answers not ok with the code "assume_role_failed"
+    Given the broker runs in the environment "development" with credentials limited to 900 seconds
+    When the broker is asked for supervisor credentials with a valid bootstrap token
+    Then the role "ComputerSupervisorRole" was assumed for 900 seconds
+    When the broker runs in the environment "development" with credentials limited to 7200 seconds
+    Then the broker refuses to start
+
+  @broker
+  Scenario Outline: The broker refuses to start with a fault switch outside development
+    Given the broker holds the signing key
+    When the broker is started in the environment <environment> with the fault "deny_supervisor_renewal"
+    Then the broker refuses to start
+    And every invocation of the deployed entry point fails
+    And STS was not asked to assume a role
+
+    Examples:
+      | environment  |
+      | "production" |
+      | "staging"    |
+      | ""           |
+      | not set      |
 
   @broker
   Scenario: A supervisor token issued at bootstrap names the moment the owner started
@@ -661,6 +696,17 @@ Feature: A long-lived computer owner renews its credentials in place and is repl
     Then the broker's role holds the permission to read the signing key and to assume the two owner roles and nothing else
     And the supervisor role and the per-turn role still trust only the broker's role with their exact session tag keys
     And both roles keep a maximum session of 3600 seconds
+
+  @infra
+  Scenario Outline: The staging and production brokers hold no fault variable and know their environment
+    Given the control plane stack synthesized for <environment>
+    Then the broker's environment holds "CHATTICUS_ENVIRONMENT" set to "<environment>"
+    And the broker's environment holds neither "CHATTICUS_OWNER_BROKER_FAULT" nor "CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS"
+
+    Examples:
+      | environment |
+      | staging     |
+      | production  |
 
   @infra
   Scenario Outline: The broker's development fault switch exists in development only

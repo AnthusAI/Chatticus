@@ -8,8 +8,8 @@
 > labelled FLAG and listed in section 2. The wire schemas are in section 5 as the code Part P0 adds to
 > [`host-protocol/src/supervisor.ts`](../host-protocol/src/supervisor.ts). The behavior is in the draft
 > [`features/computer_owner_credential_renewal.feature`](../features/computer_owner_credential_renewal.feature)
-> (not in `features/cucumber-features.txt`). Questions that are the owner's to decide are in section 20 and are not
-> decided here. Where this page and a section of [Long-lived computer](LONG_LIVED_COMPUTER.md) disagree, this page wins.
+> (not in `features/cucumber-features.txt`). The questions this page first left to the owner were answered; the answers are
+> recorded as decisions in section 20 and applied throughout. Where this page and a section of [Long-lived computer](LONG_LIVED_COMPUTER.md) disagree, this page wins.
 
 ## 1. What Phase 2b is
 
@@ -68,8 +68,8 @@ Broker       **new purpose supervisor_renewal; every credential it issues ends b
 
 | Not in 2b | Why |
 | --- | --- |
-| The external `OwnerLifetimeCheck` message chain with `ecs:StopTask` | Open question P5. An alarm on `owner_overdue` replaces it (section 13). |
-| Raising `OWNER_MINIMUM_PROTOCOL_VERSION` above 1 | The mechanism (drain with `drain_reason: "protocol_version"`) lands; using it is an operator change after the image is promoted (decision R17, question P3). |
+| The external `OwnerLifetimeCheck` message chain with `ecs:StopTask` | Decided P5: not built. An alarm on `owner_overdue` replaces it (section 13). |
+| Raising `OWNER_MINIMUM_PROTOCOL_VERSION` above 1 | The mechanism (drain with `drain_reason: "protocol_version"`) lands; using it is an operator change made only after the new image is promoted **and proven live**; until then the minimum stays 1 (decision R17, decided P3). |
 | Background processes, previews, two concurrent turns | Phases 4 and 5. Unchanged. |
 | A longer credential for any single session | Every credential stays at most one hour (decision R5). |
 
@@ -89,11 +89,11 @@ anything is built. The right-hand column is where this page settles it.
 | F7 | `OWNER_MAX_LIFETIME_SECONDS` is a policy of 50 minutes. | 3000 is not a policy: it is the credential lifetime minus the drain budget (3600 - 300 - 120 - 180), hard-wired into `ownerLifetimeIsOver`. If the server simply raises it, an image from Phase 2a (which cannot renew) is cut off by expired credentials in the middle of a turn. | R4: the drain is **derived** from the credentials the server issued, which also makes any skew between server and image safe. |
 | F8 | Section 8 of the 2a contract: the supervisor starts the final stop sequence 180 seconds before its credentials end. | The code does it with a single deadline and the stop reason `unhealthy` (`supervisor.ts:318-321`). With renewal that is wrong twice: it is a state, not a value (the credentials change), and `unhealthy` is an alarm. | R14, section 8.5. |
 | F9 | Not mentioned: how the AWS SDK picks up new credentials. | `new S3Client({ credentials: { ..., expiration } })` is a constant; the SDK cannot refresh it. A **provider** is re-read only when the cached credentials are within 5 minutes of their expiration (`@smithy/core` `EXPIRATION_MS = 300_000`, `memoizeIdentityProvider`), and a provider that throws fails the request. | R13: the provider never throws while the credentials it holds are valid, and a renewal margin is far larger than 5 minutes. |
-| F10 | Section 6.5 and the task: the control plane "refuses renewal after supersede". | The refusal is by the route authentication that already runs on every owner route (5.1 of the 2a contract), not by the broker, which reads no store (2a section 7). | R7. Open question S1 asks whether the broker should read the computer record as well. |
+| F10 | Section 6.5 and the task: the control plane "refuses renewal after supersede". | The refusal is by the route authentication that already runs on every owner route (5.1 of the 2a contract), not by the broker, which reads no store (2a section 7). | R7. Decided S1: the broker stays store-free; the server checks the computer record before it invokes the broker. |
 | F11 | Section 6.8: owners below a minimum protocol version "receive `drain: true`". | The poll only logs `owner_protocol_version_low`. Raising the minimum on the day the server is deployed, before the image is promoted, would drain every new owner (they all run the old image): the failure class of `COMPUTER_IMAGE_PROMOTION.md`. | R17: mechanism now, raising later. |
 | F12 | The supervisor's loop is one `await` chain (`supervisor.ts:176-189`). | A renewal that waits for the broker (up to the 10 second request timeout) in the loop would stop the polls, and the 25 second fence (C17) would kill a healthy owner. | R3: a renewal is a second activity, like the overlay clear (`clearInFlight`). |
 | F13 | Phase 2 live proof: "leave a computer up across a credential refresh". | An idle computer stops after 900 seconds (D2) and runs one turn at a time (D5). A renewal at 40 minutes is reached only with work at least every 15 minutes, and a long turn and keepalive messages cannot overlap on one computer (a parked turn waits at most 15 minutes). | Section 19. |
-| F14 | Risk 4 of the design relies on an "independent watchdog message chain". | Not built: C10 of the 2a contract deferred it to 2b "load-bearing only when the cap rises to 8 hours". | R16 and question P5: not built; an alarm on `owner_overdue` instead. |
+| F14 | Risk 4 of the design relies on an "independent watchdog message chain". | Not built: C10 of the 2a contract deferred it to 2b "load-bearing only when the cap rises to 8 hours". | R16 and decision P5: not built; an alarm on `owner_overdue` instead. |
 | F15 | The design does not say whether an S3 request or multipart upload in flight when credentials change is safe. | Each request is signed when it starts; `S3SnapshotStore.putPack` sends every part as its own request (`snapshot/s3.ts:43-56`). | R12, A5. |
 | F16 | The Phase 2a draft says the child's local channel is `/run/chatticus/supervisor.sock`, "mode 0600, root". | Mode 0600 on the file is enough only inside a directory the shell cannot enter, and only if the socket is a filesystem socket: Linux abstract sockets have no permissions and loopback TCP is open to every uid in the container's network namespace. | R12. |
 
@@ -107,8 +107,8 @@ anything is built. The right-hand column is where this page settles it.
 | R4 | **The drain is derived from the credentials the control plane issued**: drain when `credentialsExpireAt - now <= 600`, or when `now - ownerStartedAt >= OWNER_MAX_LIFETIME_SECONDS` (28200), or when the owner's protocol version is below the minimum. The record keeps `ownerCredentialsExpireAt`, written at the bootstrap consume and at each renewal. | One rule serves every case: an owner that renews lives on; one that cannot (an image from Phase 2a, or a failed renewal) drains 600 seconds before its credentials end, exactly as today (3600 - 600 = 3000). The invariant "the owner is gone before its credentials expire" holds for any image against any server. |
 | R5 | **No credential, token or process lives past the hard end**: `OWNER_HARD_LIFETIME_SECONDS = 28800` after the bootstrap. Every single credential still lasts at most one hour. `OWNER_MAX_LIFETIME_SECONDS` becomes 28200 (hard end minus the 600 second drain budget). Nothing is issued in the last 900 seconds (the STS minimum session), at 27900. | "At most 8 hours" is a bound on the whole owner. The drain starts early enough for the grace and the publish to finish inside it. The cutoff means the AWS credentials never outlive the hard end either. |
 | R6 | **A renewal is refused** when the owner is not the live owner (every owner route already checks this), when a stop is approved (`owner_stopping`), when the control plane is draining it (supervisor kind only: a draining owner may still renew the credentials of the turn it is finishing), or after the issuance cutoff (`owner_draining`), and when asked again within 60 seconds for the same kind (`renewal_too_soon`, 429). Once refused for a drain, the refusal is final: the drain never reverses. | A stopped or replaced owner must not receive fresh S3 write credentials for a disk a newer owner now holds. A drain that could be undone by a late renewal would leave the supervisor and the server disagreeing about whether the owner is stopping. |
-| R7 | **The Front Door decides, the broker bounds.** The broker keeps reading no store. For `supervisor_renewal` it verifies the supervisor token (audience, signature, expiry), requires the payload to equal the token's claims, builds the same two tags from the verified payload, assumes the same role with the same session name, and refuses past the token's hard end. | The broker's value is that a Front Door bug cannot name another owner or another computer, and (new) cannot extend one past the hard end. Giving it the store would add a data store to a function meant to have none (2a 12.3). Question S1 asks the owner. |
-| R8 | **The supervisor token carries the owner's start time**: a new required claim `ownerStartedAtSeconds` of the supervisor token. The broker sets it at the bootstrap and copies it at every renewal; it computes the hard end from it. | The only way for a store-free broker to enforce a cap is a signed anchor. Cost: the strict claims schema changes, so tokens of the previous format are refused and the first merge needs no running owner (section 18). Question S2. |
+| R7 | **The Front Door decides, the broker bounds.** The broker keeps reading no store. For `supervisor_renewal` it verifies the supervisor token (audience, signature, expiry), requires the payload to equal the token's claims, builds the same two tags from the verified payload, assumes the same role with the same session name, and refuses past the token's hard end. | The broker's value is that a Front Door bug cannot name another owner or another computer, and (new) cannot extend one past the hard end. Giving it the store would add a data store to a function meant to have none (2a 12.3). **Decided (S1):** it stays store-free; the Front Door reads the computer record and refuses before it invokes the broker (6.2 steps 2 and 3). |
+| R8 | **The supervisor token carries the owner's start time**: a new required claim `ownerStartedAtSeconds` of the supervisor token. The broker sets it at the bootstrap and copies it at every renewal; it computes the hard end from it. | The only way for a store-free broker to enforce a cap is a signed anchor. Cost: the strict claims schema changes, so tokens of the previous format are refused and the first merge needs no running owner (section 18). **Decided (S2):** the broker requires the claim and refuses a token without it (`invalid_authorization`). |
 | R9 | The renewal request is limited to one per kind per 60 seconds, per owner, by a compare-and-set on the computer record; a lost response can therefore be retried successfully only 60 seconds after the lost one was recorded. The grant that a lost response carried is never used and expires. | STS and Lambda cost nothing at this rate and a loop in a faulty supervisor can do no more than 60 calls an hour. The record already carries the owner's other state; no new store. |
 | R10 | **The child holds no credential in its environment.** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` and `CHATTICUS_MODEL_GATEWAY_TOKEN` leave `OWNER_CHILD_ENVIRONMENT_NAMES` and join the forbidden list; `CHATTICUS_SUPERVISOR_SOCKET` joins the allowed list. | One path, no "env first, socket as a fallback". It also removes the exposure of `/proc/<child>/environ`. A client built without an explicit provider fails closed. |
 | R11 | **The supervisor renews the active turn's credentials on a timer** (1200 seconds before they end, the same schedule as its own) and the child only reads them: the child never renews and never calls the control plane. | A child that renewed would need a host token, which C3 of the 2a contract deleted. The child stays a pure reader with a smaller attack surface. |
@@ -116,13 +116,13 @@ anything is built. The right-hand column is where this page settles it.
 | R13 | **Atomic swap**: the AWS credentials and the supervisor token are replaced in one synchronous step (no `await` between), after the whole response has been parsed and checked newer than what is held. The S3 client is built once with a provider that returns the holder's current credentials; the provider never throws while the credentials it holds are valid. | An in-flight request keeps the credentials it was signed with; the next one uses the new. No request can mix an old token with new credentials, and the SDK's memoization (F9) only delays the adoption, never breaks it. |
 | R14 | **The supervisor drains itself** when 600 seconds of its credentials remain and no renewal has succeeded, asks to stop with a new reason `credentials` (always approved), and has a **hard deadline** 30 seconds before the credentials end, at which it kills the child and exits with code 9. | The server's stored expiry can differ from the supervisor's (a renewal whose response was lost). The supervisor must not wait for a drain it will not be told about, and a stop that hangs must not outlive the credentials it needs. |
 | R15 | **A renewal is not work.** It does not touch the idle clock, a dispatch, a file operation or the stop veto. An owner lives 40 minutes only if work arrives at least every 15 minutes (or a turn runs). | The idle timeout stays the bound on cost (D1, D2). Renewal must never make an unused computer last longer. |
-| R16 | **The external `OwnerLifetimeCheck` chain stays deferred.** The Front Door logs `owner_overdue` for a live owner older than the hard lifetime plus the drain budget, and a metric filter alarms on it. | An owner that outlives 28800 seconds needs the idle timer, the drain, the in-container watchdog (which a wedged Node loop cannot affect) and its credentials to all fail. The chain adds a permission (`ecs:StopTask`) and a message type for that case alone. Question P5. |
+| R16 | **The external `OwnerLifetimeCheck` chain stays deferred.** The Front Door logs `owner_overdue` for a live owner older than the hard lifetime plus the drain budget, and a metric filter alarms on it. | An owner that outlives 28800 seconds needs the idle timer, the drain, the in-container watchdog (which a wedged Node loop cannot affect) and its credentials to all fail. The chain adds a permission (`ecs:StopTask`) and a message type for that case alone. **Decided (P5):** not built. |
 | R17 | `OWNER_PROTOCOL_VERSION` becomes 3 in the change that renews. The drain for a version below `OWNER_MINIMUM_PROTOCOL_VERSION` is implemented (`drain_reason: "protocol_version"`); the minimum stays 1 in the rollout. Lifetime does not branch on the version (R4 makes it unnecessary). | A gate on the version for lifetime would be the "support both ways" fork the project forbids, and raising the minimum with the server deploy would drain every new owner until the image moves (F11). |
 | R18 | **No change to either role, to the trust policies, to `maxSessionDuration`, to any permission of the broker, or to the real-IAM manifest.** A renewal is an `AssumeRole` of the same role, with the same tags, by the same principal, for `DurationSeconds` between 900 and 3600. | Nothing the roles may touch changes. Section 15. |
-| R19 | **Tokens stay stateless.** A renewed owner's earlier token stays valid until its own expiry (at most an hour). There is no rotating serial. | A serial would be checked on every request and need a two-token grace for a lost response, which leaves the previous token valid for as long as the expiry does. Question S3. |
+| R19 | **Tokens stay stateless.** A renewed owner's earlier token stays valid until its own expiry (at most an hour). There is no rotating serial. | A serial would be checked on every request and need a two-token grace for a lost response, which leaves the previous token valid for as long as the expiry does. **Decided (S3):** accepted. |
 | R20 | **The role session name is stable for an owner**: `supervisor-<ownerId>` at bootstrap and at every renewal; `turn-<ownerId>` for every turn grant. | The assumed-role principal ARN is the same across renewals, so an S3 multipart upload begun with one set of credentials may be continued with the next (A5), and CloudTrail correlates the sessions of one owner. |
 | R21 | Once the supervisor is `stopping`, it starts no renewal and abandons one in flight. | The stop sequence runs on what it holds (it has at least 180 seconds by R14). A late renewal would only be refused. |
-| R22 | A **development-only fault switch** in the broker (CDK context, refused at synthesis for staging and production) can shorten the supervisor credentials to 900 seconds and can deny renewals. | The failure path and the swap across a real expiry can then be proved live in 15 minutes instead of 80. Question P4. |
+| R22 | A **development-only fault switch** in the broker can shorten the supervisor credentials to 900 seconds and can deny renewals. **Decided (P4): built.** It is gated off outside development at build time and at runtime, by four gates: (G1) the CDK context `ownerBrokerFault` / `ownerBrokerCredentialSeconds` is read only when the environment name is `development`, and synthesis throws, naming the switch, if either is set for staging or production; (G2) the stack emits the broker variables `CHATTICUS_OWNER_BROKER_FAULT` and `CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS` only in development, and always sets `CHATTICUS_ENVIRONMENT` on the broker; (G3) at runtime the broker's single fault module (`conversation/src/lambdas/owner-credential-broker-faults.ts`, the only reader of the two variables) throws at initialization if either variable is set and `CHATTICUS_ENVIRONMENT` is not exactly `development` (a missing value counts as not development), so the function fails closed on every invocation; (G4) a fault can only make the broker issue less (deny a purpose, or a duration between 900 and 3600 seconds, never longer) and never changes who is authorized. | The failure path and the swap across a real expiry can then be proved live in 15 minutes instead of 80. Two tests keep production from enabling it: the scenario "The broker refuses to start with a fault switch outside development" and a structural vitest test (`conversation/test/broker-fault-gate.test.ts`, section 15). |
 
 ## 4. Constants
 
@@ -541,7 +541,8 @@ and drops the lease when the child exits. The renewal asks the Front Door, which
 authorization; the broker mints the same role with the same five tags for the same turn. The gateway then sees a token it
 accepts for the same `turnId`, `ownerId` and `startGeneration` (`model-gateway.ts:331-339`), so its check that this owner
 holds the claim is unchanged. A turn can therefore run until the owner drains: at most 28200 seconds, after which the 300
-second grace applies as for any drain (question P1). The alternative of one long credential for the child is rejected in
+second grace applies as for any drain. **Decided (P1):** the grace stays 300 seconds; a turn cut off at the cap is recovered by the
+next owner through the lost-owner recovery of 9.3 of the 2a contract. The alternative of one long credential for the child is rejected in
 7.1: it cannot be revoked and would be eight hours of write access to one conversation.
 
 ### 8.5 Self-stop and the hard deadline
@@ -656,7 +657,8 @@ backstop, not the plan.
   renewal at once (403 `not_current_owner`), and a newer generation does too (403 `stale_generation`). The credentials already
   issued still work for up to an hour after that, because a role session cannot be revoked for one tenant (7.1). What they open
   has not changed: one computer's snapshot prefix, and, by polling as the owner, per-turn credentials for turns that are
-  parked on that computer, one at a time. Question S4 asks whether to accept the larger window.
+  parked on that computer, one at a time. **Decided (S4):** accepted. The window of a stolen supervisor token is the owner's life, up to 8 hours, mitigated by
+  refusing renewal once the owner is superseded or stopped.
 - **Why renewal must be refused after a supersede or a stop:** otherwise a replaced or stopped owner, including a zombie
   that came back from a partition, could mint fresh write credentials for a snapshot prefix that a newer owner now holds,
   and corrupt its disk. The route authentication refuses first (`ownerId` and `ownerGeneration` must be the live ones); the
@@ -690,8 +692,10 @@ backstop, not the plan.
 ### 12.3 Emergency revocation
 
 A role session is revoked for all tenants at once by a deny on `aws:TokenIssueTime` older than a time, attached to the role
-through CDK. Because every owner renews, the cost is one failed request for each live owner; it renews and goes on. Whether
-to write this into a runbook is question S6.
+through CDK. Because every owner renews, the cost is one failed request for each live owner; it renews and goes on.
+**Decided (S6):** this is written as a runbook, `docs/OWNER_CREDENTIAL_REVOCATION.md`, by Part R (section 17): what to do when a
+supervisor or a turn credential leaks (revoke the role session with an inline deny carrying an `aws:TokenIssueTime` condition,
+through CDK; stop the task; rotate the signing key), in the order to do it, with the cost and the verification of each step.
 
 ## 13. Observability
 
@@ -753,7 +757,15 @@ behavior of S3 when a multipart upload spans two sessions (A5).
 
 **CDK tests** (`infra/test/computer-owner-stack.test.ts`): assert the broker role has no permission beyond the secret and the
 two role ARNs (no DynamoDB, no S3, no SQS); both roles' trust and `maxSessionDuration` are unchanged; the development fault
-switch (R22) sets the broker environment in development and fails synthesis for staging and production.
+switch (R22) sets the broker environment in development and fails synthesis for staging and production (gates G1 and G2),
+and the staging and production templates hold neither fault variable and do hold `CHATTICUS_ENVIRONMENT` on the broker.
+
+**Structural test** (`conversation/test/broker-fault-gate.test.ts`, vitest: a structure guard, not behavior): the two fault
+variable names appear in no file under `conversation/src` or `infra/lib` except the fault module and the stack's development
+branch; the broker handler imports the fault module and nothing else reads the variables; and initializing the fault module with
+each of `production`, `staging`, an empty and a missing `CHATTICUS_ENVIRONMENT` and a fault variable set throws (gate G3), while
+the same with `development` does not. The scenario "The broker refuses to start with a fault switch outside development"
+pins the same behavior through the deployed entry point.
 
 ## 16. Traceability
 
@@ -789,14 +801,15 @@ Scenario names are those of `features/computer_owner_credential_renewal.feature`
 | CR25. The watchdog is sized for eight hours (R5) | The watchdog is sized for eight hours | supervisor |
 | CR26. An owner survives a renewal, a turn survives an hour, an owner ends at the cap (R1 to R6) | An owner keeps serving across a credential renewal; A turn longer than an hour finishes; An owner at its eight hour limit drains, stops, and the next message starts a new owner | end-to-end |
 | CR27. Nothing in IAM changes (R18) | Renewal adds no permission to the broker and no role changes its trust or session limit | infra |
-| CR28. The fault switch exists in development only (R22) | The broker's development fault switch exists in development only | infra |
+| CR28. The fault switch exists in development only; production cannot enable it (R22, P4, gates G1 to G4) | The broker's development fault switch exists in development only; The staging and production brokers hold no fault variable and know their environment; The broker refuses to start with a fault switch outside development; The development fault switch denies a renewal and shortens the credentials; plus the structural test `broker-fault-gate.test.ts` (vitest, section 15) | infra, broker |
+| CR29. The broker refuses a token without the signed start time (R8, S2) | A turn is refused for a supervisor token without a start time; The broker refuses what it should not renew (row: no start time) | broker |
 
 Scenarios of the design document's Phase 2 list that this closes: "refresh extends credentials and is refused for a stale
 generation or a stopped computer" (CR1 to CR3), "old protocol drains" (CR11).
 
 ## 17. Work assignment
 
-Eight parts, each a pull request into `develop` with Gherkin first (`AGENTS.md`): the scenarios a part owns move from the
+Nine parts (eight of code, one runbook), each a pull request into `develop` with Gherkin first (`AGENTS.md`): the scenarios a part owns move from the
 draft feature into `features/cucumber-features.txt` together with their steps, in the same pull request. Each part lists the
 files it changes. Do not read or write `project/`. The Kanbus sub-tasks of `chatticus-3a31bb` carry the same text:
 
@@ -810,6 +823,7 @@ files it changes. Do not read or write `project/`. The Kanbus sub-tasks of `chat
 | C Supervisor | `chatticus-bab38c` | P0 |
 | D Child and socket | `chatticus-d1211a` | P0 |
 | E Integration, deploy, live proof | `chatticus-7835bb` | A1, A2, B1, B2, C, D |
+| R Emergency revocation runbook | `chatticus-816a1a` | none |
 
 ### P0. Foundation (first; small; merged before any other part)
 
@@ -881,21 +895,46 @@ Behavior-preserving for an image that does not renew; the first part that change
 - `conversation/test/owner-credential-broker.test.ts`, `lambda-owner-credential-broker.test.ts`, and the steps
   `conversation/features-support/steps/owner-credential-broker.steps.ts` of `features/owner_credential_broker.feature` extended
   (the existing scenarios of that file keep their meaning; the claim is added to their answers).
-- Scenarios owned: all `@broker` scenarios.
+- The broker requires the signed start time (decided S2): a token without `ownerStartedAtSeconds` fails the strict claims schema
+  and is `invalid_authorization`, for every purpose.
+- Scenarios owned: all `@broker` scenarios except the three about the development fault switch (B2's).
 - Acceptance: typecheck, vitest, `test:features`; the broker's log lines carry no token.
 
 ### B2. Infrastructure (depends on P0; the fault switch part depends on B1, the same file)
 
 - `infra/test/computer-owner-stack.test.ts`: the assertions of section 15 (can merge before B1).
-- The development fault switch (R22): `infra/lib/control-plane-stack.ts` reads a CDK context
-  (`ownerBrokerFault`: `none`, `deny_supervisor_renewal`, `deny_turn_renewal`; `ownerBrokerCredentialSeconds`: 900 to 3600) and
-  sets two broker environment variables in development; synthesis throws for any other environment.
-  `conversation/src/lambdas/owner-credential-broker.ts` reads them (a `faults` dependency, default none) and applies them: a
-  denied purpose answers `assume_role_failed`, a shorter duration replaces 3600 (never longer). This edit is made after B1 merges.
+- The development fault switch (R22, decided P4), with its four gates: `infra/lib/control-plane-stack.ts` reads the CDK context
+  (`ownerBrokerFault`: `none`, `deny_supervisor_renewal`, `deny_turn_renewal`; `ownerBrokerCredentialSeconds`: 900 to 3600) only
+  when the environment is `development`, throws naming the switch for staging or production (G1), emits the two broker
+  variables only in development and always sets `CHATTICUS_ENVIRONMENT` on the broker (G2).
+  `conversation/src/lambdas/owner-credential-broker-faults.ts` (new; the only reader of the variables) throws at initialization
+  if a variable is set and `CHATTICUS_ENVIRONMENT` is not `development` (G3); `owner-credential-broker.ts` takes a `faults`
+  dependency (default none) and applies it: a denied purpose answers `assume_role_failed`, a shorter duration replaces 3600,
+  never longer and never below 900 (G4). The broker edit is made after B1 merges.
+- `conversation/test/broker-fault-gate.test.ts`: the structural test of section 15.
 - The metric filters and alarms of section 13 (optional in the same PR).
-- Scenarios owned: both `@infra` scenarios.
-- Acceptance: `cd infra && npm test`; `npx cdk synth` with and without the context in development, and with it for staging
-  (fails).
+- Scenarios owned: both `@infra` scenarios and the `@broker` scenario "The broker refuses to start with a fault switch outside
+  development".
+- Acceptance: `cd infra && npm test`; `cd conversation && npm test && npm run test:features`; `npx cdk synth` with and without
+  the context in development, and with it for staging and production (fails, naming the switch).
+
+### R. Emergency revocation runbook (no code; independent of every other part)
+
+Decided S6. Contract: this page, 12.3 and 7.1.
+
+- `docs/OWNER_CREDENTIAL_REVOCATION.md` (new): what to do when a supervisor credential or a per-turn credential leaks, in order,
+  each step with its cost, who may do it and how to verify it: (1) stop the task (`aws ecs stop-task`; the owner reports stopped,
+  the control plane then refuses its token because the owner is no longer the live owner); (2) revoke the role session with an
+  inline deny on `ComputerSupervisorRole` and `ComputerOwnerScopedRole` carrying an `aws:TokenIssueTime` condition (a CDK
+  change deployed by the normal path, never by hand in the console; it affects every tenant's sessions of that role, and live
+  owners recover at their next renewal because a new session has a later issue time); (3) rotate the signing key secret (it
+  invalidates every supervisor, bootstrap and gateway token at once; owners then exit 5 and publish nothing, so it is the last
+  resort and the document says what unpublished work is lost); (4) after the incident, remove the deny, and check CloudTrail
+  `AssumeRole` events and the `owner_credentials_refreshed` lines to bound what was reachable. It cites the blast-radius analysis of
+  12.2 and holds no account id (those live in `AGENTS.local.md`).
+- A link from `docs/THREAT_MODEL.md` and from this page's 12.3.
+- Acceptance: the document exists, every command in it was run read-only or in a dry run on development where that is possible
+  (the CDK deny is synthesized, not deployed), and a second reader followed it once. Kanbus comment with the result.
 
 ### C. Supervisor (depends on P0; integrates with A2 and B1 in E)
 
@@ -949,7 +988,8 @@ P0 --+--> A1 --> A2 ----------+
 ```
 
 1. This contract merges. 2. P0 merges (one pull request, reviewed first). 3. A1, B1, B2 (assertions), C, D in parallel; A2
-after A1; B2's fault switch after B1. 4. E last. C and D need only the fakes of P0; the integration is E's.
+after A1; B2's fault switch after B1. 4. E last. C and D need only the fakes of P0; the integration is E's. Part R has no
+dependency and no dependent: any time.
 
 ## 18. Deploy order
 
@@ -975,7 +1015,9 @@ same commit is verified. Development only; there is no compatibility path.
 6. Run **Promote computer image (development)** with the full commit sha of C and D. The workflow itself refuses unless the
    ControlPlane and ThinTurn runs for that commit succeeded.
 7. The live proof (section 19).
-8. **Rolling back:** the image first (`COMPUTER_IMAGE_PROMOTION.md`, "Rolling back"). The server stays: it serves an old image
+8. **Only after step 7 has passed,** and the new image has run in the field, an operator may raise
+   `OWNER_MINIMUM_PROTOCOL_VERSION` to 3 in a separate change (decided P3). Until then it stays 1.
+9. **Rolling back:** the image first (`COMPUTER_IMAGE_PROMOTION.md`, "Rolling back"). The server stays: it serves an old image
    unchanged. **Never roll the server back below the promoted image**: a supervisor of this phase against a server without the
    route retries a missing route for 10 minutes, drains itself, and its `credentials` stop reason is a 422 to the older server.
 
@@ -1033,12 +1075,12 @@ for the record. Run from a logged-in shell; the commands use `AWS_PROFILE` as in
    purpose=supervisor_renewal` for that owner id after the stop. (The refusal itself, 403 `not_current_owner` and 409
    `owner_stopping`, is proved by the scenarios; a live owner's token is never extracted.)
 6. **At the end of the 8 hours** the owner is not run for eight hours live; the 8-hour behavior is proved by the end-to-end
-   scenario (fake clock) and, live, by step 1 extended past 85 minutes. This is a stated limitation (question P2).
+   scenario (fake clock) and, live, by step 1 extended past 85 minutes. This is a stated limitation. The 8 hours are measured from the bootstrap (decided P2).
 
 **Cost of the proof.** Steps 1 and 2 cost model calls for a few dozen small turns and one computer-hour each. Steps 3 and 4
 need two ControlPlane deploys.
 
-## 20. Assumptions and open questions
+## 20. Decisions taken
 
 **Assumptions** (marked where they appear):
 
@@ -1058,37 +1100,26 @@ need two ControlPlane deploys.
 - A9. Prices (section 14).
 - A10. The task clock is synchronized by the platform.
 
-**Questions for the owner, product.**
+**Decisions of the owner.** The owner took the recommendations on the questions this page first left open. Each is applied where it matters; the third
+column says where.
 
-- **P1. A turn in progress at the cap.** The drain gives a turn 300 seconds from 7 hours 50 minutes, then ends it, and the
-  lost-owner recovery continues it on the next owner. The alternative is a longer grace for a running turn, at one second
-  less of life per second of grace. Recommendation: keep 300.
-- **P2. What "eight hours" is measured from.** From the bootstrap, not from the last activity: a computer busy all day is
-  replaced every 7 hours 50 minutes, with one cold start of about 30 seconds. Recommendation: as built.
-- **P3. When to raise the minimum protocol version** to 3 (retires any owner that cannot renew): after the image has run for a
-  week. An operator change in the constants, not a rollout step.
-- **P4. The development fault switch in the broker** (R22): guarded at synthesis, development only, to prove the failure path in
-  minutes. Recommendation: build it. The alternative is to prove failure only in scenarios.
-- **P5 (from the 2a contract, Q2). The external `OwnerLifetimeCheck` chain with `ecs:StopTask`.** Not built; `owner_overdue` and an
-  alarm instead (R16). Recommendation: do not build.
+| # | Decision | Applied in |
+| --- | --- | --- |
+| P1 | **No longer grace.** The drain grace stays 300 seconds. A turn cut off at the cap is recovered by the next owner (lost-owner recovery, 9.3 of the 2a contract). | 4, 8.4 |
+| P2 | **Yes: the 8 hours are measured from the bootstrap**, not from the last activity. A computer busy all day is replaced every 7 hours 50 minutes with one cold start of about 30 seconds. | 1, 4, 19 |
+| P3 | `OWNER_MINIMUM_PROTOCOL_VERSION` is raised (to 3) **only after the new image is promoted and proven live**; until then it stays 1. The drain mechanism lands in the rollout; raising the minimum is a later operator change, never a rollout step. | 1.2, R17, 6.5, 18 |
+| P4 | **Yes: the development-only fault switch is built,** gated off in production at build time and at runtime by the four gates of R22, with a scenario and a structural test that production cannot enable it. | R22, 15, 17 B2, 19 |
+| P5 | **No external `ecs:StopTask` watchdog.** The in-container watchdog (2a), the drain, the idle timer and the `owner_overdue` alarm are the bound. | R16, 13 |
+| S1 | **The broker stays store-free.** The Front Door reads the computer record and refuses before it invokes the broker. | R7, 6.2, 7 |
+| S2 | **The broker requires the signed start-time claim** `ownerStartedAtSeconds` and refuses a token without it. The one-time precondition (no running owner at P0's merge) stands. | R8, 7, 18 |
+| S3 | **Tokens stay stateless;** no rotating serial. A copied token stays valid until its expiry (at most an hour). | R19, 12.2 |
+| S4 | **Accepted:** a stolen supervisor token's window is the owner's life (up to 8 hours), mitigated by refusing renewal once the owner is superseded or stopped. | 12.2 |
+| S5 | **Accepted:** root inside the container can read the active turn's credentials over the socket; root is within the trust boundary. | R12, 12.2 |
+| S6 | **Yes:** an emergency revocation runbook is written as its own part (R), `docs/OWNER_CREDENTIAL_REVOCATION.md`. | 12.3, 17 R |
 
-**Questions for the owner, security.**
-
-- **S1. Should the broker read the computer record** and refuse a superseded, stopping or draining owner itself (two keys:
-  the Front Door and the broker must both say yes)? It would give the broker `dynamodb:GetItem` on the computer item and a
-  `broker` role in the manifest. Recommendation: no; the signed hard-end claim and the Front Door's checks are enough, and a
-  store-free broker is the property that made it small.
-- **S2. The required claim `ownerStartedAtSeconds` and its one-time deploy precondition** (no running owner at P0). Recommendation: yes.
-- **S3. Stateless tokens** (no rotating serial; a copied token stays valid until its expiry, at most an hour, even after a
-  renewal). Recommendation: accept.
-- **S4. The window of a stolen supervisor token** grows from one hour to the owner's life, up to 8 hours (12.2).
-  Recommendation: accept, because the same token stops working the moment the owner stops, and an owner stops after 15 idle
-  minutes. The alternative, renewal only while the owner served a turn in the last 30 minutes, adds a Front Door rule and a
-  record field.
-- **S5. Root processes in the container can read the active turn's credentials from the socket.** They could already read the
-  child's environment. Recommendation: accept.
-- **S6. An emergency revocation runbook** (12.3) through CDK. Recommendation: write it with the first real use of the broker for
-  customer accounts, not now.
+Alternatives that these decisions reject, and that therefore have no scenario here: a longer drain grace (P1), an external
+watchdog chain (P5), a broker that reads the computer record (S1), a rotating token serial (S3), and renewal bound to recent
+activity (S4).
 
 **Risks.**
 
