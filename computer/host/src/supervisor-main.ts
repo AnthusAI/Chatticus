@@ -62,7 +62,7 @@ export function containerMemoryUsedPercent(): number | undefined {
  * bootstrap token from it), starts the watchdog as a separate process, and runs the supervisor until it stops itself.
  *
  * @param environment The process environment; the bootstrap token is deleted from it.
- * @returns The process exit code: 0 stopped in good order, 4 fenced, 5 no longer the owner, 6 bootstrap failed, 7 wrong settings, 8 the disk could not be restored, 143 stopped by SIGTERM.
+ * @returns The process exit code: 0 stopped in good order, 4 fenced, 5 no longer the owner, 6 bootstrap failed, 7 wrong settings, 8 the disk could not be restored, 9 still stopping when its credentials were about to end, 143 stopped by SIGTERM.
  */
 export async function supervisorMain(environment: NodeJS.ProcessEnv = process.env): Promise<number> {
 	let configuration;
@@ -104,14 +104,7 @@ export async function supervisorMain(environment: NodeJS.ProcessEnv = process.en
 		environment,
 		plane,
 		openDisk: (credentials) => {
-			const s3Client = new S3Client({
-				credentials: {
-					accessKeyId: credentials.access_key_id,
-					secretAccessKey: credentials.secret_access_key,
-					sessionToken: credentials.session_token,
-					expiration: new Date(credentials.expires_at),
-				},
-			});
+			const s3Client = new S3Client({ credentials });
 			return new HostDiskLifecycle(plane, {
 				tenantId: configuration.tenantId,
 				ownerId: configuration.ownerId,

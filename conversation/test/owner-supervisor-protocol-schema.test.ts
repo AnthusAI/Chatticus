@@ -273,7 +273,7 @@ describe("owner errors", () => {
 	it("fixes the file request protocol version, the interactive pace and an owner protocol version that understands file requests", () => {
 		expect(OWNER_FILE_REQUESTS_PROTOCOL_VERSION).toBe(2);
 		expect(OWNER_POLL_INTERACTIVE_MILLISECONDS).toBe(1000);
-		expect(OWNER_PROTOCOL_VERSION).toBe(2);
+		expect(OWNER_PROTOCOL_VERSION).toBe(3);
 	});
 
 	it("reads a refusal body and refuses one without a code", () => {
@@ -487,9 +487,9 @@ describe("owner process constants", () => {
 		expect(OWNER_HARD_LIFETIME_SECONDS - OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS + OWNER_DRAIN_GRACE_SECONDS + OWNER_FINAL_PUBLISH_BUDGET_SECONDS).toBe(28620);
 	});
 
-	it("sizes the lifetime and the watchdog for eight hours and leaves the protocol version until the supervisor part lands", () => {
+	it("sizes the lifetime and the watchdog for eight hours and raises the protocol version to the one that renews", () => {
 		expect(OWNER_MAX_LIFETIME_SECONDS).toBe(28200);
-		expect(OWNER_PROTOCOL_VERSION).toBe(2);
+		expect(OWNER_PROTOCOL_VERSION).toBe(3);
 		expect(OWNER_WATCHDOG_TERMINATE_SECONDS).toBe(28500);
 		expect(OWNER_WATCHDOG_KILL_SECONDS).toBe(28620);
 	});

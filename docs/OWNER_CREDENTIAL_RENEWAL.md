@@ -479,7 +479,9 @@ export class CredentialHolder<T extends { readonly expires_at: string }> {
   and `supervisor-main.ts` builds `new S3Client({ credentials: provider })` once. The `S3SnapshotStore` and the
   `S3OverlayBlobReader` share that client. The provider returns the holder's current credentials with their `expiration`
   and throws only when they are past their end (F9).
-- **Token.** `OwnerSupervisorClient` gains `replaceBearerToken(token)`; the next request reads it.
+- **Token.** `OwnerSupervisorClient` gains `replaceBearerToken(token)`; the next request reads it. The `SupervisorPlane` port
+  declares it too, so the supervisor can call it in the same synchronous step as the credentials; the type of the provider
+  is `StorageCredentialsProvider` in `supervisor-ports.ts`.
 - **The swap.** On a renewal answer, in one synchronous function: parse the whole body with `ownerCredentialsResponseSchema`
   (done by the client), check `kind` matches what was asked and the new expiry is later than the held one, then replace the
   credentials, replace the token, set the new expiry and state, log. No `await` inside, so the event loop cannot interleave a
@@ -946,10 +948,14 @@ Decided S6. Contract: this page, 12.3 and 7.1.
 - A `CredentialHolder` and `CredentialLease` module (new, `computer/host/src/credential-lease.ts`) with a vitest unit test of
   the schedule and the swap.
 - `conversation/test/owner-supervisor-client.test.ts` (the client's new method and token replacement).
-- The fake plane (`fake-supervisor-plane.ts`, from P0), the fake spawner (`fake-child-spawner.ts`, which gains a way to keep a
-  child running until told) and a storage fake that records the credentials of each request
-  (`conversation/features-support/fakes/`), steps in `conversation/features-support/steps/owner-supervisor-process.steps.ts`.
+- The fake plane (`fake-supervisor-plane.ts`, from P0), the fake spawner (`fake-child-spawner.ts`: a fake child already runs
+  until told) and a storage fake that records the credentials of each request (`fake-supervisor-disk.ts`), in
+  `conversation/features-support/fakes/`; the steps are in `conversation/features-support/steps/owner-supervisor-renewal.steps.ts`.
 - Scenarios owned: the `@supervisor` scenarios of CR14 (supervisor side), CR16 to CR20, CR24 (not the watchdog scenario, A1's).
+  They live in `features/computer_owner_credential_renewal_supervisor.feature`, registered in `features/cucumber-features.txt`;
+  the draft keeps only the socket scenario of D. A scenario that runs past fifteen idle minutes has the control plane veto the
+  idle stop, as it does while work is pending, and the scenario "An owner stops before the credentials it holds expire" of
+  `computer_owner_supervisor.feature` now has the renewals fail, stops with the reason `credentials` at 3000 seconds.
 - Acceptance: `computer_owner_supervisor.feature` stays green; typecheck; vitest; the supervisor bundle imports nothing
   forbidden by `computer-image-structure.test.ts`.
 

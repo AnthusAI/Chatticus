@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LIVE_FILE_MAX_REQUESTS_PER_POLL, ownerFileRequestSchema } from "./live-files.ts";
 
 /** The version of the owner supervisor protocol this package describes. The supervisor sends it with every bootstrap and poll. */
-export const OWNER_PROTOCOL_VERSION = 2;
+export const OWNER_PROTOCOL_VERSION = 3;
 
 /** The first protocol version whose owner understands file_requests in the poll response. */
 export const OWNER_FILE_REQUESTS_PROTOCOL_VERSION = 2;

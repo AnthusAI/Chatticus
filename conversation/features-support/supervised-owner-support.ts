@@ -90,6 +90,10 @@ class DiskScenarioPlane implements SupervisorPlane {
 		throw new Error("The disk scenario plane serves no credential renewal.");
 	}
 
+	replaceBearerToken(): void {
+		throw new Error("The disk scenario plane serves no credential renewal.");
+	}
+
 	async postFileResult(): Promise<{ readonly recorded: true }> {
 		return { recorded: true };
 	}
