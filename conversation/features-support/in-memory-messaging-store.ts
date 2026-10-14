@@ -385,6 +385,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 			ownerGeneration: bootstrap.generation,
 			ownerProtocolVersion: bootstrap.protocolVersion,
 			ownerStartedAt: new Date(Math.floor(bootstrap.startedAt.getTime() / 1000) * 1000),
+			ownerCredentialsExpireAt: new Date(Math.floor(bootstrap.credentialsExpireAt.getTime() / 1000) * 1000),
 		};
 		this.computers.set(tenantId, consumed);
 		return structuredClone(consumed);

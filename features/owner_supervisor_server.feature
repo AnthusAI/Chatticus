@@ -264,12 +264,12 @@ Feature: The control plane serves the long-lived computer owner: bootstrap, poll
     And the owner asks to stop with reason "lifetime"
     Then the stop was approved
 
-  Scenario: The control plane drains an owner at its maximum lifetime
+  Scenario: The control plane drains an owner whose credentials end in ten minutes whatever is parked
     Given a bootstrapped owner of the household computer
     And a turn of bot "Researcher" parked on a workspace action
     When the clock has moved 3000 seconds past the owner's bootstrap
     And the owner polls in state "idle" with sequence 4
-    Then the poll answered drain with reason "lifetime" and no dispatch
+    Then the poll answered drain with reason "credentials" and no dispatch
 
   Scenario: An owner that is failing is allowed to stop whatever is pending
     Given a bootstrapped owner of the household computer

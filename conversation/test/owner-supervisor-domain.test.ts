@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { liveOwnerOf } from "../src/domain/computers.ts";
-import { ownerLifetimeIsOver, ownerPollCadence } from "../src/domain/owner-supervisor.ts";
+import { ownerDrainReason, ownerIssuanceClosed, ownerPollCadence } from "../src/domain/owner-supervisor.ts";
 import { withoutOwner, type Computer } from "../src/store/codecs/computer.ts";
 import type { Worker } from "../src/store/codecs/worker.ts";
 
@@ -54,15 +54,35 @@ describe("ownerPollCadence", () => {
 	});
 });
 
-describe("ownerLifetimeIsOver", () => {
-	it("drains at exactly 3000 seconds after the bootstrap and not a second before", () => {
-		expect(ownerLifetimeIsOver({ ...computer, ownerStartedAt: secondsBefore(2999) }, NOW)).toBe(false);
-		expect(ownerLifetimeIsOver({ ...computer, ownerStartedAt: secondsBefore(3000) }, NOW)).toBe(true);
+describe("ownerDrainReason", () => {
+	const renewed: Computer = { ...computer, ownerStartedAt: secondsBefore(10), ownerCredentialsExpireAt: secondsBefore(-3000) };
+
+	it("names no reason for a computer that records neither an owner start nor a credential expiry", () => {
+		const { ownerStartedAt: _removedStart, ...withoutStart } = computer;
+		expect(ownerDrainReason(withoutStart, NOW, 1)).toBeNull();
+		expect(ownerDrainReason({ ...withoutStart, ownerCredentialsExpireAt: secondsBefore(-10) }, NOW, 1)).toBe("credentials");
 	});
 
-	it("never drains a computer that records no owner start", () => {
+	it("checks the protocol version first, then the lifetime, then the credentials", () => {
+		const everything: Computer = { ...renewed, ownerStartedAt: secondsBefore(28200), ownerCredentialsExpireAt: secondsBefore(-100), ownerProtocolVersion: 1 };
+		expect(ownerDrainReason(everything, NOW, 2)).toBe("protocol_version");
+		expect(ownerDrainReason(everything, NOW, 1)).toBe("lifetime");
+		expect(ownerDrainReason({ ...everything, ownerStartedAt: secondsBefore(100) }, NOW, 1)).toBe("credentials");
+		expect(ownerDrainReason({ ...everything, ownerStartedAt: secondsBefore(100), ownerCredentialsExpireAt: secondsBefore(-601) }, NOW, 1)).toBeNull();
+	});
+
+	it("never drains an owner that did not announce a protocol version", () => {
+		const { ownerProtocolVersion: _removed, ...unannounced } = renewed;
+		expect(ownerDrainReason(unannounced, NOW, 3)).toBeNull();
+	});
+});
+
+describe("ownerIssuanceClosed", () => {
+	it("closes at 27900 seconds after the bootstrap and never for a computer that records no owner start", () => {
+		expect(ownerIssuanceClosed({ ...computer, ownerStartedAt: secondsBefore(27899) }, NOW)).toBe(false);
+		expect(ownerIssuanceClosed({ ...computer, ownerStartedAt: secondsBefore(27900) }, NOW)).toBe(true);
 		const { ownerStartedAt: _removed, ...unowned } = computer;
-		expect(ownerLifetimeIsOver(unowned, NOW)).toBe(false);
+		expect(ownerIssuanceClosed(unowned, NOW)).toBe(false);
 	});
 });
 

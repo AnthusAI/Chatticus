@@ -95,7 +95,7 @@ Feature: The organization computer stays on between turns and switches itself of
     Then the start ended "already_serving"
     And the host start driver was not invoked
     When the supervisor polls
-    Then the poll answered drain with reason "lifetime" and no dispatch
+    Then the poll answered drain with reason "credentials" and no dispatch
     When the supervisor stops with reason "lifetime"
     Then a computer start job is queued for the turn
     When every queued start job is delivered to the starter

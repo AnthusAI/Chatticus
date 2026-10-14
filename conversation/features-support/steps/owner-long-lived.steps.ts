@@ -382,7 +382,12 @@ Given("the owner was bootstrapped {int} seconds ago", async function (this: Chat
 	const store = this.messagingStore();
 	const computer = await store.getComputer(STORY_TENANT);
 	assert.ok(computer?.ownerStartedAt, "The computer records no owner start.");
-	await store.putComputer({ ...computer, ownerStartedAt: new Date(this.clock.now().getTime() - seconds * 1000) });
+	assert.ok(computer.ownerCredentialsExpireAt, "The computer records no credential expiry.");
+	await store.putComputer({
+		...computer,
+		ownerStartedAt: new Date(this.clock.now().getTime() - seconds * 1000),
+		ownerCredentialsExpireAt: new Date(computer.ownerCredentialsExpireAt.getTime() - seconds * 1000),
+	});
 });
 
 async function pollOnce(world: ChatticusWorld): Promise<void> {

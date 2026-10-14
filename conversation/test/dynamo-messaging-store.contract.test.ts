@@ -491,7 +491,7 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				diskDirty: false,
 				hydrateRequired: false,
 			});
-			const bootstrap = (ownerId: string, generation: number) => ({ ownerId, generation, protocolVersion: 1, startedAt: new Date("2026-01-01T00:10:00.700Z") });
+			const bootstrap = (ownerId: string, generation: number) => ({ ownerId, generation, protocolVersion: 1, startedAt: new Date("2026-01-01T00:10:00.700Z"), credentialsExpireAt: new Date("2026-01-01T01:10:00.900Z") });
 			const dispatch = (dispatchId: string, attempt = 1) => ({
 				dispatchId,
 				turnId: "turn-1",
@@ -507,6 +507,8 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				const consumed = await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 2));
 				expect(consumed).toMatchObject({ ownerId: "owner-a", ownerGeneration: 2, ownerProtocolVersion: 1 });
 				expect(consumed?.ownerStartedAt?.getTime()).toBe(new Date("2026-01-01T00:10:00Z").getTime());
+				expect(consumed?.ownerCredentialsExpireAt?.getTime()).toBe(new Date("2026-01-01T01:10:00Z").getTime());
+				expect((await store.getComputer("tenant-a"))?.ownerCredentialsExpireAt?.getTime()).toBe(new Date("2026-01-01T01:10:00Z").getTime());
 				expect(await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 2))).toBeNull();
 				expect(await store.consumeOwnerBootstrap("tenant-none", bootstrap("owner-a", 2))).toBeNull();
 			});
@@ -521,6 +523,8 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				expect(claimed?.hostStartGeneration).toBe(2);
 				expect(claimed?.ownerId).toBeUndefined();
 				expect(claimed?.idleSinceAt).toBeUndefined();
+				expect(claimed?.ownerCredentialsExpireAt).toBeUndefined();
+				expect(claimed?.ownerStartedAt).toBeUndefined();
 				expect(claimed?.dispatchId).toBeUndefined();
 				expect(claimed?.ownerGeneration).toBe(1);
 				expect(await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-b", 1))).toBeNull();
@@ -627,7 +631,7 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 					diskDirty: false,
 					hydrateRequired: false,
 				});
-				await store.consumeOwnerBootstrap("tenant-a", { ownerId: "owner-a", generation: 1, protocolVersion: 2, startedAt: T0 });
+				await store.consumeOwnerBootstrap("tenant-a", { ownerId: "owner-a", generation: 1, protocolVersion: 2, startedAt: T0, credentialsExpireAt: new Date(T0.getTime() + 3600000) });
 			};
 			const operation = (operationId: string, queuedSeconds = 0, overrides: Partial<LiveFileOperation> = {}): LiveFileOperation => ({
 				operationId,

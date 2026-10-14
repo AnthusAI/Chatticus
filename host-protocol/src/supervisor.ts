@@ -55,9 +55,6 @@ export const OWNER_IDLE_TIMEOUT_SECONDS = 900;
 /** Seconds after which a supervisor that was vetoed asks again. */
 export const OWNER_STOP_RETRY_SECONDS = 30;
 
-/** Seconds from the bootstrap exchange until the control plane tells the owner to drain. No credential renewal exists in Phase 2a, and the credentials last 3600 seconds. */
-export const OWNER_MAX_LIFETIME_SECONDS = 3000;
-
 /** Seconds a draining owner gives the turn in hand before it kills the child and stops. */
 export const OWNER_DRAIN_GRACE_SECONDS = 300;
 
@@ -72,6 +69,9 @@ export const OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS = OWNER_DRAIN_GRACE_SECONDS +
 
 /** Seconds after the bootstrap exchange at which nothing the owner holds is valid: no token, no credential. Eight hours. */
 export const OWNER_HARD_LIFETIME_SECONDS = 28800;
+
+/** Seconds from the bootstrap exchange until the control plane drains an owner whose credentials were renewed all the way. */
+export const OWNER_MAX_LIFETIME_SECONDS = OWNER_HARD_LIFETIME_SECONDS - OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS;
 
 /** The shortest session STS issues; the broker issues nothing in the last this many seconds of the hard lifetime. */
 export const OWNER_BROKER_MINIMUM_SESSION_SECONDS = 900;

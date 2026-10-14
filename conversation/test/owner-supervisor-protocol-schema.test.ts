@@ -487,11 +487,11 @@ describe("owner process constants", () => {
 		expect(OWNER_HARD_LIFETIME_SECONDS - OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS + OWNER_DRAIN_GRACE_SECONDS + OWNER_FINAL_PUBLISH_BUDGET_SECONDS).toBe(28620);
 	});
 
-	it("leaves the lifetime, the protocol version and the watchdog at their values until the parts that change them land", () => {
-		expect(OWNER_MAX_LIFETIME_SECONDS).toBe(3000);
+	it("sizes the lifetime and the watchdog for eight hours and leaves the protocol version until the supervisor part lands", () => {
+		expect(OWNER_MAX_LIFETIME_SECONDS).toBe(28200);
 		expect(OWNER_PROTOCOL_VERSION).toBe(2);
-		expect(OWNER_WATCHDOG_TERMINATE_SECONDS).toBe(3300);
-		expect(OWNER_WATCHDOG_KILL_SECONDS).toBe(3420);
+		expect(OWNER_WATCHDOG_TERMINATE_SECONDS).toBe(28500);
+		expect(OWNER_WATCHDOG_KILL_SECONDS).toBe(28620);
 	});
 
 	it("starts renewing before the drain and keeps the hard deadline inside the final margin", () => {
@@ -508,7 +508,7 @@ describe("owner process constants", () => {
 	it("orders the lifetime, the watchdog and the poll fence so the graceful path always comes first", () => {
 		expect(OWNER_WATCHDOG_TERMINATE_SECONDS).toBe(OWNER_MAX_LIFETIME_SECONDS + 300);
 		expect(OWNER_WATCHDOG_KILL_SECONDS).toBeGreaterThan(OWNER_WATCHDOG_TERMINATE_SECONDS);
-		expect(OWNER_WATCHDOG_KILL_SECONDS).toBeLessThan(3600);
+		expect(OWNER_WATCHDOG_KILL_SECONDS).toBeLessThan(OWNER_HARD_LIFETIME_SECONDS);
 		expect(OWNER_POLL_SILENCE_FENCE_SECONDS).toBeLessThan(30);
 	});
 });

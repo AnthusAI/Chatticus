@@ -169,7 +169,7 @@ export interface AppDeps {
 	 * The long-lived computer owner's routes (bootstrap, poll, stop request) and the supervisor token that opens them. They
 	 * are registered only when this is given: the secret the tokens are signed with and the credential broker.
 	 */
-	ownerSupervisor?: { readonly signingKey: string; readonly broker: OwnerCredentialBrokerPort };
+	ownerSupervisor?: { readonly signingKey: string; readonly broker: OwnerCredentialBrokerPort; readonly minimumProtocolVersion?: number };
 }
 
 /**

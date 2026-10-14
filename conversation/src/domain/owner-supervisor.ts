@@ -8,8 +8,11 @@
  */
 
 import {
+	OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS,
 	OWNER_DISPATCH_LEASE_SECONDS,
 	OWNER_ERROR_STATUS,
+	OWNER_HARD_LIFETIME_SECONDS,
+	OWNER_ISSUANCE_CUTOFF_SECONDS,
 	OWNER_MAX_LIFETIME_SECONDS,
 	OWNER_MINIMUM_PROTOCOL_VERSION,
 	OWNER_POLL_BUSY_MILLISECONDS,
@@ -72,9 +75,16 @@ export type OwnerSupervisorDependencies = {
 	readonly clock: Clock;
 	readonly park: ParkDependencies;
 	readonly broker: OwnerCredentialBrokerPort;
+	/** The lowest protocol version served; an owner below it is told to drain. Defaults to OWNER_MINIMUM_PROTOCOL_VERSION. */
+	readonly minimumProtocolVersion?: number;
 };
 
+/** Why the control plane tells an owner to drain, in the order the reasons are checked. */
+export type OwnerDrainReason = "protocol_version" | "lifetime" | "credentials";
+
 const STOP_JUDGMENT_ATTEMPTS = 3;
+
+const dispatchWithheldLogged = new Set<string>();
 
 const secondsBetween = (later: Date, earlier: Date): number => (later.getTime() - earlier.getTime()) / 1000;
 
@@ -138,6 +148,7 @@ export async function exchangeOwnerBootstrap(
 		generation: claims.startGeneration,
 		protocolVersion: request.protocol_version,
 		startedAt: now,
+		credentialsExpireAt: new Date(Math.min(Date.parse(grant.aws_credentials.expires_at), Date.parse(grant.supervisor_token_expires_at))),
 	});
 	if (consumed === null) {
 		return refuse("bootstrap_already_used", "bootstrap credential was already used or its generation has moved on");
@@ -170,15 +181,33 @@ export function ownerPollCadence(state: OwnerState, idleSeconds: number): number
 }
 
 /**
- * Whether the control plane tells the owner to drain: the owner has served for its maximum lifetime, counted from its
- * bootstrap exchange. The server decides so the owner and the server never argue about two clocks.
+ * Why the control plane tells the owner to drain, or null when it does not. The drain is derived from what the control
+ * plane issued: an owner drains when its protocol version is below the minimum, when it has served for its maximum
+ * lifetime counted from its bootstrap exchange, or when the credentials it holds end within the drain budget. An owner
+ * that never renews therefore drains that budget before its first credentials end, whatever lifetime the image assumes.
+ * The server decides so the owner and the server never argue about two clocks.
  *
  * @param computer The computer record.
  * @param now The current time.
- * @returns Whether the lifetime is over.
+ * @param minimumProtocolVersion The lowest protocol version served.
+ * @returns The reason, or null while the owner may go on.
  */
-export function ownerLifetimeIsOver(computer: Computer, now: Date): boolean {
-	return computer.ownerStartedAt !== undefined && secondsBetween(now, computer.ownerStartedAt) >= OWNER_MAX_LIFETIME_SECONDS;
+export function ownerDrainReason(computer: Computer, now: Date, minimumProtocolVersion: number): OwnerDrainReason | null {
+	if (computer.ownerProtocolVersion !== undefined && computer.ownerProtocolVersion < minimumProtocolVersion) return "protocol_version";
+	if (computer.ownerStartedAt !== undefined && secondsBetween(now, computer.ownerStartedAt) >= OWNER_MAX_LIFETIME_SECONDS) return "lifetime";
+	if (computer.ownerCredentialsExpireAt !== undefined && secondsBetween(computer.ownerCredentialsExpireAt, now) <= OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS) return "credentials";
+	return null;
+}
+
+/**
+ * Whether the last stretch of the hard lifetime has begun, in which nothing is offered because the broker would refuse.
+ *
+ * @param computer The computer record.
+ * @param now The current time.
+ * @returns Whether the issuance cutoff has passed.
+ */
+export function ownerIssuanceClosed(computer: Computer, now: Date): boolean {
+	return computer.ownerStartedAt !== undefined && secondsBetween(now, computer.ownerStartedAt) >= OWNER_ISSUANCE_CUTOFF_SECONDS;
 }
 
 function requireMatchingOwner(identity: OwnerIdentity, body: { owner_id: string; generation: number }): void {
@@ -233,19 +262,26 @@ export async function pollOwner(deps: OwnerSupervisorDependencies, identity: Own
 	for (const settled of await expireLostComputerActions(actionDependenciesOf(deps.park), identity.tenantId)) {
 		if (settled.status === "done") await resumeTurnForAction(deps.park, settled.tenantId, settled.turnId, settled.actionId);
 	}
-	const drain = ownerLifetimeIsOver(computer, now);
+	const drainReason = ownerDrainReason(computer, now, deps.minimumProtocolVersion ?? OWNER_MINIMUM_PROTOCOL_VERSION);
 	const dispatches: OwnerDispatch[] = [];
-	const mayDispatch = request.state === "idle" && request.active_turns.length === 0 && !drain && computer.ownerStopApprovedAt === undefined;
-	if (mayDispatch) {
+	const issuanceClosed = ownerIssuanceClosed(computer, now);
+	const mayDispatch = request.state === "idle" && request.active_turns.length === 0 && drainReason === null && computer.ownerStopApprovedAt === undefined;
+	if (mayDispatch && !issuanceClosed) {
 		const offered = await chooseDispatch(deps, identity, computer);
 		if (offered !== null) dispatches.push(offered);
 	}
-	if (request.protocol_version < OWNER_MINIMUM_PROTOCOL_VERSION) log("owner_protocol_version_low", { protocol_version: request.protocol_version });
+	if (mayDispatch && issuanceClosed && !dispatchWithheldLogged.has(identity.ownerId)) {
+		dispatchWithheldLogged.add(identity.ownerId);
+		log("owner_dispatch_withheld", { reason: "issuance_cutoff" });
+	}
+	if (computer.ownerStartedAt !== undefined && secondsBetween(now, computer.ownerStartedAt) >= OWNER_HARD_LIFETIME_SECONDS) {
+		log("owner_overdue", { age_seconds: Math.floor(secondsBetween(now, computer.ownerStartedAt)) });
+	}
 	return {
 		dispatches,
 		file_requests: await deliverLiveFileRequests(deps, identity, request, computer),
-		drain,
-		...(drain ? { drain_reason: "lifetime" } : {}),
+		drain: drainReason !== null,
+		...(drainReason === null ? {} : { drain_reason: drainReason }),
 		next_poll_ms: pace,
 	};
 }
@@ -397,8 +433,8 @@ async function stopVeto(
 	request: OwnerStopRequest,
 	now: Date,
 ): Promise<Extract<OwnerStopResponse, { approved: false }>["reason"] | null> {
-	if (request.reason === "unhealthy") return null;
-	if (request.reason === "lifetime") return ownerLifetimeIsOver(computer, now) ? null : "not_draining";
+	if (request.reason === "unhealthy" || request.reason === "credentials") return null;
+	if (request.reason === "lifetime") return ownerDrainReason(computer, now, deps.minimumProtocolVersion ?? OWNER_MINIMUM_PROTOCOL_VERSION) === null ? "not_draining" : null;
 	const pending = await parkedWork(deps.park, identity.tenantId);
 	if (pending.length > 0) {
 		const dispatched = pending.some(
