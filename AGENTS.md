@@ -288,6 +288,22 @@ by hand from a local shell with `aws login` unless CI cannot be used; the CI
 path authenticates via OIDC (`configure-aws-credentials`), not a personal AWS
 session.
 
+One merge to `develop` starts five workflows: the four development deploys
+and `Build computer image (development)`. GitHub keeps one running and one
+pending run per concurrency group and cancels older pending runs, so a shared
+group silently drops sibling workflows. Each of the five therefore has its own
+group (`deploy-{auth,controlplane,thinturn,web}-development` and
+`build-computer-image-development`) with `cancel-in-progress: false`: a
+newer merge queues behind a running deploy, and only a pending run of the same
+workflow can be replaced, always by a run for a later `develop` commit (each
+deploy checks out `github.sha`). Because the ThinTurn workflow deploys
+control-plane and web before thin-turn, workflows overlap on stacks;
+`infra/deploy-chatticus-dedicated-account.sh` waits for its target stack to
+leave `*_IN_PROGRESS` before `cdk deploy`. The image build does not wait for
+the Lambda deploys; the image tag promotion order is owned by chatticus-d88a0f.
+Staging and production keep one group each, since they are manual dispatches.
+A cancelled development run is now a defect to investigate, not routine.
+
 The integration-test principal (`CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN`)
 is enabled in development and staging, where acceptance runs need it, and never
 in production: the script refuses it there and no production workflow passes it.
