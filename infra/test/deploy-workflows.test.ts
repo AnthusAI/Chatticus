@@ -256,3 +256,63 @@ describe("deploy workflow YAML", () => {
     assert.ok(waitIndex < script.indexOf("npx cdk deploy"));
   });
 });
+
+describe("computer image tag rule: the dev tag moves only after the server side is verified", () => {
+  const repositoryRoot = join(workflowsDir, "..", "..");
+  const build = readFileSync(join(workflowsDir, "build-computer-image-development.yml"), "utf8");
+  const promote = readFileSync(join(workflowsDir, "promote-computer-image-development.yml"), "utf8");
+  const promoteScript = readFileSync(join(repositoryRoot, "infra", "promote-computer-image-development.sh"), "utf8");
+
+  it("the build pushes the immutable sha tag and never the dev tag", () => {
+    assert.match(build, /docker push "\$\{REPO\}:\$\{SHA_TAG\}"/);
+    assert.equal(build.split("\n").filter((line) => /docker (tag|push)/.test(line)).length, 2);
+    assert.doesNotMatch(build, /:dev\b/);
+    assert.doesNotMatch(build, /imageTag=dev/);
+    assert.doesNotMatch(build, /put-image/);
+  });
+
+  it("the promotion is a manual dispatch with a required commit input and no other trigger", () => {
+    assert.match(promote, /^on:\n  workflow_dispatch:\n    inputs:\n      commit:\n[\s\S]*?required: true\n/m);
+    assert.doesNotMatch(promote, /^  (push|pull_request|pull_request_target|schedule|workflow_run|release):/m);
+  });
+
+  it("the promotion reads workflow runs, assumes the development role by OIDC and queues behind itself only", () => {
+    assert.match(promote, /^  actions: read$/m);
+    assert.match(promote, /id-token:\s*write/);
+    assert.match(promote, /environment: development/);
+    assert.match(promote, /role-to-assume: \$\{\{ secrets\.AWS_DEPLOY_ROLE_ARN \}\}/);
+    assert.match(promote, /^concurrency:\n  group: promote-computer-image-development\n  cancel-in-progress: false\n/m);
+    assert.doesNotMatch(promote, /secrets\.AWS_ACCESS_KEY_ID/);
+  });
+
+  it("the promotion passes the commit through the environment, never into the shell text", () => {
+    assert.match(promote, /PROMOTE_COMMIT: \$\{\{ inputs\.commit \}\}/);
+    assert.match(promote, /run: sh promote-computer-image-development\.sh "\$\{PROMOTE_COMMIT\}"/);
+    assert.doesNotMatch(promote.replace(/PROMOTE_COMMIT: \$\{\{ inputs\.commit \}\}/, ""), /\$\{\{ inputs\.commit \}\}/);
+  });
+
+  it("the promotion script checks the ControlPlane and ThinTurn deploys of the commit before it writes the tag", () => {
+    assert.match(promoteScript, /SERVER_SIDE_WORKFLOWS="deploy-controlplane-development\.yml deploy-thinturn-development\.yml"/);
+    assert.match(promoteScript, /gh run list --workflow "\$\{WORKFLOW\}" --commit "\$\{COMMIT\}"/);
+    assert.ok(promoteScript.indexOf("gh run list") < promoteScript.indexOf("ecr put-image"));
+    assert.ok(promoteScript.indexOf("imageTag=dev") < promoteScript.indexOf("ecr put-image"));
+  });
+
+  it("no other workflow or script moves the dev tag", () => {
+    const candidates = [
+      ...readdirSync(workflowsDir).map((name) => join(workflowsDir, name)),
+      ...readdirSync(join(repositoryRoot, "infra")).filter((name) => name.endsWith(".sh")).map((name) => join(repositoryRoot, "infra", name)),
+      ...readdirSync(join(repositoryRoot, "computer")).filter((name) => name.endsWith(".sh")).map((name) => join(repositoryRoot, "computer", name)),
+    ];
+    const writers = candidates.filter((file) => /ecr put-image|--image-tag dev|\$\{(ANTHUS_)?REPO\}:dev|docker push [^\n]*\$\{(ANTHUS_)?REPO\}:dev\b/.test(readFileSync(file, "utf8")));
+    assert.deepEqual(writers.map((file) => file.slice(repositoryRoot.length + 1)), ["infra/promote-computer-image-development.sh"]);
+  });
+
+  it("the break-glass scripts push an immutable manual tag to the development repository, never dev", () => {
+    for (const name of ["push-computer-image.sh", "push-customer-computer-image.sh"]) {
+      const contents = readFileSync(join(repositoryRoot, "computer", name), "utf8");
+      assert.match(contents, /MANUAL_TAG="manual-\$\(date -u/, name);
+      assert.match(contents, /docker push "\$\{(ANTHUS_)?REPO\}:\$\{MANUAL_TAG\}"/, name);
+    }
+  });
+});

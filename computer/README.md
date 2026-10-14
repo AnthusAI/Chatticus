@@ -35,11 +35,14 @@ CI builds, checks and pushes the image. On every push to `develop` that touches
 image on a native arm64 runner, runs the toolchain check and
 `computer/test_owner_container.sh` against that exact image, and only then
 pushes it to the ChatticusComputers ECR repository as the immutable
-`sha-<full git sha>` tag and the moving `dev` tag that the task definitions pin.
-The pushed digest is in the job summary. Nobody pushes the image by hand.
+`sha-<full git sha>` tag only. The pushed digest is in the job summary. Nobody
+pushes the image by hand. The moving `dev` tag that the owner task definition
+runs moves only through `.github/workflows/promote-computer-image-development.yml`,
+which refuses unless the ControlPlane and ThinTurn development deploys of the
+same commit succeeded (see `docs/COMPUTER_IMAGE_PROMOTION.md`).
 
 `computer/push-computer-image.sh` remains for local break-glass use only, when
-CI cannot run. It pushes `:dev` without changing the Computers service:
+CI cannot run. It pushes a `manual-<utc time>` tag and never `:dev`:
 
 ```bash
 sh computer/push-computer-image.sh

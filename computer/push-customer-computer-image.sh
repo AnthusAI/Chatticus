@@ -1,5 +1,8 @@
 #!/bin/sh
-# Mirror Anthus :dev into a customer-account ChatticusComputers ECR repository.
+# Build the computer image, record it in the Anthus ChatticusComputers repository under an immutable
+# manual-<utc time> tag (never the Anthus dev tag, which moves only through the promotion workflow after the
+# server side is verified: docs/COMPUTER_IMAGE_PROMOTION.md), and publish it as :dev in a customer-account
+# ChatticusComputers ECR repository.
 # Uses the organization cross-account role. ComputerWorker never publishes.
 set -eu
 
@@ -8,6 +11,7 @@ cd "${ROOT}"
 
 unset AWS_PROFILE || true
 REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+MANUAL_TAG="manual-$(date -u +%Y%m%dT%H%M%SZ)"
 
 if ! aws sts get-caller-identity >/dev/null; then
   echo "aws login required before publishing the customer computer image." >&2
@@ -55,8 +59,8 @@ docker build --platform linux/arm64 -f computer/Dockerfile -t chatticus-computer
 
 aws ecr get-login-password --region "${REGION}" \
   | docker login --username AWS --password-stdin "${ANTHUS_REPO%%/*}"
-docker tag chatticus-computer:dev "${ANTHUS_REPO}:dev"
-docker push "${ANTHUS_REPO}:dev"
+docker tag chatticus-computer:dev "${ANTHUS_REPO}:${MANUAL_TAG}"
+docker push "${ANTHUS_REPO}:${MANUAL_TAG}"
 
 read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN <<EOF
 ${CREDS}
@@ -68,4 +72,4 @@ aws ecr get-login-password --region "${REGION}" \
 docker tag chatticus-computer:dev "${CUSTOMER_REPO}:dev"
 docker push "${CUSTOMER_REPO}:dev"
 
-echo "OK: published ${CUSTOMER_REPO}:dev from Anthus ${ANTHUS_REPO}:dev"
+echo "OK: published ${CUSTOMER_REPO}:dev; Anthus image ${ANTHUS_REPO}:${MANUAL_TAG}; the Anthus dev tag is unchanged"

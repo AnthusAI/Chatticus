@@ -162,3 +162,4 @@ features/cost_gateway_observations.feature
 features/cost_gateway_reconciliation.feature
 features/cost_api.feature
 features/cost_api_gateway_rows.feature
+features/role_access_manifest.feature

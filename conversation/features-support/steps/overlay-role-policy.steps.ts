@@ -5,6 +5,8 @@ import { supervisorSessionTags } from "../../src/gateway/session-tags.ts";
 import { S3OverlayStore } from "../../src/snapshot/overlay-store.ts";
 import { createFileRoutesBucket, fileRoutesOf } from "../computer-snapshot-files-support.ts";
 import { createOverlayScenario } from "../edit-overlay-support.ts";
+import { recordingS3Client } from "../aws-request-recorder.ts";
+import { frontDoorRequestsOf } from "../front-door-request-recording.ts";
 import { wireFrontDoor } from "../front-door.ts";
 import { testS3Client } from "../pi-storage.ts";
 import { ownerServerOf } from "./owner-supervisor-server.steps.ts";
@@ -97,7 +99,7 @@ Given("an edit overlay kept in the snapshot bucket itself", async function (this
 	putsByWorld.set(this, puts);
 	const bucket = fileRoutesOf(this).bucket;
 	assert.ok(bucket, "The scenario has no snapshot bucket.");
-	createOverlayScenario(this, new S3OverlayStore(bucket, recordingOverlayClient(puts)));
+	createOverlayScenario(this, new S3OverlayStore(bucket, recordingS3Client(recordingOverlayClient(puts), frontDoorRequestsOf(this))));
 	await wireFrontDoor(this, { signupMode: "invitation_only", cognitoVerifier: true });
 	ownerServerOf(this).frontDoorWired = true;
 });

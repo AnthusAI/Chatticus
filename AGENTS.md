@@ -315,6 +315,22 @@ Shared stacks `ChatticusSnapshots` and `ChatticusComputers` are not
 per-environment. Never `cdk deploy --all`. Never destroy those two
 stacks.
 
+**The computer image tag flips only after the server side is verified.** The
+`ChatticusComputers` owner task definition runs the ECR tag `dev`. The build
+workflow (`build-computer-image-development.yml`) pushes only the immutable
+`sha-<commit>` tag and never moves `dev`. `dev` moves only through the
+`promote-computer-image-development.yml` workflow (`workflow_dispatch`, input
+`commit`), which refuses unless the latest ControlPlane and ThinTurn development
+deploys of that commit succeeded, and prints the previous digest. Roll back with
+`aws ecr put-image --image-tag dev` and the previous digest's manifest
+(`aws ecr batch-get-image --image-ids imageDigest=<previous>`); the exact
+commands are in `docs/COMPUTER_IMAGE_PROMOTION.md`. Never push `:dev` by hand.
+Moto enforces no IAM, so a new S3 key shape or DynamoDB partition a role touches
+ships only with a row in `conversation/src/gateway/role-access-manifest.json`
+that the synthesized policy allows (`docs/ROLE_ACCESS_GUARD.md`); after a deploy
+an operator can run `npx tsx conversation/bin/simulate-role-access.ts
+--environment development` (read-only).
+
 ## Local desk configuration (`AGENTS.local.md`)
 
 When present at the repo root, agents **must** consult `AGENTS.local.md`

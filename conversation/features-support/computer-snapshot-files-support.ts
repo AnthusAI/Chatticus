@@ -6,7 +6,8 @@ import { CreateBucketCommand, DeleteBucketCommand, DeleteObjectsCommand, ListObj
 import { ComputerHostDisk } from "../src/snapshot/host.ts";
 import { S3SnapshotStore } from "../src/snapshot/s3.ts";
 import type { SnapshotManifest, SnapshotReadStore } from "../src/snapshot/store.ts";
-import { recordingS3Client, type RecordedAwsRequest } from "./aws-request-recorder.ts";
+import { recordingS3Client, teeSinks, type RecordedAwsRequest } from "./aws-request-recorder.ts";
+import { frontDoorRequestsOf } from "./front-door-request-recording.ts";
 import { testS3Client } from "./pi-storage.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -62,7 +63,7 @@ export function snapshotReadStoreOf(world: ChatticusWorld): SnapshotReadStore {
 	const reader = (): S3SnapshotStore => {
 		const scenario = fileRoutesOf(world);
 		assert.ok(scenario.bucket, "The scenario has no snapshot bucket for the file routes.");
-		scenario.readerStore ??= new S3SnapshotStore(scenario.bucket, recordingS3Client(testS3Client(), scenario.readerRequests));
+		scenario.readerStore ??= new S3SnapshotStore(scenario.bucket, recordingS3Client(testS3Client(), teeSinks(scenario.readerRequests, frontDoorRequestsOf(world))));
 		return scenario.readerStore;
 	};
 	return {

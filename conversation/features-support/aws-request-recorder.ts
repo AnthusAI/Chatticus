@@ -9,7 +9,17 @@ export type RecordedAwsRequest = AuthorizedRequest & {
 	readonly store: string;
 	/** The partition keys of a table request, or the object key or list prefix of a bucket request. */
 	readonly keys: readonly string[];
+	/** Set when S3 answered the read of an object key with not found, which real S3 turns into 403 unless the caller may list the bucket. */
+	objectMissing?: boolean;
 };
+
+/** Anything requests can be pushed into: an array, or a tee over several arrays. */
+export type RequestSink = { push(...requests: RecordedAwsRequest[]): unknown };
+
+/** A sink that hands every request to each of the given sinks, so one request can be judged under two lists. */
+export function teeSinks(...sinks: readonly RequestSink[]): RequestSink {
+	return { push: (...requests) => sinks.forEach((sink) => sink.push(...requests)) };
+}
 
 const LEADING_KEYS = "dynamodb:LeadingKeys";
 const S3_PREFIX = "s3:prefix";
@@ -112,6 +122,9 @@ function s3RequestsOf(commandName: string, input: S3Input): RecordedAwsRequest[]
 		case "HeadObjectCommand":
 			return [s3Request("GetObject", bucket, input.Key ?? "", false)];
 		case "PutObjectCommand":
+		case "CreateMultipartUploadCommand":
+		case "UploadPartCommand":
+		case "CompleteMultipartUploadCommand":
 			return [s3Request("PutObject", bucket, input.Key ?? "", false)];
 		case "DeleteObjectCommand":
 			return [s3Request("DeleteObject", bucket, input.Key ?? "", false)];
@@ -124,24 +137,45 @@ function s3RequestsOf(commandName: string, input: S3Input): RecordedAwsRequest[]
 	}
 }
 
-function recordingProxy<Client extends object>(client: Client, record: (commandName: string, input: unknown) => void): Client {
+function isNotFoundError(error: unknown): boolean {
+	const failure = error as { name?: string; $metadata?: { httpStatusCode?: number } } | null;
+	return failure?.name === "NoSuchKey" || failure?.name === "NotFound" || failure?.$metadata?.httpStatusCode === 404;
+}
+
+function recordingProxy<Client extends object>(client: Client, record: (commandName: string, input: unknown) => RecordedAwsRequest[]): Client {
 	return new Proxy(client, {
 		get(target, property, receiver) {
 			if (property !== "send") return Reflect.get(target, property, receiver);
 			return (command: { constructor: { name: string }; input: unknown }, ...rest: unknown[]) => {
-				record(command.constructor.name, command.input);
-				return (target as unknown as { send: (...args: unknown[]) => unknown }).send(command, ...rest);
+				const noted = record(command.constructor.name, command.input);
+				const outcome = (target as unknown as { send: (...args: unknown[]) => unknown }).send(command, ...rest);
+				if (outcome instanceof Promise) {
+					outcome.catch((error: unknown) => {
+						if (isNotFoundError(error)) {
+							for (const request of noted) if (request.action === "s3:GetObject") request.objectMissing = true;
+						}
+					});
+				}
+				return outcome;
 			};
 		},
 	});
 }
 
 /** A DynamoDB client that notes every request it sends in `sink` before passing it on unchanged. */
-export function recordingDynamoClient(client: DynamoDBClient, sink: RecordedAwsRequest[]): DynamoDBClient {
-	return recordingProxy(client, (name, input) => sink.push(...dynamoRequestsOf(name, input as DynamoInput)));
+export function recordingDynamoClient(client: DynamoDBClient, sink: RequestSink): DynamoDBClient {
+	return recordingProxy(client, (name, input) => {
+		const requests = dynamoRequestsOf(name, input as DynamoInput);
+		sink.push(...requests);
+		return requests;
+	});
 }
 
-/** An S3 client that notes every request it sends in `sink` before passing it on unchanged. */
-export function recordingS3Client(client: S3Client, sink: RecordedAwsRequest[]): S3Client {
-	return recordingProxy(client, (name, input) => sink.push(...s3RequestsOf(name, input as S3Input)));
+/** An S3 client that notes every request it sends in `sink` before passing it on unchanged, and marks a read of a missing key. */
+export function recordingS3Client(client: S3Client, sink: RequestSink): S3Client {
+	return recordingProxy(client, (name, input) => {
+		const requests = s3RequestsOf(name, input as S3Input);
+		sink.push(...requests);
+		return requests;
+	});
 }
