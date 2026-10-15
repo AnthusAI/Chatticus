@@ -40,7 +40,7 @@ stack publishes:
 template. Each `ChatticusWeb*` stack publishes it at
 `https://{hostname}/provisioning/customer-role.yml` (development:
 `dev.chattic.us`; staging and production hostnames exist in SSM but web
-CloudFront stays dark until re-enabled). Customers and runbooks **GET** that
+CloudFront is enabled). Customers and runbooks **GET** that
 URL (HTTPS; body is this file unmodified) and pass the YAML to
 `aws cloudformation create-stack --template-body`. CloudFormation rejects a
 CloudFront distribution URL as `--template-url`; do not use `--template-url`
