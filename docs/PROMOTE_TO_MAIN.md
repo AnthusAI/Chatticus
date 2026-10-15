@@ -148,8 +148,9 @@ and Cognito custom domains are globally unique, and legacy still holds
 Google OAuth secrets, per-environment ECR image with a real tag instead of the
 hand-pushed `:dev`, the owner-computer path's development-only gate, and the
 integration-test-principal decision for staging (chatticus-80b17c). Live staging
-and production today are the **legacy** account's Python thin-turn, auth, and web
-stacks, with web CloudFront enabled and serving (README "Deployed across environments").
+and production are now the TypeScript stacks in the production AWS account: both
+are deployed, and production CloudFront is enabled (README "Deployed across
+environments"). The legacy account's Python stacks no longer serve them.
 
 Repo settings found with `gh api` (read-only): `main` has **no branch protection**
 (HTTP 404) and no rulesets, and the `staging` and `production` GitHub environments have no required

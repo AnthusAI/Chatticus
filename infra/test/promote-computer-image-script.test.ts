@@ -8,12 +8,16 @@ import { describe, it } from "node:test";
 const script = join(__dirname, "..", "promote-computer-image.sh");
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const NEW_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+const DEPLOYED_COMMIT = "89abcdef0123456789abcdef0123456789abcdef";
 const OLD_DIGEST = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
 
 const FAKE_GH = `#!/bin/sh
 case "$*" in
-  *deploy-controlplane-*.yml*) printf '%s\\n' "\${FAKE_CONTROLPLANE_CONCLUSION-success}" ;;
-  *deploy-thinturn-*.yml*) printf '%s\\n' "\${FAKE_THINTURN_CONCLUSION-success}" ;;
+  *"run list"*deploy-controlplane-*.yml*) printf '%s\\n' "\${FAKE_CONTROLPLANE_RUNS-\${FAKE_COMMIT} success}" ;;
+  *"run list"*deploy-thinturn-*.yml*) printf '%s\\n' "\${FAKE_THINTURN_RUNS-\${FAKE_COMMIT} success}" ;;
+  *"api repos/"*"/compare/"*)
+    printf '%s\\n' "\${FAKE_COMPARE_STATUS-ahead}"
+    for FILE in \${FAKE_COMPARE_FILES-}; do printf '%s\\n' "\${FILE}"; done ;;
   *) echo "unexpected gh $*" >&2; exit 9 ;;
 esac
 `;
@@ -23,7 +27,9 @@ echo "$*" >> "\${FAKE_LOG}"
 case "$*" in
   *"cloudformation describe-stacks"*) echo "123456789012.dkr.ecr.us-east-1.amazonaws.com/chatticuscomputers-computerimage-abc" ;;
   *"ecr describe-images"*"imageTag=sha-"*)
-    if [ -n "\${FAKE_SHA_MISSING:-}" ]; then echo "ImageNotFoundException" >&2; exit 254; fi
+    for MISSING in \${FAKE_MISSING_TAGS:-}; do
+      case "$*" in *"imageTag=\${MISSING} "*|*"imageTag=\${MISSING}") echo "ImageNotFoundException" >&2; exit 254 ;; esac
+    done
     echo "\${FAKE_NEW_DIGEST}" ;;
   *"ecr describe-images"*"imageTag=\${FAKE_TAG}"*)
     if grep -q "ecr put-image" "\${FAKE_LOG}"; then echo "\${FAKE_NEW_DIGEST}";
@@ -51,6 +57,8 @@ function runPromotion(argument: string | undefined, environment: Record<string, 
       PATH: `${directory}:${process.env.PATH ?? ""}`,
       HOME: process.env.HOME ?? "",
       FAKE_LOG: log,
+      FAKE_COMMIT: COMMIT,
+      GH_REPO: "example/repository",
       FAKE_TAG: { development: "dev", staging: "staging", production: "production" }[deploymentEnvironment] ?? "",
       FAKE_NEW_DIGEST: NEW_DIGEST,
       FAKE_DEV_DIGEST: OLD_DIGEST,
@@ -92,7 +100,7 @@ describe("promote-computer-image.sh", () => {
     });
 
     it(`${deploymentEnvironment}: refuses, and moves nothing, when its ThinTurn deploy of the commit did not succeed`, () => {
-      const result = runPromotion(COMMIT, { FAKE_THINTURN_CONCLUSION: "failure" }, deploymentEnvironment);
+      const result = runPromotion(COMMIT, { FAKE_THINTURN_RUNS: `${COMMIT} failure` }, deploymentEnvironment);
       assert.equal(result.status, 1);
       assert.match(result.stderr, new RegExp(`deploy-thinturn-${deploymentEnvironment}\\.yml run for .* concluded 'failure'`));
       assert.doesNotMatch(result.log, /put-image/);
@@ -100,26 +108,108 @@ describe("promote-computer-image.sh", () => {
   }
 
   it("refuses, and moves nothing, when the ThinTurn deploy of the commit did not succeed", () => {
-    for (const conclusion of ["failure", "cancelled", "none", ""]) {
-      const result = runPromotion(COMMIT, { FAKE_THINTURN_CONCLUSION: conclusion });
-      assert.equal(result.status, 1, conclusion);
+    for (const runs of [`${COMMIT} failure`, `${COMMIT} cancelled`, `${COMMIT} `, ""]) {
+      const result = runPromotion(COMMIT, { FAKE_THINTURN_RUNS: runs });
+      assert.equal(result.status, 1, runs);
       assert.match(result.stderr, /deploy-thinturn-development\.yml run for .* concluded '/);
       assert.doesNotMatch(result.log, /put-image/);
     }
   });
 
   it("refuses, and moves nothing, when the ControlPlane deploy of the commit did not succeed", () => {
-    const result = runPromotion(COMMIT, { FAKE_CONTROLPLANE_CONCLUSION: "failure" });
+    const result = runPromotion(COMMIT, { FAKE_CONTROLPLANE_RUNS: `${COMMIT} failure` });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /deploy-controlplane-development\.yml run for .* concluded 'failure'/);
     assert.doesNotMatch(result.log, /put-image/);
   });
 
   it("refuses, and moves nothing, when no image was built for the commit", () => {
-    const result = runPromotion(COMMIT, { FAKE_SHA_MISSING: "1" });
+    const result = runPromotion(COMMIT, { FAKE_MISSING_TAGS: `sha-${COMMIT}` });
     assert.equal(result.status, 1);
     assert.match(result.stderr, new RegExp(`no image tagged sha-${COMMIT}`));
     assert.doesNotMatch(result.log, /put-image/);
+  });
+
+  describe("a release commit that follows the deployed commit", () => {
+    const DEPLOYED_RUNS = `${DEPLOYED_COMMIT} success`;
+
+    it("promotes the image of the deployed commit when only the release files differ and the release commit has no image", () => {
+      const result = runPromotion(COMMIT, {
+        FAKE_CONTROLPLANE_RUNS: DEPLOYED_RUNS,
+        FAKE_THINTURN_RUNS: DEPLOYED_RUNS,
+        FAKE_COMPARE_FILES: "CHANGELOG.md package.json package-lock.json",
+        FAKE_MISSING_TAGS: `sha-${COMMIT}`,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, new RegExp(`moved dev to sha-${DEPLOYED_COMMIT}`));
+      assert.match(result.log, /ecr put-image/);
+    });
+
+    it("accepts a deployed commit that is a descendant of the promoted commit", () => {
+      const result = runPromotion(COMMIT, {
+        FAKE_CONTROLPLANE_RUNS: DEPLOYED_RUNS,
+        FAKE_THINTURN_RUNS: DEPLOYED_RUNS,
+        FAKE_COMPARE_STATUS: "behind",
+        FAKE_COMPARE_FILES: "package.json",
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, new RegExp(`moved dev to sha-${COMMIT}`));
+    });
+
+    it("prefers the image of the promoted commit when it exists", () => {
+      const result = runPromotion(COMMIT, {
+        FAKE_CONTROLPLANE_RUNS: DEPLOYED_RUNS,
+        FAKE_THINTURN_RUNS: DEPLOYED_RUNS,
+        FAKE_COMPARE_FILES: "CHANGELOG.md",
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, new RegExp(`moved dev to sha-${COMMIT}`));
+    });
+
+    it("refuses when the diff touches any file besides the release files", () => {
+      const result = runPromotion(COMMIT, {
+        FAKE_CONTROLPLANE_RUNS: DEPLOYED_RUNS,
+        FAKE_THINTURN_RUNS: DEPLOYED_RUNS,
+        FAKE_COMPARE_FILES: "CHANGELOG.md computer/Dockerfile",
+      });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /concluded 'none'/);
+      assert.doesNotMatch(result.log, /put-image/);
+    });
+
+    it("refuses when the commits have diverged", () => {
+      const result = runPromotion(COMMIT, {
+        FAKE_CONTROLPLANE_RUNS: DEPLOYED_RUNS,
+        FAKE_THINTURN_RUNS: DEPLOYED_RUNS,
+        FAKE_COMPARE_STATUS: "diverged",
+        FAKE_COMPARE_FILES: "CHANGELOG.md",
+      });
+      assert.equal(result.status, 1);
+      assert.doesNotMatch(result.log, /put-image/);
+    });
+
+    it("refuses when the newest equivalent run failed even though an older one succeeded", () => {
+      const result = runPromotion(COMMIT, {
+        FAKE_CONTROLPLANE_RUNS: `${DEPLOYED_COMMIT} failure\n${DEPLOYED_COMMIT} success`,
+        FAKE_THINTURN_RUNS: DEPLOYED_RUNS,
+        FAKE_COMPARE_FILES: "CHANGELOG.md",
+      });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /deploy-controlplane-development\.yml run for .* concluded 'failure'/);
+      assert.doesNotMatch(result.log, /put-image/);
+    });
+
+    it("refuses when the equivalent commit has no image either", () => {
+      const result = runPromotion(COMMIT, {
+        FAKE_CONTROLPLANE_RUNS: DEPLOYED_RUNS,
+        FAKE_THINTURN_RUNS: DEPLOYED_RUNS,
+        FAKE_COMPARE_FILES: "CHANGELOG.md",
+        FAKE_MISSING_TAGS: `sha-${COMMIT} sha-${DEPLOYED_COMMIT}`,
+      });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /no image/);
+      assert.doesNotMatch(result.log, /put-image/);
+    });
   });
 
   it("moves dev to the sha tag manifest and prints the previous digest with the rollback command", () => {

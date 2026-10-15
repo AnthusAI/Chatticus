@@ -55,12 +55,36 @@ check the development promotion makes, with no second rule to keep in step.
    `npx tsx conversation/bin/simulate-role-access.ts --environment development` after the deploy.
 3. Run the **Promote computer image (<environment>)** workflow with the full commit sha. It runs
    `infra/promote-computer-image.sh <environment> <commit>`, which:
-   - refuses unless the latest `deploy-controlplane-<environment>.yml` and `deploy-thinturn-<environment>.yml` runs for that
-     commit (`gh run list --commit`) both concluded `success`;
-   - refuses unless the repository has an image tagged `sha-<commit>`;
-   - reads the digest the environment tag points at now (the previous digest), moves the tag to the `sha-<commit>` manifest with
-     `aws ecr put-image`, checks that the tag now has the digest of `sha-<commit>`, and prints the previous digest together
+   - refuses unless the newest `deploy-controlplane-<environment>.yml` and `deploy-thinturn-<environment>.yml` runs on that
+     commit, or on a commit with equivalent deployable content (next section), both concluded `success`;
+   - refuses unless the repository has an image tagged `sha-<commit>` or tagged for such an equivalent deployed commit;
+   - reads the digest the environment tag points at now (the previous digest), moves the tag to the chosen `sha-` manifest with
+     `aws ecr put-image`, checks that the tag now has that digest, and prints the previous digest together
      with the rollback command (also in the job summary).
+
+## Release commits and equivalent content
+
+After each merge to `main` the release job pushes a `chore(release): x.y.z [skip ci]` commit that changes only
+`CHANGELOG.md`, `package.json` and `package-lock.json`. Because of `[skip ci]` no deploy runs on it and
+`build-computer-image-release.yml` builds no `sha-<release commit>` image, yet `main` has moved past the commit that was
+deployed and built. An exact-commit rule would refuse every promotion made after a release.
+
+The rule therefore compares content, not hashes. A commit is equivalent to the promoted commit when it is the promoted
+commit, or when `gh api repos/<repo>/compare/<candidate>...<promoted>` reports it as `ahead`, `behind` or `identical`
+(one is an ancestor of the other, never `diverged`) and every changed file is one of the three release files. Both
+directions are accepted because the operator may promote the release commit after the deploy, or an earlier commit than
+the one most recently deployed.
+
+For each server side workflow the script walks its recent runs newest first and decides on the first run whose commit is
+equivalent: it must have concluded `success`. A newer failed or cancelled run on an equivalent commit refuses even when an
+older one succeeded, so a failed redeploy of the same content is never papered over.
+
+The image is `sha-<promoted commit>` when it exists, otherwise the `sha-` image of an equivalent commit the server side
+actually deployed. This is the simplest correct choice: the computer image is built from the deployable content, and the
+release files do not enter it, so the image built for the deployed commit is byte-for-byte the content the promoted commit
+would have produced. A diff that touches any other file, including `computer/`, `conversation/` or `infra/`, is not
+equivalent and is refused, which keeps the safety property that no image whose content differs from what the server side
+deployed is ever promoted.
 
 A break-glass image (`manual-<utc time>`, from `computer/push-computer-image.sh`) is promoted by hand after the same
 verification, with the rollback commands below: read the manifest of the `manual-` tag (`--image-ids imageTag=manual-...`),
