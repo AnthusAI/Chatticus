@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { Context } from "hono";
+import type { Decimal } from "../budget/decimal.ts";
 import type { TurnControlStore } from "../domain/turns.ts";
 import type { GatewayObservationSink } from "../ledger/gateway-observation.ts";
+import type { ModelSpendReader } from "../ledger/model-spend.ts";
 import { OPENAI_MODEL_PRICES } from "../ledger/vendor-prices.ts";
 import { errorNameOf } from "../observability/log-line.ts";
 import { verifySessionToken } from "./session-token.ts";
@@ -57,6 +59,10 @@ export type ModelGatewayDependencies = {
 	readonly log: (event: GatewayLogEvent) => void;
 	/** Where what the gateway saw of each answered call is kept, as evidence for reconciliation; never a ledger write. */
 	readonly observations: GatewayObservationSink;
+	/** Where the organization's model spend for the month is read before each call is forwarded. */
+	readonly modelSpend: ModelSpendReader;
+	/** The most an organization may spend on models in a calendar month; a call is refused once spend has reached it. */
+	readonly monthlyModelSpendCeilingUsd: Decimal;
 };
 
 type Usage = { inputTokens: number; cachedInputTokens: number; outputTokens: number; reasoningTokens: number };
@@ -69,6 +75,12 @@ type Observed = {
 	readonly reason: string;
 	readonly responseId: string | null;
 };
+
+/** The error code of a call refused because the organization's model spend for the month has reached its ceiling. */
+export const MODEL_SPEND_CEILING_REACHED_CODE = "model_spend_ceiling_reached";
+
+/** The error code of a call refused because the organization's model spend for the month could not be read. */
+export const MODEL_SPEND_UNAVAILABLE_CODE = "model_spend_unavailable";
 
 const refusal = (c: Context, deps: ModelGatewayDependencies, status: 400 | 401 | 403 | 413 | 422, detail: string, reason: string, scope: Partial<GatewayLogEvent> = {}): Response => {
 	deps.log({ event: "refused", reason, ...scope });
@@ -314,7 +326,12 @@ function admittedBody(bodyText: string): AdmittedBody | RefusedBody {
  *
  * The caller does not get the whole vendor API. The body must be at most `GATEWAY_MAXIMUM_BODY_BYTES`, name a model on
  * the price book, offer only function tools and ask for neither `store` nor `background`; `max_output_tokens` is clamped
- * to `GATEWAY_MAXIMUM_OUTPUT_TOKENS` and `store` is forced off. The vendor's own error text is never passed on, because a vendor can echo part of a key.
+ * to `GATEWAY_MAXIMUM_OUTPUT_TOKENS` and `store` is forced off.
+ *
+ * Before it forwards, the gateway reads the organization's model spend for the current calendar month from the cost index
+ * and refuses the call with 403 and the error code `model_spend_ceiling_reached` when spend has reached the ceiling. The
+ * figure is as fresh as the cost index, so a call that starts under the ceiling may finish over it. When the spend cannot
+ * be read the call is refused with 503 and `model_spend_unavailable` (fail closed; the status is retryable). The vendor's own error text is never passed on, because a vendor can echo part of a key.
  *
  * @param c The request context.
  * @param deps The signing key, turn store, vendor and log.
@@ -346,6 +363,30 @@ export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewa
 	if ("refusal" in admitted) return refusal(c, deps, admitted.reason === "bad_body" ? 422 : 400, admitted.refusal, admitted.reason, scope);
 	const { model } = admitted;
 	const estimatedInputTokens = Math.ceil(bodyBytes / ESTIMATED_CHARACTERS_PER_TOKEN);
+
+	let monthToDateUsd: Decimal;
+	try {
+		monthToDateUsd = await deps.modelSpend.monthToDateUsd(claims.tenantId, deps.clock.now());
+	} catch (error) {
+		deps.log({ event: "refused", reason: MODEL_SPEND_UNAVAILABLE_CODE, errorName: errorNameOf(error), ...scope });
+		return c.json(
+			{
+				detail: "the organization's model spend could not be checked",
+				error: { type: "model_spend", code: MODEL_SPEND_UNAVAILABLE_CODE, message: "The organization's model spend could not be checked, so the call was not made." },
+			},
+			503,
+		);
+	}
+	if (monthToDateUsd.compare(deps.monthlyModelSpendCeilingUsd) >= 0) {
+		deps.log({ event: "refused", reason: MODEL_SPEND_CEILING_REACHED_CODE, ...scope });
+		return c.json(
+			{
+				detail: "the organization has reached its monthly model spend ceiling",
+				error: { type: "model_spend", code: MODEL_SPEND_CEILING_REACHED_CODE, message: "The organization has reached its monthly model spend ceiling." },
+			},
+			403,
+		);
+	}
 
 	let upstreamResponse: Response;
 	try {

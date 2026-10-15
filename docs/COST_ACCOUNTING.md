@@ -101,7 +101,7 @@ cacheRead 0.02, cacheWrite 0.25). Chatticus ignores the cache and tier fields.
 * Interruption: if the client drops or the upstream breaks first, `meteredStream` records one estimate (`estimated_after_interruption`): input =
   request body bytes / 4, output = characters of text `delta` events seen so far / 4. Hidden reasoning tokens are therefore not estimated.
 * Non-OK upstream: nothing recorded (`upstream_failed`), and the vendor's error text is withheld.
-* No per-call organization or per-turn dollar ceiling (`docs/PI_SESSION_HANDOFF.md`, "Gateway controls"). The only ceiling is the monthly **AWS** spend ceiling.
+* Monthly model spend ceiling per organization (section 3.12): a call is refused once the organization's model spend for the calendar month has reached the ceiling. There is still no per-turn or per-session dollar ceiling.
 
 ### 1.5 Visibility
 
@@ -174,7 +174,7 @@ Voice failure to record is swallowed with a `console.warn` (`domain/voice-messag
 * **G4** No API, no web view, no export, no comparison.
 * **G5** No price provenance: no price book version id or source on a row, no verification against OpenAI's page, no scheduled check; `docs/BUDGETS.md` itself says "re-check it when a price matters".
 * **G6** No parity guard: nothing fails when a new conversation kind, tool or model call is added without cost accounting.
-* **G7** No per-turn or per-session dollar ceiling in the gateway (a budget feature, listed so it is not mistaken for cost transparency).
+* **G7** No per-turn or per-session dollar ceiling in the gateway (a budget feature, listed so it is not mistaken for cost transparency). The per-organization monthly model ceiling is built (section 3.12).
 
 ### Existing Kanbus tickets (`KANBUS_NO_DAEMON=1 kbs list`, filtered by cost, spend, ledger, price, usage)
 
@@ -544,6 +544,41 @@ in the tab. The `/messages/{seq}/cost` route is not used by the web.
 against `web/test-support/costs-fake.ts`, a fake of the cost routes that parses everything it sends with the zod schemas of `host-protocol/src/costs.ts`. `web/lib/costs.test.ts` covers the pure helpers.
 Mutation checks (show an incomplete total as complete; show an unpriced call as zero; drop the 403 wording; round totals to cents; swap triggered and produced; drop the estimated label; drop the cursor)
 each fail a named scenario (see the pull request).
+
+### 3.12 As built (monthly model spend ceiling)
+
+**What it is.** The model gateway refuses a call when the organization's model spend for the current calendar month (UTC) has reached the
+ceiling, so a runaway bot cannot burn the vendor's money without limit. It is separate from `monthlyAwsSpendCeilingUsd`, which meters AWS spend.
+
+**The ceiling.** `DEFAULT_MONTHLY_MODEL_SPEND_CEILING_USD`, 25.00 US dollars per organization per month, in every environment
+(`conversation/src/ledger/model-spend.ts`). A deployment overrides it with the environment variable `CHATTICUS_MONTHLY_MODEL_SPEND_CEILING_USD` on the Front Door
+function; a value that is not a positive decimal stops the function at start instead of removing the limit. It is not yet a per-organization field set by an
+owner like the AWS ceiling: that needs an organization read in the gateway, a PATCH route and a web form (follow-up).
+
+**The check.** After the token, turn, size and body checks and before the call is forwarded, the gateway reads the month's cost index partition
+`{tenant}#cost#{yyyy-mm}` (one consistent query, the same read the cost API uses) and adds the priced dollars of every row: turn rows and the gateway rows
+reconciliation adds. Spend at or above the ceiling is refused with status 403 and the body
+`{ "detail": ..., "error": { "type": "model_spend", "code": "model_spend_ceiling_reached", "message": ... } }`. The request never reaches the vendor; the gateway
+logs a `refused` event with reason `model_spend_ceiling_reached`. Pi does not retry a 403, so the turn fails at once, and `classifyModelFailure` words it for the member:
+"The organization has reached its monthly model spend ceiling, so no more model calls are made until next month." A new month reads a new partition, so the count
+starts again by itself, and another organization's partition is never read.
+
+**Accuracy.** The figure is only as fresh as the cost index. A turn writes its row when it records its cost (a resumed attempt, a park, a yield, completion or failure),
+not after every call, and the gateway's own observations are not in the index until reconciliation turns them into rows. A call that starts under the ceiling may finish
+over it, and one long turn can pass the ceiling before its row is written. Many short turns, the usual shape of a runaway routine, are stopped within one turn of the
+ceiling. The check is a guard, not an exact meter.
+
+**Failure of the read: closed.** If the spend cannot be read, the call is refused with status 503, error code `model_spend_unavailable`, and a `refused` log event.
+The gateway already needs the same table to read the turn on every call, so a table that cannot be read leaves no availability to protect, and 503 is retryable
+so a passing fault does not fail the turn at once.
+
+**IAM.** No change. The Front Door function has read and write on the messaging table, which already covers the `{tenant}#cost#*` partitions for the cost API.
+
+**Proof.** `features/model_gateway_spend_ceiling.feature` (under, at, summed, other organization, month rollover, unreadable spend) and the `model_spend_ceiling_reached` row of
+`features/model_provider_failures.feature`; `conversation/test/model-spend-ceiling-config.test.ts` for the setting. Mutation checks (`>=` to `>`, read another tenant's
+partition, read a fixed month, drop the failure wording) each fail a named scenario.
+
+**Follow-ups.** A per-organization ceiling an owner can set; a Costs tab line showing the ceiling and the month's spend; counting the current turn's unreconciled gateway observations.
 
 ## 4. Work split and dependencies
 

@@ -330,8 +330,9 @@ What is not built or not proven:
 - **Gateway controls.** The gateway allows only the models on the vendor price
   book, caps the body at 2 MiB and the output at 32768 tokens, refuses non-function
   tools, `store` and `background`, and records an estimated spend when a client
-  disconnects early. It has no per-call organization ceiling: the one ceiling
-  the product has is the AWS spend ceiling, which does not meter model spend.
+  disconnects early. It also refuses a call once the organization's model spend
+  for the month has reached the monthly model spend ceiling (25.00 USD by
+  default; see docs/COST_ACCOUNTING.md section 3.12), separate from the AWS spend ceiling.
 - **Lost tools.** A tool lost when an owner dies is reported, not re-run.
 - **Browse.** `browse` is not in the default grant and has no executor on the
   owner path.
