@@ -85,6 +85,22 @@ Feature: The container owner keeps the computer's disk
     When the customer computer host "garage-mac-1" boots through the Front Door worker plane
     Then host "garage-mac-1" has workspace file "notes.md" containing "second draft"
 
+  Scenario: A command that leaves the workspace as published does not leave the disk marked dirty
+    Given worker "garage-mac-1" has published computer "household-computer" with workspace file "notes.md" containing "first draft"
+    And the model is scripted to call "run_terminal" with:
+      """
+      {"command": "cat notes.md", "cwd": "/workspace"}
+      """
+    And the model is scripted to answer "I read the notes."
+    When the member asks "read the notes with a command"
+    And the member allows the turn tools "run_terminal" under "/workspace"
+    And a Lambda-style owner works the turn until it parks
+    And the owner "owner-1" runs the parked turn on its computer disk
+    Then the owner's turn ended "done"
+    And the organization's computer is stopped
+    And the disk was published 0 times
+    And tenant "anthus" computer "household-computer" is not dirty on the store
+
   Scenario: The computer is recorded as stopped when the owner exits cleanly
     Given the model is scripted to answer "Hello."
     When the member asks "say hello"

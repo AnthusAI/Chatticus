@@ -165,13 +165,18 @@ export class HostProtocolClient {
 	/**
 	 * POST /computer/state with `stopped`: the host says the computer is stopped or running. An owner that reports the
 	 * computer stopped passes the start generation it was started for, so the Front Door ends that generation's start lease.
+	 * An owner that found its live disk equal to the last published pack says so, and the Front Door clears the dirty flag.
 	 */
-	async setComputerStopped(stopped: boolean, startGeneration?: number): Promise<HostComputer> {
+	async setComputerStopped(stopped: boolean, startGeneration?: number, diskMatchesPublished?: boolean): Promise<HostComputer> {
 		return this.request(
 			"POST",
 			"/computer/state",
 			hostComputerSchema,
-			computerStateRequestSchema.parse({ stopped, ...(startGeneration === undefined ? {} : { start_generation: startGeneration }) }),
+			computerStateRequestSchema.parse({
+				stopped,
+				...(startGeneration === undefined ? {} : { start_generation: startGeneration }),
+				...(diskMatchesPublished === undefined ? {} : { disk_matches_published: diskMatchesPublished }),
+			}),
 		);
 	}
 

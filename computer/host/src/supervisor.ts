@@ -912,10 +912,12 @@ export class OwnerSupervisor {
 		await this.activity;
 		if (this.exitCode !== undefined) return;
 		const disk = this.disk;
+		let diskMatchesPublished = false;
 		if (disk !== null && this.hydrated) {
 			const captured = this.entriesAwaitingPublish;
 			try {
 				if (await disk.needsPublish()) await disk.publish();
+				else diskMatchesPublished = true;
 				this.promoteToAwaitingClear(captured);
 			} catch (error) {
 				this.log("snapshot_check_failed", { error_name: errorNameOf(error) });
@@ -925,7 +927,7 @@ export class OwnerSupervisor {
 		}
 		for (let attempt = 1; attempt <= STOPPED_REPORT_ATTEMPTS; attempt += 1) {
 			try {
-				await this.options.plane.setComputerStopped(true, this.identity.generation);
+				await this.options.plane.setComputerStopped(true, this.identity.generation, diskMatchesPublished);
 				break;
 			} catch (error) {
 				if (error instanceof HostProtocolError && this.refusalEndsOwnership(error)) {

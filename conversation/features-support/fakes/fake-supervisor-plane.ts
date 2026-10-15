@@ -327,7 +327,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 		};
 	}
 
-	async setComputerStopped(stopped: boolean, startGeneration?: number): Promise<HostComputer> {
+	async setComputerStopped(stopped: boolean, startGeneration?: number, _diskMatchesPublished?: boolean): Promise<HostComputer> {
 		if (stopped) {
 			this.stoppedReports.push({ generation: startGeneration, atMilliseconds: this.clock.nowMilliseconds(), order: this.nextOrder() });
 			const outcome = this.stoppedReportScript.shift() ?? "ok";
