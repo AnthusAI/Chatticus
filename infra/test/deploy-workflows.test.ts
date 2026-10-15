@@ -157,8 +157,8 @@ describe("deploy workflow YAML", () => {
       .map((line) => line.slice("run: sh ".length));
   }
 
-  it("no workflow bound to the staging or production GitHub environment has a push, pull_request or schedule trigger", () => {
-    for (const fileName of readdirSync(workflowsDir).filter((name) => name.endsWith(".yml"))) {
+  it("no workflow bound to the staging or production GitHub environment has a push, pull_request or schedule trigger, except the image build that writes only an inert sha tag", () => {
+    for (const fileName of readdirSync(workflowsDir).filter((name) => name.endsWith(".yml") && name !== "build-computer-image-release.yml")) {
       const contents = readFileSync(join(workflowsDir, fileName), "utf8");
       if (!/^\s+environment: (staging|production)\s*$/m.test(contents)) continue;
       assert.doesNotMatch(contents, /^  (push|pull_request|pull_request_target|schedule|workflow_run):/m, fileName);
@@ -274,55 +274,117 @@ describe("deploy workflow YAML", () => {
   });
 });
 
-describe("computer image tag rule: the dev tag moves only after the server side is verified", () => {
+describe("computer image tag rule: an environment tag moves only after the server side is verified", () => {
   const repositoryRoot = join(workflowsDir, "..", "..");
-  const build = readFileSync(join(workflowsDir, "build-computer-image-development.yml"), "utf8");
-  const promote = readFileSync(join(workflowsDir, "promote-computer-image-development.yml"), "utf8");
-  const promoteScript = readFileSync(join(repositoryRoot, "infra", "promote-computer-image-development.sh"), "utf8");
+  const promoteScript = readFileSync(join(repositoryRoot, "infra", "promote-computer-image.sh"), "utf8");
+  const TAGS: Record<string, string> = { development: "dev", staging: "staging", production: "production" };
+  const STACKS: Record<string, string> = {
+    development: "ChatticusComputers",
+    staging: "ChatticusComputersStaging",
+    production: "ChatticusComputers",
+  };
 
-  it("the build pushes the immutable sha tag and never the dev tag", () => {
+  function pushSection(contents: string, environment: string): string {
+    const start = contents.indexOf(`  push-${environment}:`);
+    assert.ok(start >= 0, `push-${environment} job exists`);
+    const next = contents.indexOf("\n  push-", start + 1);
+    return contents.slice(start, next < 0 ? undefined : next);
+  }
+
+  function assertBuildNeverMovesTag(build: string) {
     assert.match(build, /docker push "\$\{REPO\}:\$\{SHA_TAG\}"/);
-    assert.equal(build.split("\n").filter((line) => /docker (tag|push)/.test(line)).length, 2);
-    assert.doesNotMatch(build, /:dev\b/);
-    assert.doesNotMatch(build, /imageTag=dev/);
+    assert.doesNotMatch(build, /:(dev|staging|production)\b/);
+    assert.doesNotMatch(build, /imageTag=(dev|staging|production)\b/);
     assert.doesNotMatch(build, /put-image/);
+  }
+
+  it("the development build pushes the immutable sha tag and never the dev tag", () => {
+    const build = readFileSync(join(workflowsDir, "build-computer-image-development.yml"), "utf8");
+    assertBuildNeverMovesTag(build);
+    assert.equal(build.split("\n").filter((line) => /docker (tag|push)/.test(line)).length, 2);
   });
 
-  it("the promotion is a manual dispatch with a required commit input and no other trigger", () => {
-    assert.match(promote, /^on:\n  workflow_dispatch:\n    inputs:\n      commit:\n[\s\S]*?required: true\n/m);
-    assert.doesNotMatch(promote, /^  (push|pull_request|pull_request_target|schedule|workflow_run|release):/m);
+  describe("the staging and production build builds once and pushes only the sha tag to each repository", () => {
+    const build = readFileSync(join(workflowsDir, "build-computer-image-release.yml"), "utf8");
+
+    it("triggers on main and manual dispatch, queues behind itself only", () => {
+      assert.match(build, /^on:\n  workflow_dispatch:\n  push:\n    branches: \[main\]\n/m);
+      assert.match(build, /^concurrency:\n  group: build-computer-image-release\n  cancel-in-progress: false\n/m);
+      assert.doesNotMatch(build, /secrets\.AWS_ACCESS_KEY_ID/);
+    });
+
+    it("builds and runs the container checks exactly once, before any push job", () => {
+      assert.equal((build.match(/docker\/build-push-action@v6/g) ?? []).length, 1);
+      assert.equal((build.match(/sh computer\/test_owner_container\.sh/g) ?? []).length, 1);
+      assert.ok(build.indexOf("test_owner_container.sh") < build.indexOf("  push-staging:"));
+    });
+
+    for (const environment of ["staging", "production"]) {
+      it(`${environment}: pushes through its own environment role and its own Computers stack`, () => {
+        const section = pushSection(build, environment);
+        assert.match(section, /needs: build/);
+        assert.match(section, new RegExp(`environment: ${environment}\\n`));
+        assert.match(section, /role-to-assume: \$\{\{ secrets\.AWS_DEPLOY_ROLE_ARN \}\}/);
+        assert.match(section, new RegExp(`COMPUTERS_STACK: ${STACKS[environment]}\\n`));
+        assertBuildNeverMovesTag(section);
+      });
+    }
   });
 
-  it("the promotion reads workflow runs, assumes the development role by OIDC and queues behind itself only", () => {
-    assert.match(promote, /^  actions: read$/m);
-    assert.match(promote, /id-token:\s*write/);
-    assert.match(promote, /environment: development/);
-    assert.match(promote, /role-to-assume: \$\{\{ secrets\.AWS_DEPLOY_ROLE_ARN \}\}/);
-    assert.match(promote, /^concurrency:\n  group: promote-computer-image-development\n  cancel-in-progress: false\n/m);
-    assert.doesNotMatch(promote, /secrets\.AWS_ACCESS_KEY_ID/);
-  });
+  for (const environment of Object.keys(TAGS)) {
+    const promote = readFileSync(join(workflowsDir, `promote-computer-image-${environment}.yml`), "utf8");
 
-  it("the promotion passes the commit through the environment, never into the shell text", () => {
-    assert.match(promote, /PROMOTE_COMMIT: \$\{\{ inputs\.commit \}\}/);
-    assert.match(promote, /run: sh promote-computer-image-development\.sh "\$\{PROMOTE_COMMIT\}"/);
-    assert.doesNotMatch(promote.replace(/PROMOTE_COMMIT: \$\{\{ inputs\.commit \}\}/, ""), /\$\{\{ inputs\.commit \}\}/);
+    it(`${environment}: the promotion is a manual dispatch with a required commit input and no other trigger`, () => {
+      assert.match(promote, /^on:\n  workflow_dispatch:\n    inputs:\n      commit:\n[\s\S]*?required: true\n/m);
+      assert.doesNotMatch(promote, /^  (push|pull_request|pull_request_target|schedule|workflow_run|release):/m);
+    });
+
+    it(`${environment}: the promotion reads workflow runs, assumes its role by OIDC, queues behind itself only, needs no approval`, () => {
+      assert.match(promote, /^  actions: read$/m);
+      assert.match(promote, /id-token:\s*write/);
+      assert.match(promote, new RegExp(`environment: ${environment}\\n`));
+      assert.match(promote, /role-to-assume: \$\{\{ secrets\.AWS_DEPLOY_ROLE_ARN \}\}/);
+      assert.match(
+        promote,
+        new RegExp(`^concurrency:\\n  group: promote-computer-image-${environment}\\n  cancel-in-progress: false\\n`, "m"),
+      );
+      assert.doesNotMatch(promote, /secrets\.AWS_ACCESS_KEY_ID/);
+    });
+
+    it(`${environment}: the promotion passes the commit through the environment, never into the shell text`, () => {
+      assert.match(promote, /PROMOTE_COMMIT: \$\{\{ inputs\.commit \}\}/);
+      assert.match(promote, new RegExp(`run: sh promote-computer-image\\.sh ${environment} "\\$\\{PROMOTE_COMMIT\\}"`));
+      assert.doesNotMatch(promote.replace(/PROMOTE_COMMIT: \$\{\{ inputs\.commit \}\}/, ""), /\$\{\{ inputs\.commit \}\}/);
+    });
+  }
+
+  it("the promotion script maps each environment to its tag and Computers stack", () => {
+    for (const environment of Object.keys(TAGS)) {
+      assert.ok(
+        promoteScript.includes(`${environment}) TAG="${TAGS[environment]}"; STACK="${STACKS[environment]}" ;;`),
+        environment,
+      );
+    }
   });
 
   it("the promotion script checks the ControlPlane and ThinTurn deploys of the commit before it writes the tag", () => {
-    assert.match(promoteScript, /SERVER_SIDE_WORKFLOWS="deploy-controlplane-development\.yml deploy-thinturn-development\.yml"/);
+    assert.match(
+      promoteScript,
+      /SERVER_SIDE_WORKFLOWS="deploy-controlplane-\$\{ENVIRONMENT\}\.yml deploy-thinturn-\$\{ENVIRONMENT\}\.yml"/,
+    );
     assert.match(promoteScript, /gh run list --workflow "\$\{WORKFLOW\}" --commit "\$\{COMMIT\}"/);
     assert.ok(promoteScript.indexOf("gh run list") < promoteScript.indexOf("ecr put-image"));
-    assert.ok(promoteScript.indexOf("imageTag=dev") < promoteScript.indexOf("ecr put-image"));
+    assert.ok(promoteScript.indexOf("imageTag=${TAG}") < promoteScript.indexOf("ecr put-image"));
   });
 
-  it("no other workflow or script moves the dev tag", () => {
+  it("no other workflow or script moves an environment tag", () => {
     const candidates = [
       ...readdirSync(workflowsDir).map((name) => join(workflowsDir, name)),
       ...readdirSync(join(repositoryRoot, "infra")).filter((name) => name.endsWith(".sh")).map((name) => join(repositoryRoot, "infra", name)),
       ...readdirSync(join(repositoryRoot, "computer")).filter((name) => name.endsWith(".sh")).map((name) => join(repositoryRoot, "computer", name)),
     ];
     const writers = candidates.filter((file) => /ecr put-image|--image-tag dev|\$\{(ANTHUS_)?REPO\}:dev|docker push [^\n]*\$\{(ANTHUS_)?REPO\}:dev\b/.test(readFileSync(file, "utf8")));
-    assert.deepEqual(writers.map((file) => file.slice(repositoryRoot.length + 1)), ["infra/promote-computer-image-development.sh"]);
+    assert.deepEqual(writers.map((file) => file.slice(repositoryRoot.length + 1)), ["infra/promote-computer-image.sh"]);
   });
 
   it("the break-glass scripts push an immutable manual tag to the development repository, never dev", () => {

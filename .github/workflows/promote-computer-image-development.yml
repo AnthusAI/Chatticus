@@ -38,4 +38,4 @@ jobs:
         working-directory: infra
         env:
           PROMOTE_COMMIT: ${{ inputs.commit }}
-        run: sh promote-computer-image-development.sh "${PROMOTE_COMMIT}"
+        run: sh promote-computer-image.sh development "${PROMOTE_COMMIT}"

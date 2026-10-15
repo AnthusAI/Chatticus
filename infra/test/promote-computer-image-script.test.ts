@@ -5,15 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-const script = join(__dirname, "..", "promote-computer-image-development.sh");
+const script = join(__dirname, "..", "promote-computer-image.sh");
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const NEW_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const OLD_DIGEST = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
 
 const FAKE_GH = `#!/bin/sh
 case "$*" in
-  *deploy-controlplane-development.yml*) printf '%s\\n' "\${FAKE_CONTROLPLANE_CONCLUSION-success}" ;;
-  *deploy-thinturn-development.yml*) printf '%s\\n' "\${FAKE_THINTURN_CONCLUSION-success}" ;;
+  *deploy-controlplane-*.yml*) printf '%s\\n' "\${FAKE_CONTROLPLANE_CONCLUSION-success}" ;;
+  *deploy-thinturn-*.yml*) printf '%s\\n' "\${FAKE_THINTURN_CONCLUSION-success}" ;;
   *) echo "unexpected gh $*" >&2; exit 9 ;;
 esac
 `;
@@ -25,7 +25,7 @@ case "$*" in
   *"ecr describe-images"*"imageTag=sha-"*)
     if [ -n "\${FAKE_SHA_MISSING:-}" ]; then echo "ImageNotFoundException" >&2; exit 254; fi
     echo "\${FAKE_NEW_DIGEST}" ;;
-  *"ecr describe-images"*"imageTag=dev"*)
+  *"ecr describe-images"*"imageTag=\${FAKE_TAG}"*)
     if grep -q "ecr put-image" "\${FAKE_LOG}"; then echo "\${FAKE_NEW_DIGEST}";
     elif [ -n "\${FAKE_DEV_UNSET:-}" ]; then echo "ImageNotFoundException" >&2; exit 254;
     else echo "\${FAKE_DEV_DIGEST}"; fi ;;
@@ -36,7 +36,7 @@ case "$*" in
 esac
 `;
 
-function runPromotion(argument: string | undefined, environment: Record<string, string> = {}): { status: number | null; stdout: string; stderr: string; log: string } {
+function runPromotion(argument: string | undefined, environment: Record<string, string> = {}, deploymentEnvironment = "development"): { status: number | null; stdout: string; stderr: string; log: string } {
   const directory = mkdtempSync(join(tmpdir(), "promote-"));
   for (const [name, body] of [["gh", FAKE_GH], ["aws", FAKE_AWS]] as const) {
     writeFileSync(join(directory, name), body);
@@ -44,12 +44,14 @@ function runPromotion(argument: string | undefined, environment: Record<string, 
   }
   const log = join(directory, "aws.log");
   writeFileSync(log, "");
-  const result = spawnSync("sh", argument === undefined ? [script] : [script, argument], {
+  const args = argument === undefined ? [script, deploymentEnvironment] : [script, deploymentEnvironment, argument];
+  const result = spawnSync("sh", args, {
     encoding: "utf8",
     env: {
       PATH: `${directory}:${process.env.PATH ?? ""}`,
       HOME: process.env.HOME ?? "",
       FAKE_LOG: log,
+      FAKE_TAG: { development: "dev", staging: "staging", production: "production" }[deploymentEnvironment] ?? "",
       FAKE_NEW_DIGEST: NEW_DIGEST,
       FAKE_DEV_DIGEST: OLD_DIGEST,
       ...environment,
@@ -58,15 +60,44 @@ function runPromotion(argument: string | undefined, environment: Record<string, 
   return { status: result.status, stdout: result.stdout, stderr: result.stderr, log: readFileSync(log, "utf8") };
 }
 
-describe("promote-computer-image-development.sh", () => {
+describe("promote-computer-image.sh", () => {
   it("rejects a missing or malformed commit before touching GitHub or AWS", () => {
     for (const argument of [undefined, "dev", "abc123", COMMIT.toUpperCase(), `${COMMIT}0`]) {
       const result = runPromotion(argument);
       assert.equal(result.status, 2, String(argument));
-      assert.match(result.stderr, /usage: sh promote-computer-image-development\.sh/);
+      assert.match(result.stderr, /usage: sh promote-computer-image\.sh/);
       assert.equal(result.log, "");
     }
   });
+
+  it("rejects an unknown environment before touching GitHub or AWS", () => {
+    for (const unknown of ["", "dev", "prod", "legacy"]) {
+      const result = runPromotion(COMMIT, {}, unknown);
+      assert.equal(result.status, 2, unknown);
+      assert.match(result.stderr, /usage: sh promote-computer-image\.sh <development\|staging\|production>/);
+      assert.equal(result.log, "");
+    }
+  });
+
+  for (const [deploymentEnvironment, tag, stack] of [
+    ["staging", "staging", "ChatticusComputersStaging"],
+    ["production", "production", "ChatticusComputers"],
+  ]) {
+    it(`${deploymentEnvironment}: reads the ${stack} repository and moves only the ${tag} tag after that environment's deploys`, () => {
+      const result = runPromotion(COMMIT, {}, deploymentEnvironment);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.log, new RegExp(`describe-stacks --stack-name ${stack} `));
+      assert.match(result.log, new RegExp(`ecr put-image .*--image-tag ${tag} `));
+      assert.match(result.stdout, new RegExp(`moved ${tag} to sha-${COMMIT}`));
+    });
+
+    it(`${deploymentEnvironment}: refuses, and moves nothing, when its ThinTurn deploy of the commit did not succeed`, () => {
+      const result = runPromotion(COMMIT, { FAKE_THINTURN_CONCLUSION: "failure" }, deploymentEnvironment);
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, new RegExp(`deploy-thinturn-${deploymentEnvironment}\\.yml run for .* concluded 'failure'`));
+      assert.doesNotMatch(result.log, /put-image/);
+    });
+  }
 
   it("refuses, and moves nothing, when the ThinTurn deploy of the commit did not succeed", () => {
     for (const conclusion of ["failure", "cancelled", "none", ""]) {
