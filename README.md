@@ -77,7 +77,23 @@ not push to `main` while it was briefly protected (GH006). That protection
 was applied in error and has been removed: by decision of the owner
 (2026-10-15), `main` has no branch protection and the `staging` and
 `production` environments have no required reviewers; they keep only a
-deployment branch policy that allows `main` only.
+deployment branch policy that allows `main` only. **v0.45.0** has since been
+released, and the Actions release job now pushes its own `chore(release)`
+commit to `main`.
+
+**Production runs the current release.** The production environment in the
+production AWS account is deployed with the v0.44.0 code (computers, snapshots,
+control plane, thin-turn and web stacks updated; auth had no diff), first by the
+local script and then by CI: the production and staging deploy workflows
+(`workflow_dispatch`) run green from GitHub Actions through OIDC, and
+`verify-account-deploy-role` passes for both. The computer image is promoted for
+staging and production (`build-computer-image-release.yml` builds once on push to
+`main`; `infra/promote-computer-image.sh <env> <commit>` and the dispatch-only
+`promote-computer-image-staging.yml` and `-production.yml` retag it), so computers
+can start in both. **Limit:** no live computer turn has been tested in production
+or staging (Kanbus chatticus-61dea9). The promote rule requires the deploy runs to
+have succeeded for the exact commit, which the release commit defeats
+(chatticus-6b45d3).
 
 ### Staging and the marketing site moved into the production AWS account
 
@@ -87,10 +103,10 @@ account as `Staging`-suffixed stacks (`AccountDeployStaging`, `SnapshotsStaging`
 `ThinTurnStaging`, `ControlPlaneStaging`, `AuthStaging`, `WebStaging`), and
 `staging.chattic.us` serves 200. Production keeps its existing stack names. The
 old staging account's stacks are deleted; empty leftovers remain and the account
-is not yet closed. **Limits:** staging computers are not available (no promoted
-computer image), the staging integration test principal is not wired (staging
-acceptance fails with 403 on bearer exchange), and the staging deny policy is
-not yet on the production deploy role.
+is not yet closed. **Limits:** the staging integration test principal is not wired
+(staging acceptance fails with 403 on bearer exchange; chatticus-99cae9), and the
+staging deny policy is not yet on the production deploy role. Staging computers
+can start now that the computer image is promoted.
 
 The **marketing site** (`chattic.us` and `www`) is now served from the production
 AWS account by the `ChatticusMarketing` stack in the private website repo, with
@@ -108,9 +124,9 @@ control plane is the TypeScript service in `conversation/`, built on Pi-durable
 (see [Pi harness](docs/PI_HARNESS.md) and
 [TypeScript control plane](docs/TYPESCRIPT_CONTROL_PLANE.md)). The **development**
 environment runs it, and the computer path is proven live there. **`main` now carries the TypeScript
-control plane (v0.44.0) and staging runs it in the production account;
-production has not been cut over**, so do not assume production behaves like
-development. Existing transcripts need the migration runbook (the design's
+control plane (v0.44.0) and staging and production both run it in the production
+account; production has no acceptance run and no tested live computer turn**, so
+do not assume production behaves like development. Existing transcripts need the migration runbook (the design's
 cutover and rollback sections) before production moves.
 The Gherkin features run under cucumber-js with TypeScript steps. The sections
 below that predate this change describe the Python-era stack on the environments
@@ -409,8 +425,8 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 | --- | --- | --- |
 | [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; served from the production AWS account with its own intake (SES sandbox) |
 | [develop.chattic.us](https://develop.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
-| [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
-| [staging.chattic.us](https://staging.chattic.us) | Staging (production AWS account) | Serves 200; computers not available |
+| [hey.chattic.us](https://hey.chattic.us) | Production product | Deployed with the current release, computers startable; web CloudFront **disabled** (stack exists, dark); no live computer turn tested |
+| [staging.chattic.us](https://staging.chattic.us) | Staging (production AWS account) | Serves 200; computers startable, no live computer turn tested |
 
 ### Live acceptance gate
 
