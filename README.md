@@ -72,10 +72,12 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 **Last updated: 2026-10-15.** `develop` was merged into `main`; release
 **v0.44.0** is published (release commit `4bc44d8b`). It was cut by running
-semantic-release locally as the owner, because the Actions release job cannot
-push to protected `main` (GH006). `main` is protected (PR required, checks
-`infra`, `web`, `conversation`, no force push) and the `staging` and
-`production` environments require the owner as reviewer and allow `main` only.
+semantic-release locally as the owner, because the Actions release job could
+not push to `main` while it was briefly protected (GH006). That protection
+was applied in error and has been removed: by decision of the owner
+(2026-10-15), `main` has no branch protection and the `staging` and
+`production` environments have no required reviewers; they keep only a
+deployment branch policy that allows `main` only.
 
 ### Staging and the marketing site moved into the production AWS account
 

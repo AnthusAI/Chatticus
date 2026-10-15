@@ -284,11 +284,13 @@ to that account later, carries the environment in its ids
 (`ChatticusSnapshotsStaging`, `ChatticusComputersStaging`, and so on), so the
 two never collide. See `docs/PROMOTE_TO_MAIN.md` section 11.
 
-The GitHub `staging` and `production` environments require a reviewer, and
-branch protection on `main` requires a PR, review and green CI. These are
-repository settings the owner controls; agents do not change them. Production
-is deployed only by a manual dispatch that the environment reviewer approves,
-and only a staging-proven release goes there. "Deploy this" from a human
+`main` has no branch protection and the GitHub `staging` and `production`
+environments have no required reviewers, by decision of the owner
+(2026-10-15): friction-free, no protection. The safety is that deploys are
+`workflow_dispatch` only and each environment's deployment branch policy
+limits deploys to `main`. These are repository settings the owner controls;
+agents do not change them. Only a staging-proven release goes to production.
+"Deploy this" from a human
 therefore means: get the work merged (`develop` for development; the normal
 `develop` -> `main` promotion PR for release), then dispatch the workflow for
 the target environment and watch the run to completion. Do not run `cdk deploy`
