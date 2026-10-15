@@ -72,14 +72,19 @@ switch**, not a global product law. Each deployment sets
 
 | Deployment | Signup mode | Product behavior |
 | --- | --- | --- |
-| Anthus (`development`, `staging`, `production`) | `open` | `POST /organizations` creates an enabled, Anthus-managed org |
+| Anthus `development` | `open` | `POST /organizations` creates an enabled, Anthus-managed org |
+| Anthus `staging` and `production` | `invitation_only` until the owner opts in to public signup | Sign-in only; creation is refused until an invitation exists |
 | Customer deployment | `invitation_only` | Sign-in only; creation is refused until an invitation exists |
+
+The value is chosen per environment by `signupModeForEnvironment` in
+`infra/lib/environments.ts`. To open public signup on an environment, change
+that function and deploy the control plane and the web app for it.
 
 The web SPA reads the matching build-time flag
 `NEXT_PUBLIC_CHATTICUS_SIGNUP_MODE`. The HTTP front door enforces the server
 value even when the web flag is wrong.
 
-On an open-signup deployment, anyone may sign in and create one organization.
+On an open-signup deployment (today only `development`), anyone may sign in and create one organization.
 Creating it enables it at once and homes it in the deployment account as
 Anthus-managed (`aws_setup_path` `anthus-managed`, `aws_account_id` the
 deployment account): its bots and its computer run where the deployment runs,
