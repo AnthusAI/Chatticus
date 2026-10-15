@@ -15,24 +15,33 @@
       "type": "blocked-by"
     },
     {
-      "target": "chatticus-1fa85b75-16eb-46e8-b285-7b18b4920e27",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-ddd6d0d9-b049-4504-999b-90b4977c79da",
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "19626d9b-1940-42d1-9367-8a6170e76506",
+      "author": "home",
+      "text": "Progress 2026-10-15: production keeps its existing stack names in the production AWS account; the marketing site was cut over to that account (see chatticus-1fa85b). Legacy resources are kept and unused (legacy marketing distribution with aliases removed, legacy ChatticusMarketing stack drifted, Python Function URL and its WAITLIST/CONTACT items, ChatticusThinTurn stacks, ChatticusDns zone). Left open: production acceptance and the retention window and retirement are not done.",
+      "created_at": "2026-10-15T17:20:07.752868Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:37:17.667034Z",
-  "updated_at": "2026-10-13T11:38:18.364073Z",
+  "updated_at": "2026-10-15T17:21:03.065567Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The production deploy plan awaits manual approval and acceptance before the 14-day legacy retention window begins.",
-  "right_now_updated_at": "2026-10-13T11:38:19.632417Z",
+  "right_now_summary": "Production uses the new marketing account; legacy resources remain untouched pending acceptance and 14-day retention.",
+  "right_now_updated_at": "2026-10-15T17:21:05.736694Z",
   "custom": {}
 }

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-3b952669-bbc4-4e1a-ab58-b7cd4f24c6a6",
+  "title": "Appeal SES production access (owner action)",
+  "description": "SES production access was DENIED, so SES is in sandbox and confirmation emails reach only verified recipients (leads are still recorded). Owner must file an appeal.\n\nFeature: Marketing intake email\n  Scenario: Confirmation email\n    Given SES production access is granted\n    When a visitor submits the waitlist form\n    Then the confirmation email is delivered to an unverified recipient",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": "rap@endymion.com",
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:42.271371Z",
+  "updated_at": "2026-10-15T17:21:42.271410Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "SES access was denied, so the owner must appeal before emails can reach unverified recipients.",
+  "right_now_updated_at": "2026-10-15T17:21:44.177956Z",
+  "custom": {}
+}

@@ -9,22 +9,30 @@
   "creator": null,
   "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
   "labels": [],
-  "dependencies": [
+  "dependencies": [],
+  "comments": [
     {
-      "target": "chatticus-0a92a8c1-dfb9-45bc-af7b-08f6757e9e1c",
-      "type": "blocked-by"
+      "id": "0bb445a9-e62a-405d-82f4-1135ee738b2a",
+      "author": "home",
+      "text": "Progress 2026-10-15: staging moved into the production AWS account (no separate staging account). Stacks suffixed Staging: AccountDeployStaging, SnapshotsStaging, ComputersStaging, EnvironmentZonesStaging, EnvironmentCertificatesStaging, ThinTurnStaging, ControlPlaneStaging, AuthStaging, WebStaging (PRs 563, 564, 565 delegation). staging.chattic.us serves 200. The old staging account's stacks were deleted; empty leftovers remain (tables, buckets, secrets, queues, Cognito pools, zones, budget). Not done: computer image, integration test principal (staging acceptance fails with 403 on bearer exchange), deploy role deny policy on the production deploy role. Left open until acceptance passes.",
+      "created_at": "2026-10-15T17:20:03.268539Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
-  "comments": [],
   "created_at": "2026-10-13T11:37:14.713495Z",
-  "updated_at": "2026-10-13T11:38:09.754783Z",
+  "updated_at": "2026-10-15T17:20:59.202666Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Nothing has been executed; staging awaits hostname release, secrets, and a per-environment ECR image tag.",
-  "right_now_updated_at": "2026-10-13T11:38:10.996750Z",
+  "right_now_summary": "Staging runs in the production AWS account and serves 200, but acceptance still fails with a 403.",
+  "right_now_updated_at": "2026-10-15T17:21:01.001608Z",
   "custom": {}
 }

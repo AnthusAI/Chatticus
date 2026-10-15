@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-c7e113e1-522d-43a6-af5c-51af186b7f9a",
+  "title": "Retire unused legacy chattic resources after an observation period",
+  "description": "Checklist, only after an observation period with no traffic and with the owner's approval:\n- [ ] legacy marketing distribution E2KIMGDJ4DW3XZ (aliases already removed)\n- [ ] legacy ChatticusMarketing stack (drifted)\n- [ ] Python Function URL and its WAITLIST and CONTACT items (confirm the 2 items were migrated)\n- [ ] ChatticusThinTurn* stacks\n- [ ] ChatticusDns zone\n\nFeature: Legacy retirement\n  Scenario: Resources removed\n    Given the observation period passed with no use\n    When each item is deleted in turn\n    Then the live sites keep serving",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:28.154450Z",
+  "updated_at": "2026-10-15T17:21:28.154480Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "Legacy Chattic resources await a no-traffic observation period and owner approval before removal.",
+  "right_now_updated_at": "2026-10-15T17:21:29.816831Z",
+  "custom": {}
+}

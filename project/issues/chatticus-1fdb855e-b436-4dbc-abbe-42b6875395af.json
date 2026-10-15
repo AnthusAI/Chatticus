@@ -3,7 +3,7 @@
   "title": "Make staging and production deploy workflows dispatch-only and reconcile the account model",
   "description": "## Plan step 2 (product PR into develop, sub-agent review)\nChange deploy-web-*, deploy-thinturn-*, deploy-controlplane-* and deploy-auth-* for staging and production from on:push main to workflow_dispatch only. Route web, auth and thin-turn through deploy-chatticus-dedicated-account.sh (or remove the legacy scripts) so no workflow mixes legacy and dedicated account models; remove duplicated control-plane redeploys across thinturn/web/controlplane. Later re-enable push for staging only once bootstrapped; production stays dispatch plus environment reviewer.\n\n## Why\nA push to main otherwise fires nine deploys with no gate; deploy-auth-* redeploys legacy Cognito from new code; a thin-turn deploy into the legacy account would delete the Python Lambdas.\n## Decision: D1.\n## Acceptance\n- No deploy-*-staging/production workflow has a push trigger.\n- A cucumber or workflow-lint guard fails if one gains a push trigger on main.\n- No workflow invokes both legacy and dedicated-account scripts.\n- Related: chatticus-36012d, chatticus-96e12b.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "promote-agent"
       }
+    },
+    {
+      "id": "db930974-672c-41bb-b37b-95fa5912a155",
+      "author": "home",
+      "text": "Done 2026-10-15: the staging and production deploy workflows are workflow_dispatch only on main (verified). Residual: docs/PROMOTE_TO_MAIN.md sections 4 and 9 still describe push-triggered deploys; tracked in a new bookkeeping story.",
+      "created_at": "2026-10-15T17:19:55.401054Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-13T11:36:46.612021Z",
-  "updated_at": "2026-10-13T15:29:03.412785Z",
-  "closed_at": null,
+  "updated_at": "2026-10-15T17:20:33.159881Z",
+  "closed_at": "2026-10-15T17:20:33.159836Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "PR 540 implements dispatch-only deployments and dedicated-account routing, but it still awaits merge.",
-  "right_now_updated_at": "2026-10-13T15:29:04.894619Z",
+  "right_now_summary": "Deploy workflows now require manual dispatch; outdated promotion docs are tracked for cleanup.",
+  "right_now_updated_at": "2026-10-15T17:20:35.047025Z",
   "custom": {}
 }

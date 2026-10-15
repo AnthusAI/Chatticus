@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "web-pin-agent"
       }
+    },
+    {
+      "id": "0c4ce9fa-37bf-45de-b3cf-d54adcb9f098",
+      "author": "home",
+      "text": "Update 2026-10-15: marketing site now served from the production AWS account with its own intake (website repo PR 24 merged). Status of website PR 19 (pin and wiki publisher vendoring) not re-verified in this pass; left open for the owner to confirm.",
+      "created_at": "2026-10-15T17:20:21.911263Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-13T11:36:53.033136Z",
-  "updated_at": "2026-10-13T15:30:01.802229Z",
+  "updated_at": "2026-10-15T17:20:21.911294Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The website PR pins the Python-era tarball, vendors the wiki publisher, and awaits owner review.",
-  "right_now_updated_at": "2026-10-13T15:30:03.141341Z",
+  "right_now_summary": "The marketing site runs in production; the dependency and wiki publisher change still awaits owner review.",
+  "right_now_updated_at": "2026-10-15T17:20:23.097249Z",
   "custom": {}
 }

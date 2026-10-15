@@ -12,7 +12,7 @@ Do not merge `develop` into `main` yet. A plain merge would, in one motion:
 1. Tag and publish a **v1.0.0** release (semantic-release finds no reachable tag),
    then fail its own pre-1.0 guard after the tag already exists.
 2. Fire nine staging and production deploy workflows with **no approval gate and
-   no branch protection**. By code reading, most jobs fail fast, and one class
+   no branch protection** (by decision of the owner, 2026-10-15: friction-free, no protection). By code reading, most jobs fail fast, and one class
    (auth) redeploys legacy stacks from new code. None deploys the TypeScript
    control plane to a working staging or production, because those environments
    were never bootstrapped for it.
@@ -140,7 +140,7 @@ the infra README and the repo:
 | Per-environment secrets (Google OAuth, OpenAI key, model-gateway signing key, invoke key) | yes | **no** | **no** |
 | ControlPlane stack (TypeScript) | yes | **no** | **no** |
 | GitHub `AWS_DEPLOY_ROLE_ARN` points at | new account | legacy (inferred) | legacy (inferred) |
-| GitHub environment protection (reviewers, branch policy) | none | none | none |
+| GitHub environment protection (reviewers, branch policy) | none | branch policy `main` only, no reviewers | branch policy `main` only, no reviewers |
 
 Blockers named on the board: hostname ownership (CloudFront alternate domain names
 and Cognito custom domains are globally unique, and legacy still holds
@@ -152,10 +152,9 @@ and production today are the **legacy** account's Python thin-turn, auth, and we
 stacks, with web CloudFront dark by design (README "Deployed across environments").
 
 Repo settings found with `gh api` (read-only): `main` has **no branch protection**
-(HTTP 404) and no rulesets, which contradicts AGENTS.md ("required PR review + green
-CI before merge"); the `staging` and `production` GitHub environments have no
-protection rules, no required reviewers, and no deployment branch policy. The
-"no approval gate" in AGENTS.md is therefore literally true today.
+(HTTP 404) and no rulesets, and the `staging` and `production` GitHub environments have no required
+reviewers and only a deployment branch policy limiting deploys to `main`. This is
+the owner's decision (2026-10-15), not a gap.
 
 ## 6. What changes for users
 
@@ -240,14 +239,11 @@ staging-proven release, not a promotion that happens because main moved").
 Nothing below runs without the owner's yes. Steps 1 to 6 are reversible and touch
 no AWS resource.
 
-1. **Protect main and the environments (GitHub settings, owner or admin).** Branch
-   protection on `main`: require a PR, one approval (the review loop in AGENTS.md
-   provides the reviewer), required status checks `infra`, `web`, `conversation`,
-   no force pushes. On GitHub environments `staging` and `production`: required
-   reviewer (the owner) and deployment branch policy `main` only. Cost: every
-   staging and production deploy waits for one click; the owner cannot self-approve
-   if "prevent self-review" is on, so leave it off for a one-person team. This also
-   makes AGENTS.md true.
+1. **No branch protection, no environment reviewers (decision, owner, 2026-10-15).**
+   The owner chose friction-free: `main` has no branch protection and the `staging`
+   and `production` environments have no required reviewers. The environments keep
+   a deployment branch policy that allows `main` only. This step is closed; do not
+   add protection or reviewers.
 2. **Neutralize push-to-main deploys in a PR into `develop`** (product PR with
    sub-agent review, then merge): change the staging and production deploy
    workflows (`deploy-web-*`, `deploy-thinturn-*`, `deploy-controlplane-*`) from
@@ -259,7 +255,7 @@ no AWS resource.
    (thinturn, web, controlplane all redeploy control-plane). Cost: staging stops
    auto-deploying on merge until re-enabled; one dispatch click replaces it. When
    staging is bootstrapped and stable, re-enable `push` for staging only (production
-   stays dispatch-only plus the environment reviewer).
+   stays dispatch-only).
 3. **Make semantic-release safe.** Tag main's current head e68b5f4f as `v0.43.1`
    (baseline; a plain tag push to a new name, owner action, not a main push). Verify
    with `npx semantic-release --dry-run --no-ci` on a scratch checkout of the merged
@@ -306,8 +302,7 @@ no AWS resource.
    is blocked on hostname release, Google secrets and the OpenAI key.
 9. **Production, only after staging is proven, as a separate decision.** Same stack
    order, then migration, then DNS and CloudFront cutover with the marketing intake
-   decision (D4) already implemented. Deploy by manual dispatch with the environment
-   reviewer approving. Run acceptance, keep the legacy Python stacks and the old
+   decision (D4) already implemented. Deploy by manual dispatch. Run acceptance, keep the legacy Python stacks and the old
    Messaging items untouched for the 14-day window, then the purge.
 
 ### Rollback
@@ -338,10 +333,9 @@ no AWS resource.
 - **D1. Approve the sequence in section 9, or choose the alternative** of a staging-only
   branch (`staging`) that the staging workflows trigger on. The alternative avoids
   editing workflow triggers but adds a branch to keep in sync and still leaves
-  production on main pushes. Recommendation: dispatch-only plus environment
-  reviewers.
-- **D2. Enable branch protection and environment reviewers now?** (Step 1.) The
-  documented policy and the actual settings disagree today.
+  production on main pushes. Recommendation: dispatch-only.
+- **D2. Branch protection and environment reviewers.** Decided by the owner
+  (2026-10-15): none. Friction-free, no protection.
 - **D3. Website handling:** pin the website to the Python-era tarball until
   `wiki_publish` is vendored, or accept a short website build break, or keep a frozen
   copy of `wiki_publish` published from somewhere else.

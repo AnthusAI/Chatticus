@@ -1,0 +1,41 @@
+name: Promote computer image (staging)
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Full commit sha whose sha-<commit> computer image becomes the staging tag"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+concurrency:
+  group: promote-computer-image-staging
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      AWS_REGION: us-east-1
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Move the staging tag once the server side of the commit is verified
+        working-directory: infra
+        env:
+          PROMOTE_COMMIT: ${{ inputs.commit }}
+        run: sh promote-computer-image.sh staging "${PROMOTE_COMMIT}"

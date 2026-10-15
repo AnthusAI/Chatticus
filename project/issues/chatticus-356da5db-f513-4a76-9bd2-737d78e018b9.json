@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-356da5db-f513-4a76-9bd2-737d78e018b9",
+  "title": "Owner: close the old staging AWS account after confirming leftovers are not needed",
+  "description": "Staging moved into the production AWS account and the old staging account's stacks were deleted. Empty leftovers remain: tables, buckets, secrets, queues, Cognito pools, zones, budget. The account itself is not closed. Owner confirms nothing retained is needed, then closes it.\n\nFeature: Old staging account retired\n  Scenario: Account closed\n    Given leftovers were reviewed\n    When the owner closes the account\n    Then no staging resources remain outside the production account",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": "rap@endymion.com",
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:46.706469Z",
+  "updated_at": "2026-10-15T17:21:46.706505Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The owner is reviewing leftover staging resources before closing the old AWS account.",
+  "right_now_updated_at": "2026-10-15T17:21:48.539696Z",
+  "custom": {}
+}

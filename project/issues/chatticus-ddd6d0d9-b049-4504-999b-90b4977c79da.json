@@ -19,16 +19,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "6ddbdd0f-baff-4a99-a2b1-955263a55c7b",
+      "author": "home",
+      "text": "Progress 2026-10-15: only the marketing intake data was migrated (2 items). No transcript or Cognito migration was performed in this step. Left open.",
+      "created_at": "2026-10-15T17:20:13.059120Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:37:22.382009Z",
-  "updated_at": "2026-10-13T11:38:21.266103Z",
+  "updated_at": "2026-10-15T17:20:13.059163Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Nothing has been executed; the team awaits an owner-authorized item count before deciding whether to migrate.",
-  "right_now_updated_at": "2026-10-13T11:38:23.406819Z",
+  "right_now_summary": "Only two marketing intake items were migrated; transcript and Cognito migration have not started.",
+  "right_now_updated_at": "2026-10-15T17:20:14.952142Z",
   "custom": {}
 }

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-2eb30f37-611d-41d8-84c2-99dd67099e51",
+  "title": "Update PROMOTE_TO_MAIN.md sections 4 and 9: deploys are workflow_dispatch only",
+  "description": "docs/PROMOTE_TO_MAIN.md sections 4 and 9 still describe push-triggered deploys on main, but the deploy workflows are workflow_dispatch only.\n\nFeature: Promotion doc accuracy\n  Scenario: Read sections 4 and 9\n    Given the deploy workflows are dispatch only\n    When a reader follows sections 4 and 9\n    Then they describe manual dispatch with environment reviewer approval",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:34.707246Z",
+  "updated_at": "2026-10-15T17:21:34.707294Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "Sections 4 and 9 still describe push-triggered deploys instead of manual dispatch with reviewer approval.",
+  "right_now_updated_at": "2026-10-15T17:21:36.723625Z",
+  "custom": {}
+}

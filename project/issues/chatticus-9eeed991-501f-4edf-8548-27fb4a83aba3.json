@@ -22,17 +22,41 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "6b35ed90-0edb-4bf4-9e71-96448c15b442",
+      "author": "home",
+      "text": "Progress 2026-10-15: v0.44.0 released from main (commit 4bc44d8b, run locally as owner because the Actions release job cannot push to protected main, GH006). Main protection and staging/production environments applied. Staging runs in the production AWS account (stacks suffixed Staging). Marketing site served from the production AWS account with its own intake. Remaining work is tracked in the new child stories and the open children (staging acceptance, production cutover, data migration).",
+      "created_at": "2026-10-15T17:20:24.991415Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    },
+    {
+      "id": "f9edc387-8273-4e40-b888-49dafe63f006",
+      "author": "home",
+      "text": "Owner decision (2026-10-15): no branch protection, no reviewer gates. Earlier protection was applied in error and removed (see chatticus-5380d0, closed as won't-do; chatticus-c46001 closed). Docs corrected in PR 574.",
+      "created_at": "2026-10-15T17:27:02.250760Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-13T11:36:20.339096Z",
-  "updated_at": "2026-10-15T01:46:27.407721Z",
+  "updated_at": "2026-10-15T17:27:02.250791Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The team awaits owner decisions before merging TypeScript into main or starting deployments.",
-  "right_now_updated_at": "2026-10-15T01:46:35.738561Z",
+  "right_now_summary": "TypeScript is on main in v0.44.0; staging acceptance and production cutover still need work.",
+  "right_now_updated_at": "2026-10-15T17:27:07.780959Z",
   "custom": {}
 }

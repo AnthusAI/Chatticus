@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-99cae955-4825-4d3a-8bfb-5f3116efc60b",
+  "title": "Wire the integration test principal for staging with staging-only trust",
+  "description": "Staging acceptance (conversation/bin/acceptance.ts --environment staging) fails with 403 on bearer exchange. Wire the integration test principal in the production AWS account with trust limited to staging only; production must never trust it.\n\nFeature: Staging acceptance\n  Scenario: Bearer exchange\n    Given the staging integration principal exists\n    When acceptance runs with --environment staging\n    Then bearer exchange succeeds and acceptance passes",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:12.441708Z",
+  "updated_at": "2026-10-15T17:21:12.441749Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The staging integration principal still needs staging-only trust wired in the production AWS account.",
+  "right_now_updated_at": "2026-10-15T17:21:14.431809Z",
+  "custom": {}
+}

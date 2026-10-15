@@ -1,0 +1,166 @@
+name: Build computer image (staging and production)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "computer/**"
+      - "conversation/**"
+      - "host-protocol/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-computer-image-release.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: build-computer-image-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    env:
+      LOCAL_IMAGE: chatticus-computer:ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the linux/arm64 computer image once
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: computer/Dockerfile
+          platforms: linux/arm64
+          load: true
+          push: false
+          provenance: false
+          tags: ${{ env.LOCAL_IMAGE }}
+          cache-from: type=gha,scope=computer-image
+          cache-to: type=gha,scope=computer-image,mode=max
+
+      - name: Prove the toolchain and the unprivileged user are in the image
+        run: |
+          docker run --rm --platform linux/arm64 --entrypoint sh "${LOCAL_IMAGE}" -c \
+            'gcc --version | head -1; node --version; git --version; id chatticus-shell'
+
+      - name: Prove the owner program and the shell isolation in a real container
+        env:
+          CHATTICUS_OWNER_TEST_IMAGE: chatticus-computer:ci
+          CHATTICUS_OWNER_TEST_SKIP_BUILD: "1"
+        run: sh computer/test_owner_container.sh
+
+      - name: Save the checked image for the push jobs
+        run: docker save "${LOCAL_IMAGE}" | gzip -1 > computer-image.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: computer-image
+          path: computer-image.tar.gz
+          retention-days: 1
+          compression-level: 0
+
+  push-staging:
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    environment: staging
+    env:
+      LOCAL_IMAGE: chatticus-computer:ci
+      AWS_REGION: us-east-1
+      COMPUTERS_STACK: ChatticusComputersStaging
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: computer-image
+
+      - name: Load the checked image
+        run: gunzip -c computer-image.tar.gz | docker load
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Push the immutable sha tag only
+        run: |
+          REPO="$(aws cloudformation describe-stacks \
+            --stack-name "${COMPUTERS_STACK}" \
+            --region "${AWS_REGION}" \
+            --query "Stacks[0].Outputs[?OutputKey=='ComputerRepositoryUri'].OutputValue" \
+            --output text)"
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${REPO%%/*}"
+          SHA_TAG="sha-${GITHUB_SHA}"
+          docker tag "${LOCAL_IMAGE}" "${REPO}:${SHA_TAG}"
+          docker push "${REPO}:${SHA_TAG}"
+          REPO_NAME="${REPO#*/}"
+          SHA_DIGEST="$(aws ecr describe-images --region "${AWS_REGION}" \
+            --repository-name "${REPO_NAME}" --image-ids "imageTag=${SHA_TAG}" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+          {
+            echo "### Computer image pushed (staging)"
+            echo ""
+            echo "- repository: \`${REPO_NAME}\`"
+            echo "- tag: \`${SHA_TAG}\`"
+            echo "- digest: \`${SHA_DIGEST}\`"
+            echo ""
+            echo "The staging tag did not move. After the ControlPlane and ThinTurn staging deploys of this commit succeed, run the"
+            echo "\"Promote computer image (staging)\" workflow with commit \`${GITHUB_SHA}\`."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "OK: pushed ${REPO_NAME}:${SHA_TAG} at ${SHA_DIGEST}; the staging tag is unchanged"
+
+  push-production:
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    environment: production
+    env:
+      LOCAL_IMAGE: chatticus-computer:ci
+      AWS_REGION: us-east-1
+      COMPUTERS_STACK: ChatticusComputers
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: computer-image
+
+      - name: Load the checked image
+        run: gunzip -c computer-image.tar.gz | docker load
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Push the immutable sha tag only
+        run: |
+          REPO="$(aws cloudformation describe-stacks \
+            --stack-name "${COMPUTERS_STACK}" \
+            --region "${AWS_REGION}" \
+            --query "Stacks[0].Outputs[?OutputKey=='ComputerRepositoryUri'].OutputValue" \
+            --output text)"
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${REPO%%/*}"
+          SHA_TAG="sha-${GITHUB_SHA}"
+          docker tag "${LOCAL_IMAGE}" "${REPO}:${SHA_TAG}"
+          docker push "${REPO}:${SHA_TAG}"
+          REPO_NAME="${REPO#*/}"
+          SHA_DIGEST="$(aws ecr describe-images --region "${AWS_REGION}" \
+            --repository-name "${REPO_NAME}" --image-ids "imageTag=${SHA_TAG}" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+          {
+            echo "### Computer image pushed (production)"
+            echo ""
+            echo "- repository: \`${REPO_NAME}\`"
+            echo "- tag: \`${SHA_TAG}\`"
+            echo "- digest: \`${SHA_DIGEST}\`"
+            echo ""
+            echo "The production tag did not move. After the ControlPlane and ThinTurn production deploys of this commit succeed, run the"
+            echo "\"Promote computer image (production)\" workflow with commit \`${GITHUB_SHA}\`."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "OK: pushed ${REPO_NAME}:${SHA_TAG} at ${SHA_DIGEST}; the production tag is unchanged"

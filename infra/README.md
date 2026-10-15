@@ -193,8 +193,9 @@ After merging a change that adds or updates trusted workflow paths, redeploy
 the new workflow can assume the role.
 
 1. **GitHub repository** → Settings → Environments. Ensure **`development`**,
-   **`staging`**, and **`production`** exist. Add required reviewers on
-   **`production`**.
+   **`staging`**, and **`production`** exist. Do not add required
+   reviewers (owner decision, 2026-10-15: no deploy approval gate); each
+   environment keeps a deployment branch policy that allows `main` only.
 
 2. In each environment, set secret **`AWS_DEPLOY_ROLE_ARN`** from the
    matching stack output above.

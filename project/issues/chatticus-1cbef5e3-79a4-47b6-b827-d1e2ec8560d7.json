@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c98a71bd-181d-4824-84bd-290c51f7ec60",
+      "author": "home",
+      "text": "Progress 2026-10-15: staging integration principal is not yet wired (staging acceptance fails with 403 on bearer exchange); a story is created to wire it with staging-only trust. Owner-computer scope for staging and production is undecided; staging computers are not available (no staging image). Left open.",
+      "created_at": "2026-10-15T17:20:17.250596Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:37:25.796469Z",
-  "updated_at": "2026-10-13T11:37:52.468533Z",
+  "updated_at": "2026-10-15T17:20:17.250629Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The team must decide the Pi path and staging principal scope, then update the code and documentation.",
-  "right_now_updated_at": "2026-10-13T11:37:54.204085Z",
+  "right_now_summary": "The staging principal is not wired, and owner-computer promotion scope remains undecided because no staging image",
+  "right_now_updated_at": "2026-10-15T17:20:19.353336Z",
   "custom": {}
 }

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-0e67fef0-1955-472d-a087-5bd9ed8fbd55",
+  "title": "Update production ChatticusAccountDeploy in place to add the staging deny policy",
+  "description": "The deploy role deny policy for staging is not on the production deploy role; it needs an in-place update of the live production stack ChatticusAccountDeploy. Run cdk diff first and review before deploying.\n\nFeature: Deploy role scoping\n  Scenario: Staging deny policy\n    Given cdk diff shows only the deny policy change\n    When the stack is updated\n    Then the staging deny policy is attached",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:24.032469Z",
+  "updated_at": "2026-10-15T17:21:24.032518Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The production stack needs a reviewed cdk diff before adding the staging deny policy.",
+  "right_now_updated_at": "2026-10-15T17:21:26.756665Z",
+  "custom": {}
+}

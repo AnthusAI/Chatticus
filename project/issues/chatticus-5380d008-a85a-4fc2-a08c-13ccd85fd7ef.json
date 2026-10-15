@@ -39,17 +39,29 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "1a564b04-926d-498f-adb2-3faba07c9ef2",
+      "author": "home",
+      "text": "Applied in error: branch protection and environment reviewers were never requested by the owner (an earlier agent misread an instruction). Reverted on 2026-10-15 at the owner's instruction; both are removed from live GitHub settings. Reclassified from done to closed as won't-do. Status stays closed.",
+      "created_at": "2026-10-15T17:26:51.357802Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-13T11:36:43.249484Z",
-  "updated_at": "2026-10-15T01:46:29.483194Z",
+  "updated_at": "2026-10-15T17:26:51.357831Z",
   "closed_at": "2026-10-15T01:46:29.482634Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Branch protection and environment reviewer rules are applied; the deployment approval test awaits the next promotion.",
-  "right_now_updated_at": "2026-10-15T01:46:31.238444Z",
+  "right_now_summary": "Branch protection and environment reviewers were reverted, so main and deployments have no added safeguards.",
+  "right_now_updated_at": "2026-10-15T17:26:53.407470Z",
   "custom": {}
 }
