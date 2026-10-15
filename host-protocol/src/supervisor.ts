@@ -10,8 +10,8 @@ export const OWNER_FILE_REQUESTS_PROTOCOL_VERSION = 2;
 /** Milliseconds between polls while a Files panel is open, in the states that can serve a file request. */
 export const OWNER_POLL_INTERACTIVE_MILLISECONDS = 1000;
 
-/** The lowest protocol version the control plane serves. An owner below it is told to drain (reserved: the drain on version skew lands in Phase 2b). */
-export const OWNER_MINIMUM_PROTOCOL_VERSION = 1;
+/** The lowest protocol version the control plane serves: the first owner that renews its own credentials. An owner below it is told to drain with the reason protocol_version. */
+export const OWNER_MINIMUM_PROTOCOL_VERSION = 3;
 
 /** The audience of the token that exchanges once for the supervisor token and the supervisor's AWS credentials. */
 export const OWNER_BOOTSTRAP_AUDIENCE = "owner-bootstrap";

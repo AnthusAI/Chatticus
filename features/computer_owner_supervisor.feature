@@ -289,6 +289,14 @@ Feature: The owner supervisor keeps the computer on between turns and switches i
     When the control plane answers a poll with drain and reason "lifetime"
     Then it exits with code 5
 
+  Scenario: A poll refused while the owner is stopping does not turn an approved stop into superseded
+    Given an idle supervisor
+    And the control plane answers the first poll after the stop request with 403 "not_current_owner"
+    When the control plane answers a poll with drain and reason "lifetime"
+    Then it exits with code 0
+    And it announces "owner_stopping" 1 times
+    And it logs "owner_stopping" with reason "lifetime"
+
   Scenario: The supervisor logs carry no token, key or credential
     Given a supervisor that has served one turn and stopped for being idle
     Then no log line contains the bootstrap token, the supervisor token, the gateway token or any AWS key

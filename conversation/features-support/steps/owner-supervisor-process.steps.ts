@@ -120,6 +120,10 @@ Given("the control plane vetoes a stop with {string} and offers a dispatch on th
 	scenario.plane.pollAfterNextStopRequest = dispatchPollAnswer({ turnId: "turn-late" }, scenario.clock);
 });
 
+Given("the control plane answers the first poll after the stop request with {int} {string}", function (this: ChatticusWorld, status: number, code: string) {
+	supervisorScenarioOf(this).plane.pollAfterNextStopRequest = ownerRouteRefusal(status, code as OwnerErrorCode);
+});
+
 Given("the control plane vetoes every idle stop with {string}", function (this: ChatticusWorld, reason: string) {
 	supervisorScenarioOf(this).plane.vetoesByReason.set("idle", reason as OwnerStopVetoReason);
 });
@@ -498,6 +502,10 @@ Then("the log has {string} with reason {string}", function (this: ChatticusWorld
 
 Then("it logs {string} with reason {string}", function (this: ChatticusWorld, event: string, reason: string) {
 	assert.ok(logLinesOf(this, event).some((line) => line.includes(`reason=${reason}`)), `No ${event} line with reason ${reason}. Log: ${supervisorScenarioOf(this).logs.join(" | ")}`);
+});
+
+Then("it announces {string} {int} times", function (this: ChatticusWorld, event: string, count: number) {
+	assert.equal(logLinesOf(this, event).length, count, `Log: ${supervisorScenarioOf(this).logs.join(" | ")}`);
 });
 
 Then("it has not asked again", function (this: ChatticusWorld) {
