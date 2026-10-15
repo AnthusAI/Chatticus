@@ -41,3 +41,30 @@ export const MARKETING_SES_AND_CERTIFICATE_RECORDS: readonly ExportedRecordSet[]
     "_471554f27fa4a1d8ce7acaa712a4dd4b.wzccmgtwzk.acm-validations.aws.",
   ),
 ];
+
+export const MARKETING_SITE_CLOUDFRONT_DOMAIN = "d38kdwcbjpf4no.cloudfront.net";
+
+const MARKETING_SITE_ALIAS_NAMES: readonly string[] = ["chattic.us.", "www.chattic.us."];
+
+/**
+ * Points the apex and www alias A and AAAA records of the local zone export at
+ * the marketing site's own CloudFront distribution (ChatticusMarketing, in the
+ * production account) instead of the legacy distribution recorded in the
+ * export. Rolling the cutover back means removing the call in
+ * infra/bin/chatticus.ts, which makes the export's legacy targets apply again.
+ */
+export function repointMarketingSiteAliases(records: readonly ExportedRecordSet[]): ExportedRecordSet[] {
+  return records.map((record) => {
+    const isMarketingAlias =
+      record.AliasTarget !== undefined &&
+      (record.Type === "A" || record.Type === "AAAA") &&
+      MARKETING_SITE_ALIAS_NAMES.includes(record.Name);
+    if (!isMarketingAlias || record.AliasTarget === undefined) {
+      return record;
+    }
+    return {
+      ...record,
+      AliasTarget: { ...record.AliasTarget, DNSName: `${MARKETING_SITE_CLOUDFRONT_DOMAIN}.` },
+    };
+  });
+}
