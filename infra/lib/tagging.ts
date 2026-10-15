@@ -7,11 +7,9 @@ import {
   CONTROL_PLANE_STACK_IDS,
   ENVIRONMENT_CERTIFICATES_STACK_IDS,
   ENVIRONMENT_ZONES_STACK_IDS,
-  GITHUB_OIDC_PROVIDER_STACK_ID,
   SNAPSHOT_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
-  peerEnvironmentsInSameAccount,
   type ChatticusCloudEnvironment,
 } from "./environments";
 
@@ -29,8 +27,6 @@ export interface StackTags {
   environment: ChatticusCloudEnvironment | typeof SHARED_ENVIRONMENT;
 }
 
-const ACCOUNT_LEVEL_STACKS = new Set<string>(["ChatticusBudgets", GITHUB_OIDC_PROVIDER_STACK_ID]);
-
 const SHARED_STACKS: Record<string, string> = {
   ChatticusBudgets: "budgets",
   ChatticusSnapshots: "snapshots",
@@ -38,7 +34,6 @@ const SHARED_STACKS: Record<string, string> = {
   ChatticusDns: "dns",
   ChatticusGitHubDeploy: "deploy",
   ChatticusAccountDeploy: "deploy",
-  [GITHUB_OIDC_PROVIDER_STACK_ID]: "deploy",
   ChatticusManagementDns: "dns",
   ChatticusEnvironmentZones: "dns",
   ChatticusEnvironmentCertificates: "dns",
@@ -60,20 +55,14 @@ const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, stri
 /**
  * Component and environment for one stack id; throws for a stack nobody
  * classified. The unsuffixed stacks are shared in the legacy account; in a
- * dedicated environment account they belong to that environment. The suffixed
- * stacks of staging and production belong to their environment wherever they
- * are deployed. The budgets stack and the GitHub OIDC provider stack are
- * account-level and carry the account's environment, or shared when an account
- * holds more than one.
+ * dedicated environment account they belong to that environment, which for the
+ * production account includes the account-level budgets stack (it was deployed
+ * there by production and staging never deploys it). The suffixed staging stacks
+ * belong to staging wherever they are deployed.
  */
 export function stackTagsFor(stackId: string, dedicatedEnvironment?: ChatticusCloudEnvironment): StackTags {
   const shared = SHARED_STACKS[stackId];
   if (shared !== undefined) {
-    const accountHoldsSeveralEnvironments =
-      dedicatedEnvironment !== undefined && peerEnvironmentsInSameAccount(dedicatedEnvironment).length > 0;
-    if (ACCOUNT_LEVEL_STACKS.has(stackId) && accountHoldsSeveralEnvironments) {
-      return { component: shared, environment: SHARED_ENVIRONMENT };
-    }
     return { component: shared, environment: dedicatedEnvironment ?? SHARED_ENVIRONMENT };
   }
   for (const [ids, component] of ENVIRONMENT_STACKS) {

@@ -5,21 +5,19 @@ import { DnsStack } from "../lib/dns-stack";
 import { buildDedicatedAccountStacks, readDedicatedEnvironment } from "../lib/dedicated-account-stacks";
 import { AuthStack } from "../lib/auth-stack";
 import {
+  ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_STACK_IDS,
   AUTH_DOMAIN_NAMES,
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
   CONTROL_PLANE_STACK_IDS,
-  GITHUB_OIDC_PROVIDER_STACK_ID,
   THIN_TURN_STACK_IDS,
-  peerEnvironmentsInSameAccount,
   WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
 } from "../lib/environments";
 import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
-import { GitHubOidcProviderStack } from "../lib/github-oidc-provider-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { DELEGATIONS } from "../lib/dns-delegations";
 import { ManagementDnsStack, loadZoneRecords } from "../lib/management-dns-stack";
@@ -168,17 +166,9 @@ if (typeof githubDeployEnvironment === "string" && githubDeployEnvironment.lengt
   new AccountGitHubDeployStack(app, ACCOUNT_DEPLOY_STACK_IDS[deployEnvironment], {
     env,
     githubEnvironment: deployEnvironment,
-    description:
-      peerEnvironmentsInSameAccount(deployEnvironment).length === 0
-        ? `GitHub Actions OIDC provider and ${githubDeployEnvironment} deploy role for this environment account.`
-        : `GitHub Actions ${githubDeployEnvironment} deploy role, importing the account's OIDC provider.`,
-  });
-}
-
-if (app.node.tryGetContext("githubOidcProvider") === "true") {
-  new GitHubOidcProviderStack(app, GITHUB_OIDC_PROVIDER_STACK_ID, {
-    env,
-    description: "GitHub Actions OIDC identity provider, once for the account that holds staging and production.",
+    description: ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER[deployEnvironment]
+      ? `GitHub Actions OIDC provider and ${githubDeployEnvironment} deploy role for this environment account.`
+      : `GitHub Actions ${githubDeployEnvironment} deploy role, importing the account's OIDC provider.`,
   });
 }
 

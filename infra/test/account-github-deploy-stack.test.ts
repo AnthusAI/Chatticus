@@ -6,6 +6,7 @@ import * as cdk from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import {
+  ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_ROLE_NAMES,
   ACCOUNT_DEPLOY_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
@@ -28,8 +29,8 @@ describe("AccountGitHubDeployStack", () => {
     describe(environment, () => {
       const template = synth(environment);
 
-      if (environment === "development") {
-        it("creates the GitHub OIDC provider, since its account has none", () => {
+      if (ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER[environment]) {
+        it("creates the GitHub OIDC provider of its account", () => {
           template.resourceCountIs("AWS::IAM::OIDCProvider", 1);
           template.hasResourceProperties("AWS::IAM::OIDCProvider", {
             Url: "https://token.actions.githubusercontent.com",
@@ -37,7 +38,7 @@ describe("AccountGitHubDeployStack", () => {
           });
         });
       } else {
-        it("imports the account's one GitHub OIDC provider instead of creating a second", () => {
+        it("imports the account's GitHub OIDC provider, created by production's deploy stack, instead of creating a second", () => {
           template.resourceCountIs("AWS::IAM::OIDCProvider", 0);
           const policy = roleAssumeRolePolicy(template, ACCOUNT_DEPLOY_ROLE_NAMES[environment]);
           const federated = (policy.Statement as Array<{ Principal: { Federated: unknown } }>)[0].Principal.Federated;
@@ -61,7 +62,7 @@ describe("AccountGitHubDeployStack", () => {
         }
       });
 
-      it("federates through the provider of this account", { skip: environment !== "development" }, () => {
+      it("federates through the provider it creates", { skip: !ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER[environment] }, () => {
         const policy = roleAssumeRolePolicy(template, ACCOUNT_DEPLOY_ROLE_NAMES[environment]);
         const statement = (policy.Statement as Array<{ Principal: { Federated: { Ref: string } } }>)[0];
         const providerIds = Object.keys(template.findResources("AWS::IAM::OIDCProvider"));

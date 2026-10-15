@@ -400,8 +400,9 @@ remains the fallback when CI cannot be used.
 
 `ChatticusDns`, `ChatticusAuth`, `ChatticusWeb*` (development CF enabled; staging/
 production CF disabled), `ChatticusThinTurn*`, `ChatticusSnapshots*`, `ChatticusComputers*`
-(development unsuffixed; staging and production, which share one AWS account, have
-`Staging` and `Production` copies), `ChatticusBudgets` (one per account). Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
+(unsuffixed in development's account and in the production account, where production
+is already live under those names; staging, which shares the production account, has
+the `Staging` copies), `ChatticusBudgets` (one per account). Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
 
 ### Kernel-only on `develop` (not on live worker loop)
 
