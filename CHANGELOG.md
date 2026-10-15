@@ -1,3 +1,13 @@
+## [0.45.0](https://github.com/AnthusAI/Chatticus/compare/v0.44.0...v0.45.0) (2026-10-15)
+
+### Features
+
+* point the management zone apex and www at the marketing distribution in the production account ([73a14df](https://github.com/AnthusAI/Chatticus/commit/73a14df6136c0f55e39b7167c0e55a3de4693ee0))
+
+### Bug Fixes
+
+* publish DMARC policy without a report address ([#573](https://github.com/AnthusAI/Chatticus/issues/573)) ([34884a1](https://github.com/AnthusAI/Chatticus/commit/34884a157c2b0ec0f4ec957eb7ee381dc48f9d54))
+
 ## [0.44.0](https://github.com/AnthusAI/Chatticus/compare/v0.43.1...v0.44.0) (2026-10-15)
 
 ### Features
