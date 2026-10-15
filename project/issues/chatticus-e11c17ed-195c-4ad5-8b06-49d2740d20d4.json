@@ -1,0 +1,124 @@
+{
+  "id": "chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4",
+  "title": "Design and ship an agent terminal tool",
+  "description": "**Build, not a verification sweep.** Parent epic: `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5`. Split out of `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` after the 2026-09-07 tool-list read.\n\nDo **not** live-run this against a customer computer to rediscover the gap. `docs/ARCHITECTURE.md` already says the image has a shell the bot correctly cannot reach. Live `ls /workspace` with a running computer returned *\"I can't run shell commands directly in the household workspace.\"* That string is accurate. Do not tune prompts to hide it.\n\n## What exists\n\n- The computer image has a shell.\n- Worker registration advertises a `terminal` capability.\n- Agent tool `run_terminal` ships on `develop` via #329 (host `TerminalActionExecutor`, workspace gate). It is **not** in `household_conversation_grant()`.\n- Live OpenAI tools include `run_terminal` when the turn grant lists it. Default human turns still grant only `read_workspace`.\n\n## What this card is\n\nA scoped design, then Gherkin, then an executor on the computer host — the same shape `browser_open` already has. Not a slot in a capability sweep. Not ECS Exec. Journal output from the host is the proof, when this ships.\n\nDo not start implementation until the design names: the tool, the grant, the host executor, the readiness gate, and what must not be dual-pathed with `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` (dict vs host disk).\n\n## Feature: Agent terminal\n\n```\nFeature: A bot can run a granted shell command on the household computer\n\n  Scenario: Granted command appears in the turn journal\n    Given a bot with a terminal grant on the household computer\n    When a human asks it to run a command\n    Then the turn journal contains the command output from the host\n    And the bot does not only reply that it cannot run shell commands\n```\n\n## Done when\n\nA design is on this card, Gherkin exists and failed before the executor, and one live host run (after that) shows journal output. **That live run must state whether it used `household_conversation_grant()` or a widened grant. If widened, record that a default bot still refuses.** This card does **not** widen the conversation preset. Customer-facing authority beyond `read_workspace` is `chatticus-9a07e7`.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d031f02a-3aba-4801-8cfe-b4be57c55cc4",
+      "author": "home",
+      "text": "Split from `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52`. Not a live matrix row. Do not re-run `ls /workspace` to rediscover the missing tool. Design first.",
+      "created_at": "2026-09-07T21:32:39.685306Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "29d1bc52-9bcf-4c76-b7f3-2375e6bb1244",
+      "author": "home",
+      "text": "Composer 2.5 planning only. Worktree to be named `/tmp/chatticus-e11c17-terminal` on branch `feat/e11c17-agent-terminal` from `origin/develop`. Implementation not authorized until the plan names the tool, the grant, the host executor, the readiness gate, and how it stays one path with host-disk workspace (`chatticus-fccc4e9a` closed — dict vs disk is decided). Not ECS Exec. Not prompt-tuning. Do not live-run a customer computer to rediscover the gap.\n",
+      "created_at": "2026-09-08T13:41:53.689082Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c0701b79-4c8a-4dca-b07c-d596300d43b9",
+      "author": "home",
+      "text": "Plan reviewed, **not authorized**. Accepted: `run_terminal`, explicit grant (conversation preset stays closed), `TerminalActionExecutor` on the host, host-disk jail, computerless escalate then re-gate.\n\n**Blocking:** no `TERMINAL_CAPABILITY` / `terminal_ready`. Workspace hydrate is the gate (`capability_for_computer_tool` already maps non-browser tools there). A second flag that clears at the same time is dual-path. Gherkin waits on **workspace**, not a new terminal gate. `_ALLOWED_GATES` stays workspace|browser.\n\nWorktree exists at `/tmp/chatticus-e11c17-terminal` (behind one pm commit on `develop` — rebase on authorize).\n",
+      "created_at": "2026-09-08T13:45:17.139908Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "214090ad-2e79-456b-b20f-65f1184b4d27",
+      "author": "home",
+      "text": "Plan authorized. Worktree verified at `/tmp/chatticus-e11c17-terminal` on `feat/e11c17-agent-terminal` (behind two pm commits — rebase onto `origin/develop` before coding).\n\n**Closed on authorize:**\n1. `run_terminal`; explicit grant; conversation preset stays closed.\n2. `TerminalActionExecutor` on the host. Not ECS Exec / SSH / Lambda.\n3. Readiness is **workspace hydrate** — no `TERMINAL_CAPABILITY` / `terminal_ready`.\n4. Gherkin first; pytest only for jail/timeout/truncation helpers.\n5. Live customer RunTask is after merge, by the manager. Do not live-run now to rediscover the gap.\n",
+      "created_at": "2026-09-08T13:46:03.455061Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "40046ceb-f6e7-41ea-b6ef-021605b68092",
+      "author": "home",
+      "text": "PR [#329](https://github.com/AnthusAI/Chatticus/pull/329) is up. Composer 2.5 product review in flight. Watch for `TERMINAL_CAPABILITY` sneaking in, conversation-preset widening, and pytest duplicating `agent_terminal.feature`.\n",
+      "created_at": "2026-09-08T14:02:51.889591Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "7fa25308-2c18-4141-a7e5-3746635c5636",
+      "author": "home",
+      "text": "## An explicit grant proves the tool, not the product (2026-09-08)\n\nThe DoD ends at *\"one live host run shows journal output.\"* That run will use an explicit grant, and it will pass. It will not tell you whether a customer's bot can run a command — and on current code it cannot.\n\n**The grant attached when a human starts a bot turn** (`household_conversation_grant`, `capability_policy.py:138`) is:\n\n```python\ntools=frozenset({\"read_workspace\"}),\n```\n\n**Exactly one tool.** No `write_workspace`, no `browser_open`, and no `run_terminal`.\n\nSo after this ships, a default bot asked to run a command still refuses. Same user-visible sentence as before, for a **third distinct reason**:\n\n1. No tool existed — found by the live `ls` run.\n2. No grant at all — hypothesis, wrong; the gate is `if policy.grant is not None`, so an absent grant skips rather than denies.\n3. Tool exists, grant exists, **grant does not include it**.\n\nThat is not a defect in this card. A minimal default grant is correct — arbitrary shell on a customer's machine should be granted deliberately, which is what the delegation-ladder positioning says. The gap is the step after: **there is no recorded path by which a customer's bot gets more than `read_workspace`.**\n\n## Suggested DoD addition\n\nAdd one line so the gap is recorded rather than discovered a fourth time:\n\n> The live run states explicitly whether it used the household conversation grant or an explicit widened grant. If widened, record that a default bot still refuses, and name the card that closes it.\n\n## Not asking for scope\n\nDo not widen `household_conversation_grant` inside this card. Whether `run_terminal` ever belongs in a default preset is a product decision about delegated authority, not a terminal-tool implementation detail. See `chatticus-9a07e7`.",
+      "created_at": "2026-09-08T14:09:56.213384Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ac35ec5d-a8c5-4792-aee7-0cfd6df2273f",
+      "author": "home",
+      "text": "DoD line added: the live host run must say whether it used `household_conversation_grant()` or a widened grant, and if widened, that a default bot still refuses. This card does not widen the preset.\n\n[#329](https://github.com/AnthusAI/Chatticus/pull/329) product-reviewed **APPROVE**; python+infra CI green. Merging to `develop`. Live run after ThinTurn deploy: explicit (widened) grant for journal proof; separately record the conversation-preset denial.\n",
+      "created_at": "2026-09-08T14:14:02.508177Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "7d7b341d-d603-48d4-be3e-c052eac70fb8",
+      "author": "home",
+      "text": "Live acceptance agent produced no work for ~1h (transcript never left the prompt). Interrupted. `8fbe6d5` ThinTurn development deploy **succeeded**. Follow-up pm deploy `0a34266` failed `UPDATE_IN_PROGRESS` (raced #329) — operator-only, not a product defect. Restarting the live run against the `8fbe6d5` stack.\n",
+      "created_at": "2026-09-08T15:19:48.221518Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "517fd5fb-19b0-489a-a313-0c982e656b6a",
+      "author": "home",
+      "text": "Live DoD **stopped**, not retried.\n\nThe stall is not “the agent forgot to start.” After interrupt it ran a kernel widened-grant handoff (`set_turn_capability_grant` + `prepare_computer_tool(run_terminal)` + `enqueue_computer_continuation`) and then **polled for `run_terminal:exit=` until TimeoutError**. ComputerWorker logs already had `no ready computer host for run_terminal`. A later Dynamo read showed `workspace_ready=True`; a warm retry still produced no `tool.result`. Image push + write_workspace warmup were attempted. None of that yields journal output.\n\n**Do not poll again.** This is the same class as `HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY` / host not executing a newly shipped tool: ThinTurn `8fbe6d5` has `run_terminal`; the summoned host has not committed it.\n\nDefault-grant claim is still unrun as a clean separate turn; the conversation preset was observed on human-start (`read_workspace` only) before they replaced it.\n\nAlso: every `pm:` push to `develop` retriggers ThinTurn deploy and can `UPDATE_IN_PROGRESS`-race the product deploy. That is a second stall, operator-only.\n",
+      "created_at": "2026-09-08T15:35:25.032903Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0477507c-737e-42b5-895d-96b1fb52a4b0",
+      "author": "home",
+      "text": "Live acceptance **BLOCKED** (`8fbe6d5`). Not a PASS. Not another poll.\n\n**Proof 1 (widened grant, kernel deviation):** human post with `enqueue_turn=False` → `set_turn_capability_grant` (`run_terminal` + `read_workspace`) → `prepare_computer_tool(run_terminal)` → continuation. Journal: `tool.call run_terminal` only. **Never** `tool.result` / `run_terminal:exit=`. ComputerWorker Lambda nacked `no ready computer host for 'run_terminal'` (expected while the Lambda has `action_executor=None` — it does not execute host tools). At least one turn `turn.failed` / recovery exhausted.\n\n**Discriminant:** after `:dev` repush, **`write_workspace` `tool.result` succeeded** on the same throwaway org. Terminal still never committed. That split fits a host task still running the **pre-`run_terminal` image** (file tools already in `:dev`; `TerminalActionExecutor` is new). It does **not** yet prove a product defect in #329.\n\n**Proof 2 (default refuses):** not captured. Cognito `AdminInitiateAuth` failed (auth flow not enabled). Human-start before widen did show preset tools `read_workspace` only — that is grant state, not a refusal sentence.\n\n**Do not** re-enable SPA `ADMIN_NO_SRP_AUTH` to force proof 2. **Do not** poll the journal again. Next operator check: Fargate task started **after** the `:dev` push that contains `terminal_action_executor.py`. If the running task is older, stop it and let host-start pull the new image. Then one handoff — not a 15-minute loop.\n\n`chatticus-9a07e7` remains the customer-facing grant path. This card still does not widen the conversation preset.\n",
+      "created_at": "2026-09-08T15:36:49.435659Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ec6a3a99-5c45-4983-b3ab-70e73dccf6b8",
+      "author": "home",
+      "text": "Operator discriminant (no journal poll): customer `ChatticusComputers` cluster **running_tasks = 0**. Customer `:dev` exists (`pushedAt` 2026-09-08 ~10:20 local). Anthus cluster also 0 (desiredCount 0, as required).\n\nNamed cause at check time: **`HOST_NOT_RUNNING`**. The ComputerWorker nack matches. Image push is not the remaining question; a host process was not up. Do not start a 15-minute journal wait. Live DoD stays blocked until a host is running **and** one `run_terminal` handoff commits `tool.result`. Product #329 stays on `develop`.\n",
+      "created_at": "2026-09-08T15:39:09.209598Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "19c57d6d-3a7e-4e46-aa29-05395a7a53cf",
+      "author": "home",
+      "text": "`7fe070` closed (#335): customer authority path exists — a human grant replace can include `run_terminal`; the conversation preset still does not. This card's remaining DoD is one live host journal result. Do not poll a stopped host (`HOST_NOT_RUNNING`).\n",
+      "created_at": "2026-09-08T18:09:26.772005Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "16ee0de6-786a-470b-8063-b0620241e305",
+      "author": "home",
+      "text": "**HOST_NOT_RUNNING is a stopped/absent host, not an `8fe4c7` regression.**\n\n`8fe4c7` was a customer Fargate task that **started** and stayed unusable: PROVISIONING / crash loop (`HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED`), `RunTask ≥ 1`, no `tool.result`. Closed after Front Door HTTP + live `browser_open` / `about:blank`.\n\nThis card's live stop is different: customer `ChatticusComputers` `running_tasks = 0`, ComputerWorker nack `no ready computer host for run_terminal`. The host was **never up**. That is a summons (start / `RunTask` after `:dev` includes `terminal_action_executor.py`), not a task that is running the old Dynamo path. Do not poll the journal. Do not treat this as `8fe4c7` reopened.\n",
+      "created_at": "2026-09-08T18:49:09.245802Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "4e97029d-b1eb-4136-bf7b-59dfe2baf3e9",
+      "author": "home",
+      "text": "Sequence after `c54569` then `1d68fb`: live terminal journal needs a host summons. Do not jump the queue.",
+      "created_at": "2026-09-08T22:25:59.100878Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T21:31:30.970882Z",
+  "updated_at": "2026-09-08T22:25:59.100917Z",
+  "closed_at": null,
+  "right_now_summary": "The design and tests are ready, but a computer host must run before live terminal proof can be captured.",
+  "right_now_updated_at": "2026-09-08T19:54:21.725007Z",
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

@@ -35,6 +35,8 @@ export function synthAuthStack(
   const stack = new AuthStack(app, AUTH_STACK_IDS[environmentName], {
     env: testEnv,
     chatticusEnvironment: environmentName,
+    siteDomain: WEB_SITE_DOMAINS[environmentName],
+    authDomainName: AUTH_DOMAIN_NAMES[environmentName],
     hostedZone,
     siteCertificate,
     budgetsAlertsTopicArn,
@@ -48,11 +50,14 @@ export function authStackExpectations(
 ): {
   authDomainName: string;
   callbackUrl: string;
+  silentCallbackUrl: string;
   webPrefix: string;
 } {
+  const siteDomain = WEB_SITE_DOMAINS[environmentName];
   return {
     authDomainName: AUTH_DOMAIN_NAMES[environmentName],
-    callbackUrl: `https://${WEB_SITE_DOMAINS[environmentName]}/auth/callback`,
+    callbackUrl: `https://${siteDomain}/auth/callback`,
+    silentCallbackUrl: `https://${siteDomain}/auth/silent-callback`,
     webPrefix: webParameterPrefix(environmentName),
   };
 }

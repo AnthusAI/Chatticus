@@ -39,6 +39,11 @@ Feature: Integration test session exchange
     When the integration test client creates a channel with bot "SmokeBot"
     Then the integration test channel response status is 403
 
+  Scenario: Tampered integration bearer signature is rejected on user routes
+    Given the integration test client has a session bearer token with a tampered signature
+    When the integration test client creates a channel with bot "SmokeBot"
+    Then the integration test channel response status is 403
+
   Scenario: Integration bearer is rejected on worker-only routes
     Given the integration test client has a session bearer token
     And a worker registered over HTTP as:

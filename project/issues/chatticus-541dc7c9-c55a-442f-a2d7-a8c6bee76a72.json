@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-541dc7c9-c55a-442f-a2d7-a8c6bee76a72",
+  "title": "Signing-key rotation script with an AWSPREVIOUS overlap (infra/rotate-invoke-key.sh handles only the invoke key)",
+  "description": "docs/OWNER_CREDENTIAL_REVOCATION.md (PR 551) records that no script rotates the token signing key (secret ModelGatewaySigningKey). Unlike the invoke key, the signing key has no AWSPREVIOUS fallback, so every supervisor, bootstrap and gateway token dies at once and every owner exits; the Front Door, ComputerStarter and broker read the key once per container, so they keep the old key until recycled. Build infra/rotate-signing-key.sh (model: infra/rotate-invoke-key.sh): put the new value, verify with AWSPREVIOUS accepted for a bounded window (verification tries the current key then the previous), force new execution environments for the three Lambdas, retire AWSPREVIOUS after the window, report the effect (owners that exit). Gherkin scenarios for dual-key verification and a structural test; live proof on development (a running owner survives the rotation window). Resolve the runbook's UNVERIFIED items U3 and U4 on the way.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-14T10:24:42.014819Z",
+  "updated_at": "2026-10-14T10:24:42.014856Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude-main"
+  },
+  "right_now_summary": "The signing-key rotation script still needs to be built and tested with a bounded AWSPREVIOUS overlap.",
+  "right_now_updated_at": "2026-10-14T10:24:43.939188Z",
+  "custom": {}
+}

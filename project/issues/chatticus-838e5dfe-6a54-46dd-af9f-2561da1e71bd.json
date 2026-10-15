@@ -1,0 +1,102 @@
+{
+  "id": "chatticus-838e5dfe-6a54-46dd-af9f-2561da1e71bd",
+  "title": "Sign Out lands on Cognito Client does not exist",
+  "description": "Live on development 2026-09-08. Sign Out from the workspace lands on auth-dev.chattic.us/error?error=Client+does+not+exist. Hosted UI copy: An error was encountered with the requested page.\n\nNot a missing Cognito client. The development SpaClient exists and matches SSM. Auth deploy updated CallbackURLs in place (silent-callback); it did not replace the client. Logout URLs already include /auth/signout-callback.\n\nCause reproduced with curl: Cognito hosted UI logout is GET /logout?client_id=...&logout_uri=... oidc-client-ts signoutRedirect uses OIDC end_session_endpoint with post_logout_redirect_uri and id_token_hint, and global extraQueryParams attach identity_provider=Google. Without client_id, /logout 302s to /login?identity_provider=Google (no client_id), which 302s to /error?error=Client+does+not+exist — the exact page. With client_id and logout_uri, /logout 302s to /auth/signout-callback.\n\nFix: Gherkin first. signOut() must pass extraQueryParams client_id and logout_uri. Remove identity_provider from global UserManager extraQueryParams; keep it only on signInWithGoogle. select_account only after completeSignOutRedirect. Do not send identity_provider on logout or silent renew.\n\nRelates to closed 349634 (CI-closed; this is the live hole) and 5e4c9a.\n\nDone when: Sign Out on development returns to the workspace signed out, not the Cognito error page. Next Sign in still shows the account chooser.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "auth"
+  ],
+  "dependencies": [
+    {
+      "target": "5e4c9a",
+      "type": "relates-to"
+    },
+    {
+      "target": "349634",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "b37fe6f1-5ae3-4aa6-96e9-9493337664d2",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree to be named /tmp/chatticus-838e5d-cognito-logout on feat/838e5d-cognito-logout from origin/develop. Reproduced: /logout without client_id + identity_provider=Google 302s to /login then /error?error=Client+does+not+exist. /logout?client_id&logout_uri 302s to /auth/signout-callback. Plan-only until authorized.\n",
+      "created_at": "2026-09-08T23:14:39.439261Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c130bd2b-60b8-47d5-89ab-1c651b2e8c7f",
+      "author": "home",
+      "text": "Plan approved. Authorizing Composer 2.5: create /tmp/chatticus-838e5d-cognito-logout on feat/838e5d-cognito-logout from origin/develop. Gherkin first; signOut extraQueryParams client_id + logout_uri; no global identity_provider. Keep 349634 chooser. Do not merge until review + green CI + live Sign Out on development.\n",
+      "created_at": "2026-09-08T23:15:40.545882Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f37fbd91-2850-4b81-a237-5567d88cf775",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/343 opened. Composer 2.5 reviewing. Merge after review + green CI, then watch Deploy Web — live Sign Out is the DoD.\n",
+      "created_at": "2026-09-08T23:17:13.947343Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "6bb82752-10a6-4432-9ec0-ec064ff6ff7e",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/343 as e21a6ac after Composer 2.5 APPROVE and green CI. Deploy Web (development) https://github.com/AnthusAI/Chatticus/actions/runs/34291043213 succeeded. Card stays open until a human Sign Out on dev.chattic.us returns to the workspace signed out, not the Cognito error page.\n",
+      "created_at": "2026-09-08T23:34:24.151650Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "327eed2c-6b6b-4ee0-ad0f-93ca2bb7ec0b",
+      "author": "home",
+      "text": "Live: after #343, Sign Out returns to the workspace still signed in. logout_uri works (no Cognito error page). restoreVerifiedSession then signinSilent() because the Cognito hosted-UI cookie was not cleared; oidc-client-ts still sends OIDC post_logout_redirect_uri/state/id_token_hint on /logout.\n\nFix: (1) navigate to Cognito /logout with only client_id and logout_uri — do not use oidc-client-ts signoutRedirect for that hop. Callback still removeUser + select_account flag. (2) restoreVerifiedSession must not signinSilent when that flag is set (explicit sign-out). Gherkin: after sign-out, reload does not silently restore. 349634 chooser still required.\n",
+      "created_at": "2026-09-09T01:45:54.217088Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "43b30b0f-adda-489f-b27d-c82d11134919",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/344 opened. Direct Cognito /logout (client_id + logout_uri only); restoreVerifiedSession skips signinSilent when the post-sign-out flag is set. Composer 2.5 reviewing. Merge after review + green CI, then watch Deploy Web. Do not close until Sign Out on development leaves the person signed out.\n",
+      "created_at": "2026-09-09T01:51:43.536109Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c0daea70-4b33-4398-ae0e-b567f45c9066",
+      "author": "home",
+      "text": "Review APPROVE on https://github.com/AnthusAI/Chatticus/pull/344. Did not merge: CI Behave sat in_progress ~40 minutes (Behave since 01:48 UTC; #343 python was 14m32s). Canceled run 34300589110. Implementer reproducing full behave hang; harness subprocess has no timeout.\n",
+      "created_at": "2026-09-09T02:24:39.705243Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8bd964f4-dd89-4417-8567-ff47562dd6c1",
+      "author": "home",
+      "text": "Hang cause: harness window.location.assign was only mocked when creating a new window; signOut() then hit live Cognito /logout and tsx never exited. Follow-up on https://github.com/AnthusAI/Chatticus/pull/344 always mocks assign, stops UserManager on harness exit, 30s subprocess timeout. Local full behave ~5m. Re-reviewing that commit; merge after APPROVE + green CI.\n",
+      "created_at": "2026-09-09T02:46:06.504292Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e4e95415-58f5-46ae-be4c-86601cc874f2",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/344 as f620c5b after Composer 2.5 APPROVE and green CI (python 13m35s). Watching Deploy Web (development). Card stays open until Sign Out on dev.chattic.us leaves the person signed out.\n",
+      "created_at": "2026-09-09T02:53:08.858622Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "a91e614e-06be-4827-838c-f84fd61f3f5e",
+      "author": "home",
+      "text": "Live on development 2026-09-09: human confirmed Sign Out returns to the workspace signed out. Reload after Sign Out stays signed out. Closing.\n",
+      "created_at": "2026-09-09T19:16:55.708489Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T23:14:20.384423Z",
+  "updated_at": "2026-09-09T19:16:55.813123Z",
+  "closed_at": "2026-09-09T19:16:55.813095Z",
+  "right_now_summary": "The logout fix is merged, and development deployment is being watched to confirm users stay signed out.",
+  "right_now_updated_at": "2026-09-09T13:20:55.840483Z",
+  "custom": {}
+}

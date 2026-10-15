@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-b5ddda41-9174-43c9-aa89-6242f34e58d2",
+  "title": "CloudTrail has no trail on development and no S3 or DynamoDB data events in any environment",
+  "description": "From PR 551: development has only the 90-day CloudTrail event history, so an investigation can see who got a role session but not what the session did; the Front Door file audit does not cover direct S3 or DynamoDB access by a leaked credential. Decide and build a trail with data events for the snapshot bucket, the PiSessions bucket and the messaging table (cost-aware: data events are billed per event; scope to the sensitive prefixes), in CDK, for development first. Acceptance: a read made by the owner role appears in the trail; cost estimate documented in the ticket; runbook section 9 updated; UNVERIFIED item U10 resolved.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-14T10:24:45.151566Z",
+  "updated_at": "2026-10-14T10:24:45.151602Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude-main"
+  },
+  "right_now_summary": "A CDK CloudTrail trail with scoped S3 and DynamoDB data events still needs to be built for development.",
+  "right_now_updated_at": "2026-10-14T10:24:47.246572Z",
+  "custom": {}
+}

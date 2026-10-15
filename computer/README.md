@@ -20,14 +20,29 @@ Two hosts on one machine, sharing a snapshot store (not a live disk):
 sh computer/test_relocate.sh
 ```
 
-Run a computer on AWS Fargate (ARM64), hydrate its snapshot locally, then
-scale the service back to 0:
+Prove the container owner program and its unprivileged shell in a real container
+(needs Docker, no AWS). It builds the image, starts the owner, runs commands the
+way the owner runs a model-chosen command, and checks that they run as the shell
+user and cannot read the owner's credentials:
 
 ```bash
-sh computer/test_fargate.sh
+sh computer/test_owner_container.sh
 ```
 
-Push a rebuilt image to ECR without changing the Computers service:
+CI builds, checks and pushes the image. On every push to `develop` that touches
+`computer/`, `conversation/`, `host-protocol/` or the root package files,
+`.github/workflows/build-computer-image-development.yml` builds the linux/arm64
+image on a native arm64 runner, runs the toolchain check and
+`computer/test_owner_container.sh` against that exact image, and only then
+pushes it to the ChatticusComputers ECR repository as the immutable
+`sha-<full git sha>` tag only. The pushed digest is in the job summary. Nobody
+pushes the image by hand. The moving `dev` tag that the owner task definition
+runs moves only through `.github/workflows/promote-computer-image-development.yml`,
+which refuses unless the ControlPlane and ThinTurn development deploys of the
+same commit succeeded (see `docs/COMPUTER_IMAGE_PROMOTION.md`).
+
+`computer/push-computer-image.sh` remains for local break-glass use only, when
+CI cannot run. It pushes a `manual-<utc time>` tag and never `:dev`:
 
 ```bash
 sh computer/push-computer-image.sh
@@ -41,14 +56,37 @@ container, then the reverse. Stale files on the target host are dropped.
 
 v1 contents:
 
-- Ubuntu
-- Xvfb virtual displays (one screen per bot computer-use task)
-- Chromium (in image; browser gate still unmeasured on cold start)
+- Debian slim with Node, git, CA certificates and a C toolchain (build-essential: gcc, g++, make)
+- no display and no browser: the browser is an optional capability. A host
+  that finds no Chromium or no Xvfb boots anyway, reports `browser_ready`
+  false and `browser_unavailable` true, and the `browse` tool answers that the
+  browser capability is not available on this computer. A larger image that
+  adds Xvfb and Chromium back reports the browser ready at boot.
 - shell and `/workspace`
 - snapshot pack/hydrate CLI
-- `python -m chatticus.computer_host_worker` (Chatticus package from `python/`;
+- `node /opt/chatticus/host/supervisor.mjs`: the owner supervisor, the program
+  the `ChatticusComputerOwner` task runs for computers in Anthus's own accounts.
+  It exchanges its one-time bootstrap token for its own token and credentials,
+  restores the disk, asks the control plane for work (the poll is its
+  heartbeat), runs each dispatched turn in a `owner.mjs turn` child, publishes
+  a changed disk between turns, and stops itself after 15 minutes without work
+  or when the control plane drains it. `chatticus-watchdog` is a separate
+  process that ends a supervisor whose main loop has stopped. See
+  [docs/OWNER_SUPERVISOR_PROTOCOL.md](../docs/OWNER_SUPERVISOR_PROTOCOL.md).
+- `node /opt/chatticus/host/owner.mjs turn`: the per-turn Pi owner program the
+  supervisor starts. It takes over the one turn it was given, runs Pi's own
+  tools locally, calls the model through the gateway with that turn's token and
+  exits; it holds no host token and does not touch the snapshot. Model-chosen
+  commands run through `chatticus-shell` as
+  uid 2000 with a scrubbed environment; the file tools run as that user too, through a
+  helper started by the same launcher. See
+  [docs/PI_SESSION_HANDOFF.md](../docs/PI_SESSION_HANDOFF.md) for the design,
+  proof and limits (development only; the credentials endpoint cannot be
+  blocked on Fargate; `browse` has no executor on this path).
+- `node /opt/chatticus/host/host-worker.mjs` (bundled from `computer/host/`;
   RunTask may override the container command when `CHATTICUS_ECS_HOST_COMMAND`
-  is set; entrypoint starts Xvfb when `CHATTICUS_COMPUTER_BOOT=1`)
+  is set): the HTTP host protocol worker. Computers in a customer's AWS account
+  use it permanently and never get Pi.
 - noVNC (or equivalent) for watch and human takeover (next)
 - `chatticus-worker` / `chatticus-agent` (next)
 
@@ -62,7 +100,7 @@ on the one it needs:
 | --- | --- |
 | Process and network | Model calls, memory, MCP and connector tools |
 | `/workspace` hydrated | File actions |
-| Browser profile hydrated, display and Chromium up | Browser actions |
+| Browser profile hydrated, display and Chromium up (optional; absent from the default image) | Browser actions |
 | noVNC or equivalent | A human watching or taking over |
 
 Do not serialize these behind one "ready" flag, and do not hold the agent

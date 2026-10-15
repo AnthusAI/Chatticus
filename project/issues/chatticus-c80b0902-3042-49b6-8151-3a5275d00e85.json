@@ -1,0 +1,55 @@
+{
+  "id": "chatticus-c80b0902-3042-49b6-8151-3a5275d00e85",
+  "title": "Quick channel switching causes stale in-flight turn stream to hijack active conversation",
+  "description": "In EnabledWorkspace.tsx selectItem(), asynchronous listMessages and getActiveTurn calls have no cancellation or request-generation checks. If a user quickly switches from Bot A to Bot B, Bot A's slower response resolves after Bot B is selected and starts streaming into Bot B's conversation view.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fd247fb5-d6e3-44e7-acc7-aa01170b5cf9",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED race in code (fast switch not forced live).\n\n`selectItem` aborts the stream and clears turn state, but `startTurnStream`\u2019s `onEvent` \u2192 `reconcileMessages(...).then(() => { setTurn(null); ... })` is not generation-guarded. A late then() from the previous channel can clear the newly started turn or apply stale reconcile. Same class of bug if token handlers race past abort.\n\nFix: stream/generation token per selection; ignore events and reconcile callbacks whose generation !== current.",
+      "created_at": "2026-09-14T13:16:57.865441Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    },
+    {
+      "id": "22042b6a-efa2-402d-9eea-6da968714c04",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Stream/selection generation guards.",
+      "created_at": "2026-09-14T13:32:08.595290Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
+  "created_at": "2026-09-13T13:58:29.032518Z",
+  "updated_at": "2026-09-14T13:32:09.565417Z",
+  "closed_at": "2026-09-14T13:32:09.565275Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity",
+    "settings": {}
+  }
+}

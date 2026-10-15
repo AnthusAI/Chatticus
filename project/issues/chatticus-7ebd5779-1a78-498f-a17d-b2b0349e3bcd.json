@@ -1,0 +1,45 @@
+{
+  "id": "chatticus-7ebd5779-1a78-498f-a17d-b2b0349e3bcd",
+  "title": "Repeat the move for staging, then production",
+  "description": "After development is cut over and stable: bootstrap-and-role (already done per account by the first card), then the environment deploy, verification and cutover for chatticus-staging and chatticus-production, in that order. Production also needs a data and Cognito user plan (users cannot be exported with passwords; Google federation re-links by email). Do not start until development has run in its new account for a while.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-c649bf0e-b3a2-4bc8-826d-7bb3544e70d5",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "af8d4832-846d-494c-9c5f-5d25908ea8c6",
+      "author": "home",
+      "text": "Staging and production accounts now have ChatticusBudgets (25 and 100 USD per month, placeholder amounts for Ryan to confirm via 02713a), ChatticusSnapshots, ChatticusComputers and the thin-turn stack, deployed with the guarded dedicated-account script. Environment variables for the budget limit are set on the staging and production GitHub environments. Not done: zones, certificates, auth, web (blocked on the hostname decision, because legacy still owns staging.chattic.us and hey.chattic.us), secrets, and GitHub cutover. Ryan must confirm the new SNS email subscriptions.",
+      "created_at": "2026-10-02T10:47:54.979589Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Claude"
+      }
+    }
+  ],
+  "created_at": "2026-09-30T19:57:49.856652Z",
+  "updated_at": "2026-10-02T10:47:54.979620Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "Staging and production infrastructure is deployed; hostname decisions block the remaining setup and cutover.",
+  "right_now_updated_at": "2026-10-02T10:47:57.315438Z",
+  "custom": {}
+}

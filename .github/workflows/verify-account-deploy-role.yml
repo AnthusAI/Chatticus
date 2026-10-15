@@ -1,0 +1,35 @@
+name: Verify account deploy role
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment whose new-account deploy role to verify
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Assume the new account deploy role through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Confirm the role works and the account is bootstrapped
+        run: |
+          aws sts get-caller-identity --query Account --output text > /dev/null
+          status="$(aws cloudformation describe-stacks --stack-name CDKToolkit --query 'Stacks[0].StackStatus' --output text)"
+          echo "CDKToolkit: ${status}"
+          test "${status}" = "CREATE_COMPLETE" -o "${status}" = "UPDATE_COMPLETE"

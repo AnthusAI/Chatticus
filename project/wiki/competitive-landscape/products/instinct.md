@@ -29,5 +29,9 @@ Invite-only buzz. Confidence: Med (Yang primary for trust comparison).
 
 ## Related wiki pages
 
+- [Claude Code](claude-code.md)
+
+- [Cage and lasting memory](../cage-and-lasting-memory.md)
+
 - [Grok Bot](grok-bot.md)
 - [Hermes Agent](hermes-agent.md)

@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-056c9137-43eb-4767-b900-91c5eda50d16",
+  "title": "Workspace load fetches every channel's messages before showing the roster",
+  "description": "Reported by Ryan during the 1d68fb live run (2026-09-19). On dev, loading the workspace issues one GET /orgs/{tenant}/channels/{id}/messages per channel (about 45 parallel requests observed) and the roster sits on 'Loading conversations…' for around 10 seconds.\n\nCause: web/components/EnabledWorkspace.tsx (~line 164) awaits Promise.allSettled(loadedChannels.map(listMessages)) before clearing the loading state. selectItem already loads the messages for the selected channel (~line 369), so the eager fetch exists only to fill roster previews.\n\nFix direction: render the roster as soon as bots and channels arrive; load messages on selection. If the roster needs last-message previews, return the last message with the channels list instead of N extra requests. Cost scales with channel count, so it gets worse as an org grows. Needs a web test that the roster renders without any per-channel message fetch.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [
+    "web"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-19T14:23:25.994962Z",
+  "updated_at": "2026-09-19T14:23:25.994993Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

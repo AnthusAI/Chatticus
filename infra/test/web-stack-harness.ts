@@ -5,8 +5,10 @@ import * as route53 from "aws-cdk-lib/aws-route53";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Template } from "aws-cdk-lib/assertions";
+import * as path from "node:path";
 import {
   ChatticusCloudEnvironment,
+  WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
 } from "../lib/environments";
 import {
@@ -29,21 +31,57 @@ export function synthWebStack(
   return synthWebStackWithDeploySource(environmentName, testWebsiteDeploySource);
 }
 
+/** Synth with the invoke key secret version the deploy script passes as context. */
+export function synthWebStackWithInvokeKeyVersion(
+  environmentName: ChatticusCloudEnvironment,
+  invokeKeyVersionId: string,
+): Template {
+  const { stack } = createWebStackApp(environmentName, testWebsiteDeploySource, undefined, {
+    invokeKeyVersionId,
+  });
+  return Template.fromStack(stack);
+}
+
+/** Synth with assets on disk for DeployWebsite source inspection. */
+export function synthWebStackWithAssets(
+  environmentName: ChatticusCloudEnvironment,
+): { template: Template; cdkOutDir: string; stackId: string } {
+  const cdkOutDir = path.join(__dirname, "../cdk.out");
+  const { app, stack } = createWebStackApp(
+    environmentName,
+    testWebsiteDeploySource,
+    cdkOutDir,
+  );
+  app.synth();
+  return {
+    template: Template.fromStack(stack),
+    cdkOutDir,
+    stackId: WEB_STACK_IDS[environmentName],
+  };
+}
+
 /** Mirror the CDK app entrypoint website deploy source selection. */
 export function synthWebStackLikeApp(
   environmentName: ChatticusCloudEnvironment,
 ): Template {
-  return synthWebStackWithDeploySource(
-    environmentName,
-    websiteDeploySourceForApp(),
-  );
+  return synthWebStackWithDeploySource(environmentName, websiteDeploySourceForApp());
 }
 
 function synthWebStackWithDeploySource(
   environmentName: ChatticusCloudEnvironment,
   websiteDeploySource: s3deploy.ISource | undefined,
 ): Template {
-  const app = new cdk.App();
+  const { stack } = createWebStackApp(environmentName, websiteDeploySource);
+  return Template.fromStack(stack);
+}
+
+function createWebStackApp(
+  environmentName: ChatticusCloudEnvironment,
+  websiteDeploySource: s3deploy.ISource | undefined,
+  outdir?: string,
+  context?: Record<string, string>,
+): { app: cdk.App; stack: WebStack } {
+  const app = new cdk.App({ ...(outdir ? { outdir } : {}), ...(context ? { context } : {}) });
   const deps = new cdk.Stack(app, "Deps", { env: testEnv });
   const hostedZone = route53.HostedZone.fromHostedZoneAttributes(deps, "Zone", {
     hostedZoneId: "Z1234567890ABC",
@@ -67,6 +105,7 @@ function synthWebStackWithDeploySource(
   const stack = new WebStack(app, WEB_STACK_IDS[environmentName], {
     env: testEnv,
     chatticusEnvironment: environmentName,
+    siteDomain: WEB_SITE_DOMAINS[environmentName],
     hostedZone,
     siteCertificate,
     frontDoorFunctionUrl,
@@ -74,5 +113,5 @@ function synthWebStackWithDeploySource(
     websiteDeploySource,
   });
 
-  return Template.fromStack(stack);
+  return { app, stack };
 }

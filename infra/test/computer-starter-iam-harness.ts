@@ -1,0 +1,48 @@
+import * as cdk from "aws-cdk-lib";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import { Template } from "aws-cdk-lib/assertions";
+import { ControlPlaneStack } from "../lib/control-plane-stack";
+
+const ecsContext: Record<string, string> = {
+  computerHostStart: "ecs",
+  computerEcsCluster: "computers-cluster",
+  computerEcsSubnets: "subnet-aaa,subnet-bbb",
+  computerEcsSecurityGroups: "sg-111",
+  computerEcrRepositoryUri: "111111111111.dkr.ecr.us-east-1.amazonaws.com/computer",
+  computerOwnerTaskDefinition: "arn:aws:ecs:us-east-1:111111111111:task-definition/ChatticusComputerOwner:3",
+  computerOwnerTaskRoleArn: "arn:aws:iam::111111111111:role/owner-task",
+  computerOwnerExecutionRoleArn: "arn:aws:iam::111111111111:role/owner-execution",
+  computerSnapshotBucketName: "chatticus-snapshots-bucket",
+};
+
+const app = new cdk.App({ context: ecsContext });
+const support = new cdk.Stack(app, "Support", { env: { account: "111111111111", region: "us-east-1" } });
+const messagingTable = new dynamodb.Table(support, "Messaging", {
+  partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+  sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+});
+const stack = new ControlPlaneStack(app, "ControlPlane", {
+  env: { account: "111111111111", region: "us-east-1" },
+  chatticusEnvironment: "development",
+  messagingTable,
+  invokeSecret: new secretsmanager.Secret(support, "InvokeKey"),
+  operatorSecret: new secretsmanager.Secret(support, "OperatorKey"),
+});
+const template = Template.fromStack(stack).toJSON();
+
+const starterFunction = Object.values<any>(template.Resources).find(
+  (resource) =>
+    resource.Type === "AWS::Lambda::Function" &&
+    String(resource.Properties?.Description ?? "").includes("ComputerStartJobs consumer"),
+);
+const roleLogicalId: string = starterFunction.Properties.Role["Fn::GetAtt"][0];
+const statements = Object.values<any>(template.Resources)
+  .filter(
+    (resource) =>
+      resource.Type === "AWS::IAM::Policy" &&
+      (resource.Properties.Roles ?? []).some((role: any) => role.Ref === roleLogicalId),
+  )
+  .flatMap((resource) => resource.Properties.PolicyDocument.Statement);
+
+process.stdout.write(JSON.stringify({ statements, environment: starterFunction.Properties.Environment.Variables }));

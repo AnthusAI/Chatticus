@@ -6,25 +6,58 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import { COMPUTER_IMAGE_TAGS, COMPUTERS_STACK_IDS, type ChatticusCloudEnvironment } from "./environments";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
+/**
+ * Task definition family of the Pi session owner task of one environment. A
+ * family is an account-wide name, so staging, which shares production's account,
+ * gets its own. Development and production keep the unsuffixed name their
+ * Computers stacks have always used.
+ */
+export function ownerTaskDefinitionFamily(environment: ChatticusCloudEnvironment): string {
+  return environment === "staging" ? "ChatticusComputerOwnerStaging" : "ChatticusComputerOwner";
+}
+
+/**
+ * CloudFormation names the computer ECR repository
+ * `<stack name>-<logical id><hash>-<suffix>` in lower case. The deploy role
+ * that pushes the image cannot know the full name before the stack exists, so
+ * it is scoped to this prefix inside its own account. Each environment's prefix
+ * starts with its own Computers stack name, so one environment's prefix never
+ * matches another's repository. A test pins the prefix to the synthesized
+ * logical id.
+ */
+export function computerRepositoryNamePrefix(environment: ChatticusCloudEnvironment): string {
+  return `${COMPUTERS_STACK_IDS[environment].toLowerCase()}-computerimage`;
+}
+
+/** Seconds ECS waits after SIGTERM before it kills the owner container: room for the supervisor to stop its child, publish the final snapshot and report stopped. */
+export const OWNER_CONTAINER_STOP_TIMEOUT_SECONDS = 90;
+
 export interface ComputerStackProps extends cdk.StackProps {
+  chatticusEnvironment: ChatticusCloudEnvironment;
   snapshotBucket: s3.IBucket;
 }
 
 /**
- * Fargate-capable computer hosts. The workplace image is stored in ECR.
+ * Fargate-capable computer owner. The workplace image is stored in ECR.
  *
- * The service desired count defaults to 0 (scale to 0). Pass
- * ``-c computerCount=1`` to run a host. v1 AWS computers are Fargate ARM64
- * so the same image runs on Apple Silicon Docker and Fargate. Optional
- * stop/start EC2 is later, for a warm EBS cache.
+ * There is no always-defined service: the control plane starts the owner task on
+ * demand with RunTask. v1 AWS computers are Fargate ARM64 so the same image runs
+ * on Apple Silicon Docker and Fargate. Optional stop/start EC2 is later, for a
+ * warm EBS cache.
+ *
+ * The one task definition, the owner, runs the image under an init process with
+ * a task role that has no policies at all. The supervisor in the container
+ * receives its credentials from the credential broker, never from the task role;
+ * see ``wireComputerStarterOwnerRunTask``. The stack exports the cluster, subnets
+ * and security group the starter runs the task in.
  */
 export class ComputerStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ComputerStackProps) {
     super(scope, id, props);
 
-    const computerCount = Number(this.node.tryGetContext("computerCount") ?? 0);
     const smokeComputer =
       typeof this.node.tryGetContext("smokeComputer") === "string"
         ? String(this.node.tryGetContext("smokeComputer"))
@@ -51,25 +84,9 @@ export class ComputerStack extends cdk.Stack {
       vpc,
     });
 
-    const taskRole = new iam.Role(this, "ComputerTaskRole", {
-      assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
-      description: "Computer host: publish and hydrate snapshots from S3.",
-    });
-    props.snapshotBucket.grantReadWrite(taskRole);
-
     const logGroup = new logs.LogGroup(this, "ComputerLogs", {
       retention: CHATTICUS_LOG_RETENTION,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
-    const taskDefinition = new ecs.FargateTaskDefinition(this, "ComputerTask", {
-      cpu: 256,
-      memoryLimitMiB: 512,
-      taskRole,
-      runtimePlatform: {
-        cpuArchitecture: ecs.CpuArchitecture.ARM64,
-        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
-      },
     });
 
     const computerEnvironment: { [key: string]: string } = {
@@ -81,13 +98,40 @@ export class ComputerStack extends cdk.Stack {
       computerEnvironment.CHATTICUS_SMOKE_COMPUTER = smokeComputer;
     }
 
-    taskDefinition.addContainer("computer", {
-      image: ecs.ContainerImage.fromEcrRepository(repository, "dev"),
+    const ownerTaskRole = new iam.Role(this, "ComputerOwnerTaskRole", {
+      assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+      description:
+        "Pi session owner task: deliberately empty. The shell in the container can reach the task credentials endpoint, so this role can do nothing.",
+    });
+
+    const ownerTaskDefinition = new ecs.FargateTaskDefinition(
+      this,
+      "ComputerOwnerTask",
+      {
+        family: ownerTaskDefinitionFamily(props.chatticusEnvironment),
+        cpu: 256,
+        memoryLimitMiB: 512,
+        taskRole: ownerTaskRole,
+        runtimePlatform: {
+          cpuArchitecture: ecs.CpuArchitecture.ARM64,
+          operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+        },
+      },
+    );
+    ownerTaskDefinition.addContainer("computer", {
+      image: ecs.ContainerImage.fromEcrRepository(
+        repository,
+        COMPUTER_IMAGE_TAGS[props.chatticusEnvironment],
+      ),
       logging: ecs.LogDrivers.awsLogs({
         logGroup,
-        streamPrefix: "computer",
+        streamPrefix: "computer-owner",
       }),
       environment: computerEnvironment,
+      linuxParameters: new ecs.LinuxParameters(this, "ComputerOwnerLinuxParameters", {
+        initProcessEnabled: true,
+      }),
+      stopTimeout: cdk.Duration.seconds(OWNER_CONTAINER_STOP_TIMEOUT_SECONDS),
     });
 
     const securityGroup = new ec2.SecurityGroup(this, "ComputerSecurityGroup", {
@@ -96,30 +140,29 @@ export class ComputerStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    const service = new ecs.FargateService(this, "FargateHost", {
-      cluster,
-      taskDefinition,
-      desiredCount: Number.isFinite(computerCount) ? computerCount : 0,
-      assignPublicIp: true,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      securityGroups: [securityGroup],
-      circuitBreaker: { rollback: true },
-      minHealthyPercent: 0,
-      maxHealthyPercent: 100,
-      enableExecuteCommand: true,
-    });
-
     new cdk.CfnOutput(this, "ComputerRepositoryUri", {
       value: repository.repositoryUri,
     });
     new cdk.CfnOutput(this, "ComputerClusterName", {
       value: cluster.clusterName,
     });
-    new cdk.CfnOutput(this, "ComputerTaskDefinitionArn", {
-      value: taskDefinition.taskDefinitionArn,
+    new cdk.CfnOutput(this, "ComputerSubnetIds", {
+      value: cdk.Fn.join(",", vpc.publicSubnets.map((subnet) => subnet.subnetId)),
     });
-    new cdk.CfnOutput(this, "ComputerServiceName", {
-      value: service.serviceName,
+    new cdk.CfnOutput(this, "ComputerSecurityGroupId", {
+      value: securityGroup.securityGroupId,
+    });
+    new cdk.CfnOutput(this, "ComputerOwnerTaskDefinitionArn", {
+      value: ownerTaskDefinition.taskDefinitionArn,
+    });
+    new cdk.CfnOutput(this, "ComputerOwnerTaskRoleArn", {
+      value: ownerTaskRole.roleArn,
+    });
+    new cdk.CfnOutput(this, "ComputerOwnerExecutionRoleArn", {
+      value: ownerTaskDefinition.obtainExecutionRole().roleArn,
+    });
+    new cdk.CfnOutput(this, "ComputerSnapshotBucketName", {
+      value: props.snapshotBucket.bucketName,
     });
   }
 }

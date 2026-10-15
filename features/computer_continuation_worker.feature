@@ -19,15 +19,6 @@ Feature: Computer-capable continuation worker
     Then the computer-capable worker refuses the cpu job
     And the computer continuation job remains queued
 
-  Scenario: A computer-capable pull worker leaves the job queued without a host executor
-    Given a fenced computer handoff with a queued continuation job
-    When a computer-capable pull worker without a host executor pulls that continuation job
-    Then no tool result is committed for the pending action
-    And the computer continuation job remains queued
-    And the household computer has recorded one host start
-    When a computer-capable pull worker without a host executor pulls that continuation job
-    Then the household computer has recorded one host start
-
   Scenario: A computer-capable pull worker invokes the host start driver once per lease
     Given a fenced computer handoff with a queued continuation job
     And a recording host start driver
@@ -50,12 +41,12 @@ Feature: Computer-capable continuation worker
     When a computer-capable pull worker without a host executor pulls that continuation job
     Then the host start driver was invoked twice
 
-  Scenario: The computer queue lambda leaves a job in flight when the host is not ready
+  Scenario: A computer-capable pull worker passes the continuation human into the host start claim
     Given a fenced computer handoff with a queued continuation job
     And a recording host start driver
-    When the computer queue lambda handler processes that job without a host executor
-    Then the handler returns a batch item failure for that message
-    And the host start driver was invoked once
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    Then the host start driver was invoked once
+    And the host start claim carries user "ryan"
 
   Scenario: Orphaned computer ownership expires without a scheduler
     Given a fenced computer handoff with a queued continuation job

@@ -1,0 +1,351 @@
+{
+ "schema_version": 1,
+ "diagram_type": "architecture",
+ "meta": {
+  "title": "Proposed: a long-lived computer, file view and preview",
+  "subtitle": "Status: PROPOSED, nothing here is built. The owner only dials out; nothing reaches into it.",
+  "output": "docs/diagrams/long-lived-computer/proposed-architecture.html",
+  "quality_profile": "showcase",
+  "legend": {
+   "mode": "auto",
+   "entries": {
+    "backend": {
+     "label": "Code we run"
+    },
+    "database": {
+     "label": "Stored data"
+    },
+    "security": {
+     "label": "Mints or checks a secret"
+    },
+    "cloud": {
+     "label": "CloudFront edge"
+    },
+    "external": {
+     "label": "Person's browser"
+    },
+    "messagebus": {
+     "label": "SQS queue"
+    }
+   }
+  }
+ },
+ "components": [
+  {
+   "id": "browser",
+   "type": "external",
+   "label": "Browser",
+   "sublabel": "app and sandboxed preview frame",
+   "pos": [
+    40,
+    250
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "cf",
+   "type": "cloud",
+   "label": "CloudFront (app)",
+   "sublabel": "forwards /api",
+   "pos": [
+    300,
+    250
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "fd",
+   "type": "backend",
+   "label": "FrontDoor Lambda",
+   "sublabel": "admits, poll route, gateway",
+   "pos": [
+    560,
+    250
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "runs",
+   "type": "messagebus",
+   "label": "SQS TurnRuns",
+   "sublabel": "turn jobs",
+   "pos": [
+    560,
+    60
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "exec",
+   "type": "backend",
+   "label": "TurnExecutor Lambda",
+   "sublabel": "Pi until a computer tool",
+   "pos": [
+    820,
+    60
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "startq",
+   "type": "messagebus",
+   "label": "SQS StartJobs",
+   "sublabel": "start job only if no live owner",
+   "pos": [
+    1080,
+    60
+   ],
+   "size": [
+    170,
+    64
+   ]
+  },
+  {
+   "id": "starter",
+   "type": "security",
+   "label": "ComputerStarter",
+   "sublabel": "RunTask, bootstrap token",
+   "pos": [
+    1080,
+    440
+   ],
+   "size": [
+    170,
+    64
+   ]
+  },
+  {
+   "id": "owner",
+   "type": "backend",
+   "label": "Long-lived owner",
+   "sublabel": "supervisor, turn children, dev servers",
+   "pos": [
+    820,
+    440
+   ],
+   "size": [
+    170,
+    70
+   ]
+  },
+  {
+   "id": "ddb",
+   "type": "database",
+   "label": "DynamoDB",
+   "sublabel": "turns, dispatch, file ops, preview, audit",
+   "pos": [
+    550,
+    440
+   ],
+   "size": [
+    170,
+    70
+   ]
+  },
+  {
+   "id": "s3",
+   "type": "database",
+   "label": "S3 snapshot",
+   "sublabel": "pack, index, transfer objects",
+   "pos": [
+    550,
+    620
+   ],
+   "size": [
+    170,
+    70
+   ]
+  },
+  {
+   "id": "relay",
+   "type": "backend",
+   "label": "PreviewRelay Lambda",
+   "sublabel": "no secrets, own role",
+   "pos": [
+    300,
+    440
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "pcf",
+   "type": "cloud",
+   "label": "CloudFront (preview)",
+   "sublabel": "wildcard host, no cache",
+   "pos": [
+    40,
+    440
+   ],
+   "size": [
+    150,
+    64
+   ]
+  }
+ ],
+ "boundaries": [
+  {
+   "kind": "security-group",
+   "label": "Fargate task: egress only, no inbound port",
+   "wraps": [
+    "owner"
+   ]
+  }
+ ],
+ "connections": [
+  {
+   "id": "b-cf",
+   "from": "browser",
+   "to": "cf",
+   "label": "HTTPS",
+   "variant": "emphasis"
+  },
+  {
+   "id": "cf-fd",
+   "from": "cf",
+   "to": "fd",
+   "label": "/api"
+  },
+  {
+   "id": "fd-runs",
+   "from": "fd",
+   "to": "runs",
+   "label": "enqueue turn",
+   "fromSide": "top",
+   "toSide": "bottom"
+  },
+  {
+   "id": "runs-exec",
+   "from": "runs",
+   "to": "exec"
+  },
+  {
+   "id": "exec-start",
+   "from": "exec",
+   "to": "startq",
+   "label": "park: start job",
+   "variant": "dashed"
+  },
+  {
+   "id": "start-starter",
+   "from": "startq",
+   "to": "starter"
+  },
+  {
+   "id": "starter-owner",
+   "from": "starter",
+   "to": "owner",
+   "label": "RunTask",
+   "variant": "security"
+  },
+  {
+   "id": "owner-fd",
+   "from": "owner",
+   "to": "fd",
+   "label": "poll, gateway, renew",
+   "variant": "emphasis",
+   "fromSide": "top",
+   "toSide": "right"
+  },
+  {
+   "id": "fd-ddb",
+   "from": "fd",
+   "to": "ddb",
+   "label": "state",
+   "fromSide": "bottom",
+   "toSide": "top"
+  },
+  {
+   "id": "owner-ddb",
+   "from": "owner",
+   "to": "ddb",
+   "label": "turn state",
+   "fromSide": "left",
+   "toSide": "right"
+  },
+  {
+   "id": "owner-s3",
+   "from": "owner",
+   "to": "s3",
+   "label": "publish",
+   "variant": "dashed",
+   "fromSide": "bottom",
+   "toSide": "right"
+  },
+  {
+   "id": "b-pcf",
+   "from": "browser",
+   "to": "pcf",
+   "label": "other domain",
+   "variant": "security",
+   "fromSide": "bottom",
+   "toSide": "top"
+  },
+  {
+   "id": "pcf-relay",
+   "from": "pcf",
+   "to": "relay"
+  },
+  {
+   "id": "relay-ddb",
+   "from": "relay",
+   "to": "ddb",
+   "label": "items"
+  },
+  {
+   "id": "relay-s3",
+   "from": "relay",
+   "to": "s3",
+   "label": "big bodies",
+   "variant": "dashed",
+   "fromSide": "bottom",
+   "toSide": "left"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "emerald",
+   "title": "Long-lived owner",
+   "items": [
+    "Polls Front Door: 10 s idle, 1 s busy, 0.5 s with a panel open",
+    "Parked turns reach it with no new start",
+    "Idles out after a timeout, then publishes and reports stopped"
+   ]
+  },
+  {
+   "dot": "cyan",
+   "title": "Files",
+   "items": [
+    "Off: read the snapshot index and ranged bytes from S3",
+    "On: a request item the owner picks up and runs through the unprivileged helper",
+    "Edits carry a hash precondition and an audit record"
+   ]
+  },
+  {
+   "dot": "rose",
+   "title": "Preview",
+   "items": [
+    "Separate origin, random host per session, no cookie",
+    "Relay reaches only loopback of that organization's owner",
+    "No WebSocket, no load balancer: reload on change"
+   ]
+  }
+ ]
+}

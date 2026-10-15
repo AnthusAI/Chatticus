@@ -184,7 +184,7 @@ integration.
   the epic gives us), or use a hosted vendor when that's simpler — your
   choice, not ours.
 - Roadmap strip, shorter than page 1's (there's less to report). I
-  checked `python/src/chatticus/worker/openai_completion.py` so this
+  checked the Python worker's `openai_completion.py` (since deleted from the repo; see git history) so this
   page doesn't have to guess:
   - **True today**: the worker calls one model through a defined
     `TextCompletionClient` interface (there's already a
@@ -192,7 +192,7 @@ integration.
     implementation exists.
   - **Not true today, don't imply otherwise**: only one implementation
     exists, and it's hardcoded to OpenAI's API
-    (`DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"`, a direct call to
+    (`DEFAULT_OPENAI_MODEL = "gpt-5-nano"`, a direct call to
     `api.openai.com`). There is no Anthropic client, no local-model
     client, no SageMaker client, and no per-org/per-bot provider
     selection anywhere in the codebase as of this writing.
@@ -207,7 +207,7 @@ integration.
   MIGRATION HELP` -> anth.us) — same promise, same place to ask.
 
 **Re-verify before publishing**: this file may have changed since this
-brief was written. Re-check `python/src/chatticus/worker/` for a second
+brief was written. Re-check the model-client code under `conversation/src/` for a second
 `TextCompletionClient` implementation before shipping copy that says
 "only one implementation exists" — confirm it's still true, don't just
 trust this document.

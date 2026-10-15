@@ -18,16 +18,18 @@
       "author": "unknown",
       "text": "Feature: Paid enablement\n\n  Scenario: Checkout charges setup now and defers the subscription\n    Given an invited person who has signed in and named their organization\n    When they complete Stripe checkout\n    Then the setup fee is charged once\n    And a subscription is created on a trial\n    And no monthly amount has been charged\n\n  Scenario: The organization stays pending after payment\n    Given an invited person who has signed in and named their organization\n    When they complete Stripe checkout\n    Then the organization status is pending\n\n  Scenario: Terms acceptance is recorded on the session\n    Given an invited person at Stripe checkout\n    When they complete checkout\n    Then the session records their acceptance of the beta terms",
       "created_at": "2026-09-03T13:19:40.970785Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "d1505fc8-cbc3-458c-8be4-eac35027056f",
+      "author": "home",
+      "text": "Chattic.us-web checkout. Not this repository. Enable stays pending until provisioning; that flip uses `16d3a9`.",
+      "created_at": "2026-09-05T17:59:20.902554Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:19:39.732798Z",
-  "updated_at": "2026-09-03T13:19:40.970948Z",
+  "updated_at": "2026-09-05T17:59:20.902554Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }

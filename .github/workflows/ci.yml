@@ -9,50 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install JS dependencies for auth behavior harness
-        run: npm ci
-
-      - name: Install
-        working-directory: python
-        run: pip install -e ".[dev]"
-
-      - name: Formatter and linter versions
-        working-directory: python
-        run: |
-          python -c "import black; print('black', black.__version__)"
-          ruff --version
-
-      - name: Behave
-        working-directory: python
-        run: behave
-
-      - name: Pytest
-        working-directory: python
-        run: pytest
-
-      - name: Format
-        working-directory: python
-        run: black --check src ../features tests
-
-      - name: Lint
-        working-directory: python
-        run: ruff check src ../features tests
-
   infra:
     runs-on: ubuntu-latest
     steps:
@@ -71,8 +27,112 @@ jobs:
         working-directory: infra
         run: npm test
 
+      - name: Check customer-computers template artifact
+        working-directory: infra
+        run: npm run check:customer-computers-template
+
       - name: Synth
         working-directory: infra
         env:
           CHATTICUS_STUB_WEB_BUNDLE: "1"
         run: npx cdk synth
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        working-directory: web
+        run: npm test
+
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+  conversation:
+    runs-on: ubuntu-latest
+    env:
+      MOTO_IMAGE: motoserver/moto:5.2.3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Restore the moto image from the cache
+        id: moto-image-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/moto-image.tar
+          key: moto-image-5.2.3
+
+      - name: Pull the moto image when it is not cached
+        if: steps.moto-image-cache.outputs.cache-hit != 'true'
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if docker pull "$MOTO_IMAGE"; then
+              docker save "$MOTO_IMAGE" -o "$RUNNER_TEMP/moto-image.tar"
+              exit 0
+            fi
+            sleep $((attempt * 20))
+          done
+          exit 1
+
+      - name: Start moto
+        run: |
+          if [ "${{ steps.moto-image-cache.outputs.cache-hit }}" = "true" ]; then
+            docker load -i "$RUNNER_TEMP/moto-image.tar"
+          fi
+          docker run -d --rm --name moto -p 5555:5000 "$MOTO_IMAGE"
+
+      - name: Wait for moto
+        run: |
+          for i in $(seq 1 30); do
+            if (echo > /dev/tcp/127.0.0.1/5555) 2>/dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: conversation
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: conversation
+        env:
+          CHATTICUS_TEST_AWS_ENDPOINT: http://127.0.0.1:5555
+        run: npm test
+
+      - name: Cucumber features
+        working-directory: conversation
+        env:
+          CHATTICUS_TEST_AWS_ENDPOINT: http://127.0.0.1:5555
+        run: npm run test:features
+
+      - name: Cucumber features dry run
+        working-directory: conversation
+        run: npm run test:features:dry

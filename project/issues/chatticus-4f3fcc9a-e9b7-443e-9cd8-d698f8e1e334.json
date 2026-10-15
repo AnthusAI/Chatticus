@@ -1,0 +1,71 @@
+{
+  "id": "chatticus-4f3fcc9a-e9b7-443e-9cd8-d698f8e1e334",
+  "title": "2b-B2: CDK assertions for renewal and the development-only broker fault switch (decided P4)",
+  "description": "Contract: docs/OWNER_CREDENTIAL_RENEWAL.md (sections 3 R18 R22, 13, 15, 17 B2, 19 steps 3 and 4; decided P4: build it). Gherkin first (features/computer_owner_credential_renewal.feature).\n\nFiles:\n- infra/test/computer-owner-stack.test.ts: the broker's role holds no permission beyond GetSecretValue on the signing key and AssumeRole and TagSession on the two owner roles; both roles' trust and maxSessionDuration 3600 unchanged; staging and production templates hold neither fault variable and do hold CHATTICUS_ENVIRONMENT on the broker. This part can merge before B1.\n- The development-only fault switch with four gates (R22). G1: infra/lib/control-plane-stack.ts reads the CDK context ownerBrokerFault (none, deny_supervisor_renewal, deny_turn_renewal) and ownerBrokerCredentialSeconds (900 to 3600) only when the environment is development, and throws naming the switch for staging or production. G2: the two broker variables CHATTICUS_OWNER_BROKER_FAULT and CHATTICUS_OWNER_BROKER_CREDENTIAL_SECONDS are emitted only in development; CHATTICUS_ENVIRONMENT is always set on the broker. G3: conversation/src/lambdas/owner-credential-broker-faults.ts (new, the only reader of the variables) throws at initialization if a variable is set and CHATTICUS_ENVIRONMENT is not exactly development (missing counts as not development), so the function fails closed. G4: a fault can only make the broker issue less (deny a purpose, or a duration of 900 to 3600 s, never longer). owner-credential-broker.ts takes a faults dependency (default none); this edit is made after B1 merges (same file).\n- conversation/test/broker-fault-gate.test.ts (structural vitest): the variable names appear in no file under conversation/src or infra/lib except the fault module and the stack's development branch; initializing the fault module with production, staging, empty and missing CHATTICUS_ENVIRONMENT and a fault variable set throws; with development it does not.\n- The CloudWatch metric filters and alarms of section 13 (optional in the same PR).\n- infra/deploy-*.sh: document in the header how to deploy the development ControlPlane with the context and how to restore it.\n\nScenarios owned: 'Renewal adds no permission to the broker and no role changes its trust or session limit', 'The staging and production brokers hold no fault variable and know their environment', 'The broker's development fault switch exists in development only', 'The development fault switch denies a renewal and shortens the credentials', 'The broker refuses to start with a fault switch outside development'.\n\nAcceptance: cd infra && npm test; cd conversation && npm test && npm run test:features; npx cdk synth with and without the context in development, and with it for staging and production (fails naming the switch).\n\nDependencies: P0 (assertions); B1 (the switch). Blocks the failure proof in E.\n\nRules: no emojis, no line comments. AWS resources exist only as CDK; never create IAM users or access keys. Do not read or write project/.",
+  "type": "sub-task",
+  "status": "closed",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-881c41ba-751f-4b4f-b2e5-f5eb40841ea2",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-76131ccb-3b52-4c31-b0db-87ed578c75ac",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "80ec16be-51c3-40ad-a8a9-da1ba2e00fb2",
+      "author": "home",
+      "text": "B2 implemented in PR 558, awaiting review",
+      "created_at": "2026-10-14T16:03:24.088584Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-b2"
+      }
+    },
+    {
+      "id": "7e833f15-2a70-4881-9e58-743494c64ec0",
+      "author": "home",
+      "text": "Mismatches found: staging and production wire no broker today, so CHATTICUS_ENVIRONMENT on the broker is asserted for development only; deny_turn_renewal denies all turn grants because the broker cannot tell a renewal from a first grant. Metric filters and alarms not done.",
+      "created_at": "2026-10-14T16:03:32.523495Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-b2"
+      }
+    },
+    {
+      "id": "cd490b67-e3ea-46e0-9357-6166ec409cb7",
+      "author": "home",
+      "text": "Verified on development and closing. Landed in PR 558 (B2), plus container check fix PR 559; all Phase 2b PRs merged: P0 552, A1 553, B1 554, A2 555, C 556, D 557, B2 558, container check fix 559. Live proof 1 (success path): 81 minutes on one owner task, supervisor credential renewals at minute 40 and minute 80 each with 1200 s remaining, 13 trivial computer turns including after minute 63, no self-stop, computer record owner_credentials_expire_at and renewed_at moved forward. Live proof 2 (failure path): development broker fault switch deny_supervisor_renewal with 900 s credentials; renewals answered 503 credentials_unavailable with 15/30/60 s backoff, owner drained at 600 s remaining, stopped itself with reason=credentials, container exit code 5, next message started a fresh owner; fault variables removed by a restore deploy and verified absent; no tasks left running. IAM simulation 42 of 42 allowed. Dev image tag moved to the commit c090c4a2 image.",
+      "created_at": "2026-10-14T23:10:38.501302Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
+  "created_at": "2026-10-14T03:32:28.278198Z",
+  "updated_at": "2026-10-14T23:10:44.910196Z",
+  "closed_at": "2026-10-14T23:10:44.910142Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "phase2b-planner"
+  },
+  "right_now_summary": "B2 is merged and verified in development, with live renewal success and failure proofs complete.",
+  "right_now_updated_at": "2026-10-14T23:10:47.067151Z",
+  "custom": {}
+}

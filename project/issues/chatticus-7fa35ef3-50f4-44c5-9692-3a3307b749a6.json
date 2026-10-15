@@ -1,0 +1,69 @@
+{
+  "id": "chatticus-7fa35ef3-50f4-44c5-9692-3a3307b749a6",
+  "title": "Live files F0: shared schemas, constants and file rules in host-protocol",
+  "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 2, PR #519 `ts/live-files-contract`), sections 5 (5.1, 5.2, 5.3, 5.5), 3 (L3, L7, L18, L20, L31) and 15 (F0). Foundation step: merge before A1, C or W integrate. No behavior change except the shared secret-name list gaining `.git-credentials`.\n\nFiles:\n- host-protocol/src/live-file-rules.ts (new, imports NOTHING): LIVE_WORKSPACE_ROOT, LIVE_FILE_PATH_MAX_CHARACTERS, livePathProblem, normalizeLivePath, livePathHasGitSegment, looksLikeSecretFile, looksBinary, trimToCharacterBoundary, utf8ByteLength (section 5.1).\n- host-protocol/src/live-files.ts (new): constants and every zod schema of section 5.2, verbatim.\n- host-protocol/src/supervisor.ts: add OWNER_FILE_REQUESTS_PROTOCOL_VERSION = 2 and OWNER_POLL_INTERACTIVE_MILLISECONDS = 1000; ownerErrorCodeSchema + \"operation_closed\" (409 in OWNER_ERROR_STATUS); ownerStopVetoReasonSchema + \"file_operation_pending\"; ownerPollResponseSchema + file_requests (max 4, default []). Do NOT change OWNER_PROTOCOL_VERSION (Part C does).\n- host-protocol/src/edit-overlay.ts (new, section 5.5 verbatim): overlay constants, overlayConflictSchema, overlayEntrySchema, overlaySealSchema (with snapshot_generation), overlayIndexSchema, ownerOverlaySealRequest/ResponseSchema, ownerOverlayAppliedRequest/ResponseSchema, overlayBlobObject.\n- host-protocol/src/supervisor.ts also: ownerErrorCodeSchema + \"overlay_not_sealed\" (409).\n- host-protocol/package.json: exports \"./live-files\", \"./live-file-rules\" and \"./edit-overlay\".\n- conversation/src/snapshot/files.ts: import the shared rules, delete the private copies of indexPathOf's checks, looksLikeSecretFile, looksBinary, trimToCharacterBoundary (indexPathOf keeps the index-path mapping on top of livePathProblem).\n- conversation/test/edit-overlay-schema.test.ts (new: a 101st entry fails, duplicate paths fail, 8 MiB plus one byte fails, a path outside /workspace fails, cleared and conflicts default to empty, an index with a seal parses),\n- conversation/test/live-file-rules.test.ts (new), conversation/test/live-files-protocol-schema.test.ts (new), conversation/test/owner-supervisor-protocol-schema.test.ts (extend: poll response with and without file_requests, new veto and error code).\n\nAcceptance (run from conversation/): npm run typecheck; npm test; npm run test:features. All green, including every existing computer_snapshot_index.feature scenario. The schema test proves: the largest read result serialized as a table item is under 380000 bytes; a 262144-byte write passes and one more byte fails; paths with \"..\", NUL, relative, or outside /workspace fail; a masked read result with content fails; a request with an unknown field fails and a poll response with an unknown field passes.\n\nDependencies: none. Blocks A1, A3, C, C2, W (shapes), A2.\n\nRules: no emojis, no line comments, TSDoc on public exports, long names. Do not read or write project/.\n\n\nREVISION 3 (owner decision O5: delete, rename and new folders are required in Phase 3, also while the computer is off; contract sections 3 L48 to L66, 5.2, 5.5, 7.8, 8.1):\n- host-protocol/src/edit-overlay.ts: overlayEntrySchema is a discriminated union on op (put with from/from_sha256, delete with directory/recursive/base_sha256/tree_sha256, mkdir, move with from/directory/sha256/tree_sha256/size/mode); overlayConflictSchema gains reason (changed, collision, not_empty, kind_mismatch); the index refine also checks a source path is moved once and is not also an entry, and counts only put content toward 8 MiB; entryReference is {path, revision}.\n- host-protocol/src/live-files.ts: request kinds delete (recursive, precondition if_match or if_match_tree), move (to, precondition) and mkdir; stat gains tree; result kinds delete, move, mkdir; owner error codes directory_not_empty, invalid_move, too_many_entries; liveFileEntrySchema.tree_sha256; liveFileMoveBodySchema, liveFileMkdirBodySchema, response schemas for delete, move, mkdir; liveFileDiscardBodySchema is {path, revision}; constant LIVE_FILE_TREE_MAX_ENTRIES = 5000.\n- host-protocol/src/live-file-rules.ts (no imports): the tree hash and the symlink hash functions of 7.8.2 (pure, shared by the Front Door and the helper) with tests.\n- Tests: edit-overlay-schema.test.ts covers each of the four kinds, a source moved twice, a source that is also an entry, and put-only byte counting.",
+  "type": "sub-task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-041a1034-6ea9-4790-b8be-10f464f70024",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2662f207-b087-4e0c-9c6d-381fb63311dc",
+      "author": "home",
+      "text": "Description revised for contract revision 2 (edit overlay); see docs/LIVE_FILES_PROTOCOL.md and PR 519.",
+      "created_at": "2026-10-12T22:01:55.245971Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "planner"
+      }
+    },
+    {
+      "id": "5adb1ad7-b009-4f4a-af25-cd673a77b6a5",
+      "author": "home",
+      "text": "Description revised for contract revision 3 (delete, rename, new folders); see docs/LIVE_FILES_PROTOCOL.md section 7.8 and PR 519.",
+      "created_at": "2026-10-12T22:22:10.853363Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "planner"
+      }
+    },
+    {
+      "id": "49b65dfc-32ed-40fd-80af-2f2f2bb0ad6e",
+      "author": "home",
+      "text": "Merged to develop in PR 520 (F0), part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:05:17.962580Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "0b3223e7-9958-4bfb-8ffc-18bfb40d294b",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:05:22.910527Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-10-12T21:40:52.674125Z",
+  "updated_at": "2026-10-13T07:05:29.263518Z",
+  "closed_at": "2026-10-13T07:05:29.263055Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "planner"
+  },
+  "right_now_summary": "Phase 3 is merged and proven at the API level; browser testing at 375 px and with a signed-in user remains.",
+  "right_now_updated_at": "2026-10-13T07:05:31.255744Z",
+  "custom": {}
+}

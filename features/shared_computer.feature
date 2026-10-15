@@ -12,13 +12,6 @@ Feature: Shared computer and isolated bot memory
     Then bot "Writer" can read "notes.md" as "weekly account list" from the computer
     And both bots use the same computer
 
-  Scenario: Browser sessions are shared on the computer
-    Given an empty control plane
-    And tenant "anthus" user "ryan" has a bot named "Researcher"
-    And tenant "anthus" user "ryan" has a bot named "Writer"
-    When bot "Researcher" saves a browser session "salesforce" as "signed-in"
-    Then bot "Writer" sees browser session "salesforce" as "signed-in"
-
   Scenario: Bot memory is not shared
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"

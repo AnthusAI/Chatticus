@@ -1,0 +1,141 @@
+{
+  "Description": "ACM certificates for the development environment's names.",
+  "Resources": {
+    "SiteCertificate38C247F6": {
+      "Type": "AWS::CertificateManager::Certificate",
+      "Properties": {
+        "DomainName": "develop.chattic.us",
+        "DomainValidationOptions": [
+          {
+            "DomainName": "develop.chattic.us",
+            "HostedZoneId": {
+              "Fn::ImportValue": "ChatticusEnvironmentZones:ExportsOutputRefSiteZoneFF0EAA7CF0B39F08"
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "dns"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "development"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusEnvironmentCertificates/SiteCertificate"
+          }
+        ],
+        "ValidationMethod": "DNS"
+      }
+    },
+    "AuthCertificateC5D33BF2": {
+      "Type": "AWS::CertificateManager::Certificate",
+      "Properties": {
+        "DomainName": "auth-develop.chattic.us",
+        "DomainValidationOptions": [
+          {
+            "DomainName": "auth-develop.chattic.us",
+            "HostedZoneId": {
+              "Fn::ImportValue": "ChatticusEnvironmentZones:ExportsOutputRefAuthZone1B40937F8A89DA59"
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "dns"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "development"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusEnvironmentCertificates/AuthCertificate"
+          }
+        ],
+        "ValidationMethod": "DNS"
+      }
+    }
+  },
+  "Outputs": {
+    "SiteCertificateArn": {
+      "Value": {
+        "Ref": "SiteCertificate38C247F6"
+      }
+    },
+    "AuthCertificateArn": {
+      "Value": {
+        "Ref": "AuthCertificateC5D33BF2"
+      }
+    },
+    "ExportsOutputRefSiteCertificate38C247F695788777": {
+      "Value": {
+        "Ref": "SiteCertificate38C247F6"
+      },
+      "Export": {
+        "Name": "ChatticusEnvironmentCertificates:ExportsOutputRefSiteCertificate38C247F695788777"
+      }
+    },
+    "ExportsOutputRefAuthCertificateC5D33BF20899EEA2": {
+      "Value": {
+        "Ref": "AuthCertificateC5D33BF2"
+      },
+      "Export": {
+        "Name": "ChatticusEnvironmentCertificates:ExportsOutputRefAuthCertificateC5D33BF20899EEA2"
+      }
+    }
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
+  }
+}

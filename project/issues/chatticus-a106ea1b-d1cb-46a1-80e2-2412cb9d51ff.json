@@ -1,0 +1,52 @@
+{
+  "id": "chatticus-a106ea1b-d1cb-46a1-80e2-2412cb9d51ff",
+  "title": "Restore the spend-ceiling banner dropped by the workspace rewrite",
+  "description": "Found while preparing chatticus-1d68fb.\n\n#338 (6a9e97) added a workspace banner shown when GET /me reports computer_work_paused for the active org. Commit 3fb29a5 (#346, real workspace) removed it: web/components/EnabledWorkspace.tsx no longer references computer_work_paused, and only the MeOrganization type in web/lib/me.ts still carries the fields. A member past the ceiling gets refused turns with no explanation in the workspace.\n\nGreen at the API layer, broken at the UI seam. Restore the banner (with computer_work_paused_reason) in the new workspace layout, with a web test that renders it from a /me fixture. Blocks the 'member sees the banner' check in 1d68fb.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "a736c680-4a56-4fab-81b1-81ed347d49ca",
+      "author": "home",
+      "text": "PR #368 restores the banner as its own component (ComputerPausedNotice), mounted between the conversation header and the error bar. Copy deliberately differs from #338: it no longer says an owner can raise the ceiling (no product control exists, 91f8f4); it says the workspace is still usable and to ask an operator. First real render test in the web suite (react-dom/server; tsx needs a test-only global React because tsconfig uses jsx: preserve). Mutation-checked: removing the mount from EnabledWorkspace fails the wiring test. Closing after merge and a live check on dev.",
+      "created_at": "2026-09-19T14:53:41.676054Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "fe1aebe5-f632-4340-bed3-336201efe09c",
+      "author": "home",
+      "text": "Verified live on dev after the #368 deploy (2026-09-19; ceiling 100 / rollup 150 seeded, then cleaned up): the workspace shows 'Computer work is paused / monthly AWS spend ceiling exceeded / You can still read your channels and message bots. Ask an operator if this looks wrong or you need computer work sooner.' Visible as soon as /me arrives, even while the roster is still loading. Closing.",
+      "created_at": "2026-09-19T15:16:17.780190Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
+  "created_at": "2026-09-19T12:50:28.033118Z",
+  "updated_at": "2026-09-19T15:16:17.879286Z",
+  "closed_at": "2026-09-19T15:16:17.879268Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-10e4ad4b-0d86-4b41-ab41-596a8f63a35b",
+  "title": "T5 Complete metering: compaction, aborted and errored calls, voice with member and channel, gateway observations and reconciliation",
+  "description": "Depends on T4. Files: conversation/src/voice/understanding.ts (keep cacheRead), conversation/src/domain/voice-messages.ts (record member and channel, report failure instead of console.warn), conversation/src/gateway/model-gateway.ts (observed items pk {tenant}#cost#observed, TTL 35 days, flag estimated), new conversation/src/ledger/reconcile.ts. Acceptance: plan scenarios 10, 11, 12, 13, 19 pass.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "91ac86ff-ab16-4197-b6f3-e3c352021dff",
+      "author": "home",
+      "text": "T5 implemented on branch ts/cost-complete-metering; PR https://github.com/AnthusAI/Chatticus/pull/539 open against develop, not merged. Compaction records recovered from pi.usage minus entries; gateway observations keyed by response id (35 day TTL) reconciled by the daily rollup (matched, compaction, pending, orphan) so a call counts once; voice understanding is a voice_understanding cost record with member and channel; rollup surfaces unpriced_calls; owner role limited to month cost partitions. Evidence: typecheck clean, vitest 1206 pass, cost/ledger/gateway/owner/turn/voice/budget cucumber 702 scenarios pass, infra 530 pass. Mutation checks on the reconciliation key, both compaction subtractions, compaction derivation, rollup backstop and observation estimate guard each fail named scenarios. Deploy note: the role policy change needs the stack deployed and the owner role verified with the IAM simulator before an owner image depends on it. Also fixed: three cost_session_records features were missing the features/ prefix in cucumber-features.txt and never ran. Not in scope: T6 sub-agents, T7 migration, T8 API, T9 web.",
+      "created_at": "2026-10-13T15:18:58.207455Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t5"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:31:28.674788Z",
+  "updated_at": "2026-10-13T15:18:58.207490Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "T5 is implemented and tested, with a pull request awaiting review and deployment checks.",
+  "right_now_updated_at": "2026-10-13T15:18:59.306942Z",
+  "custom": {}
+}

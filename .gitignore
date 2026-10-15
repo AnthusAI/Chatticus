@@ -1,17 +1,7 @@
-# Python
-.venv/
-venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.coverage
-coverage.xml
-htmlcov/
 dist/
 build/
 # Node
-node_modules/
+node_modules
 .next/
 out/
 web/generated/
@@ -35,6 +25,7 @@ var/
 *.swp
 # Web auth behavior harness state (test artifact, never commit)
 .auth-harness-state.json
+.auth-harness-oidc-store.json
 .membership-ui-harness-state.json
 .survey-form-harness-state.json
 .contact-form-harness-state.json
@@ -42,3 +33,5 @@ var/
 project/events/
 project/.overlay/
 project/.cache/
+*.tsbuildinfo
+web/public/vendor/

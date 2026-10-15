@@ -1,0 +1,18 @@
+{
+  "name": "@chatticus/host-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/schemas.ts",
+    "./workspace-edit": "./src/workspace-edit.ts",
+    "./supervisor": "./src/supervisor.ts",
+    "./live-files": "./src/live-files.ts",
+    "./costs": "./src/costs.ts",
+    "./live-file-rules": "./src/live-file-rules.ts",
+    "./edit-overlay": "./src/edit-overlay.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

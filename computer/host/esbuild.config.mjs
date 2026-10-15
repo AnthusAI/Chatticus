@@ -1,0 +1,27 @@
+import { build } from "esbuild";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const hostDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = resolve(hostDirectory, "..", "..");
+const outputDirectory = process.env["CHATTICUS_HOST_BUNDLE_DIR"] ?? resolve(hostDirectory, "dist");
+
+await build({
+	entryPoints: {
+		"host-worker": resolve(hostDirectory, "src", "main.ts"),
+		owner: resolve(hostDirectory, "src", "owner-main.ts"),
+		supervisor: resolve(hostDirectory, "src", "supervisor-main.ts"),
+		snapshot: resolve(repositoryRoot, "conversation", "bin", "snapshot.ts"),
+		"file-helper": resolve(repositoryRoot, "conversation", "src", "pi", "owner-file-helper-main.ts"),
+	},
+	outdir: outputDirectory,
+	outExtension: { ".js": ".mjs" },
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	banner: {
+		js: "import { createRequire as createRequireForBundle } from 'node:module'; const require = createRequireForBundle(import.meta.url);",
+	},
+	logLevel: "info",
+});

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-d5a46717-7a06-4597-acc4-6d1a1cd49136",
+  "title": "Long-lived computer Phase 1: snapshot v2 index, streaming pack and a read-only Files view",
+  "description": "Done 2026-10-12 (PRs 513 design, 515 server, 514 web). Snapshot v2: per-file gzip members, index/<checksum>.json, manifest names the index checksum, exclusions (node_modules etc, files over 50 MiB), streaming multipart pack (RSS growth +45 MB for 50 MB, +32 MB for 200 MB), change detection by size and mtime. Routes GET /orgs/:t/computer/files, /stat, /content (read-only, membership checked, masked secrets, hash verified). Web: inspector Files tab, viewer, Files Pi touched. Development snapshots re-indexed with conversation/bin/reindex-snapshots.ts (idempotent). Verified live: the Files tab lists /workspace (fib, fib.c, squares, squares.c), opens squares.c (cubes version, sha256 e522e977c357), and shows Binary file for the compiled program. Not verified live: masked file, images, a 400 MB workspace publish, a bot creating a new folder.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-12T13:18:40.049297Z",
+  "updated_at": "2026-10-12T13:18:45.944220Z",
+  "closed_at": "2026-10-12T13:18:45.944170Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Snapshot v2 and the read-only Files view work live, but several edge cases remain untested.",
+  "right_now_updated_at": "2026-10-12T13:18:47.998455Z",
+  "custom": {}
+}

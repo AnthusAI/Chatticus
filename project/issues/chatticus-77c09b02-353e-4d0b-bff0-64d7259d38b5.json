@@ -1,0 +1,52 @@
+{
+  "id": "chatticus-77c09b02-353e-4d0b-bff0-64d7259d38b5",
+  "title": "Behavior tests validate lib modules while components stay unwired",
+  "description": "**Raised 2026-09-16 out of `930da7`, where a fully built and fully tested feature shipped as nothing.**\n\n`TurnGrantPanel` had a component, a `lib/turn-grant.ts` module, unit tests, a harness path, and `features/web_turn_grant.feature`. All green. Nothing imported the component, so the product had no turn authority controls at all. I merged a change into it (PR #353) without noticing.\n\n## Why everything was green\n\n`web/test-support/membership-ui-harness.ts` imports `isTurnGrantPanelVisible` from `web/lib/turn-grant.ts` — the pure logic — and never touches the React component. The Gherkin therefore proves *the logic is right*, not *the product does anything*.\n\nThis is not specific to turn grants. Any feature whose harness drives a `lib/` module while the component stays unwired will look finished and ship as nothing. We should assume this has happened more than once; `930da7` is simply the one we found.\n\n## What we put in as a stopgap, and why it is not the answer\n\n`web/lib/turn-grant-wiring.test.ts` asserts, by reading `EnabledWorkspace.tsx` as **text**, that the panel is imported, rendered and gated. It catches the exact regression that happened. It cannot distinguish a mounted component from one inside an unreachable branch, because it never renders anything.\n\nIt also showed the failure mode of this technique immediately: as first written it pinned exact formatting, and a strictly better refactor — removing a non-null assertion, putting props on separate lines — made it fail. A guard that breaks on correct refactors teaches people to edit the guard, which is how it stops guarding. It has been loosened and its limits are documented in the file, but it remains a proxy.\n\n## The actual question to settle\n\nHow do we make \"the component is reachable in the running app\" a thing that can fail? Options worth weighing, no decision implied:\n- A render-capable test setup for the web suite, so a component can be mounted and asserted rather than grepped.\n- A browser-level acceptance pass over the real deployed app for each feature file, rather than a harness standing in for the UI.\n- A structural check that every component with a feature file is reachable from a route.\n\nWhatever we choose should also answer the cheaper question: **which other components are currently orphaned?** That is a survey someone can run today, and it should probably happen before we design anything.\n\n## Done when\n\nAn orphaned component fails something automatically, and we know whether `TurnGrantPanel` was the only one.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [
+    "testing"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "307d0425-755f-45e4-9de1-4b5e11b3d328",
+      "author": "home",
+      "text": "## Orphan survey run 2026-09-16 — the cheap question answered\n\nChecked every component under `web/components/` for whether anything imports it, by import path rather than by name, excluding tests.\n\n**`TurnGrantPanel` was not the only one. Three more components are imported by nothing.** But they are not three more broken features — they split into two very different categories, and the distinction is the useful part.\n\n### Superseded dead code — cleanup, not defects\n\n- `components/CreateBotPanel.tsx` — `EnabledWorkspace` does bot creation inline (`createBot` appears 6 times there).\n- `components/TaskList.tsx` — `EnabledWorkspace` renders tasks inline (`visibleTasks`).\n\nBoth were replaced by inline implementations and never deleted. No user-visible gap. Deleting them removes two decoys from exactly the search that found `930da7`.\n\n(Also unimported: `components/ui/accordion.tsx` and `components/ui/badge.tsx`. Unused shadcn primitives from a UI kit — not a product concern, ignore.)\n\n### A real gap, filed separately\n\n- `components/InviteMemberPanel.tsx` is orphaned **and is the only caller of `web/lib/invitations.ts`**. The panel and its entire API client are unreachable from the running app.\n\nMeanwhile `NoOrganizationPanel` — which IS mounted, via `MembershipShell` — tells a person: \"Ask an operator to invite you before using the workspace.\"\n\nSo the product instructs people to request an invite from an operator who has no way to send one from the product. That sits directly on the beta path.\n\n### What this says about the structural question\n\nThe `930da7` pattern is real but not epidemic: one genuine unreachable feature, one more found here, two stale leftovers. That is a small enough number to fix by hand now, and it argues for a cheap automated check rather than a large testing-infrastructure project. An import-graph check that flags any component under `components/` that nothing reaches would have caught all four, costs almost nothing, and does not require a render-capable test setup.\n\nSuggest narrowing this card to that check, and treating the render-capable test suite as a separate, larger decision rather than the prerequisite.\n",
+      "created_at": "2026-09-16T18:38:08.034262Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "74761e30-1bb2-437d-922f-1a1bf7700dcb",
+      "author": "home",
+      "text": "PR #367 adds web/lib/component-reachability.test.ts: import-graph walk from app/ routes AND the root package.json exports, failing for any unreached file under components/. Survey today: zero orphans (the earlier cleanup removed them). Caught in review of my own first draft: components/workspace/* and components/ui/* look orphaned from web/ alone but are exported to the marketing package (#294), so deleting them would have broken it; exports are therefore roots. Mutation-checked: a planted orphan fails it, and removing the TurnGrantPanel import from EnabledWorkspace fails it naming TurnGrantPanel (the 930da7 regression). Closing on merge. The render-capable test suite stays a separate, larger decision.",
+      "created_at": "2026-09-19T14:51:29.044679Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
+  "created_at": "2026-09-16T17:02:11.891944Z",
+  "updated_at": "2026-09-19T15:11:32.319674Z",
+  "closed_at": "2026-09-19T15:11:32.319639Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

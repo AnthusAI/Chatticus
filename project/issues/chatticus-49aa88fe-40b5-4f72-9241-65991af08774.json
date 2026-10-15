@@ -1,0 +1,64 @@
+{
+  "id": "chatticus-49aa88fe-40b5-4f72-9241-65991af08774",
+  "title": "T4 Call cost records in the session document, idempotent keyed writes, turn index; retire delta counters and gateway ledger writes",
+  "description": "Pivot ticket. Depends on T1, T2, T3. Files: new conversation/src/ledger/call-cost.ts (ModelCallCost, chatticus.cost defineDoc like conversation/src/pi/channel-log.ts), conversation/src/turn/finalize.ts (measureTurnUsage, recordTurnSpend), conversation/src/turn/executor.ts (calls at conclude, fail, yield, park), conversation/src/gateway/model-gateway.ts (stop writing the ledger), conversation/src/store/turn-store.ts and conversation/src/domain/turns.ts (remove ledger_input_recorded and ledger_output_recorded), computer/host/src/owner-deps.ts (empty VendorPriceBook), turn index pk {tenant}#cost#{yyyy-mm} sk turn#{turnId} with bot_id, channel_id, prompt_author_id, prompt_message_seq, message_seq, owner_kind. Fixes F1, F3, F5(e). Acceptance: plan scenarios 1 to 5 and 20 pass; T1 scenario passes; vitest and cucumber-js green; no dual reader.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d2ac76aa-215f-47ef-ad70-0592eabdd79d",
+      "author": "home",
+      "text": "Started T4. Design: one writer deriveCostRecordsFromEntries (conversation/src/ledger/call-cost.ts) writes chatticus.cost keyed records entry-<entryId> (fork initial, filter on conversationId) at conclude, fail, yield, park and when a resumed owner starts; the ledger row and the monthly turn index item are projected from those records in one transaction (turn-cost.ts); delta counters removed. Spike decision applied: no afterResponse hook.",
+      "created_at": "2026-10-13T13:29:47.622550Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t4"
+      }
+    },
+    {
+      "id": "bc821c61-293e-4cd6-b168-26cd90e7dd7a",
+      "author": "home",
+      "text": "PR 538 open (not merged). One writer deriveCostRecordsFromEntries; records at conclude/fail/yield/park/resume; ledger row and monthly turn index projected from the same record sum; delta counters and measureTurnUsage removed; owner role policy gained the cost partition. 3 new features (11 scenarios); mutation checks on entry key, conversationId filter, fork mode, yield and park each fail a scenario. Local: vitest 1207, cucumber subset 492 scenarios, infra 530 all green. Unproven: resume-point write not separately observable; uncommitted-call window left to T5.",
+      "created_at": "2026-10-13T13:46:17.592289Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t4"
+      }
+    },
+    {
+      "id": "1c89fdb0-2f7e-4af8-8a9c-54e498a7447d",
+      "author": "home",
+      "text": "Merged as PR 538 (T4). Verified LIVE on development 2026-10-13. A computer-owner turn wrote 2 model-call cost records into the session (0.0001858 USD, price book openai@2026-10-13+pi-ai-1.0.2, per-turn index item owner_kind computer). A Lambda turn wrote 1 record (0.000092 USD, owner_kind lambda). The ledger row matches the session records, the earlier computer-owner double count is gone, and the owner role policy for the cost partition is deployed.",
+      "created_at": "2026-10-13T14:11:34.479804Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:31:25.063806Z",
+  "updated_at": "2026-10-13T14:11:37.409471Z",
+  "closed_at": "2026-10-13T14:11:37.409435Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "T4 is merged and live, with session cost records and turn indexes verified for computer and Lambda turns.",
+  "right_now_updated_at": "2026-10-13T14:11:38.573278Z",
+  "custom": {}
+}

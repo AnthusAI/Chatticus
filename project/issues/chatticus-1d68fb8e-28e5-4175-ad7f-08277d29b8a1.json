@@ -1,0 +1,79 @@
+{
+  "id": "chatticus-1d68fb8e-28e5-4175-ad7f-08277d29b8a1",
+  "title": "Verify the spend ceiling stops computer work on live development",
+  "description": "**Phase 5.** Not a demo. The same class of check as refuse-not-fallback.\n\n---\n\n## Why this card exists\n\n`chatticus-43e64c` and `chatticus-6a9e97` are closed, and both closed on **green CI, not live verification**. From `6a9e97`'s closing note:\n\n> Live development still needs a ThinTurn/web deploy plus an org with a ceiling and rollup rows before a member can see the banner on `dev.chattic.us`. Closing the card on green merge; live seed is a follow-up on the epic **if we want a timed demo**.\n\nClosing on green was reasonable. Framing the live run as an optional demo is the part worth revisiting, because **the ceiling is the safety property**, and this project has already established a standard for those.\n\n## The standard already set\n\n`chatticus-2f2d87` promoted refuse-not-fallback from an in-memory Gherkin scenario to a production result, and the runbook now says so explicitly:\n\n> Refuse-not-fallback (production-verified, 2026-09-07)... Cite this section for any customer-facing claim. It is not only a card comment.\n\nThat was the right call, and the reason applies here identically. Both properties protect a customer from a cost they did not agree to. Both are unfalsifiable from the outside until they fire.\n\n## Why green CI is weaker evidence here than usual\n\nEvery real defect found this week passed at one layer and broke at a seam:\n\n| Found | Green at | Broken at |\n|---|---|---|\n| Terminal missing | spec and docs | no tool existed |\n| File tools | both layers individually | never connected |\n| Customer image | role built for customer ECR | stack pulled from Anthus |\n| Host start | `RunTask` returned | task never reached RUNNING |\n\nThe ceiling has more seams than most of those: rollup rows, a deploy, an org record, the worker's refusal path, and a banner. Gherkin covers the decision logic; it does not cover whether the rollup that feeds it is actually populated in a deployed environment.\n\n## Why now\n\nThe operator throttle is gone. `chatticus-9c8dbf`, `chatticus-070cb4` and `chatticus-7622fd` closed, so a customer can self-provision, and `run_terminal` is grantable on a computer that runs cross-account. The product can start compute on someone else's bill by design. **The brake for that is this ceiling, and it has never been observed stopping anything outside a test suite.**\n\n## What to run\n\nSeed an org on development with a ceiling and rollup rows above it, then attempt computer work.\n\n- New computer work is **refused**, fail-closed.\n- The organization stays **enabled** — `6a9e97`'s whole point is that crossing the ceiling stops computer work, not the org.\n- The member sees the banner on `dev.chattic.us`.\n- Record what a member can actually do next. If the answer is \"contact an operator\", that is a person-step and belongs in the invitation-rate math alongside `chatticus-c54569`.\n\n## Related, and worth confirming in the same pass\n\n`#337`'s review noted the owner-raise Gherkin hits the kernel rather than the PATCH route. If an owner cannot raise their own ceiling through the product, hitting the ceiling converts an unbounded bill into a support ticket — a different bottleneck, not a solved problem.\n\n## Done when\n\nThe runbook has a ceiling section citable for customer-facing claims, in the same form as refuse-not-fallback: what was attempted, what was refused, what stayed enabled, and what the member could do next.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [
+    {
+      "target": "c54569",
+      "type": "blocked-by"
+    },
+    {
+      "target": "26f253",
+      "type": "blocked-by"
+    },
+    {
+      "target": "9ac621",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "a04aa3a5-2c37-4252-ad35-0bf19704bb27",
+      "author": "home",
+      "text": "Not a demo. Sequence: `5e4c9a`+`98f4f6` then `c54569` on a clean build, **then this**. Wired `blocked-by c54569`.\n\nLive seed: org with ceiling and rollup rows above it; computer work; record refuse fail-closed, org enabled, banner visible, **what the member can do next**. PATCH exists; no workspace UI. Filed `chatticus-91f8f4` for owner raise through the product. If next step is contact an operator, that is a person-step for invitation-rate math.\n\nRunbook section in the same form as refuse-not-fallback (`2f2d87`). Placeholders in the wiki; ids in `AGENTS.local.md`.",
+      "created_at": "2026-09-08T22:25:58.897967Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "7e59bfa6-c265-44cb-8eb7-ae304b0e525b",
+      "author": "home",
+      "text": "Live run 2026-09-19 on dev (org anthus, ceiling 100, rollup 150; seeded and fully cleaned up via scratchpad ceiling_seed.py). Results: GET /me = enabled + computer_work_paused + reason (PASS). Org stayed enabled (PASS). No computer/ECS task started, fail-closed (PASS). Refusal did NOT surface: browser-gated turn parked silently, see the new bug filed from this run (FAIL). Banner absent, removed by 3fb29a5 (FAIL), tracked in a106ea. Member's next step today: none in product; contact an operator (91f8f4 for owner raise). Runbook section not yet written; wait for the two fixes then re-run.",
+      "created_at": "2026-09-19T13:01:43.247802Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "a3c66c4c-7f6d-433e-8f3f-719b64d88d5c",
+      "author": "home",
+      "text": "Re-run after #365 deployed: refusal now surfaces to the member in the thread (PASS), no computer started (PASS), org enabled (PASS), /me reports the pause (PASS). Remaining failure: workspace banner absent, tracked in a106ea. Still open on this card: restore the banner, then write the runbook section (attempted, refused, stayed enabled, member's next step = contact an operator until 91f8f4).",
+      "created_at": "2026-09-19T14:23:26.210576Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "7e97cef8-18ec-4e78-a8d9-ad0908cb9ef4",
+      "author": "home",
+      "text": "Runbook section written (project/wiki/runbooks/throwaway-account-provisioning.md, 'Spend ceiling'). Live results: refusal with stated reason, no computer started, org stays enabled, banner visible. Two defects found and fixed on the way (d14144 via #365, a106ea via #368). NEW BLOCKER: chatticus-26f253 — the daily spend rollup Lambda is not deployed in any environment, so real spend never reaches the ceiling decision; the section says explicitly that 'Chatticus stops spend at your ceiling' is not citable until that closes. Leaving this card open, blocked-by 26f253. Also still open: 91f8f4 (owner raise UI). Needs Ryan: monthly limit and notification email per environment (product decisions; the deploy script refuses invented defaults).",
+      "created_at": "2026-09-19T16:00:24.923917Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
+  "created_at": "2026-09-08T22:21:12.490291Z",
+  "updated_at": "2026-09-19T17:17:08.389769Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

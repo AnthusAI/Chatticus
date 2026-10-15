@@ -1,0 +1,85 @@
+{
+  "id": "chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51",
+  "title": "Customer account holds the computer image at runtime",
+  "description": "**Principle follow-through, not the `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` patch.**\n\nEpic `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5` decided 2026-09-07: a customer organization's account holds everything that organization's work depends on at runtime — image, files, compute.\n\n`infra/customer-role.yml` already grants the full ECR push set (`CreateRepository`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`, `SetRepositoryPolicy`). `chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09`'s who-creates-what table said the `:dev` image lands in **that** ECR under the assumed role. `infra/lib/customer-computers-stack.ts` instead `fromRegistry(anthusComputerImageUri)`.\n\nDo not start this until `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` has a host that runs — two customer-visible computer-stack changes at once will blur the labeled stop. Template edits stay customer-visible.\n\n```\nFeature: The customer computer pulls an image from the customer's ECR\n\n  Scenario: RunTask does not depend on Anthus registry reachability\n    Given a customer ChatticusComputers stack\n    When a computer host starts\n    Then the task definition image URI is in CUSTOMER_ACCOUNT_ID\n    And the published role's push permissions are used, not leftover\n```",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "29fa7359-4bf9-4b8b-b22e-ac09529c4f8c",
+      "author": "home",
+      "text": "Opened to apply the epic principle. Blocked by 8fe4c7 until a host runs. Not the Dynamo AccessDenied fix.",
+      "created_at": "2026-09-07T22:59:09.946180Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e44eb69f-bbde-4226-a715-dd0ead2b7db3",
+      "author": "home",
+      "text": "`chatticus-8fe4c7e1` closed: a customer host executed `browser_open`. This card is unblocked. Next: customer ECR holds `:dev` at RunTask; stop pulling `fromRegistry(anthusComputerImageUri)`. Do not mix with host-disk step 2 in the same slice.\n",
+      "created_at": "2026-09-07T23:37:41.858203Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "61ac19c9-bcf6-4f33-9745-b1392472eb51",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-2b3c41-customer-ecr` on `feat/2b3c41-customer-ecr-image`. Implementation not authorized until the plan is reviewed. Customer-visible template stays customer-visible. Do not mix host-disk step 2 into this slice.\n",
+      "created_at": "2026-09-07T23:38:21.509242Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3256ee1b-60bf-44e3-9a78-9f7751313ef7",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-2b3c41-customer-ecr` on `feat/2b3c41-customer-ecr-image` (HEAD `ab92e29`, not the primary clone). Operator-script bootstrap (not Lambda copy), TenantId-only CreateStack, delete Anthus pull path, Gherkin migration of CREATE_COMPLETE + Anthus image parameter — those stand.\n\n**Closed on authorize:**\n1. **`fromEcrRepository` + CDK pull grant.** Do not hand-write one policy with `GetAuthorizationToken` on the repo ARN (that action is account-level). Do not keep the current execution-role `resources: [\"*\"]` ECR statement as a leftover.\n2. **ComputerWorker never publishes.** Host start is `DescribeImages` then refuse if `:dev` is missing. `publish_dev_image_from_anthus` is for the operator script and Gherkin only.\n\n`customer-role.yml` stays unmodified unless a real gap appears. No host-disk, no Dynamo on the task role, no live `browser_open` in this slice (ACME will refuse until the operator script runs after UpdateStack). Tear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-07T23:40:43.935966Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "68c1ea08-a29d-45b5-8690-3c8a9639b494",
+      "author": "home",
+      "text": "PR #320 reviewed, **not merged**. Request changes.\n\nLive ECR `DescribeImages` with a missing `:dev` tag raises `ImageNotFoundException`. `customer_image_tag_exists` treats empty `imageDetails` as missing and never catches `ClientError`. `is_image_not_found_error` is defined and unused. `_FakeEcr` returns `{\"imageDetails\": []}`, so Gherkin stays green and ACME after UpdateStack would not get `OrganizationComputerProvisioningError`.\n\nFix: treat `ImageNotFoundException` / `RepositoryNotFoundException` as missing in the helper. Make the Gherkin fake raise like AWS so behave fails without that catch.\n\nAlso drop `project/wiki` from this product PR; the runbook step lands on `develop` as `pm:` after merge.\n",
+      "created_at": "2026-09-07T23:59:49.405748Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8d997985-6b10-4a3b-b510-ddadeb3d26a9",
+      "author": "home",
+      "text": "Missing-tag exception path is in #320 (`9b10c15`); wiki hunk gone. Python CI green. Infra still red: `customer-computers-stack.test.ts:79` asserts `String(resource).includes(\":repository/\")` but CDK grants BatchGetImage on `Fn::GetAtt` of the repo ARN. Product IAM is correct (`GetAuthorizationToken` on `*`, pull on repo GetAtt). Implementer fixing the assertion only.\n",
+      "created_at": "2026-09-08T00:13:18.375980Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ea348ebc-6ad8-48b0-a5ab-d6d7b96a9508",
+      "author": "home",
+      "text": "Merged to develop as PR #320 (https://github.com/AnthusAI/Chatticus/pull/320, squash `1534708`). Python+infra CI green after missing-tag exception path and GetAtt IAM assertion.\n\nGherkin DoD is on `develop`. Live ACME still needs ThinTurn to pick up the new template, then `computer/push-customer-computer-image.sh` (AssumeRole, not Lambda) so `:dev` exists in the customer repo. Host start will UpdateStack then refuse until that publish. Do not live-run `browser_open` in this slice. Worktree `/tmp/chatticus-2b3c41-customer-ecr` stays until that operator push and the manager closes the issue.\n",
+      "created_at": "2026-09-08T00:26:57.163415Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d03a7f47-a96e-4f46-b617-29cdc319ba5a",
+      "author": "home",
+      "text": "DoD met. Closing.\n\nPR #320 on develop. Customer `ChatticusComputers` owns ECR; CreateStack is TenantId only. Operator `push-customer-computer-image.sh` published `:dev` under the cross-account role (lab UpdateStack first so `ComputerRepositoryUri` existed — ComputerWorker will UpdateStack on the next host start). Digest `sha256:d8a7c3094e0633ce80ffb9dc95e7a264ee539b320cf0a2e0ea12ebbb87017062`. Anthus desiredCount stays 0. No `browser_open` in this slice. Host-disk step 2 is next (`chatticus-fccc4e9a`); snapshot bucket remains `chatticus-bb9084`.\n",
+      "created_at": "2026-09-08T00:37:32.448606Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T22:58:46.825272Z",
+  "updated_at": "2026-09-08T00:37:32.461638Z",
+  "closed_at": "2026-09-08T00:37:32.461638Z",
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

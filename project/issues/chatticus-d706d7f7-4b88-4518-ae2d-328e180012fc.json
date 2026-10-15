@@ -1,0 +1,88 @@
+{
+  "id": "chatticus-d706d7f7-4b88-4518-ae2d-328e180012fc",
+  "title": "Activate the chatticus cost allocation tags once Cost Explorer lists them",
+  "description": "Follow-up to PR #373 (tags) for chatticus-9ac621. A cost allocation tag does not appear in Cost Explorer until it is activated, activation is not retroactive, and until chatticus:tenant is active the rollup reads every hosted organization as ce_status=error (fail closed).\n\n## State on 2026-09-19 (after #373 deployed to development)\n- Verified: the tags are on the deployed stacks (ChatticusThinTurn, ChatticusWeb, ChatticusAuth), on a Lambda, and on the DynamoDB table: chatticus:application=Chatticus, chatticus:component, chatticus:environment=development, chatticus:installation=Anthus AI Solutions.\n- aws ce list-cost-allocation-tags does not list the new keys yet (only chatticus:environment and chatticus:repo, both Inactive). New keys take about a day to be discovered.\n- Account 335163751677 is the AWS Organization's management account (o-0u3nze7ya8), so it can activate tags itself.\n- NOT verified: the run-time tags on computer tasks (chatticus:tenant etc.). No host runs on development (computerCount=0); covered by pytest only. The first real host start should be checked with aws ecs list-tags-for-resource.\n\n## To do (on or after 2026-09-20)\n1. aws ce list-cost-allocation-tags: confirm chatticus:application, chatticus:installation, chatticus:component, chatticus:tenant are listed. chatticus:tenant only appears once a tenant-tagged task has run; if it is missing, start one computer and check its task tags first.\n2. Activate (billing setting, needs Ryan's OK): aws ce update-cost-allocation-tags-status --cost-allocation-tags-status TagKey=chatticus:environment,Status=Active TagKey=chatticus:tenant,Status=Active TagKey=chatticus:application,Status=Active TagKey=chatticus:installation,Status=Active TagKey=chatticus:component,Status=Active\n3. Invoke chatticus-development-daily-budget-rollup and confirm hosted organizations move from ce_status=error to ok. Research whether Cost Explorer's tag backfill is worth requesting so earlier days are covered.\n\n## Done when\nchatticus:tenant is Active, and a hosted organization's rollup row reads ok with a real figure.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8fc0d437-01f5-4efb-8a56-1321b834974c",
+      "author": "home",
+      "text": "Dependency (2026-09-20): Ryan plans to make a new account the Organization's management account (see the new card 'Move Chatticus workloads out of the AWS management account'). Only the payer/management account can activate cost allocation tags, so if that move happens soon, do this activation in the new management account after it, rather than in 335163751677 now. If the move is not imminent, activate from 335163751677 as planned; tags survive the move, only the activation setting would need repeating.",
+      "created_at": "2026-09-20T13:26:58.417822Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "07f61069-8035-4c92-85d1-8cd645713f95",
+      "author": "home",
+      "text": "2026-09-30: Ryan approved activating the tags. Attempted from the NEW management account (profile Endymion, signed in as ryan, AdministratorAccess). Blocked before any change: ce ListCostAllocationTags returns AccessDeniedException 'User not enabled for cost explorer access'. Cost Explorer has never been enabled in the new management account, and enabling it is a console-only first-time action (no API or CLI for it). Nothing was written. NEXT, for Ryan: sign in to the Endymion management account and open Billing and Cost Management > Cost Explorer once, which enables it (data then takes about a day to populate, and it is unknown whether the legacy account's September history carries over). Then confirm the keys are listed and run: aws ce update-cost-allocation-tags-status --profile Endymion --cost-allocation-tags-status TagKey=chatticus:application,Status=Active TagKey=chatticus:environment,Status=Active TagKey=chatticus:installation,Status=Active TagKey=chatticus:component,Status=Active. chatticus:tenant still cannot be activated until a tagged computer task has run. Note: the tags on the legacy stacks are unchanged; only the activation setting moves with the payer. The rollup reads inside the legacy account, so check after enablement that the member account can still use Cost Explorer (linked-account access is a management-account setting).",
+      "created_at": "2026-09-30T19:10:44.021106Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "1decd986-4402-4860-bf9e-44c3bd26c958",
+      "author": "home",
+      "text": "2026-09-30 update from the peer session: Cost Explorer is now enabled in the new management account; data takes about 24 hours. Verified just now: ListCostAllocationTags from Endymion returns an empty list (no longer AccessDenied) and from legacy returns 'Linked account doesn't have access to cost allocation tags', confirming activation must be done from management. Legacy Cost Explorer works with history (2026-09-28 = 9.00 USD). Retry activation from Endymion on or after 2026-10-01. NEW DEPENDENCY: the rollup's own tag check cannot run from a member account (see the new bug filed today); activation alone will not turn hosted orgs from error to ok.",
+      "created_at": "2026-09-30T19:13:40.152766Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "418e567f-2b13-459d-a5cd-b4ec959e81bb",
+      "author": "home",
+      "text": "2026-10-01: Cost Explorer is now available in the new Management account (enabled 2026-09-30; data ready as of 2026-10-01 18:39 UTC). ce:GetCostAndUsage from profile Endymion returns data. It shows $0 for 9/29 and 9/30, which is expected: legacy joined the new organization late on 9/30 and its earlier costs were billed under the old, now deleted, organization. Legacy's spend should appear in Management's consolidated view from 10/01, after the ~24h lag. Profile legacy still reads its own pre-move history. This card can proceed from Management, the payer. Activation is a billing setting, so get Ryan's OK first. So far Cost Explorer lists chatticus:application, :component, :environment and :installation (all Inactive); chatticus:tenant is not listed yet, because it only appears after a tenant-tagged computer task has run. Still pending elsewhere: the org account limit (5; increase to 20 is CASE_OPENED with AWS), which blocks inviting the two lab accounts.",
+      "created_at": "2026-10-01T18:40:18.737913Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "7f56fac0-ded0-4655-a385-c77a0e2d0a84",
+      "author": "home",
+      "text": "2026-10-01: Ryan confirmed Cost Explorer works in the new management account. Listed there now: chatticus:application, :component, :environment, :installation (all were Inactive) plus an unrelated older chatticus:repo (left alone, not part of this scheme). ACTIVATED the four from the management account (profile Endymion, non-root) per Ryan's earlier approval: update-cost-allocation-tags-status returned no errors and a read-back shows all four Active. Activation is not retroactive and takes up to about a day to show up in cost data, so per-tag breakdowns will start appearing from now on, not for earlier spend. NOT DONE: chatticus:tenant is still not listed in Cost Explorer. It only appears once a computer task carrying that tag has run (the tag is applied to Fargate tasks at run time, #373), and no host runs yet in any account. Card stays open for that one key: after the first tagged computer run, list the tags, activate chatticus:tenant, then re-run the rollup. Related: 309a7e (the rollup's tag-active check cannot run from a member account) still blocks hosted organizations reading real spend even after tenant is active.",
+      "created_at": "2026-10-01T18:43:13.511881Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
+  "created_at": "2026-09-19T19:01:48.366951Z",
+  "updated_at": "2026-10-01T18:43:13.511927Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "Four cost tags are active; chatticus:tenant awaits a tagged task before activation and rollup testing.",
+  "right_now_updated_at": "2026-10-01T18:43:14.948115Z",
+  "custom": {}
+}

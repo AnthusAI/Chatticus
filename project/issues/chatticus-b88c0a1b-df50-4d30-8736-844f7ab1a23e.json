@@ -3,7 +3,7 @@
   "title": "Provision one throwaway AWS account end to end by hand, and time it",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the template task\n- **Unblocks:** the setup fee, the queue rate, and the promise on the pitch page\n\n---\nA task, not a story, because the deliverable is a measured number and a written runbook rather than a behavior the system exhibits.\n\nStand up a fresh AWS account, run the cross-account setup as a customer would experience it, provision one organization computer, and run one bot task. Record what actually happened: elapsed wall-clock time, how much of it was waiting on AWS, which steps needed a human decision, and every place the instructions were wrong.\n\n**Nothing else in this initiative can be honestly scheduled or priced until this number exists.** The setup fee prices this session. The invitation rate is capped by how many of these can be run per week. The pitch page makes a promise about how long onboarding takes. All three are currently guesses.\n\n**Done when:** a runbook exists in the wiki, with a measured elapsed time and a list of the steps that needed a person.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,12 +12,164 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7178ab6b-9bfe-4b99-9c9b-748d4603b37a",
+      "author": "home",
+      "text": "Do not pass the published CloudFront URL to `aws cloudformation create-stack --template-url` — CloudFormation rejects it. GET `https://dev.chattic.us/provisioning/customer-role.yml` unmodified, then `--template-body`. Docs PR in flight to put that in `infra/README.md`.",
+      "created_at": "2026-09-05T20:21:34.815348Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8bf7c60e-896f-4d3e-9b22-915d112828be",
+      "author": "home",
+      "text": "Runbook on develop (`infra/README.md` via #309): GET `https://dev.chattic.us/provisioning/customer-role.yml`, then `create-stack --template-body`. Do not pass CloudFront as `--template-url`.",
+      "created_at": "2026-09-05T20:32:58.773439Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "73082bd3-4233-4308-a65e-5cdf1d25bb60",
+      "author": "home",
+      "text": "# ▶ NEXT ACTION (2026-09-07)\n\n**This is the next thing to work on.** Storage discovery is closed (`chatticus-e9ddec`, epic closed today) and nothing on the P0 list is blocked by it. This task is P0, blocked by nothing, and its one known obstacle is resolved.\n\n## Why this one\n\n- The parent epic says it outright: *\"Start with: provisioning one throwaway account end to end by hand. Nothing else in this initiative can be scheduled or priced until that elapsed time is known.\"*\n- `chatticus-8a25af` (P0, in_progress) **cannot close without it** — its done-condition is *\"the hand-provisioning task ran against them unmodified.\"* The template is published; this run is what validates it.\n- Three numbers currently guessed depend on the result: the **$100 setup fee** (`54f1cf`, `b4f849`), the **invitation rate** (how many of these can be run per week), and the **onboarding promise on the pitch page**. Prices are already chosen — this run tells you whether they are defensible.\n\n## The blocker is cleared\n\nThe CloudFormation obstacle is resolved and the runbook landed in `infra/README.md` via #309:\n\n- GET `https://dev.chattic.us/provisioning/customer-role.yml`\n- then `aws cloudformation create-stack --template-body`\n- **do not** pass the CloudFront URL as `--template-url` — CloudFormation rejects it\n\n## Run it as a customer would\n\nFresh AWS account, cross-account setup exactly as a customer experiences it, provision one organization computer, run one bot task. Use the published template **unmodified** — if you have to edit it, that is a finding about `8a25af`, not a workaround.\n\n## Record, per the description\n\nElapsed wall-clock; how much was waiting on AWS; which steps needed a human decision; **every place the instructions were wrong**. The last one is the most valuable output and the easiest to skip while working.\n\n**Done when:** a runbook exists in the wiki with a measured elapsed time and the list of steps that needed a person.",
+      "created_at": "2026-09-07T14:57:13.806156Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "23ffdb59-d045-473e-9d54-71a33f4656eb",
+      "author": "home",
+      "text": "## Readiness verified 2026-09-07\n\nChecked rather than assumed, because the earlier note on `8a25af` said *\"product PR merged; waiting on web deploy.\"* That wait is over:\n\n```\nGET https://dev.chattic.us/provisioning/customer-role.yml\nHTTP 200, 6379 bytes\n```\n\n**6379 bytes is byte-identical to `infra/customer-role.yml` in the repo** (#308, `be007ec`). The published artifact and the versioned one are the same file, so a hand run against the URL is a genuine test of what a customer would get.\n\nNothing is blocking this task. It can start today.",
+      "created_at": "2026-09-07T14:57:50.132158Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "42375c1d-5017-42cc-af36-7ff1ff2a3c68",
+      "author": "home",
+      "text": "Starting the timed throwaway-account run. Storage stays closed. Published template at `https://dev.chattic.us/provisioning/customer-role.yml` unmodified; GET then `--template-body`. Anthus AWS session currently expired — will re-auth. Wiki runbook on `develop` (no product PR). Worktree for notes: `/tmp/chatticus-b88c0a-hand-provision` on `spike/b88c0a-hand-provision` if scripts are needed; wiki itself commits on `develop`.",
+      "created_at": "2026-09-07T15:02:00.773932Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c95b84cb-43e8-4945-be68-eceb629dc8a4",
+      "author": "home",
+      "text": "Plan reviewed. Journey is development-only (`dev.chattic.us`). Template GET + `--template-body` with `AnthusAccountId` + `OrganizationId=<tenant_id>` minted by `POST /organizations` first. Do not `members seed` the throwaway org. Do not Organizations `CreateAccount` as a fake customer.\n\nAmendments: (1) `CreateOrganizationPanel` leaves the org **pending** until an operator enables it — that is a person-step the README never mentions. (2) No HTTP for `submit_self_setup_cross_account_role` — kernel only; any operator script is a deviation, labeled as such. (3) Published role cannot create `ChatticusSnapshots`; ComputerWorker does not deploy `ChatticusComputers` in the customer account. F-safe (`pong`) is the honest first bot task; F-computer is a finding if infra is missing, not a reason to edit the template. (4) Worktree `/tmp/chatticus-b88c0a-hand-provision`. Wiki on `develop`. (5) **T0 does not start** until Anthus `aws login` is live and a human is ready for consumer AWS signup (phone/card). Clock not started.",
+      "created_at": "2026-09-07T15:04:33.059502Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "9629ab65-bb06-4848-8083-9499f9f2cd5f",
+      "author": "home",
+      "text": "Preflight: worktree `/tmp/chatticus-b88c0a-hand-provision` on `spike/b88c0a-hand-provision`. Published template still **6379 bytes**, `cmp` identical to `infra/customer-role.yml`. T0 not started — waiting on Anthus `aws login` and a human consumer AWS signup.",
+      "created_at": "2026-09-07T15:05:01.844569Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "26589599-d261-49ac-baf0-4d9f4897cd85",
+      "author": "home",
+      "text": "Anthus session is live (`335163751677` root). This account is **not** in AWS Organizations, so there is no `CreateAccount` path. T0 still blocked on a **consumer** signup at aws.amazon.com (email/phone/card) and a CLI session in that new account. Do not use Anthus as the customer home.",
+      "created_at": "2026-09-07T15:13:36.890451Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "15981f97-36be-4cf7-980f-e138570fc902",
+      "author": "home",
+      "text": "**Method note:** AWS Organizations is **not** in use on `335163751677` and will **not** be enabled for this run. `CreateAccount` is off the table.\n\nThe remaining path is a **consumer** AWS account (aws.amazon.com signup: email, phone, payment) plus a CLI session in that account. Anthus root cannot stand in as the customer home — that only proves same-account start.\n\nT0 remains blocked until that second account exists. If this desk cannot create one, that fact itself belongs in the wiki (invitation-rate / setup-fee input): we cannot complete a customer-shaped provision from a single billed account.",
+      "created_at": "2026-09-07T15:22:53.142267Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d3b7ef2b-dc48-4465-8695-eee101951125",
+      "author": "home",
+      "text": "**Do not stand up AWS Organizations for this run.** A customer does not join an Anthus org and does not get `CreateAccount`. `customer-role.yml` trusts Anthus `335163751677` from a **separate** billed account via AssumeRole + ExternalId.\n\nWhat to do instead: one normal aws.amazon.com signup (email, phone, payment). Use **that** account as the throwaway customer. Time the signup — that wall-clock is the onboarding number. Then GET the published template in that account and `--template-body`.\n\nA new management account plus Organization would measure Anthus-internal account vending, not self-setup, and would still require a first consumer signup anyway. Do not enable Organizations on `335163751677`.",
+      "created_at": "2026-09-07T15:23:44.998622Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1f263e2a-40c8-4ff2-b0f4-c4ee3fed89a3",
+      "author": "home",
+      "text": "Lab bookkeeping is a wiki row (account id, purpose, destroy-after), not AWS Organizations. Inviting the throwaway into an Anthus org would make it Anthus-controlled (consolidated billing, SCPs, management-account reach) and is not what a customer account looks like. Do not enable Organizations on `335163751677` as a side effect of this timing run.",
+      "created_at": "2026-09-07T15:25:01.296325Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c56cbaef-c5b2-4e16-84de-ee4050fac45c",
+      "author": "home",
+      "text": "**Method amendment (one-person desk):** consolidated billing for *Anthus lab throwaways* is accepted. That is not the customer funnel.\n\n- Enable Organizations on existing `335163751677` (do not invent a second management account; do not move Chatticus stacks).\n- `CreateAccount` a member named as the b88c0a throwaway. One bill. Distinct account id, so AssumeRole + published template still apply.\n- **Do not claim we timed aws.amazon.com signup.** Wiki must say: consumer phone/card funnel skipped; measured time is Chatticus provision (template, role, org record, computer, bot) plus Organizations `CreateAccount` wait.\n- No SCPs that pretend this is a locked-down customer. Real customers stay *out* of this org.\n\nPitch/$100/invitation-rate: use the Chatticus-provision number; treat AWS account signup as unmeasured (or a separate stopwatch if someone later does a true consumer signup).",
+      "created_at": "2026-09-07T15:28:30.766286Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f8a1ea2e-0922-4d77-b4c4-7abb3eb2dbdc",
+      "author": "home",
+      "text": "Wiki runbook for this card must **not** include desk AWS account ids, member-account ids, or billing emails. Placeholders only (`ANTHUS_ACCOUNT_ID`, `CUSTOMER_ACCOUNT_ID`); real values stay in gitignored `AGENTS.local.md`.",
+      "created_at": "2026-09-07T15:30:36.738672Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "801c5a5f-168b-4138-9ec1-d312763b2ca7",
+      "author": "home",
+      "text": "T0 started. Method: Organizations `CreateAccount` on the existing Anthus account for lab consolidated billing (not consumer signup). Throwaway member email is in `AGENTS.local.md` only — not the wiki, not this comment. Wiki stays placeholders.",
+      "created_at": "2026-09-07T15:33:01.070318Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f7292ddc-9bd8-409f-bebb-a814a4d9a098",
+      "author": "home",
+      "text": "Phase A: Organizations enabled; `CreateAccount` **SUCCEEDED** in **~16s** aws-wait (~65s wall). Member id is in `AGENTS.local.md` only.\n\n**Finding (lab-only):** management-account **root** cannot `AssumeRole` (`Roles may not be assumed by root accounts`). A real customer never hits this — they run CloudFormation as root **in their own account**. Next: IAM user in the management account to assume `OrganizationAccountAccessRole`, then continue. Do not treat this as a customer-role template defect.",
+      "created_at": "2026-09-07T15:35:09.779810Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c7da879a-5abb-468f-b319-de1c012f3f7f",
+      "author": "home",
+      "text": "Assume-role into the member account **SUCCEEDED** via lab IAM user `chatticus-b88c0a-operator` (management account). Root assume-role stays a lab-only finding. Stopped before the published template: no Chatticus `tenant_id` yet.\n\n**Next human gate:** Google sign-in at `https://dev.chattic.us` and create an organization (`POST /organizations`) so `tenant_id` can be `OrganizationId` on `create-stack`. Do not `members seed`. Template still unmodified.",
+      "created_at": "2026-09-07T15:36:11.773369Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "38aafd09-966a-4bd7-88ac-5f24e9cf6ecc",
+      "author": "home",
+      "text": "AWS mail arrived (addresses stay in `AGENTS.local.md`):\n\n- Organizations asked to verify the **management-account** email (24h link). Human verified. AWS says invites of *existing* accounts are now allowed. This run used `CreateAccount`, which had already **SUCCEEDED** before that click (~16s aws-wait). Record as a person-step anyway — easy to miss, and the mail does not go to the throwaway alias.\n- Member welcome mail (“account is ready”) landed on the alias ~20s after create. No extra click required for our assume-role path.\n\nStill blocked on Google sign-in at `dev.chattic.us` + `POST /organizations` for `tenant_id` before published-template `create-stack`.",
+      "created_at": "2026-09-07T15:37:40.951549Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "61084b9f-9696-4e8a-baa0-4ebc1692481b",
+      "author": "home",
+      "text": "ACME Corp **was created** (`pending`). Confirmed only via `members list` — the welcome screen does not show name or `tenant_id`. That is now `chatticus-9c8dbf` (P0). `tenant_id` is in `AGENTS.local.md` only. Continuing to published-template `create-stack` in the member account.",
+      "created_at": "2026-09-07T15:40:46.196945Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "41f39d36-3e24-499c-b77a-2beaae898c11",
+      "author": "home",
+      "text": "Phase C complete. Published template GET **6379 bytes**, `cmp` identical to `infra/customer-role.yml`. Member-account `ChatticusCrossAccountRole` **CREATE_COMPLETE** (~30s aws-wait). RoleArn in `AGENTS.local.md` only. Template unmodified — that is the `8a25af` DoD.\n\n**Deviation already labeled:** no customer HTTP for `submit_self_setup_cross_account_role`. Phase D is operator-assisted kernel submit (or `members enable` only if inspect cannot be done honestly). Do not `members seed`. ACME Corp still pending until D.",
+      "created_at": "2026-09-07T15:44:10.266682Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "4bf302df-023c-4944-9c1b-29df0f129424",
+      "author": "home",
+      "text": "Phase D complete via **labeled operator deviation** (no customer HTTP, no live inspector): AssumeRole + ExternalId succeeded as non-root lab IAM user; kernel `submit_self_setup_cross_account_role` accepted. ACME Corp is **enabled** and AWS home is written (not seed). Root assume failed (lab-only). Next: F-safe (`pong`) in the unlocked workspace; E (customer `ChatticusComputers`) is a finding if missing, not a template edit.",
+      "created_at": "2026-09-07T15:47:13.572269Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "71fe2b01-8abd-47cb-9a7e-9cc78a99a295",
+      "author": "home",
+      "text": "Human confirmed ACME workspace unlocked at dev.chattic.us after phase D. Product has no create-bot control in EnabledWorkspace — labeled gap. Next: mint one bot via kernel (not seed), then F-safe pong from the UI.",
+      "created_at": "2026-09-07T15:48:15.168569Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "84b85506-d89e-4893-ba6d-7a1ee77c6130",
+      "author": "home",
+      "text": "F-safe **succeeded** (human sent `pong` from the unlocked ACME workspace; turn completed). Wiki runbook: `project/wiki/runbooks/throwaway-account-provisioning.md`. Wall-clock **~19 min** T0→F (consumer signup skipped). Gaps filed: `chatticus-9c8dbf` (pending org list), `chatticus-070cb4` (submit RoleArn), `chatticus-7622fd` (create-bot UI). E2–E4 / F-computer not run. Closing — DoD was the timed runbook and person-steps.",
+      "created_at": "2026-09-07T15:54:13.048997Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-03T13:18:00.752745Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-09-07T15:54:13.065587Z",
+  "closed_at": "2026-09-07T15:54:13.065587Z",
+  "custom": {}
 }

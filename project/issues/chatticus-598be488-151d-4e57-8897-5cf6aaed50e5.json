@@ -1,7 +1,7 @@
 {
   "id": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
   "title": "Cross-account provisioning into the customer's AWS",
-  "description": "**Phase 1 of 5.** Nothing blocks it. Runs in parallel with the pitch and survey epic. Joins the critical path at paid enablement.\n\nChatticus deploys the organization computer into an AWS account the customer owns and pays for. This epic is the mechanism.\n\n**One correction on mechanism, because it changes what gets built.** AWS Resource Access Manager shares specific resources across accounts \u2014 subnets, transit gateways, license configurations. It is the right tool for one narrow thing here: placing the organization computer inside a VPC the customer already owns. It is not the mechanism for deploying into their account. That mechanism is a cross-account IAM role: the customer runs a CloudFormation template Chatticus publishes, which creates a role scoped to exactly the permissions needed, trusting the Anthus principal and requiring a per-organization ExternalId. Chatticus then calls sts:AssumeRole. This is the pattern Datadog, Wiz and Vanta onboard with, and customers' security teams already recognize it \u2014 which is worth a great deal when the ask is access to a production account.\n\nTwo setup paths, and the difference is billing, not technology:\n\n- **Path A, their existing account.** They own and pay for it, Anthus holds a scoped role. No credit risk, no reseller relationship. Recommend a dedicated account inside their AWS Organization rather than their main production account: cleaner blast radius, easier security approval, and it makes the cost of Chatticus legible to them. **This is what the beta ships.**\n- **Path B, an account Anthus creates, billed to them.** Either it lives in their AWS Organization, which needs access to their management account and is a far larger ask than a role, or it lives in ours and we re-bill, which makes Anthus an AWS reseller with credit risk and a partner-status question. Delivered by hand, priced accordingly, and explicitly out of scope for automation.\n\nAWS Marketplace resolves the billing question properly and lets customers spend committed AWS budget on the fee. Too much to build now, but it is the destination, and the role and provisioning shape should not foreclose it.\n\n**Start with:** provisioning one throwaway account end to end by hand. Nothing else in this initiative can be scheduled or priced until that elapsed time is known.",
+  "description": "**Phase 1 of 5.** Nothing blocks it. Runs in parallel with the pitch and survey epic. Joins the critical path at paid enablement.\n\nChatticus deploys the organization computer into an AWS account the customer owns and pays for. This epic is the mechanism.\n\n**One correction on mechanism, because it changes what gets built.** AWS Resource Access Manager shares specific resources across accounts — subnets, transit gateways, license configurations. It is the right tool for one narrow thing here: placing the organization computer inside a VPC the customer already owns. It is not the mechanism for deploying into their account. That mechanism is a cross-account IAM role: the customer runs a CloudFormation template Chatticus publishes, which creates a role scoped to exactly the permissions needed, trusting the Anthus principal and requiring a per-organization ExternalId. Chatticus then calls sts:AssumeRole. This is the pattern Datadog, Wiz and Vanta onboard with, and customers' security teams already recognize it — which is worth a great deal when the ask is access to a production account.\n\nTwo setup paths, and the difference is billing, not technology:\n\n- **Path A, their existing account.** They own and pay for it, Anthus holds a scoped role. No credit risk, no reseller relationship. Recommend a dedicated account inside their AWS Organization rather than their main production account: cleaner blast radius, easier security approval, and it makes the cost of Chatticus legible to them. **This is what the beta ships.**\n- **Path B, an account Anthus creates, billed to them.** Either it lives in their AWS Organization, which needs access to their management account and is a far larger ask than a role, or it lives in ours and we re-bill, which makes Anthus an AWS reseller with credit risk and a partner-status question. Delivered by hand, priced accordingly, and explicitly out of scope for automation.\n\nAWS Marketplace resolves the billing question properly and lets customers spend committed AWS budget on the fee. Too much to build now, but it is the destination, and the role and provisioning shape should not foreclose it.\n\n**Start with:** provisioning one throwaway account end to end by hand. Nothing else in this initiative can be scheduled or priced until that elapsed time is known.",
   "type": "epic",
   "status": "open",
   "priority": 0,
@@ -12,12 +12,134 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "32d14fbc-5f4b-401e-9ef3-d5bfb9506e53",
+      "author": "home",
+      "text": "Kernel on develop: org AWS home, ExternalId assume-role, self-setup submit, `infra/customer-role.yml`. Closed `9f5001`, `812b47`, `036750` as board drift.\n\nStill open: `061a11` (computer launches in the customer account — serialize: computer_start / worker / computer stack, merge alone), `8a25af` (publish the existing template at a stable URL; then `b88c0a` must run that artifact), `b88c0a` (human timed throwaway account), `f90c39` (define assisted session as an engagement).",
+      "created_at": "2026-09-05T17:59:47.358557Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d852d4d2-fb16-4faa-add3-9a874456dbf4",
+      "author": "home",
+      "text": "`061a11` closed: in-process customer-account launch on develop (#306, `05245a3`). Still open: `8a25af` (published URL live on development; waits on `b88c0a` running it unmodified), `b88c0a` (human timed throwaway account), `f90c39` (assisted session as engagement).",
+      "created_at": "2026-09-05T20:18:33.178136Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "580636e4-0f9a-4328-ace5-690eb2307a13",
+      "author": "home",
+      "text": "## Next action: `chatticus-b88c0a` (2026-09-07)\n\nStorage discovery closed today (`chatticus-e9ddec`); nothing in this epic was ever blocked by it. This epic is the live P0 and its own description names the starting point: *\"Start with: provisioning one throwaway account end to end by hand.\"*\n\n**State of Phase 1:**\n\n| Task | Status | Note |\n|---|---|---|\n| `8a25af` publish template + scoped policy | in_progress | Artifact done and live — `https://dev.chattic.us/provisioning/customer-role.yml`, HTTP 200, 6379 bytes, byte-identical to `infra/customer-role.yml`. Now **blocked-by `b88c0a`** for closure: its DoD requires the hand run to use it unmodified. |\n| `b88c0a` hand-provision one throwaway account | **open, ready, next** | Blocker cleared (#309 runbook: GET then `--template-body`; never CloudFront as `--template-url`). |\n\n**What the run produces that nothing else can:** the measured elapsed time. The $100 setup fee (`54f1cf`, `b4f849`) and the invitation rate are already chosen as round numbers — this run is what makes them defensible or reveals them as wrong. The pitch page's onboarding promise is currently a guess.\n\nThe most valuable output is the least likely to get written down while working: **every place the instructions were wrong.**",
+      "created_at": "2026-09-07T14:57:57.220120Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "9a0c9d2c-f801-4669-9781-fe2b3d156b43",
+      "author": "home",
+      "text": "Hand run closed (`chatticus-b88c0a`). Remaining P0 on this epic: `chatticus-9c8dbf` (pending org list), `chatticus-070cb4` (submit RoleArn), `chatticus-7622fd` (create-bot UI) — the three product holes that made the run operator-assisted.",
+      "created_at": "2026-09-07T15:54:13.089070Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f1de7126-a98a-4cf8-9352-475661a3b5d9",
+      "author": "home",
+      "text": "# ▶ State of play after `b88c0a` (2026-09-07)\n\n**The hand run succeeded and the number exists: ~19 min** (`project/wiki/runbooks/throwaway-account-provisioning.md`). `8a25af` closed — published template used **unmodified**, 6379 bytes, `cmp` identical to `infra/customer-role.yml`.\n\n**Read the number correctly.** It covers Chatticus provisioning only. Consumer AWS signup was skipped (lab `CreateAccount` on the Anthus management account), and it excludes **everything below**. It is not an onboarding estimate for the pitch page.\n\n## What is proven, and what is not\n\n`pong` proves the **backbone substrate**: sign-in → org → cross-account role → enablement → turn loop → model → response. That is a real milestone, and it is a **computerless** turn (capability `cpu`).\n\n**Every capability that touches the computer is unexercised in a customer account** — computer start, terminal, browser, file actions, approvals, spend ceiling, relocate. Full matrix on `chatticus-3e72dc`.\n\n## Next, in order\n\n1. **`chatticus-2f2d87` — F-computer.** *\"The behavior the whole epic exists for\"* (`061a11`'s own words) has never executed once. `061a11` closed saying live RunTask *\"still waits on `b88c0a`\"*; `b88c0a` closed without attempting it. It fell between two closed cards.\n2. **`chatticus-3e72dc` — the remaining capability matrix**, blocked by the above.\n3. **`9c8dbf` / `070cb4` / `7622fd`** — the self-setup holes. Known, scoped, buildable wiring.\n\n**Why the unknown goes first:** the three self-setup stories are wiring UI and HTTP to kernel calls that already exist; their scope will not surprise anyone. F-computer is unknown, and `b88c0a` recorded specific reasons to expect failure — no ECS or ECR in the customer account, no `ChatticusComputers` stack deployed there, role not scoped for `ChatticusSnapshots`. Any of those may change the **published template**, which is customer-visible by `8a25af`'s rule. Cheap now, expensive after the first customer. Same ordering that paid off in `chatticus-e9ddec`.\n\n## One failure is predictable without running anything\n\nThe published role is scoped to `ChatticusComputers*` and **not** `ChatticusSnapshots`. `/workspace` depends on the S3 snapshot protocol, which `fbae4e` D3 confirmed on 2026-09-07 is **permanent**, not transitional. So **file actions cannot work in a customer account as templated.** Decide deliberately whether the snapshot bucket lives in the Anthus account with cross-account grant, or in the customer account via the template — that choice moves where customer data rests, which is this epic's central sales claim.\n\n## Pricing\n\n`b4f849` is now blocked-by `070cb4`: the page offers *\"run the template yourself, no setup fee,\"* and four of the run's six person-steps needed an operator. The numbers look right; the **offer** cannot be published yet.",
+      "created_at": "2026-09-07T16:01:47.469433Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "82cd1286-7fe4-47cc-af23-41c4f912b497",
+      "author": "home",
+      "text": "## State of play after `2f2d87` (2026-09-07)\n\nF-computer **closed on documented missing infra**, not a completed customer `RunTask`.\n\n- AssumeRole into `CUSTOMER_ACCOUNT_ID`: **yes** (live CloudTrail).\n- Customer `ChatticusComputers`: **missing**. ComputerWorker DescribeStacks → nack. Zero `RunTask` in both accounts. Anthus desiredCount stayed 0. Refuse-not-fallback **held live**.\n- Elapsed: ~5 s kernel handoff / ~0.8 s nack. **Do not fold into the ~19 min** provision figure.\n\n**Who creates the stack:** Chatticus under the assumed role (`chatticus-82dab7`). Published template already grants CreateStack on `ChatticusComputers*`. Customer does not run a second template. Snapshot bucket: inside that customer stack, not a `ChatticusSnapshots` name (that would reopen `8a25af`).\n\n**Next:** `82dab7`, then `3e72dc`. Self-setup (`9c8dbf`, `070cb4`, `7622fd`) still after the computer actually starts.\n\nCustomer-path holes recorded, not started: UI Ping answered “no” (`STOP_NO_COMPUTER_TOOL`); `POST .../resume` while stopped is `ComputerNotReadyError`; ComputerWorker nack omits provisioning exception text.",
+      "created_at": "2026-09-07T16:22:59.980714Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3404308e-ad22-4a9a-bea0-a0119a5ea5cb",
+      "author": "home",
+      "text": "## State of play after `82dab7` (2026-09-07)\n\nCustomer-account computer **starts**. #312 on develop; live `RunTask` in `CUSTOMER_ACCOUNT_ID`; zero Anthus `RunTask`; desiredCount 0. Template unmodified. No snapshot bucket in the customer stack.\n\n**Next:** `chatticus-3e72dc` (terminal → browser → files → approvals → spend → relocate). File-actions still need `8a25af` (`s3:*` + bucket inside `ChatticusComputers`). Self-setup (`9c8dbf`, `070cb4`, `7622fd`) still after that.",
+      "created_at": "2026-09-07T17:33:46.975285Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "97dd9db8-6f47-4a65-a669-ffc3f8e37a0c",
+      "author": "home",
+      "text": "`82dab7` **reopened.** `3e72dc` lab-user DescribeStacks: customer `ChatticusComputers` absent, ECS empty. Prior closure was inference from ComputerWorker, not customer-side proof. Capability matrix parked.",
+      "created_at": "2026-09-07T17:47:19.806665Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8e059bbc-12c3-4b5f-b14b-f0eef1a7f179",
+      "author": "home",
+      "text": "`82dab7` cause: committed customer Computers template requires CDK bootstrap SSM; published role has no `ssm:*`. 28 failed CreateStack, 0 RunTask. Fix is bootstrapless synth, not a customer-role edit.",
+      "created_at": "2026-09-07T17:49:48.851864Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "9ee66b2d-b8db-47de-bbac-8ba97561bdfe",
+      "author": "home",
+      "text": "## Principle to settle once: how self-contained is the customer's account? (2026-09-07)\n\nThree cards are answering the same architectural question one resource at a time, and they have already drifted apart:\n\n| Resource | Where it lives | Status |\n|---|---|---|\n| Snapshot bucket | **Customer account**, created by the customer-run template | Decided — `chatticus-bb9084` |\n| Agent workspace files | **Customer account**, host disk published to that bucket | Decided 2026-09-07 — `chatticus-fccc4e` |\n| Computer image | **Contradictory** — role grants the full ECR push set for the customer's own repo, stack pulls `fromRegistry(anthusComputerImageUri)` from Anthus | Open — `chatticus-8fe4c7` |\n\nTwo of three landed on *the customer's account holds it*. The third is the outlier, it is internally inconsistent, and its inconsistency is the likely cause of `HOST_NOT_RUNNING`: cross-account ECR pull needs a resource policy on the Anthus repository, and `computer-stack.ts` has none.\n\n**Proposal: name the principle, then apply it.** *A customer organization's account holds everything that organization's work depends on at runtime — image, files, compute — so that a running customer is not dependent on Anthus-side resources being reachable or correctly permissioned.*\n\nUnder that principle `chatticus-8fe4c7` resolves toward pushing the image into the customer's ECR, which is what the published role was already built for and what `chatticus-82dab7` recorded. It also means Anthus cannot silently change a running customer's image, which is a security property worth stating rather than discovering.\n\nThe alternative — pull from an Anthus registry — is defensible on maintenance grounds (one copy, one push). But it should be chosen deliberately, and then the role's push permissions should be **removed**, because granting a customer-facing role permissions the design does not use is exactly what `chatticus-8a25af` says must survive the question *\"why does an agent product need this.\"*\n\nEither way, settle it as a principle on this epic rather than three times on three cards. The drift is what produced the current bug.",
+      "created_at": "2026-09-07T22:23:07.715945Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b9c0ac73-17f8-491f-9a33-c42e9330d774",
+      "author": "home",
+      "text": "## Principle decided 2026-09-07\n\n**A customer organization's account holds everything that organization's work depends on at runtime — image, files, compute — so that a running customer is not dependent on Anthus-side resources being reachable or correctly permissioned.**\n\nApplied:\n\n- Snapshot bucket — customer account, published template — `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac`\n- Agent files — customer host disk — `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`\n- Computer image — customer ECR, which the published role already has push for — `chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51` (not the `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` patch)\n\nThe Anthus-registry alternative was declined: keeping unused push permissions on a customer-facing role fails `chatticus-8a25af4a-7ae7-44e6-8229-e1d8313b712b`.\n\n`chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` confirming check **falsified** the ECR-auth hypothesis. Named cause: customer `computer_host_worker` Dynamo `GetItem` AccessDenied. Host must use the Front Door, not Anthus Dynamo from the customer task role.",
+      "created_at": "2026-09-07T22:59:09.884501Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0a0fcf4f-5255-4be5-96dc-76665e8243b8",
+      "author": "home",
+      "text": "Host-disk decision story `chatticus-fccc4e9a` closed. Five steps on `develop` (#318–#324). Capability matrix row 3 is Gherkin-green; live file actions still need lab UpdateStack so the throwaway account actually has `OrganizationSnapshotBucket`. Do not treat that as a new product slice until acceptance reports a hole.\n",
+      "created_at": "2026-09-08T04:00:01.640264Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "54b8d7ee-da6e-486b-9453-207e38287faf",
+      "author": "home",
+      "text": "Live customer-path file recycle **PASS** (2026-09-08). Host-disk steps 1–5 plus throwaway UpdateStack and a fresh customer `:dev` image. Capability matrix `chatticus-3e72dc` file-actions row is green; the card stays open for the rest of the matrix.\n",
+      "created_at": "2026-09-08T09:02:25.677505Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "88383c8e-9b8a-4415-ac31-1b0cc15991cc",
+      "author": "home",
+      "text": "Self-setup `chatticus-9c8dbf` closed (#325). Next P0 hole: `chatticus-070cb4` — submit RoleArn without an operator kernel.\n",
+      "created_at": "2026-09-08T10:37:59.246240Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "a06d945c-285b-4408-9d24-619b1d90b399",
+      "author": "home",
+      "text": "Self-setup `chatticus-070cb4` closed (#326). Live inspect 422 on development. Next P0 hole: `chatticus-7622fd` — create a named bot from the workspace UI.\n",
+      "created_at": "2026-09-08T11:36:15.464836Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "bd10c0ab-2ece-4deb-9e5a-c6ce45de9024",
+      "author": "home",
+      "text": "Self-setup `chatticus-7622fd` closed (#327). Live `POST /bots` 200 for `LiveCreate`. Remaining P0 on this epic: `chatticus-5336ff` (create_bot issues no grant).\n",
+      "created_at": "2026-09-08T12:08:27.780416Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f5638b31-66a7-4b45-8b39-a2f20ffc2259",
+      "author": "home",
+      "text": "Shape 1 customer grant path is on `develop`: preset `write_workspace` (#330), user HTTP replace (#331), workspace Authorize-this-turn (#333), per-task `run_terminal` via replace Gherkin (#335). Conversation preset still has no `run_terminal`.\n\nRemaining on this epic that is not buildable in this loop:\n- `e11c17` — product shipped; live DoD is one host journal (`HOST_NOT_RUNNING`). Do not poll a stopped host.\n- `f90c39` — needs a real customer provisioning session (human).\n",
+      "created_at": "2026-09-08T18:23:33.529917Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-03T13:15:08.373641Z",
+  "updated_at": "2026-09-08T18:23:33.529971Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "right_now_summary": "Cross-account provisioning is built and tested; only a live customer session remains.",
+  "right_now_updated_at": "2026-10-14T03:09:56.454192Z",
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }

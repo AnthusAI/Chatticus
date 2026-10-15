@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-da146ecd-5ec6-4628-b9c9-00a28ad41ce3",
+  "title": "Map multi-bot channels, tools, and turn waiting into assistant-ui",
+  "description": "Follow-on after the spike: named channels with addressable bots, turn.waiting / approvals as assistant-ui tool or HITL UI, and Marker-like status for reconciling/failed. Depends on spike learnings.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-004bf0b3-60ed-4d06-bbfa-670cd707191e",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-14T13:42:31.553122Z",
+  "updated_at": "2026-09-14T13:42:31.553302Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "cursor",
+    "model": "grok-4.6",
+    "name": "Chatticus",
+    "settings": {}
+  }
+}

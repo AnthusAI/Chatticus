@@ -1,0 +1,62 @@
+{
+  "id": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "title": "Long-lived computer Phase 2b: credential renewal and 8-hour lifetime",
+  "description": "Refresh route, credential providers in the child, bootstrap exchange, protocol-version drain, lifetime raised to 8 hours. Depends on 2a.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0ad047e9-d7a8-4862-badd-522dcb701e97",
+      "author": "home",
+      "text": "Phase 2b contract written: docs/OWNER_CREDENTIAL_RENEWAL.md with the draft behavior in features/computer_owner_credential_renewal.feature (59 scenarios, all traced), PR ts/credential-renewal-contract into develop (not merged). Key decisions: POST /host/owner/credentials (one route, kinds supervisor and turn); the supervisor renews at 40 minutes into each one-hour credential set; the drain is derived from the credentials the server issued (so the 3000 s rule becomes the special case of an owner that never renews) with a hard end at 8 h and a drain at 28200 s; the child holds no credential in its environment and reads its turn's credentials over /run/chatticus/supervisor.sock; the broker enforces the hard end from a signed ownerStartedAtSeconds claim. Parts (sub-tasks): P0 foundation, A1 and A2 server, B1 and B2 broker and infrastructure, C supervisor, D child and socket, E integration and live proof. Open questions for the owner are in section 20 of the contract (P1 to P5 product, S1 to S6 security). P0's merge needs no running owner task (strict token claim).",
+      "created_at": "2026-10-14T03:34:38.081517Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-planner"
+      }
+    },
+    {
+      "id": "a2ddf5c5-d7ba-44c2-87bb-34fa38273a77",
+      "author": "home",
+      "text": "Owner took the recommendations on the open questions; recorded as decisions in docs/OWNER_CREDENTIAL_RENEWAL.md section 20 (PR 550). P1 keep the 300 s grace; P2 8 hours from bootstrap; P3 minimum protocol version stays 1 until the new image is promoted and proven live; P4 build the development-only fault switch (four gates, scenario and structural test); P5 no external watchdog; S1 broker store-free; S2 broker requires the start-time claim; S3 stateless tokens; S4 and S5 accepted; S6 new ticket 2b-R (chatticus-816a1a) for the emergency revocation runbook.",
+      "created_at": "2026-10-14T09:54:34.028468Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "phase2b-planner"
+      }
+    },
+    {
+      "id": "5706fe32-582b-4117-b74d-b3dec44ab82d",
+      "author": "home",
+      "text": "Phase 2b is implemented and proven live on development (PRs 552-559; tickets P0, A1, A2, B1, B2, C, D, E closed). Remaining: (1) a PR raising OWNER_MINIMUM_PROTOCOL_VERSION plus doc corrections, open from another agent; (2) 816a1a R, the second-reader docs pass and two doc/code differences. Follow-up tickets raised for deploy-script drift risk, promote workflow dispatch, unexplained nonce misses in the live proof, and Lambda asset hash drift. Staging and production not touched.",
+      "created_at": "2026-10-14T23:11:44.887725Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
+  "created_at": "2026-10-12T13:18:55.826042Z",
+  "updated_at": "2026-10-14T23:11:44.887759Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Phase 2b works in development; protocol updates, documentation review, and deployment follow-ups remain.",
+  "right_now_updated_at": "2026-10-14T23:12:19.324045Z",
+  "custom": {}
+}

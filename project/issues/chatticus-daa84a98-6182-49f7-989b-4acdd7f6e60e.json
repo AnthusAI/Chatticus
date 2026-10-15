@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-daa84a98-6182-49f7-989b-4acdd7f6e60e",
+  "title": "Remaining bg-clay/15 classes render nothing (opacity modifier on a CSS-variable colour)",
+  "description": "The failed-reply bubble was fixed in PR 508; the same class remains in web/components/ComputerPausedNotice.tsx, EnabledWorkspace.tsx (the alert) and ui/badge.tsx. Replace with flat surface steps per docs/BRAND_GUIDELINES.md.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T21:16:54.993364Z",
+  "updated_at": "2026-10-11T21:16:54.993395Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

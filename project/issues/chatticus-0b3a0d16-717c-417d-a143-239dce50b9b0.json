@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-0b3a0d16-717c-417d-a143-239dce50b9b0",
+  "title": "Decisions needed from the owner",
+  "description": "OPEN: the owner has NOT answered any of these. Do not close or mark progress until each is answered. Quoted from docs/PROMOTE_TO_MAIN.md section 10 (PR 534).\n\n- **D1. Approve the sequence in section 9, or choose the alternative** of a staging-only branch (staging) that the staging workflows trigger on. The alternative avoids editing workflow triggers but adds a branch to keep in sync and still leaves production on main pushes. Recommendation: dispatch-only plus environment reviewers.\n- **D2. Enable branch protection and environment reviewers now?** (Step 1.) The documented policy and the actual settings disagree today. (Recommended: yes; it makes AGENTS.md true.)\n- **D3. Website handling:** pin the website to the Python-era tarball until wiki_publish is vendored, or accept a short website build break, or keep a frozen copy of wiki_publish published from somewhere else. (Plan step 4 recommends the pin.)\n- **D4. Marketing waitlist and contact backend:** which option in step 5, and who builds it, before production cutover. (Options: a small Lambda in the website repo on the existing WAITLIST and CONTACT Messaging items, or a bounded bridge to legacy thin-turn.)\n- **D5. Is there real data in legacy staging or production Messaging?** Authorize a read-only item count (no scan of contents) to decide whether the transcript migration is needed or whether those environments can start fresh like development did.\n- **D6. Release number:** accept v0.44.0 via a baseline tag, or deliberately start v1.0.0 (then also drop the guard-pre-1-0 job and the 0.* assumption in the docs). (Recommended: v0.44.0 via baseline tag.)\n- **D7. Hostnames:** confirm legacy releases staging.chattic.us and hey.chattic.us (and the apex-alias ordering with the website) so staging and production can be bootstrapped in their own accounts.\n- **D8. Staging parity:** should staging enable the integration-test principal (chatticus-80b17c), and does the owner-computer (Pi) path ship to staging and production in this promotion or stay development-only (chatticus-d6997c)?\n- **D9. Stale PRs and branches:** close #347 and #348, merge or keep #394, prune the ts/owner-supervisor* branches. (Recommended: close 347 and 348, merge 394, prune.)\n\nBlocks: the step tickets under chatticus-9eeed9.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "cd38646a-1a70-4013-aac4-051f6a391635",
+      "author": "home",
+      "text": "Owner answered \"take your recommendations\" on all of docs/PROMOTE_TO_MAIN.md section 10. Decisions as taken:\n\n- D1: dispatch-only deploys for staging and production, plus environment reviewers (not a staging branch). Implemented in PR 540 (chatticus-1fdb85).\n- D2: enable branch protection and environment reviewers. The OWNER flips these GitHub settings himself; agents do not change repository or environment settings. Exact gh api commands are in PR 540's description and on chatticus-5380d0.\n- D3: pin the marketing website to the Python-era tarball (e68b5f4f). A separate agent does the website repo; not part of this repo's work.\n- D4: marketing waitlist/contact intake backend: recommendation recorded (a small Lambda in the website repo on the existing WAITLIST and CONTACT Messaging items, bounded bridge only if needed); to be built later under chatticus-1fa85b. Gates the production cutover, not the merge.\n- D5: a read-only item count of the legacy tables was authorised and done by the orchestrator (table metadata only, no contents read): legacy staging Messaging has about 62 items, legacy production about 97. A transcript migration is probably unnecessary for staging and production; they can start fresh like development did. EXCEPT the marketing waitlist and contact items, which must be preserved or exported before cutover.\n- D6: release v0.44.0 via a baseline tag v0.43.1 on main's current head e68b5f4f. See chatticus-859e80 for the dry-run result and the exact tag commands (the tag is pushed by the owner or orchestrator, not by this agent).\n- D7: hostnames (legacy releases staging.chattic.us and hey.chattic.us): owner action at staging bootstrap time; recorded only.\n- D8: staging parity: the integration-test principal is needed for acceptance runs, so STAGING enables it and PRODUCTION never does (PR 540). The owner-computer path ships in this promotion with no dual code paths (environments differ only by deployment); that infra change is NOT in PR 540 and remains on chatticus-d6997c.\n- D9: close stale PRs 347 and 348 with a polite comment (done), merge docs PR 394 if clean (done), prune remote branches only after verifying each is fully merged into develop (see chatticus-f4d142).\n",
+      "created_at": "2026-10-13T15:28:58.055459Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "promote-agent"
+      }
+    },
+    {
+      "id": "67926471-7a88-4102-a5da-a81b81fd2c8d",
+      "author": "home",
+      "text": "Decisions taken by the agent on the owner's instruction (2026-10-14): chatticus-db8efd skip, closed as not needed (YAGNI). chatticus-0ccf0b yes, clear disk_dirty on a clean unchanged exit (PR in progress). chatticus-0bf253 investigate. chatticus-8912d6 stays blocked until the marketing site is confirmed to serve its own intake. chatticus-f34796 yes, add a per-organization monthly model spend ceiling; the dollar value is pending from the owner.",
+      "created_at": "2026-10-15T01:46:15.745847Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:37:28.900227Z",
+  "updated_at": "2026-10-15T01:46:15.745894Z",
+  "closed_at": "2026-10-13T15:29:35.028759Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The owner still needs to confirm the remaining promotion choices before production cutover.",
+  "right_now_updated_at": "2026-10-15T01:46:18.204843Z",
+  "custom": {}
+}

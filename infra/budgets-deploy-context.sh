@@ -1,6 +1,7 @@
 #!/bin/sh
 # Set BUDGETS_CDK_CONTEXT for CDK deploy when budget env vars are set.
-# Source only from deploy-chatticus-budgets.sh. Refuses partial config and invented defaults.
+# Sourced by deploy-chatticus-budgets.sh and the ThinTurn deploy scripts (which deploy the
+# daily rollup only when this is set). Refuses partial config and invented defaults.
 set -eu
 
 MONTHLY_USD="${CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD:-}"
@@ -18,13 +19,13 @@ if [ -z "${MONTHLY_USD}" ] || [ -z "${NOTIFICATION_EMAIL}" ]; then
 fi
 
 case "${MONTHLY_USD}" in
-  *[!0-9.]*|'')
+  *[!0-9.]*|*.*.*|'')
     echo "CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD must be a positive number, got: ${MONTHLY_USD}" >&2
     return 1 2>/dev/null || exit 1
     ;;
 esac
 
-if ! python3 -c "import sys; v=float(sys.argv[1]); sys.exit(0 if v > 0 else 1)" "${MONTHLY_USD}"; then
+if ! awk -v v="${MONTHLY_USD}" 'BEGIN { exit !(v + 0 > 0) }'; then
   echo "CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD must be a positive number, got: ${MONTHLY_USD}" >&2
   return 1 2>/dev/null || exit 1
 fi

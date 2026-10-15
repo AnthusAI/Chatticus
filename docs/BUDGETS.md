@@ -46,6 +46,15 @@ that account's spend, full stop. No apportionment, no tag hygiene
 standing between us and a correct number, and no risk that one client's
 runaway cost hides inside another's baseline.
 
+Staging and production are the exception to the one-account-per-environment
+picture: they share the production account. That account has exactly one
+`ChatticusBudgets` stack and one monthly limit, which is the combined limit of
+staging and production together; the limit and alerts do not split by
+environment. Per-environment spend is read from the `chatticus:environment`
+cost tag, which every stack of the two environments carries. The budget stack
+already existed in the production account before staging was added, so it keeps
+its `production` tag, and only development and production deploy it.
+
 That boundary covers the AWS meter completely. **It does nothing for the
 vendor meter.** OpenAI does not know what an AWS account is. Vendor spend
 is separated only by giving each deployment its own vendor project and
@@ -56,6 +65,96 @@ that cannot be attributed to either.
 `/chatticus/{environment}/thin-turn/openai-api-key`, a per-deployment
 parameter the human seeds before live turns. Each deployment gets its own
 OpenAI vendor project and key so vendor spend is attributable.
+
+## Vendor model prices
+
+The ledger prices each model call from a versioned `VendorPriceBook`. Both
+production compositions (the turn executor and the front door, whose voice understanding
+and model gateway observations are priced from it too) use
+`defaultVendorPriceBook()` from `conversation/src/ledger/vendor-prices.ts`,
+a table of OpenAI list prices in USD per million tokens. The book's id is
+`openai@2026-10-13+pi-ai-1.0.2`, and every ledger row records the id of the
+book that priced it (`price_book_id`).
+
+| Model | Input | Cache read | Cache write | Output |
+| --- | --- | --- | --- | --- |
+| `gpt-6-luna` (bot turns, low reasoning) | 0.10 | 0.01 | 0.125 | 0.50 |
+| `gpt-6-luna`, context above 272000 tokens | 0.20 | 0.02 | 0.25 | 0.75 |
+| `gpt-5-nano` (voice understanding) | 0.05 | 0.005 | 0 | 0.40 |
+| `gpt-5-mini` | 0.25 | 0.025 | 0 | 2.00 |
+
+The figures are copied from the `openai` catalog shipped inside
+`@earendil-works/pi-ai` 1.0.2 (`dist/providers/data/openai.json`, read
+2026-10-13), the catalog the Pi harness prices with. They replace the earlier
+LiteLLM figures (the base input and output rates are the same). They have not
+been compared with OpenAI's own price page; a vitest guard pins the table to
+the pi-ai catalog, so an upgrade that changes a figure fails until the table
+and the book id are updated.
+
+A call is priced by its own model: uncached input at the input rate, cache
+reads and writes at their cache rates, output (reasoning included) at the
+output rate, all at the tier the call's context size (uncached input plus
+cache reads plus cache writes) selects. A turn that switches model prices each
+call at its own model. A model whose source lists no cache rate would price its
+cached tokens at the input rate and the row's `priced_with` would carry
+`uncached_fallback`. Service tiers (flex, priority) are not modelled; Chatticus
+requests none.
+
+A model with no entry is never priced as zero. A turn on such a model fails
+before the model is called, with the reason "No price is tabled for model ...".
+A spend record of such a model (for example a voice understanding call) keeps
+its tokens, carries `unpriced_calls` greater than zero and has no `cost_usd`,
+which means unknown. A typical turn (about 4,700 input and 220 output tokens on
+`gpt-6-luna`) costs about $0.00058 when none of the input is cached.
+
+### Where the ledger row of a turn comes from
+
+A turn's ledger row is not counted; it is a projection of the turn's cost records. Each model call of a
+turn is one keyed record (`chatticus.cost`, key `entry-<entryId>`) in the durable Pi session of the bot
+and channel, derived from the assistant entry that answered the call and priced from the book above (see
+`docs/COST_ACCOUNTING.md`, section 3). The owner derives the records and then writes the turn's ledger
+row, and its turn index item, from the sum of those records, as absolute totals rather than additions.
+It does this when a turn concludes or fails, when it is handed on (yield) or parked on the computer, and
+when an owner resumes a turn. The same calls therefore give the same row from a Lambda owner or from the
+computer owner, a retry or takeover writes the same figures again, and the model gateway writes nothing
+to the ledger; it only logs the usage it saw. The old per-turn counters
+(`ledger_input_recorded`, `ledger_output_recorded`) no longer exist.
+
+The ledger row keeps its shape (`input_tokens` counts cached tokens too, `cost_usd` is the sum of the
+calls' own dollars, `price_book_id`, `priced_with`, `models`, `unpriced_calls`, plus `record_count`, the
+number of call records it was written from; a write with fewer records than the row already holds is
+refused). The row at `{tenant}#cost#{yyyy-mm}` / `turn#{turnId}` is the turn index item: the same totals
+with `bot_id`, `channel_id`, `prompt_author_id`, `prompt_message_seq`, `message_seq`, `owner_kind` and a
+per-model breakdown. Until the rollup moves to the turn index (Kanbus `chatticus-0d265c`, T7) the daily
+rollup still sums the ledger rows, so budget alerts and the computer-work meter are unchanged.
+
+### Every other model call, and calls the session never saw
+
+Three more kinds of spend reach the ledger, all as projections of cost records (`docs/COST_ACCOUNTING.md`, section 3.9), never as
+additions:
+
+* **Compaction.** The summarization Pi runs to shrink a long conversation is a model call with no assistant entry. Its tokens are
+  recovered from the session's own usage ledger and recorded as `compaction` cost records, so they are in the turn's row and totals.
+* **Voice understanding.** The call that repairs a spoken line is a `voice_understanding` cost record, priced from the same book
+  (cache reads included) and projected to the ledger row `voice:<uuid>` and a cost index item `voice#<uuid>` that names the
+  member and the channel and no bot. If the record cannot be written the front door logs `voice_cost_not_recorded` and the line
+  still goes through.
+* **Calls only the gateway saw.** The model gateway keeps an observation of each call a container made (`{tenant}#cost#observed`,
+  35 days). The daily rollup reconciles them first: a call whose response id is on the turn's session row is the same call and adds
+  nothing; a call nothing in the session accounts for after two hours (the vendor answered, the session never committed) becomes a
+  ledger row `turn#gateway:<id>` with `source: gateway`, marked `estimated` when the stream was interrupted. A gateway row whose
+  call a session row lists is skipped in the sum, so no call is counted twice.
+
+### What the rollup does with calls it cannot price
+
+A ledger row with unpriced calls has no `cost_usd` (unknown, never zero). The daily rollup no longer drops such rows silently: it
+adds their `unpriced_calls` to the rollup row (`unpriced_calls`, beside `vendor_cost_usd`, whose dollars leave those calls out),
+logs `vendor_cost_unpriced_calls` for the day, and carries the month-to-date count in the threshold alert payload
+(`unpriced_calls`). Read `vendor_cost_usd` as "known dollars" whenever `unpriced_calls` is positive.
+
+Dollars in the ledger feed the daily rollup's `vendor_cost_usd` and
+`combined_report_usd`, and so the month-to-date meter that the per-organization
+computer-work ceiling reads.
 
 ## Configurable limits
 
@@ -85,21 +184,45 @@ and become what breaks a single client's spend down internally.
 
 | Tag | Values | On |
 | --- | --- | --- |
-| `chatticus:environment` | development, staging, production | Per-environment stacks |
-| `chatticus:component` | front-door, computer, web, snapshots, dns | Every stack |
-| `chatticus:tenant` | An organization's `tenant_id` | Organization-attributable resources |
+| `chatticus:application` | `Chatticus` | Every stack and every computer task |
+| `chatticus:environment` | development, staging, production; `shared` for stacks that are not per-environment | Every stack and every computer task |
+| `chatticus:installation` | The installation's readable name, for example `Anthus AI Solutions` | Every stack and every computer task, when configured |
+| `chatticus:component` | thin-turn, web, auth, computer, snapshots, dns, budgets, deploy, integration-test | Every stack (a computer task is `computer`) |
+| `chatticus:tenant` | An organization's `tenant_id` | Computer tasks, at run time |
 
-The third one still pays for itself: a computer is organization-wide, so
-tagging the summoned Fargate task with its `tenant_id` makes
-per-organization cost a Cost Explorer query rather than something we
-build.
+The **installation** is one deployment of Chatticus, named by the operator
+(`CHATTICUS_INSTALLATION_NAME`, a GitHub Actions variable in CI). It is not an
+organization: one installation serves many organizations, and only computer
+tasks carry an organization, in `chatticus:tenant`. `lib/tagging.ts` holds the
+stack registry and refuses to synthesize a stack it has not classified, so a
+new stack cannot ship untagged. The installation name is optional; deploying
+without it warns and **removes** the tag from an already-tagged stack, so keep
+the variable set for every deploy path, including local scripts.
 
-Two honest limits. A cost allocation tag does not appear in Cost Explorer
-until activated in the Billing console, and **activation is not
-retroactive**, so it belongs in the deployment runbook rather than in
-someone's memory. And `ChatticusSnapshots` and `ChatticusComputers` are
-deliberately not per-environment, so they are reported as a shared
-remainder rather than apportioned by guesswork.
+The tenant tag pays for itself: a computer is organization-wide, so tagging
+the summoned Fargate task with its `tenant_id` makes per-organization cost a
+Cost Explorer query rather than something we build. Only tenant-tagged spend
+(computers) is attributed to an organization. Shared infrastructure is
+reported as overhead, not apportioned by guesswork.
+
+### Activating the tags (person-step)
+
+A cost allocation tag does not appear in Cost Explorer until it is activated,
+and **activation is not retroactive**, so it belongs in the deployment
+runbook rather than in someone's memory.
+
+1. Deploy so the tags exist on billed resources. A new key can take about a
+   day to show up as activatable.
+2. In the Billing console (Cost allocation tags), or with
+   `aws ce update-cost-allocation-tags-status`, activate `chatticus:tenant`
+   and `chatticus:environment` at minimum, and `chatticus:application`,
+   `chatticus:installation` and `chatticus:component` for reporting. In an AWS
+   Organization only the management account can do this.
+3. Until `chatticus:tenant` is active the rollup reads a hosted organization
+   as `ce_status=error`, which pauses computer work for one with a ceiling.
+
+`ChatticusSnapshots` and `ChatticusComputers` are deliberately not
+per-environment, so they carry `chatticus:environment=shared`.
 
 ## Where a turn's tokens and cost are written
 
@@ -120,6 +243,12 @@ of vendor.
 The log line is derived from the row, so the two cannot disagree. The
 rule to hold: **DynamoDB is what you bill from, logs are what you debug
 from.**
+
+Not every row is a turn. Model calls made outside a turn, such as the voice
+understand-the-user step (`docs/VOICE.md`), are recorded under their own id
+with a `voice:` prefix in the row's `turn_id` field. Rollups sum every row
+per organization; anything that joins ledger rows to turns must skip those
+ids.
 
 ### Logging this is effectively free
 
@@ -193,6 +322,37 @@ disconnected emails whose relationship they must reconstruct.
 A brand-new account reports nothing for roughly a day while Cost Explorer
 populates. Say so in the runbook, or the first quiet day reads as a
 broken alarm.
+
+## Customer-account organizations: read the whole account
+
+An organization that runs in its own AWS account (cross-account setup) is not
+attributed by tags. The account boundary already separates its spend, so the
+daily rollup assumes that organization's `ChatticusOrganizationComputerRole`
+and reads the account's total `UnblendedCost` for the day. The role therefore
+needs `ce:GetCostAndUsage` (in `infra/customer-role.yml`, and required by
+self-setup), and the rollup Lambda needs `sts:AssumeRole` on that role name.
+
+Two prerequisites sit on the customer side and are person-steps:
+
+- Cost Explorer must be enabled in the customer account. Enabling it for the
+  first time is a console action and the data takes about a day to appear.
+- The customer must run the current published template, which carries the
+  permission. A role without it fails self-setup.
+
+A read that fails (assume-role denied, permission missing, Cost Explorer not
+enabled) writes the day as `ce_status=error` with no dollar figure, never as
+zero. `error` and `pending` both make the meter unavailable, and an
+organization with a ceiling and an unavailable meter has new computer work
+refused. Days Cost Explorer has not populated stay `pending`.
+
+Organizations Anthus hosts in its own account are read by the
+`chatticus:tenant` tag, which Cost Explorer only reports once that tag is an
+**active cost allocation tag**. The rollup asks Cost Explorer whether it is
+active. If it is not, the day is written as `ce_status=error` with no figure,
+never as zero, because an absent tenant would otherwise be indistinguishable
+from an organization that spent nothing. When the tag is active, an absent
+tenant is a genuine zero. The rollup role needs `ce:ListCostAllocationTags`
+for the check, and a failed lookup also counts as not active.
 
 ## Per-organization attribution
 

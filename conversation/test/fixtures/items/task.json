@@ -1,0 +1,1 @@
+{"pk": {"S": "org-456#task#task-ghi"}, "sk": {"S": "meta"}, "tenant_id": {"S": "org-456"}, "user_id": {"S": "user-123"}, "task_id": {"S": "task-ghi"}, "title": {"S": "Fix the bug"}, "status": {"S": "open"}, "evidence": {"S": "Test case 42 passes"}, "created_by_bot_id": {"S": "bot-def"}}

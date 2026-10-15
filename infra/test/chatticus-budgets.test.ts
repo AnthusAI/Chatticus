@@ -195,6 +195,27 @@ describe("SnapshotStack", () => {
     template.resourceCountIs("AWS::Budgets::Budget", 0);
     template.resourceCountIs("AWS::SNS::Topic", 0);
   });
+
+  it("expires non-current object versions after thirty days and keeps versioning on", () => {
+    const template = synthSnapshotStack();
+    template.hasResourceProperties("AWS::S3::Bucket", {
+      VersioningConfiguration: { Status: "Enabled" },
+      LifecycleConfiguration: {
+        Rules: Match.arrayWith([
+          Match.objectLike({ Status: "Enabled", NoncurrentVersionExpiration: { NoncurrentDays: 30 } }),
+        ]),
+      },
+    });
+  });
+
+  it("never expires the current version of an object", () => {
+    const template = synthSnapshotStack();
+    const bucket = Object.values(template.findResources("AWS::S3::Bucket"))[0] as any;
+    for (const rule of bucket.Properties.LifecycleConfiguration.Rules) {
+      assert.equal(rule.ExpirationInDays, undefined);
+      assert.equal(rule.ExpirationDate, undefined);
+    }
+  });
 });
 
 describe("chatticus app budgets registration", () => {

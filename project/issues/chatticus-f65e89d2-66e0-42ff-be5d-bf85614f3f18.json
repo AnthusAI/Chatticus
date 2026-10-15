@@ -1,0 +1,64 @@
+{
+  "id": "chatticus-f65e89d2-66e0-42ff-be5d-bf85614f3f18",
+  "title": "T9 Web: channel cost chip, per-message cost markers, organization Costs page",
+  "description": "Depends on T8. Files: web/lib/api.ts, new web/lib/costs.ts, new web/components/ChannelCostChip.tsx, message marker in the chat message component under web/app/chat/, Costs page route under web/app/chat/. Show unpriced and estimated states; copy says model token cost at published list prices, not a bill. Acceptance: plan scenario 24 passes (features/web_costs.feature); web npm test green. Respect docs/BRAND_GUIDELINES.md.",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2dd812bd-4e1e-4efa-9c9b-1464f12e5af7",
+      "author": "home",
+      "text": "T9 in progress on branch ts/cost-web-view. Decisions: the Costs view is a third inspector tab (Context, Files, Costs) because the workspace is one static-export page and the inspector already works as a desktop column and a mobile sheet at 375 px; a header chip on the open conversation and per-message markers in the thread open it. Behavior first: features/web_costs.feature (26 scenarios) against a zod-validating fake of host-protocol/src/costs.ts; controller web/lib/costs-controller.ts has no React.",
+      "created_at": "2026-10-13T18:01:54.865533Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t9"
+      }
+    },
+    {
+      "id": "6a665c2a-be5d-4a97-a801-83f5760519c5",
+      "author": "home",
+      "text": "T9 implemented and pushed to ts/cost-web-view (commit 09b0f57d). Costs inspector tab + header chip + Triggered/Took message markers. features/web_costs.feature 26 scenarios green (25 of 26 red before the controller existed; 7 mutation checks each fail a named scenario); web npm test 343, typecheck, lint, conversation typecheck clean; all 178 web-tagged cucumber scenarios pass. Money rule and design in docs/COST_ACCOUNTING.md 3.11. PR creation was blocked here (gh could not reach api.github.com), so the PR still needs opening. Ticket left in_progress until the PR merges.",
+      "created_at": "2026-10-13T18:08:58.503318Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t9"
+      }
+    },
+    {
+      "id": "baa7a518-b717-47b5-9546-a24fc0492bd4",
+      "author": "home",
+      "text": "T9 merged (PR 542) and deployed to development; verified live 2026-10-13. Shipped: Costs tab in the inspector (Context | Files | Costs); header cost chip for the open conversation; Triggered/Took markers under messages; organization month summary with breakdowns by bot, conversation and model; recent turns with Show more; per-turn drill-down with per-call model, tokens, cache reads/writes, tier, price book and dollars; CSV export (turn and call grain); incomplete totals shown as 'at least $x ... incomplete: N unpriced calls', unpriced calls never shown as zero; estimated/gateway/voice rows labelled; sub-cent money precision; standing 'not a bill' basis line. Signed-in Costs tab opened on develop.chattic.us and shows its empty state correctly for an organization with no new-format records. NOT verified: the populated view with real data in the signed-in workspace (fixtures only, desktop and 375 px, light and dark), and the header chip and message markers in the live thread; a follow-up ticket tracks it. Not built: compare UI and export polish (chatticus-dffe56), per-sub-agent cost (chatticus-24308d), legacy ledger migration (chatticus-0d265c), compaction cost beyond T5 caveats. Rates are from the pi-ai bundled catalog, not verified against the vendor page.",
+      "created_at": "2026-10-13T18:30:05.198679Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:31:42.195725Z",
+  "updated_at": "2026-10-13T18:30:05.198943Z",
+  "closed_at": "2026-10-13T18:29:50.771680Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "T9 is deployed, with live populated-data checks and several follow-up features still pending.",
+  "right_now_updated_at": "2026-10-13T18:30:06.609809Z",
+  "custom": {}
+}

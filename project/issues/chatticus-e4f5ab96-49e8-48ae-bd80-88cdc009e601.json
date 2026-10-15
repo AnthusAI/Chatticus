@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-e4f5ab96-49e8-48ae-bd80-88cdc009e601",
+  "title": "Long-lived computer Phase 4: background processes and the preview relay",
+  "description": "Process supervision, ports and logs, outbound request relay, preview on a separate registrable domain (D12 needs the domain), refresh-on-change instead of WebSocket HMR, task size 0.5 vCPU and 1 GiB. Depends on 2a.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-12T13:19:03.597168Z",
+  "updated_at": "2026-10-12T13:19:03.597197Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The work covers process supervision, request relaying, ports, logs, and a separate preview domain.",
+  "right_now_updated_at": "2026-10-12T13:19:05.705576Z",
+  "custom": {}
+}

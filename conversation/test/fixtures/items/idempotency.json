@@ -1,0 +1,1 @@
+{"pk": {"S": "org-456#roster"}, "sk": {"S": "idem#post-123"}, "tenant_id": {"S": "org-456"}, "channel_id": {"S": "ch-001"}, "message_id": {"S": "msg-001"}, "seq": {"N": "1"}, "author_kind": {"S": "user"}, "author_id": {"S": "user-123"}, "body": {"S": "Hello world"}, "addressed_to_bot_id": {"S": ""}, "created_at": {"S": "2024-01-15T10:30:00"}, "turn_id": {"S": "turn-456"}}

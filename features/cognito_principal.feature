@@ -32,3 +32,9 @@ Feature: Cognito user principal resolution
     Given tenant "anthus" has an enabled organization for "owner@example.com"
     When a browser route is called without Authorization
     Then the browser route responds with status 403
+
+  Scenario: Cross-organization access is refused
+    Given tenant "anthus" has an enabled organization for "owner@example.com"
+    And tenant "other-household" has an enabled organization for "stranger@example.com"
+    When a browser route is called for tenant "other-household" with a token for "owner@example.com"
+    Then the browser route responds with status 403

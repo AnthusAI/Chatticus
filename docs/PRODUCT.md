@@ -73,8 +73,12 @@ file are independently gated — not one bundle that comes up together:
   slowest gate to clear, and only needed for work that actually
   requires a browser, such as a site with no API.
 
-See `capability_for_computer_tool` and `ComputerCapabilityReadiness` in
-`computer_capabilities.py`. A bot never waits on the browser stack just
+On development, for computers in Anthus's own accounts, the bot's turn moves
+onto the computer when it first needs it: a Pi owner in the container runs the
+file and shell tools locally, as an unprivileged user, and calls the model
+through a gateway that keeps the key out of the container. The browser has no
+executor on that path yet. See [Pi session handoff](PI_SESSION_HANDOFF.md) for
+the design and its limits. A bot never waits on the browser stack just
 to touch a file, and reading one needs no host running at all — writing
 still needs a hydrated host disk today, but not the browser.
 

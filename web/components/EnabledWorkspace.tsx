@@ -1,289 +1,1073 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-
-import { WorkspacePanel } from "./workspace/WorkspacePanel";
-import type { WorkspaceMember, WorkspaceMessage } from "./workspace/types";
-import { AuthCard, authErrorClassName, authOkClassName, authStatusClassName } from "./AuthCard";
-import { InviteMemberPanel } from "./InviteMemberPanel";
-import { TaskList } from "./TaskList";
-import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
 import {
+  Check,
+  ChevronDown,
+  CircleAlert,
+  Computer as ComputerIcon,
+  Menu,
+  PanelRight,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+
+import { ChatticusAssistantRuntime } from "./assistant-ui/ChatticusAssistantRuntime";
+import { BotAvatarView } from "./BotAvatarView";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Sheet } from "./ui/sheet";
+import { ComputerPausedNotice } from "./ComputerPausedNotice";
+import { TurnGrantPanel } from "./TurnGrantPanel";
+import { ComputerFilesPanel } from "./workspace/ComputerFilesPanel";
+import { ChannelCostChip, MessageCostContext, type MessageCostContextValue } from "./workspace/CostMarkers";
+import { CostsPanel } from "./workspace/CostsPanel";
+import { InspectorTabs, inspectorPanelDomId, inspectorTabDomId } from "./workspace/InspectorTabs";
+import { useVoiceControl, type VoiceControl } from "./useVoiceControl";
+import {
+  createBot,
   createChannel,
-  fetchHealth,
+  getActiveTurn,
+  getLatestTurn,
+  postVoiceMessage,
+  getComputer,
   listBots,
+  listChannels,
+  listMessages,
+  listTasks,
   postMessage,
   type Bot,
-  type HealthResponse,
+  type Channel,
+  type Computer,
+  type Message,
+  type Task,
+  type Turn,
   type TurnEvent,
 } from "../lib/api";
+import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
+import { costsApiFor } from "../lib/costs-api";
+import { CostsController } from "../lib/costs-controller";
+import { downloadTextFile } from "../lib/download-text-file";
 import type { ActiveOrg } from "../lib/membership-state";
+import type { MeOrganization } from "../lib/me";
 import { openTurnStream } from "../lib/sse";
 import { isTerminalTurnEvent } from "../lib/sse-parse";
+import { formatTime } from "../lib/time";
+import {
+  buildRoster,
+  resolveRosterViewState,
+  rosterViewText,
+  getSendBlockMessage,
+  getSendBlockReason,
+  latestMessage,
+  resolveVisibleTurnState,
+  shouldClearTurnBubbleAfterTerminal,
+  turnPresentation,
+  type RosterItem,
+  type TurnUiStatus,
+} from "../lib/workspace-state";
+import {
+  FOCUS_RING_CLASS,
+  ICON_ONLY_CONTROL_NAMES,
+  INSPECTOR_DESKTOP_MIN_WIDTH_PX,
+  INSPECTOR_SHEET_TITLE,
+  ROSTER_DESKTOP_MIN_WIDTH_PX,
+  ROSTER_SHEET_TITLE,
+  buildInspectorModel,
+  messagesForChannel,
+  prepareOutgoingMessage,
+  resolveSelectionChannel,
+} from "../lib/workspace-actions";
+import { isTurnGrantPanelVisible } from "../lib/turn-grant";
+import {
+  replyForEndedTurn,
+  turnEndAnnouncement,
+  voiceKeyterms,
+} from "../lib/voice-control";
+import { createVoiceLineDelivery } from "../lib/voice-line-delivery";
+import type { RetainedTurnActivity } from "../lib/committed-activity";
+import { reduceTurnActivity } from "../lib/turn-activity";
+import type { InspectorTabId } from "../lib/inspector-tabs";
+import { touchedFilesFromActivity } from "../lib/touched-files";
+import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
+type EnabledWorkspaceProps = {
+  activeOrg: ActiveOrg;
+  organizations: MeOrganization[];
+  sessionEmail: string | null;
+  onSignOut: () => Promise<void>;
+  onReloadMembership: () => Promise<void>;
+};
 
-type TurnUiStatus = "active" | "completed" | "failed" | "reconciling" | null;
+
 
 function turnStatusFromKind(kind: string): TurnUiStatus {
-  if (kind === "turn.completed") {
-    return "completed";
-  }
-  if (kind === "turn.failed") {
-    return "failed";
-  }
-  if (kind === "turn.reconciling") {
-    return "reconciling";
-  }
+  if (kind === "turn.completed") return "completed";
+  if (kind === "turn.failed") return "failed";
+  if (kind === "turn.reconciling") return "reconciling";
   return "active";
 }
 
-type EnabledWorkspaceProps = {
-  activeOrg: ActiveOrg;
-};
+function channelIdForItem(item: RosterItem | null): string | null {
+  return item?.channel?.channel_id ?? null;
+}
 
-export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [healthError, setHealthError] = useState<string | null>(null);
+function AvatarStack({ bots, size = 38 }: { bots: Bot[]; size?: number }) {
+  return (
+    <span className="flex shrink-0 -space-x-3" aria-label={`${bots.length} bot participants`}>
+      {bots.slice(0, 3).map((bot) => (
+        <BotAvatarView
+          key={bot.bot_id}
+          botName={bot.name}
+          state="neutral"
+          size={size}
+          className="rounded-2xl"
+        />
+      ))}
+    </span>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="m-auto max-w-md px-8 text-center">
+      <h2 className="font-display text-3xl font-medium tracking-tight">{title}</h2>
+      <p className="mt-3 text-sm leading-6 text-surface-foreground/60">{body}</p>
+    </div>
+  );
+}
+
+export function EnabledWorkspace({
+  activeOrg,
+  organizations,
+  sessionEmail,
+  onSignOut,
+  onReloadMembership,
+}: EnabledWorkspaceProps) {
   const [bots, setBots] = useState<Bot[]>([]);
-  const [botsLoading, setBotsLoading] = useState(true);
-  const [botsError, setBotsError] = useState<string | null>(null);
-  const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
-  const [channelId, setChannelId] = useState<string | null>(null);
-  const [sentBody, setSentBody] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [messagesByChannel, setMessagesByChannel] = useState<Record<string, Message[]>>({});
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [computer, setComputer] = useState<Computer | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [addressedBotId, setAddressedBotId] = useState<string>("");
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [turnId, setTurnId] = useState<string | null>(null);
+  const [turn, setTurn] = useState<Turn | null>(null);
   const [turnStatus, setTurnStatus] = useState<TurnUiStatus>(null);
-  const [streamError, setStreamError] = useState<string | null>(null);
+  const [turnEvents, setTurnEvents] = useState<TurnEvent[]>([]);
+  const turnEventsRef = useRef<TurnEvent[]>([]);
+  const [retainedActivity, setRetainedActivity] = useState<RetainedTurnActivity | null>(null);
   const [progress, setProgress] = useState("");
-  const [events, setEvents] = useState<TurnEvent[]>([]);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [latestEndedTurn, setLatestEndedTurn] = useState<Turn | null>(null);
+  const [lastProgressAt, setLastProgressAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTabId>("context");
+  const [filesTabVisited, setFilesTabVisited] = useState(false);
+  const [costsTabVisited, setCostsTabVisited] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<"bot" | "channel">("bot");
+  const [createName, setCreateName] = useState("");
+  const [createBotIds, setCreateBotIds] = useState<string[]>([]);
   const closeStreamRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadHealth() {
-      try {
-        const body = await fetchHealth();
-        if (!cancelled) {
-          setHealth(body);
-          setHealthError(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setHealth(null);
-          setHealthError(error instanceof Error ? error.message : "unknown error");
-        }
-      }
-    }
-    void loadHealth();
-    return () => {
-      cancelled = true;
+  const streamGenerationRef = useRef(0);
+  const selectionLoadRef = useRef(0);
+  const sendingRef = useRef(false);
+  const sendGenerationRef = useRef(0);
+  const voiceListeningRef = useRef(false);
+  const speakAloudRef = useRef<(text: string) => void>(() => undefined);
+  const selectedItemIdRef = useRef<string | null>(null);
+  const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
+  const botNameById = useMemo(
+    () => new Map(bots.map((bot) => [bot.bot_id, bot.name])),
+    [bots],
+  );
+  const selectedItem = roster.find((item) => item.id === selectedItemId) ?? null;
+  const selectedChannelId = channelIdForItem(selectedItem);
+  const selectedMessages = useMemo(
+    () => messagesForChannel(messagesByChannel, selectedChannelId),
+    [messagesByChannel, selectedChannelId],
+  );
+  const visibleRoster = roster.filter((item) =>
+    item.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  );
+  const touchedFiles = useMemo(
+    () =>
+      touchedFilesFromActivity(selectedMessages, [
+        ...(retainedActivity?.activity.tools ?? []),
+        ...reduceTurnActivity(turnEvents).tools,
+      ]),
+    [selectedMessages, retainedActivity, turnEvents],
+  );
+  const inspector = buildInspectorModel({ computer, tasks, selectedItem, bots });
+  const costs = useMemo(
+    () =>
+      new CostsController({
+        api: costsApiFor({ tenantId: activeOrg.tenantId, userId: activeOrg.userId }),
+        now: () => new Date(),
+        deliverFile: downloadTextFile,
+      }),
+    [activeOrg.tenantId, activeOrg.userId],
+  );
+  const costsSnapshot = useSyncExternalStore(costs.subscribe, costs.getSnapshot, costs.getSnapshot);
+  const costLabels = useMemo(() => {
+    const channelLabels = new Map(
+      roster.flatMap((item) => (item.channel ? [[item.channel.channel_id, item.label] as const] : [])),
+    );
+    return {
+      botName: (botId: string) => botNameById.get(botId) ?? botId,
+      channelName: (channelId: string) => channelLabels.get(channelId) ?? "Conversation",
     };
+  }, [roster, botNameById]);
+  useEffect(() => {
+    void costs.selectChannel(selectedChannelId);
+  }, [costs, selectedChannelId]);
+  const turnWasActiveRef = useRef(false);
+  useEffect(() => {
+    if (turn) {
+      turnWasActiveRef.current = true;
+    } else if (turnWasActiveRef.current) {
+      turnWasActiveRef.current = false;
+      void costs.refreshChannel();
+    }
+  }, [costs, turn]);
+  const showCostsTab = useCallback(() => {
+    setCostsTabVisited(true);
+    setInspectorTab("costs");
+    setInspectorOpen(true);
+    setInspectorCollapsed(false);
   }, []);
+  const messageCostContext = useMemo<MessageCostContextValue>(
+    () => ({
+      markers: costsSnapshot.markers,
+      onOpen: (seq) => {
+        void costs.openMessage(seq);
+        showCostsTab();
+      },
+    }),
+    [costs, costsSnapshot.markers, showCostsTab],
+  );
+  const rosterViewState = resolveRosterViewState({
+    loading,
+    failed: Boolean(error),
+    rosterRowCount: roster.length,
+    visibleRowCount: visibleRoster.length,
+    query,
+  });
+  const visibleTurnState = resolveVisibleTurnState(turnStatus, turn, progress);
+  const sendBlockReason = getSendBlockReason(sending, turn, addressedBotId);
+  const sendBlockMessage = getSendBlockMessage(sendBlockReason);
 
-  const loadBots = useCallback(async () => {
-    setBotsLoading(true);
+  const loadWorkspace = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const roster = await listBots(activeOrg);
-      setBots(roster);
-      setBotsError(null);
-    } catch (error) {
-      setBots([]);
-      setBotsError(error instanceof Error ? error.message : "unknown error");
+      const [loadedBots, loadedChannels] = await Promise.all([
+        listBots(activeOrg),
+        listChannels(activeOrg),
+      ]);
+      const [loadedTasks, loadedComputer] = await Promise.all([
+        listTasks(activeOrg).catch(() => []),
+        getComputer(activeOrg).catch(() => null),
+      ]);
+      const messageResults = await Promise.allSettled(
+        loadedChannels.map((channel) => listMessages(activeOrg, channel.channel_id)),
+      );
+      const entries = loadedChannels.map((channel, index) => {
+        const result = messageResults[index];
+        const messages = result.status === "fulfilled" ? result.value : [];
+        return [channel.channel_id, messages] as const;
+      });
+      setBots(loadedBots);
+      setChannels(loadedChannels);
+      setTasks(loadedTasks);
+      setComputer(loadedComputer);
+      setMessagesByChannel(Object.fromEntries(entries));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Workspace failed to load");
     } finally {
-      setBotsLoading(false);
+      setLoading(false);
     }
   }, [activeOrg]);
 
+  useEffect(() => void loadWorkspace(), [loadWorkspace]);
+  useEffect(() => () => closeStreamRef.current?.(), []);
   useEffect(() => {
-    void loadBots();
-  }, [loadBots]);
-
-  const ensureChannel = useCallback(
-    async (bot: Bot): Promise<string> => {
-      if (channelId) {
-        return channelId;
-      }
-      const channel = await createChannel(activeOrg, [bot.bot_id]);
-      setChannelId(channel.channel_id);
-      return channel.channel_id;
-    },
-    [activeOrg, channelId],
-  );
-
-  const startTurnStream = useCallback(
-    (activeTurnId: string) => {
-      closeStreamRef.current?.();
-      setStreamError(null);
-      setProgress("");
-      setEvents([]);
-      setTurnStatus("active");
-      closeStreamRef.current = openTurnStream(
-        activeOrg.tenantId,
-        activeTurnId,
-        {
-          onEvent: (event) => {
-            setEvents((current) => [...current, event]);
-            if (event.kind === "turn.token" && event.token) {
-              setProgress((current) => current + event.token);
-            }
-            if (isTerminalTurnEvent(event.kind)) {
-              setTurnStatus(turnStatusFromKind(event.kind));
-            }
-          },
-          onError: (error) => {
-            setStreamError(error.message);
-          },
-        },
-      );
-    },
-    [activeOrg.tenantId],
-  );
-
-  useEffect(() => {
+    const desktopRoster = window.matchMedia(`(min-width: ${ROSTER_DESKTOP_MIN_WIDTH_PX}px)`);
+    const desktopInspector = window.matchMedia(`(min-width: ${INSPECTOR_DESKTOP_MIN_WIDTH_PX}px)`);
+    const closeSheetsAtDesktopWidths = () => {
+      if (desktopRoster.matches) setRosterOpen(false);
+      if (desktopInspector.matches) setInspectorOpen(false);
+    };
+    closeSheetsAtDesktopWidths();
+    desktopRoster.addEventListener("change", closeSheetsAtDesktopWidths);
+    desktopInspector.addEventListener("change", closeSheetsAtDesktopWidths);
     return () => {
-      closeStreamRef.current?.();
+      desktopRoster.removeEventListener("change", closeSheetsAtDesktopWidths);
+      desktopInspector.removeEventListener("change", closeSheetsAtDesktopWidths);
     };
   }, []);
 
-  async function handleSelectBot(bot: Bot) {
-    setSelectedBot(bot);
-    setSendError(null);
-    setTurnId(null);
-    setTurnStatus(null);
-    setProgress("");
-    setEvents([]);
-    setSentBody(null);
-    closeStreamRef.current?.();
-    setChannelId(null);
-  }
+  const reconcileMessages = useCallback(
+    async (channelId: string) => {
+      const [committed, refreshedTasks, refreshedComputer] = await Promise.all([
+        listMessages(activeOrg, channelId),
+        listTasks(activeOrg).catch(() => tasks),
+        getComputer(activeOrg).catch(() => computer),
+      ]);
+      return { committed, refreshedTasks, refreshedComputer };
+    },
+    [activeOrg, computer, tasks],
+  );
 
-  async function handleSend() {
-    if (!selectedBot || sending) {
-      return;
-    }
-    const body = draft.trim();
-    if (!body) {
-      return;
-    }
-    setSending(true);
-    setSendError(null);
-    try {
-      const activeChannelId = await ensureChannel(selectedBot);
-      const response = await postMessage(
-        activeOrg,
-        activeChannelId,
-        body,
-        selectedBot.bot_id,
-      );
-      setDraft("");
-      setSentBody(body);
-      if (response.turn_id) {
-        setTurnId(response.turn_id);
-        startTurnStream(response.turn_id);
+  const startTurnStream = useCallback(
+    (activeTurn: Turn) => {
+      closeStreamRef.current?.();
+      const streamGeneration = (streamGenerationRef.current += 1);
+      const isCurrentStream = () => streamGeneration === streamGenerationRef.current;
+      let sawTerminalEvent = false;
+      let retryCount = 0;
+      const MAX_RETRIES = 4;
+
+      const clearStoredTurnProgress = (storageKey: string, progressStorageKey: string) => {
+        window.sessionStorage.removeItem(storageKey);
+        window.sessionStorage.removeItem(progressStorageKey);
+      };
+
+      const parkStreamWithoutTerminal = (message: string) => {
+        if (!isCurrentStream()) {
+          return;
+        }
+        setStreamError(message);
+        setTurn(null);
+        setTurnStatus(null);
+        setTurnEvents([]);
+        setProgress("");
+      };
+
+      const storageKey = `chatticus:last-event:${activeTurn.turn_id}`;
+      const progressStorageKey = `chatticus:turn-progress:${activeTurn.turn_id}`;
+
+      const openStreamWithRetry = () => {
+        if (!isCurrentStream()) {
+          return;
+        }
+        setTurn(activeTurn);
+        if (retryCount === 0) {
+          setTurnStatus("active");
+          setTurnEvents([]);
+          turnEventsRef.current = [];
+        }
+        setStreamError(null);
+        if (retryCount === 0) {
+          clearStoredTurnProgress(storageKey, progressStorageKey);
+        }
+        const storedProgress = window.sessionStorage.getItem(progressStorageKey);
+        const lastEventId = storedProgress === null
+          ? 0
+          : Number(window.sessionStorage.getItem(storageKey) ?? 0);
+        setProgress(storedProgress ?? "");
+        closeStreamRef.current = openTurnStream(
+          activeOrg.tenantId,
+          activeTurn.turn_id,
+          {
+            onEvent: (event) => {
+              if (!isCurrentStream()) {
+                return;
+              }
+              retryCount = 0;
+              window.sessionStorage.setItem(storageKey, String(event.seq));
+              turnEventsRef.current = [...turnEventsRef.current, event];
+              setTurnEvents((current) => [...current, event]);
+              if (event.kind === "turn.waiting") {
+                setTurn((current) =>
+                  current
+                    ? { ...current, waiting_for: event.body ?? "input" }
+                    : current,
+                );
+              }
+              if (event.kind === "turn.token" && event.token) {
+                setTurn((current) =>
+                  current ? { ...current, waiting_for: null } : current,
+                );
+                setProgress((current) => {
+                  const next = current + event.token;
+                  window.sessionStorage.setItem(progressStorageKey, next);
+                  return next;
+                });
+              }
+              if (isTerminalTurnEvent(event.kind)) {
+                sawTerminalEvent = true;
+                setTurnStatus(turnStatusFromKind(event.kind));
+                void reconcileMessages(activeTurn.channel_id).then((result) => {
+                  if (!isCurrentStream()) {
+                    return;
+                  }
+                  if (result) {
+                    setMessagesByChannel((current) => ({
+                      ...current,
+                      [activeTurn.channel_id]: result.committed,
+                    }));
+                    setTasks(result.refreshedTasks);
+                    setComputer(result.refreshedComputer);
+                    const endedReply =
+                      event.kind === "turn.completed"
+                        ? replyForEndedTurn(activeTurn, result.committed)
+                        : null;
+                    if (endedReply) {
+                      setRetainedActivity({
+                        messageId: endedReply.message_id,
+                        activity: reduceTurnActivity(turnEventsRef.current),
+                      });
+                    }
+                  }
+                  if (shouldClearTurnBubbleAfterTerminal(event.kind)) {
+                    clearStoredTurnProgress(storageKey, progressStorageKey);
+                    setProgress("");
+                    setTurn(null);
+                    setTurnStatus(null);
+                    setTurnEvents([]);
+                  }
+                  const reply =
+                    event.kind === "turn.completed"
+                      ? replyForEndedTurn(activeTurn, result?.committed ?? [])
+                      : null;
+                  const announcement =
+                    event.kind === "turn.failed"
+                      ? turnEndAnnouncement({
+                          listening: voiceListeningRef.current,
+                          outcome: { kind: "failed", reason: event.body ?? "The turn failed." },
+                        })
+                      : reply
+                        ? turnEndAnnouncement({
+                            listening: voiceListeningRef.current,
+                            outcome: { kind: "completed", body: reply.body },
+                          })
+                        : null;
+                  if (announcement) {
+                    speakAloudRef.current(announcement);
+                  }
+                  if (event.kind === "turn.failed") {
+                    if (activeTurn.prompt_message_seq != null) {
+                      setLatestEndedTurn({
+                        ...activeTurn,
+                        status: "failed",
+                        terminal_reason: event.body ?? null,
+                      });
+                    } else {
+                      setStreamError(event.body ?? "Turn failed");
+                    }
+                  }
+                });
+              }
+            },
+            onError: (caught) => {
+              if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                const delay = Math.pow(2, retryCount - 1) * 1000;
+                setTimeout(() => openStreamWithRetry(), delay);
+              } else {
+                parkStreamWithoutTerminal(caught.message);
+              }
+            },
+            onClose: () => {
+              if (!isCurrentStream() || sawTerminalEvent) {
+                return;
+              }
+              if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                const delay = Math.pow(2, retryCount - 1) * 1000;
+                setTimeout(() => openStreamWithRetry(), delay);
+              } else {
+                parkStreamWithoutTerminal("Connection lost");
+              }
+            },
+          },
+          lastEventId,
+        );
+      };
+
+      openStreamWithRetry();
+    },
+    [activeOrg.tenantId, reconcileMessages],
+  );
+
+  const selectItem = useCallback(
+    async (item: RosterItem): Promise<Channel | null> => {
+      streamGenerationRef.current += 1;
+      const selectionLoadToken = (selectionLoadRef.current += 1);
+      setError(null);
+      let channel: Channel | null = item.channel;
+      if (item.kind === "bot" && !channel) {
+        try {
+          channel = await resolveSelectionChannel(item, (botId) => createChannel(activeOrg, [botId]));
+          setChannels((current) => [...current.filter((row) => row.channel_id !== channel?.channel_id), channel!]);
+          setMessagesByChannel((current) => ({ ...current, [channel!.channel_id]: [] }));
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "Conversation failed to open");
+          return null;
+        }
       }
-    } catch (error) {
-      setSendError(error instanceof Error ? error.message : "send failed");
-    } finally {
-      setSending(false);
+      setSelectedItemId(item.id);
+      selectedItemIdRef.current = item.id;
+      setLatestEndedTurn(null);
+      setAddressedBotId(item.bots[0]?.bot_id ?? "");
+      setRosterOpen(false);
+      setTurn(null);
+      setTurnStatus(null);
+      setProgress("");
+      closeStreamRef.current?.();
+      if (!channel) return null;
+      const openedChannel = channel;
+      try {
+        const [committed, activeTurn] = await Promise.all([
+          listMessages(activeOrg, channel.channel_id),
+          getActiveTurn(activeOrg, channel.channel_id),
+        ]);
+        if (selectionLoadToken !== selectionLoadRef.current) {
+          return openedChannel;
+        }
+        setMessagesByChannel((current) => ({ ...current, [openedChannel.channel_id]: committed }));
+        if (activeTurn) {
+          startTurnStream(activeTurn);
+        } else {
+          const sendGeneration = sendGenerationRef.current;
+          const latestTurn = await getLatestTurn(activeOrg, openedChannel.channel_id).catch(() => null);
+          if (
+            selectionLoadToken === selectionLoadRef.current &&
+            sendGeneration === sendGenerationRef.current
+          ) {
+            setLatestEndedTurn(latestTurn);
+          }
+        }
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Conversation failed to load");
+      }
+      return openedChannel;
+    },
+    [activeOrg, startTurnStream],
+  );
+
+  const deliverPost = useCallback(
+    async (
+      channelId: string,
+      botId: string,
+      send: () => Promise<{ message: Message | null; turn_id: string | null; degraded?: boolean }>,
+    ): Promise<{ message: Message | null; degraded: boolean } | null> => {
+      sendingRef.current = true;
+      sendGenerationRef.current += 1;
+      setSending(true);
+      setStreamError(null);
+      setLatestEndedTurn(null);
+      try {
+        const response = await send();
+        const posted = response.message;
+        const degraded = Boolean(response.degraded);
+        if (!posted) {
+          return { message: null, degraded };
+        }
+        setMessagesByChannel((current) => ({
+          ...current,
+          [channelId]: [...(current[channelId] ?? []), posted],
+        }));
+        if (response.turn_id) {
+          startTurnStream({
+            turn_id: response.turn_id,
+            tenant_id: activeOrg.tenantId,
+            channel_id: channelId,
+            bot_id: botId,
+            status: "active",
+            waiting_for: null,
+            prompt_message_seq: posted.seq,
+          });
+        }
+        return { message: posted, degraded };
+      } catch (caught) {
+        setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
+        return null;
+      } finally {
+        sendingRef.current = false;
+        setSending(false);
+      }
+    },
+    [activeOrg.tenantId, startTurnStream],
+  );
+
+  const postToChannel = useCallback(
+    async (channelId: string, botId: string, body: string): Promise<boolean> =>
+      (await deliverPost(channelId, botId, () => postMessage(activeOrg, channelId, body, botId))) !==
+      null,
+    [activeOrg, deliverPost],
+  );
+
+  const handleSendMessage = useCallback(
+    async (body: string) => {
+      const outgoing = prepareOutgoingMessage(selectedItem, addressedBotId, body, { sending, turn });
+      if (!outgoing) {
+        return;
+      }
+      await postToChannel(outgoing.channelId, outgoing.addressedToBotId, outgoing.body);
+    },
+    [addressedBotId, postToChannel, selectedItem, sending, turn],
+  );
+
+  const voiceKeytermList = useMemo(() => voiceKeyterms(bots), [bots]);
+  const stopVoiceRef = useRef<() => Promise<void>>(async () => undefined);
+  const speakingRef = useRef(false);
+  const stopSpeakingRef = useRef<(reason?: string) => void>(() => undefined);
+
+  const voiceContextRef = useRef({
+    activeOrg,
+    bots,
+    channels,
+    selectedItemId,
+    addressedBotId,
+    botNameById,
+    deliverPost,
+  });
+  useEffect(() => {
+    voiceContextRef.current = {
+      activeOrg,
+      bots,
+      channels,
+      selectedItemId,
+      addressedBotId,
+      botNameById,
+      deliverPost,
+    };
+  }, [activeOrg, addressedBotId, bots, botNameById, channels, deliverPost, selectedItemId]);
+  const voiceControlRef = useRef<Pick<VoiceControl, "speak" | "showNote"> | null>(null);
+
+  const voiceDelivery = useMemo(
+    () =>
+      createVoiceLineDelivery({
+        workspace: () => {
+          const context = voiceContextRef.current;
+          return {
+            bots: context.bots,
+            channels: context.channels,
+            selectedId: selectedItemIdRef.current,
+            addressedBotId: context.addressedBotId || null,
+          };
+        },
+        botName: (botId) => voiceContextRef.current.botNameById.get(botId) ?? "your teammate",
+        turnIsActive: async (channelId) =>
+          Boolean(await getActiveTurn(voiceContextRef.current.activeOrg, channelId)),
+        sendIsInFlight: () => sendingRef.current,
+        sendLine: async (botId, channelId, transcript) => {
+          const context = voiceContextRef.current;
+          const delivered = await context.deliverPost(channelId, botId, () =>
+            postVoiceMessage(context.activeOrg, channelId, transcript, botId),
+          );
+          if (!delivered) {
+            return { kind: "failed" };
+          }
+          if (!delivered.message) {
+            return { kind: "nothingToSend" };
+          }
+          return { kind: "sent", understood: delivered.message.body, degraded: delivered.degraded };
+        },
+        openItemId: () => selectedItemIdRef.current,
+        speakFeedback: (text) => voiceControlRef.current?.speak(text),
+        replyIsSpeaking: () => speakingRef.current,
+        notify: (note) => voiceControlRef.current?.showNote(note),
+        stopSpeaking: (reason) => stopSpeakingRef.current(reason),
+        stopListening: () => stopVoiceRef.current(),
+        retryLater: (action, milliseconds) => {
+          window.setTimeout(action, milliseconds);
+        },
+        now: () => Date.now(),
+      }),
+    [],
+  );
+
+  const handleVoiceLine = useCallback(
+    (text: string, line: { overlapsSpeech: boolean }): Promise<string> =>
+      voiceDelivery.handleLine(text, line),
+    [voiceDelivery],
+  );
+
+  const handleVoiceStopped = useCallback(
+    () => voiceDelivery.clear("voice listening was turned off"),
+    [voiceDelivery],
+  );
+
+  useEffect(() => {
+    voiceDelivery.clear("you switched conversations");
+  }, [selectedItemId, voiceDelivery]);
+
+  useEffect(() => {
+    if (!turn && selectedChannelId) {
+      void voiceDelivery.flush(selectedChannelId, { afterTurn: true });
+    }
+  }, [turn, selectedChannelId, voiceDelivery]);
+
+  useEffect(() => {
+    if (!turn && !sending && selectedChannelId) {
+      void voiceDelivery.flush(selectedChannelId);
+    }
+  }, [sending, turn, selectedChannelId, voiceDelivery]);
+
+  const handleRetryFailedTurn = useCallback(
+    async (failure: FailedTurn) => {
+      if (!selectedChannelId || sendingRef.current) {
+        return;
+      }
+      setAddressedBotId(failure.botId);
+      await postToChannel(selectedChannelId, failure.botId, failure.retryBody);
+    },
+    [postToChannel, selectedChannelId],
+  );
+
+  const activeTurnId = turn?.turn_id ?? null;
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    setLastProgressAt(startedAt);
+    setNow(startedAt);
+  }, [activeTurnId, progress]);
+
+  useEffect(() => {
+    if (!activeTurnId) {
+      return;
+    }
+    const timer = window.setInterval(() => setNow(Date.now()), 5_000);
+    return () => window.clearInterval(timer);
+  }, [activeTurnId]);
+
+  const failedTurn = useMemo(
+    () => (turn ? null : failedTurnForConversation(latestEndedTurn, selectedMessages)),
+    [latestEndedTurn, selectedMessages, turn],
+  );
+
+  const turnIsSlow = Boolean(turn) && !progress && isTurnSlow(now - lastProgressAt);
+
+  const voice = useVoiceControl({
+    keyterms: voiceKeytermList,
+    onLine: handleVoiceLine,
+    onStopped: handleVoiceStopped,
+  });
+  useEffect(() => {
+    stopVoiceRef.current = voice.stop;
+    stopSpeakingRef.current = voice.stopSpeaking;
+    speakingRef.current = voice.speaking;
+    voiceControlRef.current = { speak: voice.speak, showNote: voice.showNote };
+  }, [voice.stop, voice.stopSpeaking, voice.speaking, voice.speak, voice.showNote]);
+
+  useEffect(() => {
+    if (!voice.speaking) {
+      voiceDelivery.replyEnded();
+    }
+  }, [voice.speaking, voiceDelivery]);
+
+  useEffect(() => {
+    voiceListeningRef.current = voice.listening;
+    speakAloudRef.current = voice.speak;
+  }, [voice.listening, voice.speak]);
+
+  async function handleCreate() {
+    if (!createName.trim()) return;
+    try {
+      if (createMode === "bot") {
+        await createBot(activeOrg, createName);
+      } else {
+        if (createBotIds.length < 2) {
+          setError("A named channel needs at least two bots.");
+          return;
+        }
+        await createChannel(activeOrg, createBotIds, createName);
+      }
+      setCreateName("");
+      setCreateBotIds([]);
+      setCreateOpen(false);
+      await loadWorkspace();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Creation failed");
     }
   }
 
-  const avatarActivity = avatarActivityFromTurn(events, turnStatus, sending);
-  const avatarState = botAvatarStateFromActivity(avatarActivity);
+  const avatarActivity = avatarActivityFromTurn(turnEvents, turnStatus, sending);
+  const activeAvatarState = botAvatarStateFromActivity(avatarActivity);
+  const activeOrganization = organizations.find((org) => org.tenant_id === activeOrg.tenantId);
 
-  const messages: WorkspaceMessage[] = [];
-  if (sentBody) {
-    messages.push({ id: "operator", author: "operator", authorLabel: "You", body: sentBody });
-  }
-  if (progress) {
-    messages.push({
-      id: "bot-response",
-      author: "bot",
-      authorLabel: selectedBot?.name ?? "Bot",
-      body: progress,
-    });
-  } else if (turnId && turnStatus === "active") {
-    messages.push({
-      id: "bot-response",
-      author: "bot",
-      authorLabel: selectedBot?.name ?? "Bot",
-      body: "…",
-    });
-  }
+  const rosterPane = (
+    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-3 sm:p-4" aria-label={ROSTER_SHEET_TITLE}>
+      <div className="flex items-center justify-between px-2 py-2">
+        <div>
+          <p className="text-base font-extrabold tracking-tight">chatticus<span className="text-clay">.</span></p>
+          <p className="font-mono text-[0.65rem] text-surface-foreground/50">{activeOrganization?.name ?? "Workspace"}</p>
+        </div>
+        <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.addBotOrChannel} onClick={() => setCreateOpen((open) => !open)}>
+          <Plus size={19} aria-hidden="true" />
+        </Button>
+      </div>
+      {createOpen ? (
+        <form
+          className="mb-3 rounded-2xl bg-surface p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleCreate();
+          }}
+        >
+          <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-raised p-1">
+            <button type="button" className={`rounded-lg px-2 py-2 text-xs font-bold ${createMode === "bot" ? "bg-surface" : ""}`} onClick={() => setCreateMode("bot")}>Bot</button>
+            <button type="button" className={`rounded-lg px-2 py-2 text-xs font-bold ${createMode === "channel" ? "bg-surface" : ""}`} onClick={() => setCreateMode("channel")}>Channel</button>
+          </div>
+          <Input value={createName} onChange={(event) => setCreateName(event.target.value)} placeholder={createMode === "bot" ? "Bot name" : "Channel name"} className="h-10 rounded-xl bg-surface-raised px-3" />
+          {createMode === "channel" ? (
+            <div className="mt-2 grid gap-1">
+              {bots.map((bot) => (
+                <label key={bot.bot_id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-surface-raised">
+                  <input type="checkbox" checked={createBotIds.includes(bot.bot_id)} onChange={() => setCreateBotIds((current) => current.includes(bot.bot_id) ? current.filter((id) => id !== bot.bot_id) : [...current, bot.bot_id])} />
+                  {bot.name}
+                </label>
+              ))}
+            </div>
+          ) : null}
+          <Button type="submit" className="mt-3 w-full shadow-none" size="sm">{createMode === "bot" ? "Create bot" : "Create channel"}</Button>
+        </form>
+      ) : null}
+      <label className="relative mb-3 block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-surface-foreground/45" size={17} aria-hidden="true" />
+        <span className="sr-only">Search bots and channels</span>
+        <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" className="h-11 rounded-xl bg-surface pl-10 pr-3" />
+      </label>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {rosterViewState ? <p className="px-3 py-8 text-sm text-surface-foreground/55">{rosterViewText(rosterViewState)}</p> : null}
+        <ul className="grid gap-1">
+          {visibleRoster.map((item) => {
+            const latest = item.channel ? latestMessage(messagesByChannel[item.channel.channel_id] ?? []) : null;
+            const selected = item.id === selectedItemId;
+            return (
+              <li key={item.id}>
+                <button type="button" className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${FOCUS_RING_CLASS} ${selected ? "bg-surface-high" : "hover:bg-surface/70"}`} onClick={() => void selectItem(item)}>
+                  {item.kind === "bot" ? <BotAvatarView botName={item.bot.name} state={selected ? activeAvatarState : "neutral"} size={42} /> : <AvatarStack bots={item.bots} size={38} />}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <strong className="truncate text-sm font-bold">{item.label}</strong>
+                      <span className="shrink-0 font-mono text-[0.6rem] text-surface-foreground/45">{formatTime(latest?.created_at)}</span>
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-surface-foreground/55">{latest?.body ?? (item.kind === "channel" ? `${item.bots.length} bots` : "Start a conversation")}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface px-3 py-2">
+        <span className="min-w-0 truncate text-xs font-semibold">{sessionEmail ?? "Account"}</span>
+        <button className={`rounded-lg px-2 py-1 text-xs text-surface-foreground/60 hover:bg-surface-raised ${FOCUS_RING_CLASS}`} onClick={() => void onSignOut()}>Sign out</button>
+      </div>
+    </aside>
+  );
 
-  const memberActivity =
-    turnStatus === "failed"
-      ? "Turn failed"
-      : turnStatus === "reconciling"
-        ? "Reconciling"
-        : avatarActivity === "thinking"
-          ? "Thinking…"
-          : avatarActivity === "waiting"
-            ? "Waiting…"
-            : avatarActivity === "speaking"
-              ? "Responding…"
-              : avatarActivity === "completed"
-                ? "Done"
-                : undefined;
-
-  const members: WorkspaceMember[] = bots.map((bot) => ({
-    id: bot.bot_id,
-    name: bot.name,
-    meta: Object.keys(bot.memory).length > 0 ? `${Object.keys(bot.memory).length} memory keys` : undefined,
-  }));
-
-  return (
-    <>
-      <AuthCard title="Control plane">
-        <p className={authStatusClassName}>
-          Organization: <code>{activeOrg.tenantId}</code>
-        </p>
-        {health ? (
-          <p className={authOkClassName}>
-            Health: {health.status ?? "ok"}
-            {health.environment ? ` (${health.environment})` : ""}
-          </p>
-        ) : (
-          <p className={authErrorClassName}>
-            Health check pending{healthError ? `: ${healthError}` : ""}
-          </p>
-        )}
-      </AuthCard>
-
-      <InviteMemberPanel tenantId={activeOrg.tenantId} />
-
-      <WorkspacePanel
-        orgLabel={`Organization: ${activeOrg.tenantId}`}
-        workspaceLabel="Workspace"
-        members={members}
-        selectedMemberId={selectedBot?.bot_id ?? null}
-        selectedMemberState={avatarState}
-        selectedMemberActivity={memberActivity}
-        messages={messages}
-        draft={draft}
-        sending={sending}
-        sendError={sendError ?? streamError}
-        rosterLoading={botsLoading}
-        rosterError={botsError}
-        onSelectMember={(member) => {
-          const bot = bots.find((candidate) => candidate.bot_id === member.id);
-          if (bot) {
-            void handleSelectBot(bot);
-          }
-        }}
-        onRetryRoster={() => {
-          void loadBots();
-        }}
-        onDraftChange={setDraft}
-        onSend={() => {
-          void handleSend();
+  const inspectorPane = (
+    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-4" aria-label={INSPECTOR_SHEET_TITLE}>
+      <div className="flex items-center justify-between py-2">
+        <h2 className="text-sm font-extrabold">Context</h2>
+        <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.closeInspector} onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); }}><X size={18} aria-hidden="true" /></Button>
+      </div>
+      <InspectorTabs
+        selected={inspectorTab}
+        onSelect={(tab) => {
+          if (tab === "files") setFilesTabVisited(true);
+          if (tab === "costs") setCostsTabVisited(true);
+          setInspectorTab(tab);
         }}
       />
+      {filesTabVisited ? (
+        <div
+          role="tabpanel"
+          id={inspectorPanelDomId("files")}
+          aria-labelledby={inspectorTabDomId("files")}
+          hidden={inspectorTab !== "files"}
+          className="min-h-0 flex-1 overflow-y-auto pb-4"
+        >
+          <ComputerFilesPanel
+            key={activeOrg.tenantId}
+            org={activeOrg}
+            touched={touchedFiles}
+            role={activeOrganization?.role ?? "member"}
+            active={inspectorTab === "files"}
+          />
+        </div>
+      ) : null}
+      {costsTabVisited ? (
+        <div
+          role="tabpanel"
+          id={inspectorPanelDomId("costs")}
+          aria-labelledby={inspectorTabDomId("costs")}
+          hidden={inspectorTab !== "costs"}
+          className="min-h-0 flex-1 overflow-y-auto pb-4"
+        >
+          <CostsPanel key={activeOrg.tenantId} controller={costs} labels={costLabels} active={inspectorTab === "costs"} />
+        </div>
+      ) : null}
+      {inspectorTab !== "context" ? null : (
+      <div
+        role="tabpanel"
+        id={inspectorPanelDomId("context")}
+        aria-labelledby={inspectorTabDomId("context")}
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4"
+      >
+        <section className="rounded-2xl bg-surface p-4">
+          <div className="flex items-center gap-2"><ComputerIcon size={17} aria-hidden="true" /><h3 className="text-sm font-bold">Computer</h3></div>
+          {inspector.computer ? (
+            <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
+              <dt className="text-surface-foreground/50">State</dt><dd className="font-semibold">{inspector.computer.stateLabel}</dd>
+              <dt className="text-surface-foreground/50">Policy</dt><dd className="font-mono">{inspector.computer.policy}</dd>
+              <dt className="text-surface-foreground/50">Generation</dt><dd className="font-mono">{inspector.computer.generation}</dd>
+              <dt className="text-surface-foreground/50">Identity</dt><dd className="truncate font-mono" title={inspector.computer.identity}>{inspector.computer.identity}</dd>
+            </dl>
+          ) : <p className="mt-3 text-xs text-surface-foreground/55">Computer status unavailable.</p>}
+          {inspector.computerControls.map((control) => <Button key={control} variant="ghost" size="sm">{control}</Button>)}
+        </section>
+        <section>
+          <div className="flex items-center gap-2 px-1"><Check size={17} aria-hidden="true" /><h3 className="text-sm font-bold">{selectedItem?.kind === "channel" ? "Organization tasks" : "Tasks"}</h3></div>
+          {selectedItem?.kind === "channel" ? <p className="px-1 pt-1 text-xs text-surface-foreground/50">Tasks are organization-wide and are not linked to channels.</p> : null}
+          <div className="mt-3 grid gap-2">
+            {inspector.tasks.map(({ task, creatorName: creator, updaterName: updater }) => {
+              return (
+                <details key={task.task_id} className="group rounded-2xl bg-surface p-4">
+                  <summary className={`flex cursor-pointer list-none items-start justify-between gap-3 ${FOCUS_RING_CLASS}`}>
+                    <span className="text-sm font-semibold leading-5">{task.title}</span>
+                    <span className="flex shrink-0 items-center gap-1 font-mono text-[0.6rem] uppercase text-surface-foreground/50">{task.status}<ChevronDown size={13} className="transition-transform group-open:rotate-180" aria-hidden="true" /></span>
+                  </summary>
+                  <dl className="mt-3 grid gap-2 text-xs text-surface-foreground/65">
+                    {task.evidence ? <div><dt className="font-semibold text-surface-foreground">Evidence</dt><dd className="mt-0.5 whitespace-pre-wrap">{task.evidence}</dd></div> : null}
+                    {task.close_reason ? <div><dt className="font-semibold text-surface-foreground">Close reason</dt><dd className="mt-0.5">{task.close_reason}</dd></div> : null}
+                    {creator || updater ? <div><dt className="font-semibold text-surface-foreground">Bot provenance</dt><dd className="mt-0.5">{creator ? `Created by ${creator}` : ""}{creator && updater ? "; " : ""}{updater ? `updated by ${updater}` : ""}</dd></div> : null}
+                  </dl>
+                </details>
+              );
+            })}
+            {inspector.tasks.length === 0 ? <p className="rounded-2xl bg-surface p-4 text-xs text-surface-foreground/55">No matching tasks.</p> : null}
+          </div>
+        </section>
+        {turn && isTurnGrantPanelVisible(turn.turn_id, turnStatus) ? (
+          <TurnGrantPanel
+            activeOrg={activeOrg}
+            turnId={turn.turn_id}
+          />
+        ) : null}
+      </div>
+      )}
+    </aside>
+  );
 
-      <section className="rounded-2xl bg-surface-raised p-4 text-surface-foreground sm:p-5">
-        <TaskList activeOrg={activeOrg} />
+  return (
+    <main id="main-content" className={`workspace-shell h-[100dvh] min-h-0 bg-surface text-surface-foreground ${inspectorCollapsed ? "workspace-shell--collapsed" : ""}`}>
+      <div className="workspace-roster hidden min-h-0 md:block">{rosterPane}</div>
+      <section className="flex min-h-0 min-w-0 flex-col bg-surface" aria-label="Conversation">
+        <header className="flex min-h-16 items-center gap-2 px-3 py-2 sm:px-5">
+          <Button variant="ghost" size="icon" className="md:hidden" aria-label={ICON_ONLY_CONTROL_NAMES.openRoster} onClick={() => setRosterOpen(true)}><Menu size={19} aria-hidden="true" /></Button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-extrabold">{selectedItem?.label ?? "Conversations"}</h1>
+            {selectedItem ? <p className="truncate font-mono text-[0.62rem] text-surface-foreground/45">{selectedItem.kind === "channel" ? `${selectedItem.bots.length} bot channel` : "Direct conversation"}</p> : null}
+            {visibleTurnState ? <p className="font-mono text-[0.62rem] text-surface-foreground/55" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
+          </div>
+          <ChannelCostChip
+            phase={costsSnapshot.channel}
+            onOpen={() => {
+              costs.setScope("channel");
+              costs.closeDrilldown();
+              showCostsTab();
+            }}
+          />
+          <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.openInspector} onClick={() => { setInspectorOpen(true); setInspectorCollapsed(false); }}><PanelRight size={19} aria-hidden="true" /></Button>
+        </header>
+        <ComputerPausedNotice organization={activeOrganization} activeOrg={activeOrg} onCeilingRaised={onReloadMembership} />
+        {error ? (
+          <div role="alert" className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-clay/15 px-3 py-2 text-xs">
+            <CircleAlert size={16} aria-hidden="true" className="shrink-0" />
+            <span className="min-w-0 flex-1">{error}</span>
+            <button type="button" className={`shrink-0 rounded-lg p-1 hover:bg-clay/10 ${FOCUS_RING_CLASS}`} aria-label={ICON_ONLY_CONTROL_NAMES.dismissError} onClick={() => setError(null)}>
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        {!selectedItem ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 sm:px-5">
+            <EmptyState
+              title="Choose a teammate"
+              body="Open a bot or named channel from the roster to continue its durable conversation."
+            />
+          </div>
+        ) : (
+          <MessageCostContext.Provider value={messageCostContext}>
+          <ChatticusAssistantRuntime
+            className="min-h-0 flex-1"
+            messages={selectedMessages}
+            turn={turn}
+            progress={progress}
+            turnStatus={turnStatus}
+            isSendDisabled={sendBlockReason !== null}
+            botNameById={botNameById}
+            onSendMessage={handleSendMessage}
+            failedTurn={failedTurn}
+            turnIsSlow={turnIsSlow}
+            turnEvents={turnEvents}
+            retainedActivity={retainedActivity}
+            onRetryFailedTurn={handleRetryFailedTurn}
+            threadProps={{
+              composerPlaceholder: `Message ${selectedItem.label}`,
+              streamError,
+              onDismissStreamError: () => setStreamError(null),
+              sendBlockMessage,
+              composerActions: voice.composerAction,
+              composerStatus: voice.composerStatus,
+              emptyState: (
+                <EmptyState
+                  title={`Start with ${selectedItem.label}`}
+                  body={
+                    selectedItem.kind === "channel"
+                      ? "Choose which participating bot should answer, then send the first message."
+                      : "This is the bot’s one ongoing conversation with you."
+                  }
+                />
+              ),
+              composerAccessory:
+                selectedItem.kind === "channel"
+                  ? (
+                    <label className="mb-2 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-semibold">
+                      <span className="text-surface-foreground/55">To</span>
+                      <select
+                        className="bg-transparent font-semibold outline-none"
+                        value={addressedBotId}
+                        onChange={(event) => setAddressedBotId(event.target.value)}
+                        aria-label="Teammate to address"
+                      >
+                        {selectedItem.bots.map((bot) => (
+                          <option key={bot.bot_id} value={bot.bot_id}>{bot.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )
+                  : undefined,
+            }}
+          />
+          </MessageCostContext.Provider>
+        )}
       </section>
-    </>
+      {!inspectorCollapsed ? <div className="workspace-inspector hidden min-h-0 xl:block">{inspectorPane}</div> : null}
+
+      <div className="md:hidden">
+        <Sheet open={rosterOpen} onOpenChange={setRosterOpen} title={ROSTER_SHEET_TITLE} side="left">
+          {rosterPane}
+        </Sheet>
+      </div>
+      <div className="xl:hidden">
+        <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen} title={INSPECTOR_SHEET_TITLE}>
+          {inspectorPane}
+        </Sheet>
+      </div>
+    </main>
   );
 }

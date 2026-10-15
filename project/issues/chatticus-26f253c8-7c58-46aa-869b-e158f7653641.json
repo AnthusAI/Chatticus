@@ -1,0 +1,76 @@
+{
+  "id": "chatticus-26f253c8-7c58-46aa-869b-e158f7653641",
+  "title": "The daily spend rollup is not deployed anywhere, so the ceiling cannot trip on real spend",
+  "description": "Found in the live run of chatticus-1d68fb (2026-09-19).\n\nThe spend ceiling decides from month-to-date rollup rows (organization_spend.month_to_date_combined_spend_usd). Days with no row count as $0. The daily rollup Lambda (chatticus.budget_rollup.lambda_handler) is what writes those rows, and it does not exist in any environment:\n\n- aws lambda get-function chatticus-{development,staging,production}-daily-budget-rollup: ResourceNotFoundException in all three.\n- No schedule group chatticus-{env}-budget-rollup in any environment.\n- infra/lib/thin-turn-stack.ts creates the function and its EventBridge schedule only inside if (props.budgetsMonthlyLimitUsd !== undefined). infra/bin/chatticus.ts fills that from readBudgetsConfig, which needs CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD and CHATTICUS_BUDGETS_NOTIFICATION_EMAIL (set together; the script refuses invented defaults). The CI workflows deploy-thinturn-{env}.yml run deploy-chatticus-thinturn-{env}.sh and never set them.\n- No rollup rows exist for anthus on development for the last 20 days.\n\nEffect: the refusal path works (proved live, #365/#368 and the run on 1d68fb) but only when rows are hand-seeded. On real spend the meter always reads $0, so no organization can ever be paused. The brake the customer-billing risk depends on is not connected to spend.\n\nAlso a hazard: a CI ThinTurn deploy without the config would remove the rollup function if it were ever deployed by hand with the config.\n\nNeeds a person: the monthly limit and the notification email for each environment are product decisions (Ryan). Then: supply them to the CI deploy path (Actions secrets/vars and the deploy scripts) so the rollup Lambda, its schedule, and the alerts topic are part of every ThinTurn deploy, confirm Cost Explorer is enabled on the account, wait one rollup cycle and confirm real rows appear. BUDGETS.md notes a new account reports nothing for about a day.\n\nDone when: a scheduled rollup has written real rows on development and the ceiling decision reads them.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fb003fb6-db3c-4e63-88cf-4204e93047d4",
+      "author": "home",
+      "text": "Values from Ryan: $50/month, notify ryan@anth.us (one account hosts all three environments, so one budget). Done so far: (1) redeployed ChatticusBudgets by hand (no CI workflow exists for it): AWS budget chatticus-monthly-aws 100 -> 50, verified. (2) FOUND: the alerts topic had ZERO subscribers. The original email subscription was never confirmed and SNS purged it, so no budget or rollup alert has ever reached anyone. Re-subscribed ryan@anth.us with aws sns subscribe (outside CloudFormation, which still believes its own subscription exists); status PendingConfirmation, Ryan must click the confirmation link. (3) GitHub repo variable CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD=50 and secret CHATTICUS_BUDGETS_NOTIFICATION_EMAIL set (email not committed). (4) PR #369 makes the three ThinTurn deploys pass them; synth verified (with context: rollup Lambda + schedule, limit 50; without: neither). Hazard recorded in the PR: a ThinTurn deploy without the values removes an existing rollup. Remaining: merge, deploy, invoke the rollup once, confirm real rows, confirm the scheduled 06:00 UTC run. Cost Explorer must be enabled on the account; a new account reports nothing for about a day (BUDGETS.md).",
+      "created_at": "2026-09-19T16:15:35.058926Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "1e6708b0-4261-4746-8b71-64c7abbb1f6f",
+      "author": "home",
+      "text": "#369 merged (a guard test, test_other_deploy_scripts_do_not_source_budgets_context, forbade the change; it protected the very gap, since the README runbook said to redeploy ThinTurn for the rollup but the scripts could not pass it the context; updated on purpose, other scripts still asserted not to source it). First real deploy of the rollup FAILED on dev: CloudFormation could not create DailyBudgetRollupSchedule (NotFound) and rolled ChatticusThinTurn back (UPDATE_ROLLBACK_COMPLETE, dev intact). Cause: the schedule named its group by a literal string, so no dependency edge and the schedule was attempted before the group existed (no ScheduleGroup event precedes it). This IaC had never been deployed anywhere. Fix in PR #370 (schedule uses the group's ref) with an infra test proven to fail on the literal. Note: my first draft of that test failed for the wrong reason (two schedule groups in the stack) and would have passed a broken fix; corrected and re-proven. develop is currently in the broken state, so pushes to it redeploy and roll back until #370 lands.",
+      "created_at": "2026-09-19T16:56:52.190673Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "bfd6de02-a071-40a3-8e2e-6ddaf4323c25",
+      "author": "home",
+      "text": "#370 merged; dev ThinTurn deploy succeeded (UPDATE_COMPLETE). Verified on development: Lambda chatticus-development-daily-budget-rollup exists with limit 50 and CHATTICUS_ENVIRONMENT=development; schedule ENABLED cron(0 6 * * ? *) UTC. Invoked once: 200, no error, wrote a real row (anthus, 2026-09-18, ce_status=ok). So the rollup now runs and the ceiling decision reads its rows. BUT the row says $0 while the account spent $22.35 that day; the meter cannot attribute or see spend. Filed chatticus-9ac621 (P0) for that. Still to observe on this card: the first scheduled 06:00 UTC run (2026-09-20). Leaving open until then; the deployment part of the original bug is fixed.",
+      "created_at": "2026-09-19T17:17:08.473179Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "e1a0c617-4155-417e-8d82-342f2beadbac",
+      "author": "home",
+      "text": "Ryan confirmed the SNS email subscription (2026-09-19). Verified: ryan@anth.us on the ChatticusBudgets alerts topic now has a real subscription ARN, no longer PendingConfirmation. Budget and rollup alerts on that topic now reach him. Note the subscription was created with aws sns subscribe, outside CloudFormation (CFN still holds its own purged one); a future ChatticusBudgets redeploy will not remove it.",
+      "created_at": "2026-09-19T18:09:26.026168Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
+  "created_at": "2026-09-19T15:17:40.699866Z",
+  "updated_at": "2026-09-19T18:09:26.026193Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -20,3 +20,11 @@ Feature: Durable turn attempts
     Then the operation is rejected
     And only the newer attempt can change the turn
     And the user sees no duplicate output or action
+
+  Scenario: An expired worker is refused while the newer attempt is still working
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    And a turn has been claimed by a newer attempt that is still working
+    When the expired attempt tries to append output or execute an action
+    Then the operation is rejected
+    And the newer attempt is still the only attempt that can append

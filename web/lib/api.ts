@@ -20,12 +20,64 @@ export type Channel = {
   channel_id: string;
   tenant_id: string;
   user_id: string;
+  kind: "direct" | "named";
+  name: string | null;
+  participants: Array<{ kind: "human" | "bot"; actor_id: string }>;
+  next_seq?: number;
 };
 
 export type PostMessageResponse = {
-  message_id: string;
+  message: Message;
   turn_id: string | null;
+};
+
+/** One recorded tool call on a committed bot message, in call order. */
+export type ToolActivityItem = {
+  call_id: string;
+  /** A last item with tool "more" summarises calls omitted by the server. */
+  tool: string;
+  summary: string;
+  arguments: Record<string, unknown>;
+  arguments_truncated: boolean;
+  /** Null when no result was recorded for the call. */
+  ok: boolean | null;
+  result_summary: string | null;
+  output: string | null;
+  output_truncated: boolean;
+  duration_ms: number | null;
+};
+
+export type Message = {
+  message_id: string;
+  channel_id: string;
+  tenant_id: string;
   seq: number;
+  author_kind: "human" | "bot";
+  author_id: string;
+  body: string;
+  addressed_to_bot_id: string | null;
+  created_at: string;
+  /** Tool calls behind a bot reply. Absent when an older server answers. */
+  activity?: ToolActivityItem[];
+};
+
+export type Turn = {
+  turn_id: string;
+  tenant_id: string;
+  channel_id: string;
+  bot_id: string;
+  status: "active" | "completed" | "failed" | "reconciling";
+  waiting_for: string | null;
+  terminal_reason?: string | null;
+  prompt_message_seq?: number | null;
+};
+
+export type Computer = {
+  computer_id: string;
+  tenant_id: string;
+  stopped: boolean;
+  policy: string;
+  host_start_generation: number;
 };
 
 export type TurnEvent = {
@@ -34,6 +86,22 @@ export type TurnEvent = {
   turn_id: string;
   token?: string;
   body?: string;
+  /** Reasoning summary on turn.thinking. */
+  text?: string;
+  /** Tool name on tool.call and tool.result. */
+  tool?: string;
+  /** Pairs a tool.call with its tool.result. */
+  call_id?: string;
+  summary?: string;
+  arguments?: Record<string, unknown>;
+  arguments_truncated?: boolean;
+  ok?: boolean;
+  output?: string;
+  output_truncated?: boolean;
+  /** Null when the call began under an earlier attempt. */
+  duration_ms?: number | null;
+  /** Phase text on computer.starting and computer.ready. */
+  detail?: string;
 };
 
 export type Task = {
@@ -46,6 +114,20 @@ export type Task = {
   close_reason: string | null;
   created_by_bot_id: string | null;
   updated_by_bot_id: string | null;
+};
+
+export type TurnGrantPayload = {
+  tools: string[];
+  origins: string[];
+  recipients: string[];
+  file_scopes: string[];
+  egress_classes: string[];
+  ingest_classes: string[];
+};
+
+export type ReplaceTurnGrantResponse = {
+  turn_id: string;
+  tools: string[];
 };
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -70,18 +152,85 @@ export async function listBots(org: ActiveOrg): Promise<Bot[]> {
   return body.bots;
 }
 
+export async function createBot(org: ActiveOrg, name: string): Promise<Bot> {
+  const response = await fetch(`${apiBase}${orgApiPath(org.tenantId, "/bots")}`, {
+    method: "POST",
+    headers: await authorizedHeaders({
+      "Content-Type": "application/json",
+      "Idempotency-Key": crypto.randomUUID(),
+    }),
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  return readJson<Bot>(response);
+}
+
 export async function createChannel(
   org: ActiveOrg,
   botIds: string[],
+  name?: string,
 ): Promise<Channel> {
   const response = await fetch(`${apiBase}${orgApiPath(org.tenantId, "/channels")}`, {
     method: "POST",
     headers: await authorizedHeaders({
       "Content-Type": "application/json",
+      "Idempotency-Key": crypto.randomUUID(),
     }),
-    body: JSON.stringify({ user_id: org.userId, bot_ids: botIds }),
+    body: JSON.stringify({
+      user_id: org.userId,
+      bot_ids: botIds,
+      kind: name ? "named" : "direct",
+      name: name?.trim() || null,
+    }),
   });
   return readJson<Channel>(response);
+}
+
+export async function listChannels(org: ActiveOrg): Promise<Channel[]> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/channels`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  const body = await readJson<{ channels: Channel[] }>(response);
+  return body.channels;
+}
+
+export async function listMessages(org: ActiveOrg, channelId: string): Promise<Message[]> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  const body = await readJson<{ messages: Message[] }>(response);
+  return body.messages;
+}
+
+export async function getActiveTurn(org: ActiveOrg, channelId: string): Promise<Turn | null> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/turn`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  return readJson<Turn>(response);
+}
+
+export async function getLatestTurn(org: ActiveOrg, channelId: string): Promise<Turn | null> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/turns/latest`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  return readJson<Turn>(response);
+}
+
+export async function getComputer(org: ActiveOrg): Promise<Computer> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/computer`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  return readJson<Computer>(response);
 }
 
 export async function postMessage(
@@ -108,6 +257,41 @@ export async function postMessage(
   return readJson<PostMessageResponse>(response);
 }
 
+export type VoiceMessageResponse = {
+  understood: string;
+  degraded: boolean;
+  message: Message | null;
+  turn_id: string | null;
+};
+
+/**
+ * Sends a raw spoken transcript. The server's understand-the-user step works
+ * out what the member meant and posts that, or nothing when nothing was meant.
+ */
+export async function postVoiceMessage(
+  org: ActiveOrg,
+  channelId: string,
+  transcript: string,
+  addressedToBotId: string,
+): Promise<VoiceMessageResponse> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/voice-messages`)}`,
+    {
+      method: "POST",
+      headers: await authorizedHeaders({
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      }),
+      body: JSON.stringify({
+        author_id: org.userId,
+        transcript,
+        addressed_to_bot_id: addressedToBotId,
+      }),
+    },
+  );
+  return readJson<VoiceMessageResponse>(response);
+}
+
 export async function listTasks(org: ActiveOrg): Promise<Task[]> {
   const response = await fetch(
     `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/tasks`)}`,
@@ -123,4 +307,44 @@ export async function getTask(org: ActiveOrg, taskId: string): Promise<Task> {
     { headers: await authorizedHeaders() },
   );
   return readJson<Task>(response);
+}
+
+export async function replaceTurnGrant(
+  org: ActiveOrg,
+  turnId: string,
+  payload: TurnGrantPayload,
+): Promise<ReplaceTurnGrantResponse> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/turns/${encodeURIComponent(turnId)}/grant`)}`,
+    {
+      method: "PUT",
+      headers: await authorizedHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(payload),
+    },
+  );
+  return readJson<ReplaceTurnGrantResponse>(response);
+}
+
+export type SetSpendCeilingResponse = {
+  tenant_id: string;
+  monthly_aws_spend_ceiling_usd: string;
+};
+
+export async function setMonthlyAwsSpendCeiling(
+  org: ActiveOrg,
+  amount: string,
+): Promise<SetSpendCeilingResponse> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, "/monthly-aws-spend-ceiling")}`,
+    {
+      method: "PATCH",
+      headers: await authorizedHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ monthly_aws_spend_ceiling_usd: amount }),
+    },
+  );
+  return readJson<SetSpendCeilingResponse>(response);
 }

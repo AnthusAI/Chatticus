@@ -11,7 +11,12 @@ Feature: Shared organization channels and teammates
       | sam@example.com  |
 
   Scenario: Two organization members read and post in one shared channel
-    Given organization "Anthus Labs" has shared channel "general"
+    Given organization "Anthus Labs" has organization bots:
+      | Researcher |
+      | Writer     |
+    And organization "Anthus Labs" has shared channel "general" with organization bots:
+      | Researcher |
+      | Writer     |
     When "ryan@example.com" posts "hello from ryan" in shared channel "general"
     And "sam@example.com" posts "hello from sam" in shared channel "general"
     Then "ryan@example.com" can read 2 messages in shared channel "general"
@@ -35,4 +40,6 @@ Feature: Shared organization channels and teammates
     When organization bot "Researcher" writes "accounts.md" containing "top ten accounts" on the organization computer
     And organization bot "Researcher" posts "wrote /workspace/accounts.md" addressed to organization bot "Writer" in shared channel "handoff"
     Then organization bot "Writer" can read "accounts.md" as "top ten accounts" from the organization computer
-    And "sam@example.com" can continue file "accounts.md" on the organization computer
+    And "sam@example.com" can read "accounts.md" as "top ten accounts" from the organization computer
+    And "sam@example.com" writes "accounts.md" containing "top ten accounts continued" on the organization computer
+    And "sam@example.com" can read "accounts.md" as "top ten accounts continued" from the organization computer

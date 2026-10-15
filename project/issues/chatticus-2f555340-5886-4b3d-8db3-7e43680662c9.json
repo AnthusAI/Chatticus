@@ -1,0 +1,45 @@
+{
+  "id": "chatticus-2f555340-5886-4b3d-8db3-7e43680662c9",
+  "title": "Website repo: local CI and deploy scripts (GitHub Actions unusable for the private repo)",
+  "description": "Chattic.us-web is private, so GitHub Actions is over quota and every job fails to start (billing), as of 2026-10-13. Ryan's rule: run CI ourselves, locally, and deploy locally. Add to the website repo (AnthusAI/Chattic.us-web, PR for review): (1) scripts/ci-local.sh replicating .github/workflows/ci.yml on the current checkout: a python venv with pyyaml and limatus, the three editorial scripts under .claude/skills/publication-writing/scripts, npm install, pip install -e node_modules/chatticus/python[wiki] behave, npm run build, typecheck, npm test, behave, and in infra/: npm install, npm test, cdk synth with a placeholder out/; non-zero exit on any failure; (2) scripts/deploy-local.sh for production: refuse unless the working tree is clean main, run the CI script, build, then run cdk diff of ChatticusMarketing with CHATTICUS_MARKETING_INCLUDE_APEX=1 and the legacy AWS profile credentials, refuse if the diff contains anything other than the DeployWebsite source zip change (in particular any apex alias or Route53 apex record removal: the flag omission would take chattic.us offline), then deploy, then run check_live_copy.py; (3) README section documenting both, and a note in the workflows that they are manual/legacy while Actions is unavailable. Acceptance: running scripts/ci-local.sh on main passes (76 behave scenarios, 34 tests, infra tests, synth); deploy-local.sh in a dry-run mode prints the diff verdict without deploying. See memory note website-ci-and-deploy and the near-miss on 2026-10-13.",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4582a4f5-f451-4f46-b5da-c0bbe17fec38",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "4b5795da-d34a-47a5-8f23-f0965aee3a55",
+      "author": "home",
+      "text": "PR open for review (not merged): https://github.com/AnthusAI/Chattic.us-web/pull/21 . ci-local.sh passes (76 scenarios, 41 tests, 5 infra tests, synth); deploy-local.sh --dry-run against legacy reports verdict ok, nothing deployed.",
+      "created_at": "2026-10-13T16:22:57.306376Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "fea3b108-1e30-4aa6-a6cf-cb8e529e4798",
+      "author": "home",
+      "text": "Merged: AnthusAI/Chattic.us-web PR 21 (local CI and deploy scripts), after the new scripts/ci-local.sh passed on the PR head (76 behave scenarios, 41 unit tests, infra tests, cdk synth) and a dry-run of scripts/deploy-local.sh reported the content-only diff as ok. Production site content (PR 18) was deployed by hand on 2026-10-13 with the apex flag after a cdk diff.",
+      "created_at": "2026-10-13T16:31:48.285759Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T16:13:23.325404Z",
+  "updated_at": "2026-10-13T16:32:13.767960Z",
+  "closed_at": "2026-10-13T16:32:13.767622Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude-main"
+  },
+  "right_now_summary": "Local CI and deploy scripts are merged and validated; production content is deployed safely.",
+  "right_now_updated_at": "2026-10-13T16:32:15.653393Z",
+  "custom": {}
+}

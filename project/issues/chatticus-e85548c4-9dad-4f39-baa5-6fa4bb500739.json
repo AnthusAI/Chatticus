@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-e85548c4-9dad-4f39-baa5-6fa4bb500739",
+  "title": "CI: the moto image pull hits the Docker Hub anonymous rate limit and fails the conversation job",
+  "description": "Develop CI failed on three consecutive runs (2026-10-09, board and docs commits) in the conversation job: 'toomanyrequests: You have reached your unauthenticated pull rate limit' while pulling motoserver/moto:5.2.3. Not a code failure. Options: authenticate the pull (docker login with a Docker Hub token in a repo secret), or mirror the image to GHCR and pull it with GITHUB_TOKEN, or cache the image layer in the workflow. Prefer the GHCR mirror (no new third-party secret). Check the PR workflow too: rerun when it hits.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "78049151-1c6a-465c-ab72-b599d83abf56",
+      "author": "home",
+      "text": "PR 493: the moto image is restored from the Actions cache (key moto-image-5.2.3); on a miss it is pulled with up to five attempts and back-off, then saved. The cache-miss path passed in the PR; the cache-hit path first runs on the next CI run after merge. Leave open until a run shows the cache hit.",
+      "created_at": "2026-10-10T18:45:52.329558Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
+  "created_at": "2026-10-10T16:58:33.008857Z",
+  "updated_at": "2026-10-10T18:45:52.329589Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The PR cache-miss path passed; the next CI run must confirm the cached moto image.",
+  "right_now_updated_at": "2026-10-10T18:45:54.706346Z",
+  "custom": {}
+}

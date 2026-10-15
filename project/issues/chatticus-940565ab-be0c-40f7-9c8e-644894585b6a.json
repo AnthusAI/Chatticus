@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-940565ab-be0c-40f7-9c8e-644894585b6a",
+  "title": "Lazy context-block mechanism",
+  "description": "As a bot author, I want named context blocks (template plus data provider) rendered at prompt assembly for each model call, so that dynamic context reaches the model without tools.\n\nFeature: Context blocks\n  Scenario: A block renders at model-call time\n    Given a block with a template and a provider\n    When the prompt is assembled\n    Then the block renders from current data\n    And an empty provider omits the block",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d2699af8-e73c-4099-833e-5556caa7003c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T22:04:13.742001Z",
+  "updated_at": "2026-10-04T22:04:13.742031Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The feature will render named context blocks with fresh data at each model call.",
+  "right_now_updated_at": "2026-10-04T22:04:15.527143Z",
+  "custom": {}
+}

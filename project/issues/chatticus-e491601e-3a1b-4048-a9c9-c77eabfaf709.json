@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-e491601e-3a1b-4048-a9c9-c77eabfaf709",
+  "title": "Worker tokens never expire; the CI deploy role is AdministratorAccess",
+  "description": "Findings 8 and a note from PR 501. Opaque worker tokens (customer host worker) have no expiry; owner tokens expire after an hour. The GitHub OIDC deploy role attaches AdministratorAccess (createGithubDeployRole), so the ECR statements added in PR 501 are no-ops: scope the role to what the deploy workflows need.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "bc59c3cd-e56f-4aa1-ae18-fc65ea1c4dbf",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Verified on origin/develop: infra/lib/github-deploy-stack.ts line ~96 still attaches AdministratorAccess to the GitHub OIDC deploy role, so the ECR statements from PR 501 are no-ops. Opaque worker tokens (conversation/src/auth/worker-credentials.ts, worker-principal.ts) carry no expiry. Both findings stand; staging and production deploys are now dispatch-only (PR 540), which reduces but does not remove the exposure.",
+      "created_at": "2026-10-14T03:11:57.191043Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-11T17:37:32.766437Z",
+  "updated_at": "2026-10-14T03:11:57.191066Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Worker tokens still lack expiry, and the GitHub deploy role still has AdministratorAccess.",
+  "right_now_updated_at": "2026-10-14T03:11:58.116785Z",
+  "custom": {}
+}

@@ -1,0 +1,62 @@
+{
+  "id": "chatticus-f34796a1-0a6c-4cf0-92c5-64014e4580ca",
+  "title": "Model gateway: per-call organization ceiling check",
+  "description": "PR 502 added the allow-list, size cap, output clamp, forbidden tools and estimated spend on interruption. Not done: refusing a call when the organization is over its ceiling. The only ceiling is monthlyAwsSpendCeilingUsd (meters AWS spend); the gateway has no organization store or rollup reader. Decide whether model spend gets its own ceiling.",
+  "type": "task",
+  "status": "closed",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e6487267-87ec-4a18-a7c3-b2e56c51dfc6",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Still true: docs/COST_ACCOUNTING.md (G7, open question 9) records that the gateway has no per-call or per-turn dollar ceiling and the only ceiling is the monthly AWS spend ceiling. The cost ledger now exists (PR 537 to 542: call records in the session, rollups, cost API, Costs tab), so the data a ceiling check would need is available. It is a product decision, not a bug: see needs-owner-decision.",
+      "created_at": "2026-10-14T03:11:53.907483Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    },
+    {
+      "id": "50b920c5-b309-43c4-8a6a-5e2eeff7aa05",
+      "author": "home",
+      "text": "Decision: yes, add a per-organization monthly model spend ceiling, separate from monthlyAwsSpendCeilingUsd. The dollar value is pending from the owner. The gateway needs an organization store or rollup reader (cost records are now projected into a ledger) and a refusal when the organization is over the ceiling.",
+      "created_at": "2026-10-15T01:46:24.221161Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    },
+    {
+      "id": "e46ce505-4c15-41e3-8984-bd5ee5468b44",
+      "author": "home",
+      "text": "Done in PR 562 (merged, commit 570ea561): the model gateway enforces a monthly model spend ceiling per organization, default USD 25.00 per org per UTC month, overridable with CHATTICUS_MONTHLY_MODEL_SPEND_CEILING_USD. Over the ceiling returns 403 model_spend_ceiling_reached (no retry); if spend cannot be read it fails closed with 503 model_spend_unavailable. No IAM change. Accuracy is limited to the cost index freshness (docs/COST_ACCOUNTING.md 3.12).",
+      "created_at": "2026-10-15T10:36:16.197058Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
+  "created_at": "2026-10-11T17:37:36.754465Z",
+  "updated_at": "2026-10-15T10:36:24.885441Z",
+  "closed_at": "2026-10-15T10:36:24.885399Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The gateway now enforces a monthly per-organization model spend ceiling of USD 25 by default.",
+  "right_now_updated_at": "2026-10-15T10:36:26.797559Z",
+  "custom": {}
+}

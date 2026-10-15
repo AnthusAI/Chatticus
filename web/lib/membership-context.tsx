@@ -6,13 +6,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
 import {
   bindAuthEvents,
-  getVerifiedSession,
+  restoreVerifiedSession,
   signInWithGoogle,
   signOut,
   type VerifiedSession,
@@ -21,6 +22,7 @@ import { fetchMe, type MeResponse } from "./me";
 import {
   deriveMembershipBranch,
   pickActiveOrg,
+  reuseActiveOrg,
   type ActiveOrg,
   type MembershipBranch,
 } from "./membership-state";
@@ -36,6 +38,7 @@ type MembershipState = {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshMe: () => Promise<void>;
+  reloadMe: () => Promise<void>;
 };
 
 const MembershipContext = createContext<MembershipState | null>(null);
@@ -65,9 +68,13 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const reloadMe = useCallback(async () => {
+    setMe(await fetchMe());
+  }, []);
+
   const refreshSession = useCallback(async () => {
     try {
-      const nextSession = await getVerifiedSession();
+      const nextSession = await restoreVerifiedSession();
       setSession(nextSession);
       setError(null);
       await refreshMe(nextSession);
@@ -105,7 +112,9 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
   }, [refreshSession]);
 
   const branch = deriveMembershipBranch(session, me);
-  const activeOrg = me ? pickActiveOrg(me) : null;
+  const activeOrgRef = useRef<ActiveOrg | null>(null);
+  const activeOrg = reuseActiveOrg(activeOrgRef.current, me ? pickActiveOrg(me) : null);
+  activeOrgRef.current = activeOrg;
 
   const value = useMemo<MembershipState>(
     () => ({
@@ -129,8 +138,9 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       refreshMe: async () => {
         await refreshMe(session);
       },
+      reloadMe,
     }),
-    [activeOrg, authLoading, branch, error, me, meLoading, refreshMe, session],
+    [activeOrg, authLoading, branch, error, me, meLoading, refreshMe, reloadMe, session],
   );
 
   return (

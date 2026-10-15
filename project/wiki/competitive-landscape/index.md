@@ -24,6 +24,8 @@ Chatticus sits in the emerging **human + named bots in a shared workplace** lane
 
 Steer messaging toward **org + farm + control**, not another chat agent. See [Metaphors](metaphors.md) for claim / avoid / redefine guidance.
 
+**Cage / lasting memory axes:** [Cage and lasting memory](cage-and-lasting-memory.md) — Chatticus vs Claude Code (phone), Instinct, Cursor Cloud Agents, and Grok Bot (2026-09-08).
+
 ## Categories
 
 | Category | One-line |
@@ -76,6 +78,8 @@ Categories are **not mutually exclusive** — a product may appear on several pa
 | [Gas Town / Wheelhouse](products/gas-town-wheelhouse.md) | Multi-agent coding orchestrator / city of roles |
 | [Beads](products/beads.md) | Dolt-backed issue graph for agents |
 | [Cursor Cloud Agents](products/cursor-cloud-agents.md) | Isolated cloud VMs for coding tasks → PRs |
+| [OpenAI Codex](products/openai-codex.md) | Cloud containers + local OS sandbox + open harness |
+| [Claude Code](products/claude-code.md) | Anthropic coding agent; phone Firecracker durable `vda` |
 | [Devin](products/devin.md) | Autonomous software engineer / org-delegated agents |
 
 ### Always-on / personal agents

@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-ed8e4e61-d0f1-4445-b3c2-ddb23ec4487f",
+  "title": "Later phase: make customer-account computers' files editable (overlay in the customer bucket)",
+  "description": "Later phase. Make customer-account computers editable (view is already supported from the snapshot).\n\nWhy they are read-only in Phase 3 (docs/LIVE_FILES_PROTOCOL.md L46, 12.8): they run in the customer's own AWS account through the older host-worker path, with the customer-owned bucket chatticus-snapshots-{OrganizationId} (docs/COMPUTER_SNAPSHOTS.md). The Front Door's overlay write grant names only the Anthus snapshot bucket, so it cannot write an overlay there, and the host that would apply one is a host worker with no supervisor: nothing seals, applies or clears. An edit, delete, rename or new folder is refused with 409 edit_unsupported.\n\nNeeded: (1) a cross-account write grant for the Front Door to overlay/* of the customer bucket through the existing customer role (infra/customer-role.yml, customer-computers-stack.ts); (2) the overlay protocol in the host worker (seal, apply in the order of 7.8.5, clear after a recorded publish) or a supervisor on that path; (3) the 30 day non-current version expiry in the customer's stack; (4) front-door-composition: a snapshot/overlay store per organization home instead of the single Anthus bucket (lambdas/front-door-composition.ts:216); (5) scenarios for the customer path.\n\nDepends on: Phase 3 parts F0, A3, A2, A4, C2 merged and live. Not started; priority low.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e314187f-a563-4e52-9dd1-b35d8c12609a",
+      "author": "home",
+      "text": "Still open after Phase 3: customer-account computers remain view-only; the overlay lives in the Anthus snapshot bucket only.",
+      "created_at": "2026-10-13T07:08:58.436773Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-12T22:21:42.691653Z",
+  "updated_at": "2026-10-13T07:08:58.436799Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "planner"
+  },
+  "right_now_summary": "Customer-account computers remain view-only; enabling edits needs cross-account overlays and host-worker support.",
+  "right_now_updated_at": "2026-10-13T07:09:00.005859Z",
+  "custom": {}
+}

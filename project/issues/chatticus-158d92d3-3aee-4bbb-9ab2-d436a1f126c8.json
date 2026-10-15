@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-158d92d3-3aee-4bbb-9ab2-d436a1f126c8",
+  "title": "Marketing blog/updates entry for the TypeScript rewrite",
+  "description": "Add an Updates entry announcing the move of the control plane to TypeScript on Pi, truthful about status (development live; staging and production still on the Python stack until promotion, see epic chatticus-9eeed9).\n## Acceptance\n- Entry published in Updates; status statements match the README at merge time.\nRepo: AnthusAI/Chattic.us-web (private). Branch marketing/durability-and-cost; PR not yet opened. Owner reviews and merges; agents never merge.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4582a4f5-f451-4f46-b5da-c0bbe17fec38",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:38:49.601957Z",
+  "updated_at": "2026-10-13T11:38:49.602Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The Updates entry is being drafted for the TypeScript control-plane rewrite.",
+  "right_now_updated_at": "2026-10-13T11:38:52.073918Z",
+  "custom": {}
+}

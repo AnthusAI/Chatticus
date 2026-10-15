@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-1346080d-8e32-4c7a-b895-4154252cb785",
+  "title": "Document that Kanbus commits skip pull requests",
+  "description": "",
+  "type": "chore",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "93583a10-7933-4d25-ac85-f576e427d33a",
+      "author": "home",
+      "text": "Rule is now in AGENTS.md (Kanbus section and Git section) and CONTRIBUTING_AGENT.md (Recording Kanbus in git). Product PRs still go to develop. Board and wiki commits go on develop with no pull request.",
+      "created_at": "2026-09-05T18:20:58.621780Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-05T18:20:11.390347Z",
+  "updated_at": "2026-09-05T18:20:58.634461Z",
+  "closed_at": "2026-09-05T18:20:58.634461Z",
+  "custom": {}
+}

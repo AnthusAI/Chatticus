@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-9e125d2e-41e4-475c-ba81-31e30de7a050",
+  "title": "Rotate the invoke key and stop storing it in the CloudFront origin header (finding 6)",
+  "description": "The shared invoke key is the only gate on the Function URL (auth NONE) and is stored in plaintext in the CloudFront distribution config (web-stack.ts unsafeUnwrap), readable by anyone with cloudfront:GetDistributionConfig; it has never been rotated. The owner no longer holds it (PR 504). Rotate it now, then move to an origin scheme that does not store the value in the distribution (for example an IAM-authenticated Function URL with an origin access control).\n\nWhat remains (triage 2026-10-14): Rotation is done (PR 505, infra/rotate-invoke-key.sh; owner no longer holds the key, PR 504; FrontDoor and ComputerStarter re-read the secret every 60 s). Still open and verified on origin/develop: infra/lib/web-stack.ts line ~145 still sets the X-Chatticus-Invoke-Key origin custom header from invokeKeyForOrigin.unsafeUnwrap(), so the key is readable with cloudfront:GetDistributionConfig. The Origin Access Control replacement is proposed in docs/AWS_AUTH.md but obstructed by the STS Authorization relay and direct Function URL callers. Also due: rotate again every 90 days (first rotation 2026-10-11, next by 2027-01-09).",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2b8749b6-15dc-498f-a59c-53604558611e",
+      "author": "home",
+      "text": "Rotation done 2026-10-11 with infra/rotate-invoke-key.sh (PR 505): new value, both keys accepted until the retire step, CloudFront header verified equal to the secret, previous value retired, health and refusal checks passed. The FrontDoor and ComputerStarter now re-read the secret every 60 s (they cached it forever, so a rotation would have locked the web app out). Still open: the key is stored in plaintext in the CloudFront origin header; the Origin Access Control replacement is proposed in docs/AWS_AUTH.md but obstructed by the STS Authorization relay and direct Function URL callers. Rotate every 90 days.",
+      "created_at": "2026-10-11T18:50:57.262482Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    },
+    {
+      "id": "b1967f74-15f2-4718-bed8-824d56961626",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Rotation is done (PR 505, infra/rotate-invoke-key.sh; owner no longer holds the key, PR 504; FrontDoor and ComputerStarter re-read the secret every 60 s). Still open and verified on origin/develop: infra/lib/web-stack.ts line ~145 still sets the X-Chatticus-Invoke-Key origin custom header from invokeKeyForOrigin.unsafeUnwrap(), so the key is readable with cloudfront:GetDistributionConfig. The Origin Access Control replacement is proposed in docs/AWS_AUTH.md but obstructed by the STS Authorization relay and direct Function URL callers. Also due: rotate again every 90 days (first rotation 2026-10-11, next by 2027-01-09).",
+      "created_at": "2026-10-14T03:10:56.796347Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-11T17:37:29.966564Z",
+  "updated_at": "2026-10-14T03:10:56.796387Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The key was rotated, but CloudFront still stores it in plaintext; the safer replacement is not yet possible.",
+  "right_now_updated_at": "2026-10-14T03:10:59.008831Z",
+  "custom": {}
+}

@@ -1,0 +1,785 @@
+{
+  "Description": "ECS cluster, ECR, and Fargate task definition for computer hosts.",
+  "Resources": {
+    "Vpc8378EB38": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsHostnames": true,
+        "EnableDnsSupport": true,
+        "InstanceTenancy": "default",
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc"
+          }
+        ]
+      }
+    },
+    "VpcpublicSubnet1Subnet2BB74ED7": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": "10.0.0.0/17",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "public"
+          },
+          {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Public"
+          },
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet1"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "VpcpublicSubnet1RouteTable15C15F8E": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet1"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "VpcpublicSubnet1RouteTableAssociation4E83B6E4": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet1RouteTable15C15F8E"
+        },
+        "SubnetId": {
+          "Ref": "VpcpublicSubnet1Subnet2BB74ED7"
+        }
+      }
+    },
+    "VpcpublicSubnet1DefaultRouteB88F9E93": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "VpcIGWD7BA715C"
+        },
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet1RouteTable15C15F8E"
+        }
+      },
+      "DependsOn": [
+        "VpcVPCGWBF912B6E"
+      ]
+    },
+    "VpcpublicSubnet2SubnetE34B022A": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            1,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": "10.0.128.0/17",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "public"
+          },
+          {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Public"
+          },
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet2"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "VpcpublicSubnet2RouteTableC5A6DF77": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet2"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "VpcpublicSubnet2RouteTableAssociationCCE257FF": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet2RouteTableC5A6DF77"
+        },
+        "SubnetId": {
+          "Ref": "VpcpublicSubnet2SubnetE34B022A"
+        }
+      }
+    },
+    "VpcpublicSubnet2DefaultRoute732F0BEB": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "VpcIGWD7BA715C"
+        },
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet2RouteTableC5A6DF77"
+        }
+      },
+      "DependsOn": [
+        "VpcVPCGWBF912B6E"
+      ]
+    },
+    "VpcIGWD7BA715C": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc"
+          }
+        ]
+      }
+    },
+    "VpcVPCGWBF912B6E": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "VpcIGWD7BA715C"
+        },
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "ComputerImage67D4263C": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "EmptyOnDelete": false,
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "ClusterEB0386A7": {
+      "Type": "AWS::ECS::Cluster",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      }
+    },
+    "ComputerLogs3CD929E4": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "RetentionInDays": 30,
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    },
+    "ComputerOwnerTaskRole61BA2882": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "Pi session owner task: deliberately empty. The shell in the container can reach the task credentials endpoint, so this role can do nothing.",
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      }
+    },
+    "ComputerOwnerTask0E12C188": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "ContainerDefinitions": [
+          {
+            "Environment": [
+              {
+                "Name": "CHATTICUS_SNAPSHOT_BUCKET",
+                "Value": {
+                  "Fn::ImportValue": "ChatticusSnapshots:ExportsOutputRefComputerSnapshotsB892D73F153A1C23"
+                }
+              },
+              {
+                "Name": "CHATTICUS_LIVE_ROOT",
+                "Value": "/var/lib/chatticus/computer"
+              },
+              {
+                "Name": "CHATTICUS_TENANT_ID",
+                "Value": "anthus"
+              }
+            ],
+            "Essential": true,
+            "Image": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Fn::Select": [
+                      4,
+                      {
+                        "Fn::Split": [
+                          ":",
+                          {
+                            "Fn::GetAtt": [
+                              "ComputerImage67D4263C",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  ".dkr.ecr.",
+                  {
+                    "Fn::Select": [
+                      3,
+                      {
+                        "Fn::Split": [
+                          ":",
+                          {
+                            "Fn::GetAtt": [
+                              "ComputerImage67D4263C",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  },
+                  "/",
+                  {
+                    "Ref": "ComputerImage67D4263C"
+                  },
+                  ":production"
+                ]
+              ]
+            },
+            "LinuxParameters": {
+              "Capabilities": {},
+              "InitProcessEnabled": true
+            },
+            "LogConfiguration": {
+              "LogDriver": "awslogs",
+              "Options": {
+                "awslogs-group": {
+                  "Ref": "ComputerLogs3CD929E4"
+                },
+                "awslogs-stream-prefix": "computer-owner",
+                "awslogs-region": "us-east-1"
+              }
+            },
+            "Name": "computer",
+            "StopTimeout": 90
+          }
+        ],
+        "Cpu": "256",
+        "ExecutionRoleArn": {
+          "Fn::GetAtt": [
+            "ComputerOwnerTaskExecutionRole44741D1C",
+            "Arn"
+          ]
+        },
+        "Family": "ChatticusComputerOwner",
+        "Memory": "512",
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": [
+          "FARGATE"
+        ],
+        "RuntimePlatform": {
+          "CpuArchitecture": "ARM64",
+          "OperatingSystemFamily": "LINUX"
+        },
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ],
+        "TaskRoleArn": {
+          "Fn::GetAtt": [
+            "ComputerOwnerTaskRole61BA2882",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "ComputerOwnerTaskExecutionRole44741D1C": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      }
+    },
+    "ComputerOwnerTaskExecutionRoleDefaultPolicyE23BB895": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:BatchGetImage",
+                "ecr:GetDownloadUrlForLayer"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "ComputerImage67D4263C",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": "ecr:GetAuthorizationToken",
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "ComputerLogs3CD929E4",
+                  "Arn"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "ComputerOwnerTaskExecutionRoleDefaultPolicyE23BB895",
+        "Roles": [
+          {
+            "Ref": "ComputerOwnerTaskExecutionRole44741D1C"
+          }
+        ]
+      }
+    },
+    "ComputerSecurityGroupA7D795AD": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Computer hosts: egress only. No inbound ports.",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "computer"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ComputerRepositoryUri": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            {
+              "Fn::Select": [
+                4,
+                {
+                  "Fn::Split": [
+                    ":",
+                    {
+                      "Fn::GetAtt": [
+                        "ComputerImage67D4263C",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            ".dkr.ecr.",
+            {
+              "Fn::Select": [
+                3,
+                {
+                  "Fn::Split": [
+                    ":",
+                    {
+                      "Fn::GetAtt": [
+                        "ComputerImage67D4263C",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            ".",
+            {
+              "Ref": "AWS::URLSuffix"
+            },
+            "/",
+            {
+              "Ref": "ComputerImage67D4263C"
+            }
+          ]
+        ]
+      }
+    },
+    "ComputerClusterName": {
+      "Value": {
+        "Ref": "ClusterEB0386A7"
+      }
+    },
+    "ComputerSubnetIds": {
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Ref": "VpcpublicSubnet1Subnet2BB74ED7"
+            },
+            {
+              "Ref": "VpcpublicSubnet2SubnetE34B022A"
+            }
+          ]
+        ]
+      }
+    },
+    "ComputerSecurityGroupId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ComputerSecurityGroupA7D795AD",
+          "GroupId"
+        ]
+      }
+    },
+    "ComputerOwnerTaskDefinitionArn": {
+      "Value": {
+        "Ref": "ComputerOwnerTask0E12C188"
+      }
+    },
+    "ComputerOwnerTaskRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ComputerOwnerTaskRole61BA2882",
+          "Arn"
+        ]
+      }
+    },
+    "ComputerOwnerExecutionRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ComputerOwnerTaskExecutionRole44741D1C",
+          "Arn"
+        ]
+      }
+    },
+    "ComputerSnapshotBucketName": {
+      "Value": {
+        "Fn::ImportValue": "ChatticusSnapshots:ExportsOutputRefComputerSnapshotsB892D73F153A1C23"
+      }
+    }
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
+  }
+}

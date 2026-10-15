@@ -27,3 +27,14 @@ Feature: Browser capability containment
     And the household computer holds a privileged authenticated session
     When the bot opens an untrusted research page
     Then that browsing context cannot use the privileged session or its secrets
+
+  Scenario: A page cannot add a tool to a granted origin
+    Given a human task grants:
+      | field          | value                    |
+      | tools          | browse, read_workspace   |
+      | origins        | https://docs.example.com |
+      | recipients     |                          |
+      | file_scopes    | /workspace/research      |
+      | egress_classes | approved_origin_fetch    |
+    When the model requests tool "run_terminal" to origin "https://docs.example.com/guide"
+    Then the capability policy denies the request

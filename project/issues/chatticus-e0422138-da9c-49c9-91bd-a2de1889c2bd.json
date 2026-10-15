@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-e0422138-da9c-49c9-91bd-a2de1889c2bd",
+  "title": "Restrict each GitHub environment to its deploy branch",
+  "description": "Found 2026-09-30 while verifying the new account roles (911dac). None of the three GitHub environments (development, staging, production) has a deployment branch policy or required reviewers (API: deployment_branch_policy null, 0 reviewers). GitHub environment secrets are therefore available to ANY branch: anyone with write access can push a branch whose workflow says environment: production and use that environment's secrets and OIDC subject (environment:production). Today that includes the live AWS_DEPLOY_ROLE_ARN (legacy production deploy role, AdministratorAccess) and, since 911dac, the new account roles. This repository is public, so the blast radius is bounded by who has write access, but the control is the intended one (a role trusts environment:production, and the environment should only be reachable from the release branch).\n\n## Fix (GitHub settings, not code; needs Ryan's OK because it changes how deploys are gated)\n- production: deployment branches = main only.\n- staging: main only (it deploys from main).\n- development: develop only.\n- Consider required reviewers on production.\n- Note the throwaway-branch verification used in 911dac would then be refused; the dispatch-only verify workflow becomes usable after the next release to main, which is the intended route.\n\n## Done when\ngh api repos/AnthusAI/Chatticus/environments/<env> shows the branch policy for all three, and a push-triggered run from another branch is refused.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T21:01:35.427413Z",
+  "updated_at": "2026-09-30T21:01:35.427445Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

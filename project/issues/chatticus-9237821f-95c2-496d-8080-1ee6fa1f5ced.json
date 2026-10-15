@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-9237821f-95c2-496d-8080-1ee6fa1f5ced",
+  "title": "Organizations created in the app have no AWS home, so they can never get a computer on development",
+  "description": "Only the members CLI seed path gives an organization the deployment account as its AWS home (anthus-managed). An organization created through the app starts with awsAccountId null (pending provisioning) and every computer start is refused. On 2026-10-10 the user's own organization was fixed by running members seed for it (tenant 919259eb, owner ryan@anth.us). Decide the product path for Anthus-managed organizations on a hosted environment: set the deployment account at creation for Anthus-managed setup, or require explicit provisioning and tell the user in the chat. Related to the customer-account provisioning work (PR 432).",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "49014b25-ae76-4b5b-be93-4f84908f69d7",
+      "author": "home",
+      "text": "Root cause: the enable-time home rule from PR 494 already homes unchosen organizations in the deployment account. Organizations enabled before it hold no home and no setup path and are refused with no_aws_home. Fix in PR 544: shared rule helpers, an idempotent migrate-organization-aws-home script that is a dry run unless --execute, and Gherkin for the migration and for app-created to first computer start. Home is assigned at enable not at creation because the owner may choose the customer-account path while pending. Open product question: should open-signup development auto-enable new organizations.",
+      "created_at": "2026-10-14T01:30:11.815860Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "reliability-d"
+      }
+    },
+    {
+      "id": "97211514-aaa5-4124-a185-9a0f492b2afb",
+      "author": "home",
+      "text": "Resolved (PR 544, merged). Root cause: the rule that homes an organization in the deployment account already existed (PR 494, 2026-10-10) and applies when an operator enables or reinstates it; organizations enabled BEFORE that rule kept a null home. PR 544 adds an idempotent migration (conversation/bin/migrate-organization-aws-home.ts, dry run by default) and a scenario showing a created-then-enabled organization starts its computer. Dry run against development on 2026-10-14: no enabled organization without an AWS home, so nothing needed migrating and --execute was not run. Open product questions for the owner: should open-signup development auto-enable new organizations, and should suspended organizations without a home be migrated now.",
+      "created_at": "2026-10-14T01:44:28.123180Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
+    }
+  ],
+  "created_at": "2026-10-10T19:06:28.926709Z",
+  "updated_at": "2026-10-14T01:44:34.822564Z",
+  "closed_at": "2026-10-14T01:44:34.822129Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "PR 544 merged; existing homes are covered, but auto-enable and suspended-organization migration still need decisions.",
+  "right_now_updated_at": "2026-10-14T01:44:36.957678Z",
+  "custom": {}
+}

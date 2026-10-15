@@ -47,3 +47,15 @@ Feature: Prefer-local job routing
     When tenant "anthus" enqueues a turn:
       | capabilities | computer,gpu |
     Then the turn is not assigned
+
+  Scenario: A computer turn never goes to a fresher worker of a different computer
+    Given 10 seconds pass
+    And a worker registered as:
+      | worker_id   | other-mac |
+      | tenant_id   | anthus    |
+      | cost_class  | local     |
+      | capabilities| computer,browser,terminal |
+      | computer_id | other-computer |
+    When tenant "anthus" enqueues a turn:
+      | capabilities | computer,browser |
+    Then the turn is assigned to worker "garage-mac-1"

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Starts a model-chosen command as the unprivileged chatticus-shell user.
+# The owner program calls this as "chatticus-shell -c <command>" with a scrubbed
+# environment. The command gets no root, no capabilities and no way to gain
+# them, so it cannot read the owner's memory, environment or files.
+set -eu
+umask 002
+exec setpriv \
+  --reuid=chatticus-shell \
+  --regid=chatticus-shell \
+  --groups=chatticus-workspace \
+  --no-new-privs \
+  --inh-caps=-all \
+  --bounding-set=-all \
+  /bin/bash "$@"

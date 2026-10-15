@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-ae02d9d5-8545-4dcd-af18-018fc7e4fc01",
+  "title": "Marketing page: cost accountability as it exists today",
+  "description": "Cost page must only describe what exists today (spend recording from Pi usage, spend ceiling, budgets and daily rollup). The fuller vision (per-session, bot and message cost views) appears only under a 'Coming soon' label. Later claims depend on cost epic chatticus-8c857b.\n## Acceptance\n- Each live claim names the shipped capability; vision items labelled Coming soon.\n- No per-session/bot/message cost claim as live.\nRepo: AnthusAI/Chattic.us-web (private). Branch marketing/durability-and-cost; PR not yet opened. Owner reviews and merges; agents never merge.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4582a4f5-f451-4f46-b5da-c0bbe17fec38",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:38:43.355063Z",
+  "updated_at": "2026-10-13T11:39:05.109998Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The cost page will describe current spend tracking and label per-session, bot, and message views as coming soon.",
+  "right_now_updated_at": "2026-10-13T11:39:06.614237Z",
+  "custom": {}
+}

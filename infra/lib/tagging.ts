@@ -1,0 +1,115 @@
+import * as cdk from "aws-cdk-lib";
+import {
+  ACCOUNT_DEPLOY_STACK_IDS,
+  AUTH_STACK_IDS,
+  CHATTICUS_CLOUD_ENVIRONMENTS,
+  COMPUTERS_STACK_IDS,
+  CONTROL_PLANE_STACK_IDS,
+  ENVIRONMENT_CERTIFICATES_STACK_IDS,
+  ENVIRONMENT_ZONES_STACK_IDS,
+  SNAPSHOT_STACK_IDS,
+  THIN_TURN_STACK_IDS,
+  WEB_STACK_IDS,
+  type ChatticusCloudEnvironment,
+} from "./environments";
+
+export const TAG_APPLICATION = "chatticus:application";
+export const TAG_ENVIRONMENT = "chatticus:environment";
+export const TAG_INSTALLATION = "chatticus:installation";
+export const TAG_COMPONENT = "chatticus:component";
+export const TAG_TENANT = "chatticus:tenant";
+
+export const APPLICATION_NAME = "Chatticus";
+export const SHARED_ENVIRONMENT = "shared";
+
+export interface StackTags {
+  component: string;
+  environment: ChatticusCloudEnvironment | typeof SHARED_ENVIRONMENT;
+}
+
+const SHARED_STACKS: Record<string, string> = {
+  ChatticusBudgets: "budgets",
+  ChatticusSnapshots: "snapshots",
+  ChatticusComputers: "computer",
+  ChatticusDns: "dns",
+  ChatticusGitHubDeploy: "deploy",
+  ChatticusAccountDeploy: "deploy",
+  ChatticusManagementDns: "dns",
+  ChatticusEnvironmentZones: "dns",
+  ChatticusEnvironmentCertificates: "dns",
+  ChatticusIntegrationTest: "integration-test",
+};
+
+const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, string]> = [
+  [THIN_TURN_STACK_IDS, "thin-turn"],
+  [WEB_STACK_IDS, "web"],
+  [AUTH_STACK_IDS, "auth"],
+  [CONTROL_PLANE_STACK_IDS, "control-plane"],
+  [SNAPSHOT_STACK_IDS, "snapshots"],
+  [COMPUTERS_STACK_IDS, "computer"],
+  [ENVIRONMENT_ZONES_STACK_IDS, "dns"],
+  [ENVIRONMENT_CERTIFICATES_STACK_IDS, "dns"],
+  [ACCOUNT_DEPLOY_STACK_IDS, "deploy"],
+];
+
+/**
+ * Component and environment for one stack id; throws for a stack nobody
+ * classified. The unsuffixed stacks are shared in the legacy account; in a
+ * dedicated environment account they belong to that environment, which for the
+ * production account includes the account-level budgets stack (it was deployed
+ * there by production and staging never deploys it). The suffixed staging stacks
+ * belong to staging wherever they are deployed.
+ */
+export function stackTagsFor(stackId: string, dedicatedEnvironment?: ChatticusCloudEnvironment): StackTags {
+  const shared = SHARED_STACKS[stackId];
+  if (shared !== undefined) {
+    return { component: shared, environment: dedicatedEnvironment ?? SHARED_ENVIRONMENT };
+  }
+  for (const [ids, component] of ENVIRONMENT_STACKS) {
+    for (const environment of CHATTICUS_CLOUD_ENVIRONMENTS) {
+      if (ids[environment] === stackId) return { component, environment };
+    }
+  }
+  throw new Error(
+    `Stack '${stackId}' has no entry in lib/tagging.ts. Add it so its spend can be attributed.`,
+  );
+}
+
+const TAG_VALUE = /^[\p{L}\p{Z}\p{N}_.:/=+\-@]{1,256}$/u;
+
+/** Installation name from the environment, or undefined when unset. Rejects values AWS cannot tag with. */
+export function readInstallationName(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const raw = env.CHATTICUS_INSTALLATION_NAME?.trim();
+  if (!raw) return undefined;
+  if (!TAG_VALUE.test(raw)) {
+    throw new Error(
+      `CHATTICUS_INSTALLATION_NAME '${raw}' is not a valid AWS tag value ` +
+        "(1-256 letters, digits, spaces and _ . : / = + - @).",
+    );
+  }
+  return raw;
+}
+
+/** Tag one stack (and everything taggable in it) with the standard Chatticus cost tags. */
+export function applyStandardTags(
+  stack: cdk.Stack,
+  installation: string | undefined,
+  dedicatedEnvironment?: ChatticusCloudEnvironment,
+): void {
+  const { component, environment } = stackTagsFor(stack.node.id, dedicatedEnvironment);
+  const tags = cdk.Tags.of(stack);
+  tags.add(TAG_APPLICATION, APPLICATION_NAME);
+  tags.add(TAG_COMPONENT, component);
+  tags.add(TAG_ENVIRONMENT, environment);
+  if (installation === undefined) {
+    cdk.Annotations.of(stack).addWarningV2(
+      "chatticus:no-installation-tag",
+      "CHATTICUS_INSTALLATION_NAME is not set, so this stack is not tagged with an installation. " +
+        "Deploying without it removes the tag from an already-tagged stack.",
+    );
+    return;
+  }
+  tags.add(TAG_INSTALLATION, installation);
+}

@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-402a8337-0578-49a7-9a1f-4be54352d7f8",
+  "title": "The turn model is decided in two places (Lambda code and the owner image) and can drift",
+  "description": "2026-10-11: after the switch to gpt-6-luna the Lambda turns used luna while the owner container, whose bundle bakes DEFAULT_TURN_MODEL into the image, stayed on gpt-5-nano until the image was rebuilt and pushed by hand. A turn that starts on the Lambda and hands over to the owner could change model mid-turn after any model change. Decide the model once (the Lambda that starts the turn) and pass it to the owner in the takeover (start job env, like the owner id), so the owner never reads its own copy. Scenario: the owner uses the model named in its takeover input. Also consider the image pipeline (an image build in CI so a code change cannot leave a stale image).\n\nWhat remains (triage 2026-10-14): Verified still true on origin/develop: DEFAULT_TURN_MODEL is read by conversation/src/lambdas/turn-executor.ts (line ~58) and by computer/host/src/owner-deps.ts (line ~75), so the owner container bundle still bakes its own copy. The image-build half is done: CI builds, checks and pushes the computer image (PR 501) and image promotion is gated (PR 547, docs/COMPUTER_IMAGE_PROMOTION.md), so a stale image is now a promotion step, not a manual push. Left: carry the model in the takeover input (start job env) so the owner uses the model the Lambda chose, with a scenario 'the owner uses the model named in its takeover input'.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "83a083d6-2528-4992-8fde-29a713e33946",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Verified still true on origin/develop: DEFAULT_TURN_MODEL is read by conversation/src/lambdas/turn-executor.ts (line ~58) and by computer/host/src/owner-deps.ts (line ~75), so the owner container bundle still bakes its own copy. The image-build half is done: CI builds, checks and pushes the computer image (PR 501) and image promotion is gated (PR 547, docs/COMPUTER_IMAGE_PROMOTION.md), so a stale image is now a promotion step, not a manual push. Left: carry the model in the takeover input (start job env) so the owner uses the model the Lambda chose, with a scenario 'the owner uses the model named in its takeover input'.",
+      "created_at": "2026-10-14T03:11:04.917361Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-11T14:22:44.010535Z",
+  "updated_at": "2026-10-14T03:11:04.917392Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "CI now controls image updates; the remaining work is to pass the Lambda’s model to the owner at takeover.",
+  "right_now_updated_at": "2026-10-14T03:11:07.028703Z",
+  "custom": {}
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-46b47f6f-ee72-4a4b-986b-32c351c51514",
+  "title": "Word-only confirmation codes from a transcription-safe wordlist",
+  "description": "Moonshine normalizes spoken numbers ('blue seven' became '27'), so voice confirmation codes are two words from a curated list (e.g. 'maple falcon'), added to key terms while the request is open, compared normalized, with an attempt limit that tolerates mishearing. Gherkin first. See docs/VOICE.md, Spike results > Test 4, and Design > 3a.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T13:39:19.454893Z",
+  "updated_at": "2026-10-04T13:39:19.454926Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

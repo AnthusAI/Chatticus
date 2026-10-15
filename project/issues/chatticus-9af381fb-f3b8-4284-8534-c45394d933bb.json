@@ -1,0 +1,107 @@
+{
+  "id": "chatticus-9af381fb-f3b8-4284-8534-c45394d933bb",
+  "title": "Spike: NFS-over-WAN metadata latency for the local interactive host",
+  "description": "## Question\n\n**Is NFS-over-WAN usable for a hot working tree?**\n\nThis is the load-bearing, unmeasured assumption behind `chatticus-fbae4e` D1–D5. If metadata operations over the tunnel are unusably slow, the EFS-everywhere design fails for interactive work.\n\n**Run this before committing engineering time to the local interactive host — not before the tracks that do not depend on it.** Per the parent epic, this gates only the ~$30–60/mo piece. The EFS simplification for AWS hosts and accelerated batch both proceed regardless.\n\n## Correction to D5 that raises the stakes\n\nD5 says WAN latency is handled with FS-Cache. **That is imprecise in a way that matters**, and it should be corrected in `chatticus-fbae4e` regardless of this spike's outcome:\n\n- `fsc` / `cachefilesd` caches file **data pages**.\n- Directory lookups and attributes — which is essentially all `git status` does, thousands of `lstat` calls — are governed by the **attribute cache** (`acregmin`, `acregmax`, `acdirmin`, `acdirmax`, or `actimeo` for all four). A different mechanism.\n- FS-Cache is documented as frequently unhelpful, and occasionally counterproductive, for metadata-heavy work.\n\nSo the recorded mitigation caches the wrong thing for the workload it was meant to address. The real lever is a **long `actimeo`**. That was previously justified as safe because of single-writer-per-workspace scoping. **`chatticus-766c51` falsified that premise** (concurrent turns share the default per-bot workspace). Whether a long `actimeo` is safe is now `chatticus-ea918a`, not a settled D5 claim. This measurement is more necessary, not less: it produces the performance-versus-staleness curve that decision needs.\n\n## Phase A0 — answer the decision without AWS (added 2026-09-05)\n\n**Phase A is correctly parked**: EFS DNS, SG 2049, and `amazon-efs-utils` TLS/stunnel are untestable until a Chatticus workplace EFS exists, and the Kanbus filesystem must not be borrowed for it.\n\nBut **the decision D5 needs is not EFS-specific.** The threshold table below asks whether metadata-heavy work is viable at WAN round-trip time. That is a question about round trips and the attribute cache, not about EFS. It can be answered with **zero AWS, zero tunnel, zero CDK**:\n\n- a local kernel NFS server (or a VM on the same machine),\n- `tc qdisc add dev <if> root netem delay 20ms` to synthesise the home-link RTT,\n- the same operation set below, swept across a range of `actimeo` values.\n\n**What it cannot do:** capture EFS's own per-operation latency floor or stunnel overhead. It does not replace Phase A or B.\n\n**What it can do:** establish whether *any* row of the threshold table is reachable in principle, and let `actimeo` be varied deliberately — which is now the interesting variable, because `chatticus-ea918a` shows a long `actimeo` is not established as safe when concurrent turns share a workspace. A sweep gives the performance-versus-staleness curve that decision needs.\n\n**Why it is worth doing before CDK:** if netem shows 50x at 20 ms, the local interactive host is dead before anyone writes EFS infrastructure. If it shows 2x, the CDK work proceeds with the answer already in hand. Given this is the least valuable slice of the design, an hour of `netem` is better proportioned to it than waiting on a filesystem to be provisioned.\n\n**Cost:** about an hour. No AWS account, no spend, no tunnel, no garage VM.\n\n## Phase A — can it mount at all?\n\nRun separately so a failure is diagnosable rather than tangled with the benchmark. Non-obvious pieces, each able to fail independently:\n\n- EFS DNS names resolve to **VPC-private IPs**; the VM needs VPC DNS reachable over the tunnel, or a hardcoded mount-target IP.\n- The mount target's security group must allow 2049 **from the tunnel subnet** — and per the initiative's security model, from nothing else. This scoping is load-bearing, not hygiene.\n- `amazon-efs-utils` TLS mounting runs stunnel; whether that behaves over WireGuard is unverified.\n\nA clean failure here is itself a useful result. Roughly half a day.\n\n## Phase B — measure against thresholds set in advance\n\n**Set the thresholds before looking at numbers.** Four conditions, same operations:\n\n1. Local disk (control)\n2. EFS from an in-VPC EC2 (isolates EFS itself from the WAN)\n3. Garage VM over the tunnel, cold cache\n4. Garage VM over the tunnel, warm cache with a long `actimeo`\n\nOperations, chosen to be metadata-heavy in different ways:\n\n- `git status` on a large repo\n- `git checkout` between two branches\n- `find . -type f | xargs stat` sweep\n- a dependency install\n\nCapture `nfsstat -c` before and after each run. **RPC counts explain why, not just how slow**, and show whether `actimeo` is absorbing what we hoped or whether the attribute cache is being invalidated anyway.\n\n## Decision thresholds (agreed in advance)\n\n| Warm-cache result vs local disk | Verdict |\n|---|---|\n| Within ~3x | D1–D5 hold. Proceed with the local interactive host. |\n| 3–10x | Marginal. `/org` on EFS, keep the hot working tree local — the data-shape split the initiative considered and rejected. Reopen it. |\n| Over 10x | Local interactive host is not viable. Keep accelerated batch, which never needed any of this. |\n\nThe third row is a **scope reduction, not a failure** — it removes the least valuable piece and leaves the valuable ones untouched.\n\n## Depends on\n\nNothing in this epic. But do the cheap fact-checks first; they are minutes, and this is days.\n\n## Done when\n\nPhase A either mounts or fails with a diagnosed cause, Phase B numbers are recorded against the thresholds above, and `chatticus-fbae4e` D5 is corrected with the FS-Cache / attribute-cache distinction regardless of outcome. Phase A0 records whether any threshold-table row is reachable under netem RTT and the `actimeo` sweep `ea918a` needs. Phase A0 does not close this card.",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e9ddec0c-76bb-4acb-81a7-0afee00e3dea",
+  "labels": [
+    "spike",
+    "architecture",
+    "efs"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3813d9f6-3f84-4af4-abca-573c731bfcaa",
+      "author": "home",
+      "text": "AWS session is live (account 335163751677). Composer 2.5 executing Phase A only if existing EFS/VPC resources exist; do not create filesystems or clusters by CLI. Worktree /tmp/chatticus-9af381-nfs-wan on spike/nfs-wan-9af381.",
+      "created_at": "2026-09-05T18:24:40.220304Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "18ce9f66-edb1-4a03-90f0-1667e0fc3625",
+      "author": "home",
+      "text": "## Phase A complete — mount blocked (valid result)\n\n**Verdict:** Phase A cannot proceed. No Chatticus workplace EFS exists in account `335163751677` (`us-east-1`). Mount feasibility (DNS, SG 2049, `amazon-efs-utils` TLS/stunnel over WireGuard) is **not testable** until a Chatticus EFS filesystem and tunnel path are provisioned via CDK per `chatticus-fbae4e` D1–D2.\n\n### AWS inventory (read-only, 2026-09-05)\n\n| Resource | Chatticus | Notes |\n|---|---|---|\n| EFS filesystem | **None** | Exactly one EFS in account: `fs-09fcbd58a2e2d2c98` (`KanbusCloudFoundation/KanbusTenantFilesystem`) — Kanbus, **not** Chatticus. Not mounted, not written. |\n| EFS mount targets | **None for Chatticus** | Kanbus FS has 2 MTs in `vpc-06dead2c4a3b0a93e` (`10.0.2.237`, `10.0.3.121`). |\n| Chatticus VPC | **Exists, empty of EFS** | `vpc-0c5a0f0ca21e2afdd` (`ChatticusComputers/Vpc`, `10.0.0.0/16`) from `ChatticusComputers` stack — no EFS MTs. |\n| Tunnel / WireGuard EC2 | **None** | No instances tagged Chatticus, tunnel, or WireGuard. |\n| SSM `/chatticus/*` | **No EFS params** | Thin-turn and web params only. |\n\n### CDK / repo\n\n- `infra/lib/` has **no** `AWS::EFS::FileSystem`, mount target, or WireGuard/tunnel EC2 definitions.\n- Workplace storage today remains S3 snapshots (`ChatticusSnapshots`); EFS is design-only (`chatticus-fbae4e` D1).\n\n### Phase A sub-checks (not run — prerequisite missing)\n\n1. **DNS:** EFS DNS → VPC-private MT IPs over tunnel — blocked (no Chatticus FS).\n2. **SG 2049:** MT security group from tunnel subnet — blocked (no MT, no tunnel subnet/EC2).\n3. **amazon-efs-utils / stunnel over WireGuard** — blocked (no endpoint, no FS).\n\n### D5 correction (fbae4e)\n\nConfirmed already recorded in `chatticus-fbae4e` D5 (2026-09-05): `cachefilesd`/FS-Cache caches **data pages**; metadata-heavy work is governed by the **attribute cache** (`actimeo` / `acreg*` / `acdir*`). No rewrite needed.\n\n### Next (Phase B — not started)\n\nBlocked on same prerequisites plus a garage Linux VM and tunnel. Re-run Phase A after CDK lands Chatticus workplace EFS + tunnel endpoint.\n",
+      "created_at": "2026-09-05T18:25:48.708956Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "60cae914-83fc-4969-b1e6-7b5b8a6d8521",
+      "author": "home",
+      "text": "Phase A done (blocked: no Chatticus EFS). Parking as open. Phase B waits on CDK EFS + tunnel; not in progress until those exist.",
+      "created_at": "2026-09-05T19:26:54.825353Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f442113c-ab49-4688-83e2-5cbec774817f",
+      "author": "home",
+      "text": "## Learnings (Phase A)\n\n- **You cannot measure NFS-over-WAN until a Chatticus workplace EFS exists.** Account `335163751677` has a Chatticus VPC (`vpc-0c5a0f0ca21e2afdd` from `ChatticusComputers`) with no EFS, no mount targets, no WireGuard/tunnel EC2, and no EFS in CDK.\n- The only EFS in the account is Kanbus (`fs-09fcbd58a2e2d2c98`). Using it for Chatticus numbers would contaminate another product's filesystem and would not be the workplace mount D1 describes. Do not mount it.\n- DNS, SG 2049 from a tunnel subnet, and `amazon-efs-utils` TLS/stunnel were not run because the prerequisite filesystem is missing. That is a complete Phase A result, not a skipped test.\n- D5's FS-Cache vs `actimeo` distinction is already recorded on `fbae4e`. Phase B (thresholds vs local disk) still waits on CDK EFS + tunnel + a garage Linux VM.\n- Local interactive host remains the least valuable slice and is correctly still gated here. AWS-host EFS simplification and accelerated batch do not wait on this spike.\n",
+      "created_at": "2026-09-05T19:40:35.110657Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f505adcb-988f-4313-a4a0-ab1a4cff6ae5",
+      "author": "home",
+      "text": "Added **Phase A0** — a netem pre-experiment that answers the D5 threshold question with no AWS, no tunnel, and no CDK: local NFS server, `tc qdisc netem delay 20ms`, same operation set, swept across `actimeo`.\n\nIt does not replace Phase A or B (no EFS latency floor, no stunnel overhead) and the park stands. It does two things the park currently leaves undone: it establishes whether any row of the threshold table is reachable in principle before EFS infrastructure is built, and it produces the performance-versus-staleness curve that `chatticus-ea918a` now needs, since a long `actimeo` is no longer established as safe under concurrent turns sharing a workspace.\n\nAbout an hour, no spend.",
+      "created_at": "2026-09-05T20:34:49.798363Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e98f3610-07d3-469f-bdb8-707c829c1006",
+      "author": "home",
+      "text": "Phase A0 (netem) starting. No AWS, no Chatticus EFS, no Kanbus filesystem. Local Linux NFS + `tc netem` delay, same operation set, `actimeo` sweep. Does not replace Phase A/B. Worktree to be named by the worker.",
+      "created_at": "2026-09-05T20:47:02.391266Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8fe9209f-f374-4884-b5b0-0288f387a042",
+      "author": "home",
+      "text": "Phase A0 plan authorized with amendments: Linux Docker (not Darwin), two NFS clients for the ea918a staleness curve, pip-to-/tmp excluded from the D5 verdict ratio, kernel-NFS fallback to ganesha if Docker-on-Mac cannot export. Worktree `/tmp/chatticus-9af381-netem` on `spike/nfs-wan-netem-9af381`. Worker does not write Kanbus; manager will record numbers after results.",
+      "created_at": "2026-09-05T20:50:25.869336Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c1c0ad69-aa45-483f-86cd-8726c29921b4",
+      "author": "home",
+      "text": "Phase A0 first run (PR #310, not merged): nfs-ganesha, claimed 20ms netem, warm git status ~30s vs local ~0.01s, stat sweep ~32s vs ~0.02s. That *looks* like ~1 RTT per file on a 976-file tree — **if** the delay is WAN.\n\nDo not treat it as a D5 verdict yet. nfsstat never captured; ping RTT not recorded; local checkout 0.0s inflated the 57680x ratio; two-client “staleness” ~32s is git-status duration on client-b, not cache delay. Sent back: LAN NFS control, `test -f` probe, wall-clock table, commit timing JSON.",
+      "created_at": "2026-09-05T22:23:57.217519Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "dde1a9bf-e52f-4259-b5d7-f2c3169b02bf",
+      "author": "home",
+      "text": "Phase A0 re-run on PR #310 (not merged until re-review + CI).\n\n**Wall seconds (warm, default actimeo):** local git_status 0.02s; NFS LAN (no netem) 0.25s; NFS WAN (netem) 32.3s. Stat sweep 0.02 / 0.26 / 33.4s. Measured ping RTT: LAN 0.21ms, WAN 24.7ms (egress-only 20ms qdisc, not 40ms RTT). GETATTR traffic present via mountstats.\n\n**D5 pre-filter:** every actimeo row is >10x vs local (~1650x git_status). LAN vs local is ~13x (Ganesha-in-Docker tax; do not call that EFS). WAN vs LAN is the delay: ~32s extra. `actimeo` did not change warm git_status (~30–32s all values). Phase A0 answer: **no threshold-table row is reachable at ~25ms RTT in this lab.** That is a scope reduction signal for the local interactive host, not Phase A/B, not EFS floor, not stunnel.\n\n**ea918a:** stat-probe staleness ~0.75–0.83s all actimeo; git-status contrast ~57–61s. The 0.8s floor may include docker-exec start after the write; do not treat it as a measured `actimeo` window. Decision still `ea918a`.",
+      "created_at": "2026-09-05T23:28:32.026495Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ddba2b24-ea27-4e40-bdba-1283bdf6a264",
+      "author": "home",
+      "text": "Phase A0 landed on develop (#310, `1899611`). Re-review approved; python+infra CI green.\n\n**Pre-filter:** at measured ~25ms RTT (egress-only 20ms netem), warm git_status 0.02s local / 0.25s LAN NFS / 32s WAN. Every actimeo row >10x. Local interactive host fails the agreed threshold table in this lab. Not EFS, not stunnel, not the tunnel.\n\nParking as **open**. Phase A/B still wait on CDK Chatticus EFS + tunnel. Do not treat A0 as those phases.",
+      "created_at": "2026-09-05T23:35:32.225055Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "6f36c803-e251-403e-81bf-13a2c7e73962",
+      "author": "home",
+      "text": "## Review of Phase A0 (2026-09-07)\n\n**The WAN verdict stands.** 1650x, and the RTT term alone (~24s of the 32s, ~1 round trip per file on a 976-file tree) is independent of caching. Row three of the threshold table. Scope reduction decision filed as `chatticus-e8380b`.\n\n**Two confounds limit what else A0 establishes.** The recorded finding \"long `actimeo` did not make `git status` faster\" is not established as a general property of NFS:\n\n1. **The workload self-invalidates.** `scripts/lib-bench.sh` `run_ops()` runs git_status → `git checkout bench-a && git checkout bench-b` → stat_sweep in every timed iteration. The checkout rewrites the tree, so the next iteration's git_status revalidates whatever `actimeo` is set to. The flat 1743/1629/1637/1640/1649x across actimeo 1–300s is what a self-invalidating workload produces by construction. A read-only repeat loop was never run.\n2. **Ganesha is not EFS.** A0's own LAN control shows ~13x versus local at 0.2ms RTT — server overhead, not network — and its summary correctly says \"do not call that EFS.\"\n\n**Consequence:** the in-VPC extrapolation is open, and that now matters more than this spike did, because the untested assumption has moved to the high-value track. Filed as `chatticus-3d5357`.\n\n**On the park:** Phase A and Phase B exist to prove an out-of-VPC mount for the host class A0 just eliminated. If `e8380b` accepts the scope reduction they are **moot, not parked** — this issue currently points at CDK EFS + tunnel work that should not happen.",
+      "created_at": "2026-09-07T12:51:07.033995Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e31f6f65-eb4d-47b9-b73d-e69c0c1e30f1",
+      "author": "home",
+      "text": "## Closing as moot 2026-09-07\n\nPhase A0 answered the question this spike existed to answer, and the answer eliminated the host class Phases A and B were meant to serve.\n\n- **A0 verdict:** 1650x at ~25 ms RTT. Local interactive host not viable.\n- **Phase A** (EFS DNS, SG 2049, `amazon-efs-utils` TLS/stunnel over WireGuard) proves an **out-of-VPC mount**. There is no out-of-VPC consumer: accelerated batch is object I/O only, and the local interactive host is dropped.\n- **Phase B** (thresholds vs local disk over the tunnel) has no tunnel to run over.\n\nLeaving this open would point at CDK EFS + tunnel work that `chatticus-e8380b` has now decided not to do.\n\n**Not closed as failed — closed as answered.** A0 is the result: cheap, decisive, and it prevented building a WireGuard endpoint, an EC2 tunnel host, and an out-of-VPC mount path for a host class worth ~$30–60/mo.\n\n**The in-VPC question is not this issue.** Whether EFS is fast enough for a hot working tree on AWS hosts is `chatticus-3d5357`, and A0's confounds (self-invalidating workload, ganesha-in-Docker) mean it must be measured rather than extrapolated from here.",
+      "created_at": "2026-09-07T12:54:06.397021Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-05T18:08:29.618306Z",
+  "updated_at": "2026-09-07T12:54:06.411141Z",
+  "closed_at": "2026-09-07T12:54:06.411141Z",
+  "custom": {}
+}

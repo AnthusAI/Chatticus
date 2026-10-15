@@ -1,0 +1,13 @@
+{
+  "condition": "ebs-control",
+  "actimeo": "n/a",
+  "storage": "ebs",
+  "host": "ip-10-0-92-71.ec2.internal",
+  "runs": 3,
+  "median_seconds": {
+    "git_status": 0.0093,
+    "checkout": 0.0146,
+    "stat_sweep": 0.0594,
+    "pip_install": 0.9733
+  }
+}

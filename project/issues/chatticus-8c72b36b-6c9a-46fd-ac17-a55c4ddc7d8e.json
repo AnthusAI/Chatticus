@@ -1,0 +1,52 @@
+{
+  "id": "chatticus-8c72b36b-6c9a-46fd-ac17-a55c4ddc7d8e",
+  "title": "T3 Versioned vendor price book with cache, long-context tiers and published-page source",
+  "description": "Supersedes chatticus-12ba7f. Files: conversation/src/ledger/vendor-prices.ts, conversation/src/ledger/vendor-ledger.ts (costUsdFromTokens), conversation/src/gateway/model-gateway.ts, conversation/src/turn/openai-models.ts, docs/BUDGETS.md price table. Give every allowed model input, output, cacheRead, cacheWrite and tiers (above 272000 input for gpt-6-luna per pi-ai openai.json), a priceBookId naming source and retrieval date, verified against OpenAI's own page not LiteLLM. Unpriced model fails the Lambda turn closed with a clear reason. Vitest guard: gateway-allowed models equal price book models. Acceptance: scenarios 6, 7, 8, 9 of the plan list pass; docs/BUDGETS.md table updated.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "71002ac7-efc7-4b30-8c7e-486cf15242e4",
+      "author": "home",
+      "text": "Implemented in PR 537 (branch ts/cost-price-book, not merged). Price book now versioned (openai@2026-10-13+pi-ai-1.0.2) with cacheRead, cacheWrite and the gpt-6-luna tier above 272000 context tokens; sourced from the pi-ai 1.0.2 bundled openai catalog, NOT yet verified against OpenAI's own page. Calls are priced individually by their own model and context size; unpriced model fails the turn before the model call and a spend record is marked unpriced_calls with no cost_usd. Scenarios 6, 8, 9 of the plan are covered by features/cost_price_book.feature; scenario 7 (reasoning within output) is by construction (output priced as output) and not separately asserted. Not done: verification against OpenAI's page, rollup surfacing of unpriced_calls, service tier pricing, T4.",
+      "created_at": "2026-10-13T13:03:03.480323Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t3"
+      }
+    },
+    {
+      "id": "523be791-c737-487d-9e69-93decb04fb0e",
+      "author": "home",
+      "text": "Merged as PR 537 (T3). Verified LIVE on development 2026-10-13. A computer-owner turn wrote 2 model-call cost records into the session (0.0001858 USD, price book openai@2026-10-13+pi-ai-1.0.2, per-turn index item owner_kind computer). A Lambda turn wrote 1 record (0.000092 USD, owner_kind lambda). The ledger row matches the session records, the earlier computer-owner double count is gone, and the owner role policy for the cost partition is deployed.",
+      "created_at": "2026-10-13T14:11:22.968971Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:31:22.757961Z",
+  "updated_at": "2026-10-13T14:11:27.578852Z",
+  "closed_at": "2026-10-13T14:11:27.578812Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "PR 537 runs live; pricing is tracked per model, while source checks and service tiers remain.",
+  "right_now_updated_at": "2026-10-13T14:11:32.023597Z",
+  "custom": {}
+}

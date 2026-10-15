@@ -1,0 +1,7 @@
+import ms 1269
+read name,label,description,parameters,outputSchema,constrainedSampling,prepareArguments,executionMode,execute {"type":"object","required":["path"],"properties":{"path":{"type":"string","description":"Path to the file to read (relative or absolute)"},"offset":{"type":"nu
+bash name,label,description,parameters,outputSchema,constrainedSampling,prepareArguments,executionMode,execute,promptSnippet,promptGuidelines {"type":"object","required":["command"],"properties":{"command":{"type":"string","description":"Shell command to execute"},"timeout":{"type":"number","descripti
+edit name,label,description,parameters,outputSchema,constrainedSampling,prepareArguments,executionMode,execute {"type":"object","required":["path","edits"],"properties":{"path":{"type":"string","description":"Path to the file to edit (relative or absolute)"},"edits":{"ty
+write name,label,description,parameters,outputSchema,constrainedSampling,prepareArguments,executionMode,execute {"type":"object","required":["path","content"],"properties":{"path":{"type":"string","description":"Path to the file to write (relative or absolute)"},"content"
+{"content":[{"type":"text","text":"Successfully wrote to hello.txt"}]}
+{"content":[{"type":"text","text":"hello.txt\n/bin/bash\n"}],"structuredContent":{"output":"hello.txt\n/bin/bash\n","truncated":false,"exit_code":0,"wall_time_seconds":0}}

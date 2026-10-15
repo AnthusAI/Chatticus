@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-feb491a2-15c7-4428-845b-619b5b50ec83",
+  "title": "Costs tab shows the model spend ceiling and this month's spend",
+  "description": "Add a line to the Costs tab showing the organization's monthly model spend ceiling next to the month's model spend, so an owner sees how close the organization is to model_spend_ceiling_reached.\n\nFeature: Costs tab ceiling line\n  Scenario: A member sees ceiling and spend\n    Given an organization with model spend this month\n    When a member opens the Costs tab\n    Then the ceiling and the month's spend are shown",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T10:36:39.620572Z",
+  "updated_at": "2026-10-15T10:36:39.620621Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The Costs tab needs to show the monthly model spend ceiling beside this month’s spend.",
+  "right_now_updated_at": "2026-10-15T10:36:41.400306Z",
+  "custom": {}
+}

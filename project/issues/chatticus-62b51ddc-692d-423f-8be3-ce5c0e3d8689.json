@@ -1,0 +1,43 @@
+{
+  "id": "chatticus-62b51ddc-692d-423f-8be3-ce5c0e3d8689",
+  "title": "Turn completion renders duplicate bot response during message reconciliation",
+  "description": "In web/components/EnabledWorkspace.tsx, when a terminal turn.completed event arrives from the SSE stream, it triggers reconcileMessages(activeTurn.channel_id). When listMessages resolves and updates messagesByChannel, React re-renders before the .then() callback clears turn. Because buildChatticusThreadMessages returns all committed messages plus the streaming turn item when turn is non-null, the newly committed bot message and the streaming shell are rendered simultaneously, causing the bot response to visibly duplicate in the thread before collapsing.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "004bf0",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "421fa0f2-1645-461e-86fa-1011d05a5eca",
+      "author": "home",
+      "text": "Resolved in PR #355 (merged at 70855aa). Turn reconciliation suppresses streaming turn shell if the bot message is already committed, and EnabledWorkspace synchronously batches message updates and turn clearing to prevent duplicate response renders.",
+      "created_at": "2026-09-16T14:05:44.705660Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "antigravity",
+        "model": "gemini-3.1-pro",
+        "name": "Chatticus"
+      }
+    }
+  ],
+  "created_at": "2026-09-16T13:40:50.126454Z",
+  "updated_at": "2026-09-16T14:05:45.293423Z",
+  "closed_at": "2026-09-16T14:05:45.293401Z",
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

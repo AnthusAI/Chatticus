@@ -1,0 +1,253 @@
+import assert from "node:assert/strict";
+import { Given, Then, When } from "@cucumber/cucumber";
+import { ensureComputer, setComputerStopped } from "../../src/domain/computers.ts";
+import { healthyWorkers, type ComputerPolicy } from "../../src/domain/workers.ts";
+import { recordResponse } from "../api.ts";
+import {
+	computerScenarioOf,
+	deliverStartJob,
+	diskOf,
+	hostNamed,
+	queuedStartJobs,
+	registerHost,
+	scenarioTenantId,
+	turnPayloadNow,
+	workTurn,
+} from "../computer-scenario.ts";
+import { actionStoreOf, COMPUTER_START_QUEUE } from "../computer-support.ts";
+import { FakeHostStartDriver } from "../fakes/fake-host-start-driver.ts";
+import { memberPost } from "../org-user-client.ts";
+import { failStaleTurn } from "../../src/domain/turns.ts";
+import { SimulatedCrash } from "../../src/turn/fault-plan.ts";
+import { deliverDueProbes, queuedRunsFor, runQueuedJobs, turnNow } from "../turn-recovery.ts";
+import { TURN_RUN_QUEUE } from "../turn-queues.ts";
+import { modelScenarioOf } from "../executor-harness.ts";
+import { runJobFor } from "../../src/turn/probes.ts";
+import { activeTurnOf } from "../turn-grant-support.ts";
+import type { ChatticusWorld } from "../world.ts";
+
+Given("host worker {string} serves the household computer", async function (this: ChatticusWorld, workerId: string) {
+	await registerHost(this, scenarioTenantId(this), workerId, "local");
+});
+
+Given("host worker {string} reports the computer stopped as it exits", async function (this: ChatticusWorld, workerId: string) {
+	const response = await hostNamed(this, workerId).request("POST", "/computer/state", { body: { stopped: true } });
+	assert.equal(response.status, 200, response.text);
+});
+
+Given(
+	"host worker {string} reports the computer stopped as the owner of start generation {int}",
+	async function (this: ChatticusWorld, workerId: string, generation: number) {
+		const response = await hostNamed(this, workerId).request("POST", "/computer/state", { body: { stopped: true, start_generation: generation } });
+		assert.equal(response.status, 200, response.text);
+	},
+);
+
+When(
+	"the queued start job is delivered to the starter together with a second start job for the same computer",
+	async function (this: ChatticusWorld) {
+		const state = computerScenarioOf(this);
+		const [first] = queuedStartJobs(this);
+		assert.ok(first, "No start job is queued.");
+		const second = { ...first, jobId: this.ids.next() };
+		this.queues.send(COMPUTER_START_QUEUE, second);
+		state.driver ??= new FakeHostStartDriver();
+		await Promise.all([deliverStartJob(this, first, state.driver), deliverStartJob(this, second, state.driver)]);
+		assert.equal(state.startError, null, state.startError?.message);
+	},
+);
+
+When("every queued start job is delivered to the starter", async function (this: ChatticusWorld) {
+	const state = computerScenarioOf(this);
+	state.driver ??= new FakeHostStartDriver();
+	const jobs = queuedStartJobs(this);
+	assert.ok(jobs.length > 0, "No start job is queued.");
+	for (const job of jobs) {
+		await deliverStartJob(this, job, state.driver);
+		assert.equal(state.startError, null, state.startError?.message);
+	}
+});
+
+Given("the household computer policy is {string}", async function (this: ChatticusWorld, policy: string) {
+	const tenantId = scenarioTenantId(this);
+	const computer = await ensureComputer(tenantId, { store: this.messagingStore(), ids: this.ids });
+	await this.messagingStore().putComputer({ ...computer, policy: policy as ComputerPolicy });
+});
+
+Given(
+	"the computer holds the file {string} containing {string}",
+	function (this: ChatticusWorld, path: string, content: string) {
+		diskOf(this, scenarioTenantId(this)).set(path, content);
+	},
+);
+
+When("host worker {string} runs the next computer action", async function (this: ChatticusWorld, workerId: string) {
+	const action = await hostNamed(this, workerId).runNextAction();
+	assert.ok(action, "The host found no computer action to run.");
+});
+
+When(
+	"host worker {string} runs the next computer action but is lost before it posts the result",
+	async function (this: ChatticusWorld, workerId: string) {
+		const host = hostNamed(this, workerId);
+		const action = await host.claim();
+		assert.ok(action, "The host found no computer action to run.");
+		host.execute(action);
+	},
+);
+
+When("host worker {string} posts that result again", async function (this: ChatticusWorld, workerId: string) {
+	const host = hostNamed(this, workerId);
+	assert.ok(host.lastPost, "The host has posted no result.");
+	const response = await host.postResult(host.lastPost.actionId, host.lastPost.result);
+	assert.equal(response.status, 200, response.text);
+});
+
+When(
+	"user {string} of tenant {string} tries to resume that waiting turn",
+	async function (this: ChatticusWorld, _userId: string, tenantId: string) {
+		const { turnId } = activeTurnOf(this);
+		this.lastHttpResponse = await memberPost(this, `/orgs/${tenantId}/turns/${turnId}/resume`, {});
+	},
+);
+
+When(
+	"user {string} of tenant {string} resumes that waiting turn",
+	async function (this: ChatticusWorld, _userId: string, tenantId: string) {
+		const { turnId } = activeTurnOf(this);
+		const response = await recordResponse(await memberPost(this, `/orgs/${tenantId}/turns/${turnId}/resume`, {}));
+		assert.equal(response.status, 200, response.text);
+	},
+);
+
+When("the run job of that turn is delivered again", async function (this: ChatticusWorld) {
+	const turn = await turnNow(this);
+	this.queues.send(TURN_RUN_QUEUE, runJobFor(turn));
+	const [outcome] = await runQueuedJobs(this);
+	computerScenarioOf(this).lastOutcome = outcome ?? null;
+});
+
+When("the worker stops right after the turn parks and before the start job is queued", async function (this: ChatticusWorld) {
+	this.faultPlan.arm("computer_start", "before");
+	await assert.rejects(runQueuedJobs(this), SimulatedCrash);
+	assert.deepEqual(this.faultPlan.crashedAt, { boundary: "computer_start", window: "before" });
+	this.faultPlan.clear();
+	assert.deepEqual(queuedStartJobs(this), []);
+});
+
+When("the turn probe runs", async function (this: ChatticusWorld) {
+	await deliverDueProbes(this);
+});
+
+When("bot {string} works its turn until it waits for the computer", async function (this: ChatticusWorld, botName: string) {
+	assert.equal(await workTurn(this, botName), "parked");
+});
+
+When("bot {string} works its turn after the computer answered", async function (this: ChatticusWorld, botName: string) {
+	assert.equal(await workTurn(this, botName), "done");
+});
+
+Then("the executor leaves the redelivered run job alone", function (this: ChatticusWorld) {
+	assert.equal(computerScenarioOf(this).lastOutcome, "lost");
+});
+
+Then("the model was asked once", function (this: ChatticusWorld) {
+	assert.equal(modelScenarioOf(this).scripted.callCount, 1);
+});
+
+Then("resume is refused because the computer is not ready", async function (this: ChatticusWorld) {
+	assert.ok(this.lastHttpResponse, "No resume was attempted.");
+	const response = await recordResponse(this.lastHttpResponse);
+	assert.equal(response.status, 409, response.text);
+	assert.ok(String(response.json.detail).includes("still stopped"), response.text);
+});
+
+Then("a computer start job is queued for the turn", function (this: ChatticusWorld) {
+	const { turnId } = activeTurnOf(this);
+	const jobs = queuedStartJobs(this).filter((job) => job.turnId === turnId);
+	assert.equal(jobs.length, 1, `Start jobs queued for the turn: ${JSON.stringify(jobs)}`);
+	assert.ok(jobs[0]!.requiredCapabilities.includes("computer"));
+});
+
+Then("a computer continuation job is queued for the turn", async function (this: ChatticusWorld) {
+	const { tenantId, turnId } = activeTurnOf(this);
+	const jobs = queuedStartJobs(this).filter((job) => job.turnId === turnId);
+	if (jobs.length === 1) {
+		assert.ok(jobs[0]!.requiredCapabilities.includes("computer"));
+		return;
+	}
+	const waiting = (await actionStoreOf(this).listForTurn(tenantId, turnId)).filter((action) => action.status === "requested");
+	const liveHosts = (
+		await healthyWorkers(tenantId, { store: this.messagingStore(), clock: this.clock, heartbeatTimeoutSeconds: this.heartbeatTimeoutSeconds })
+	).filter((worker) => worker.capabilities.includes("computer"));
+	assert.ok(
+		jobs.length === 0 && waiting.length === 1 && liveHosts.length > 0,
+		`Start jobs queued for the turn: ${JSON.stringify(jobs)}; actions waiting: ${waiting.length}; live hosts: ${liveHosts.length}`,
+	);
+});
+
+Then(
+	"a computer start job is queued for the turn with policy {string}",
+	function (this: ChatticusWorld, policy: string) {
+		const { turnId } = activeTurnOf(this);
+		const jobs = queuedStartJobs(this).filter((job) => job.turnId === turnId);
+		assert.equal(jobs.length, 1, `Start jobs queued for the turn: ${JSON.stringify(jobs)}`);
+		assert.equal(jobs[0]!.computerPolicy, policy);
+	},
+);
+
+Then("no computer start job is queued", function (this: ChatticusWorld) {
+	assert.deepEqual(queuedStartJobs(this), []);
+});
+
+Then("another computer start job is queued for the turn", function (this: ChatticusWorld) {
+	const { turnId } = activeTurnOf(this);
+	assert.ok(queuedStartJobs(this).filter((job) => job.turnId === turnId).length >= 2, "No second start job was queued");
+});
+
+Then("exactly one run job is queued for the turn", function (this: ChatticusWorld) {
+	const { turnId } = activeTurnOf(this);
+	assert.equal(queuedRunsFor(this, turnId).length, 1);
+});
+
+Then("the host executed {string} exactly once", function (this: ChatticusWorld, toolName: string) {
+	const runs = [...computerScenarioOf(this).hosts.values()].flatMap((host) =>
+		host.executions.filter((execution) => execution.toolName === toolName),
+	);
+	assert.equal(runs.length, 1, `The host ran ${toolName} ${runs.length} times`);
+});
+
+Then("the turn is waiting on the {word} gate", async function (this: ChatticusWorld, gate: string) {
+	const turn = await turnPayloadNow(this);
+	assert.equal(turn.status, "active");
+	assert.equal(turn.waiting_for, gate);
+});
+
+Then("the turn is waiting on the workspace capability", async function (this: ChatticusWorld) {
+	const turn = await turnPayloadNow(this);
+	assert.equal(turn.status, "active");
+	assert.equal(turn.waiting_for, "workspace");
+});
+
+Given(
+	"host worker {string} serves the computer of tenant {string}",
+	async function (this: ChatticusWorld, workerId: string, tenantId: string) {
+		await registerHost(this, tenantId, workerId, "local");
+	},
+);
+
+Given("the computer is marked stopped without the control plane hearing a report", async function (this: ChatticusWorld) {
+	const stopped = await setComputerStopped(scenarioTenantId(this), true, { store: this.messagingStore(), ids: this.ids });
+	assert.equal(stopped.stopped, true);
+});
+
+When("the waiting turn is failed with the reason {string}", async function (this: ChatticusWorld, reason: string) {
+	const { tenantId, turnId } = activeTurnOf(this);
+	const turn = await this.turnDependencies().store.getTurn(tenantId, turnId);
+	assert.ok(turn, "The turn does not exist.");
+	assert.ok(await failStaleTurn(this.turnDependencies(), turn, "waiting", reason), "The waiting turn was not failed.");
+});
+
+Then("{int} computer start jobs are queued", function (this: ChatticusWorld, count: number) {
+	assert.equal(queuedStartJobs(this).length, count, `Start jobs queued: ${JSON.stringify(queuedStartJobs(this))}`);
+});

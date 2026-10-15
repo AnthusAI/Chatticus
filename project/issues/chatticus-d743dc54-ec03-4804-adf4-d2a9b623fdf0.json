@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-d743dc54-ec03-4804-adf4-d2a9b623fdf0",
+  "title": "Unit test owner-session-env times out at 30 s under full parallel load",
+  "description": "conversation/test/owner-session-env.test.ts ('reaches the tools of an owner that is given one and is absent for an owner that is not') passed alone in 3 s but exceeded 30 s in the full vitest run on two occasions (PR 490 and PR 499 local runs). Find the slow setup (moto round trips) and cut it; do not raise the timeout.",
+  "type": "bug",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T14:22:48.679244Z",
+  "updated_at": "2026-10-11T14:22:48.679282Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The owner-session-env test times out under full parallel load due to slow moto setup calls.",
+  "right_now_updated_at": "2026-10-11T14:22:50.129402Z",
+  "custom": {}
+}

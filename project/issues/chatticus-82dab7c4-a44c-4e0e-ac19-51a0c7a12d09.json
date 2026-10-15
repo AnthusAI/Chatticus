@@ -1,0 +1,292 @@
+{
+  "id": "chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09",
+  "title": "Chatticus deploys ChatticusComputers in the customer account",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing — `chatticus-2f2d87` documented the live refuse\n- **Unblocks:** `chatticus-3e72dc` (terminal, browser, files, approvals, spend, relocate) and any honest claim that a customer computer starts\n\n---\n\n## Why this exists\n\nF-computer (`chatticus-2f2d87`) live on development: ComputerWorker **assumed** `ChatticusOrganizationComputerRole` in `CUSTOMER_ACCOUNT_ID`, then `DescribeStacks(ChatticusComputers)` failed because that stack is not deployed in the customer account. **Zero `RunTask` in both accounts.** Anthus `ChatticusComputers` desiredCount stayed 0. Refuse-not-fallback held.\n\nThe published role allows `cloudformation:CreateStack` / `UpdateStack` / `DescribeStacks` on `stack/ChatticusComputers*/*`, plus ECS, ECR, VPC, logs, and `iam:CreateRole` for `ChatticusComputers*`. This card's product path CreateStacks **ChatticusComputers** under that role. **Do not** put an `AWS::S3::Bucket` in that template — the role has no `s3:*` (`grep -c s3: infra/customer-role.yml` is 0). The bucket is `chatticus-bb9084`.\n\n## Who creates what (do not rediscover)\n\n| Asset | Who | How |\n| --- | --- | --- |\n| Cross-account IAM role | Customer | Published template (done, unmodified) |\n| `ChatticusComputers` (VPC, cluster, task def, ECR repo, logs, task role) | **Chatticus under the assumed role** | `CreateStack` already in the published policy |\n| Computer image `:dev` in that ECR | **Chatticus under the assumed role** | `PutImage` already allowed; customer does not docker-push |\n| Snapshot bucket in the customer account | **Customer, in the published CloudFormation template** (`chatticus-bb9084`) | `infra/customer-role.yml` has **zero** `s3:` actions. CFN creates resources with the **caller's** credentials; `ChatticusComputers*` only names which stacks the role may touch. An assumed-role `AWS::S3::Bucket` inside `ChatticusComputers` fails AccessDenied. Decision 2026-09-07: declare the bucket in the customer-run template (reviewable before they agree). The assumed role then needs only read/write on that named bucket — not `s3:CreateBucket`. Anthus `ChatticusSnapshots` serves Anthus-managed orgs only. |\n\nDo **not** ask the customer to run a second template for `ChatticusComputers`. Do **not** `cdk deploy` Anthus `ChatticusComputers` into the customer account from the Anthus CLI. Do **not** `cdk deploy --all`. Do **not** destroy Anthus `ChatticusSnapshots` or `ChatticusComputers`. Do **not** `members seed`. Anthus desiredCount stays 0.\n\n## Live constraints from `2f2d87`\n\n- Map `DescribeStacks` `ClientError` (missing stack) to `OrganizationComputerProvisioningError` so ComputerWorker logs the reason (today nack swallows the body).\n- Kernel `enqueue_computer_continuation` is the labeled operator path to reach ComputerWorker while the host is stopped. `POST .../resume` while stopped is `ComputerNotReadyError` — do not treat that as this card.\n- Test human messages via kernel `post_channel_message` (live SQS). Do not wait on the UI.\n\n## Done when\n\n`ChatticusComputers` exists in `CUSTOMER_ACCOUNT_ID` because Chatticus created it under the assumed role; the `:dev` image is in that account's ECR; one computer-requiring turn reaches **customer-account `RunTask`**; Anthus `RunTask` count stays 0 and Anthus desiredCount stays 0. If the published **role** needs a new action for Computers (not S3), stop and record it on `chatticus-8a25af` — do not silent-edit `customer-role.yml`. Snapshot `s3:` and the bucket itself are `chatticus-bb9084`.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac",
+      "type": "relates-to"
+    },
+    {
+      "target": "chatticus-5336ff11-3521-4eb0-9b49-d3fc32faaa20",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "9ec7bb7c-7ca2-4c53-8c11-2c7e136ca694",
+      "author": "home",
+      "text": "Opened from `2f2d87` closure. `3e72dc` is blocked-by this card. Plan-then-implement on a dedicated worktree; wiki/README stay on `develop`.",
+      "created_at": "2026-09-07T16:22:59.997695Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "363317fc-6c4a-4bb1-baa0-1401d2843abb",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-82dab7-customer-computers` on `feat/customer-computers-stack-82dab7`. Do not CreateStack until the plan is authorized. Anthus ChatticusComputers/Snapshots untouched. Template unmodified unless the plan proves a policy hole.",
+      "created_at": "2026-09-07T16:24:36.053351Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3dff1c90-d85b-4ba8-af69-32e7ec3bd81a",
+      "author": "home",
+      "text": "Plan reviewed, **not authorized**. Worktree `/tmp/chatticus-82dab7-customer-computers` on `feat/customer-computers-stack-82dab7` is correct (not the primary clone, at `cc8eaf6`). Lazy one-shot inside `OrganizationComputerHostStarter`, Gherkin-first, refuse-not-fallback, and the 8a25af STOP rule stand.\n\nHoles to close before implement (inversion):\n\n1. **Do not put an S3 bucket in this slice’s template.** `customer-role.yml` has no `s3:*`. CreateStack of a bucket will `CREATE_FAILED`. 82dab7 DoD is customer `RunTask`, not hydrate. Omit the bucket; ephemeral live root. Bucket + `s3:*` is a customer-visible follow-up on `8a25af` before the file-actions row of `3e72dc`. Do not wait for a live failure to discover a hole we can read in the YAML now.\n\n2. **Do not copy `:dev` layers through the 60s ComputerWorker Lambda.** Chromium image will not finish in one (or many) 60s nacks. Customer task definition pulls **Anthus** `:dev`. Anthus ECR repo policy allows the customer execution role (Anthus-side, not customer-visible). Customer ECR replica is out of this card. Live preflight: Anthus `:dev` already exists (`computer/push-computer-image.sh`); if missing, that is an Anthus ops stop, not a customer copy.\n\n3. **`CreateStack` TemplateBody max is 51,200 bytes.** A CDK VPC+ECS template often exceeds it. After synth, measure. Over the limit: `TemplateURL` to an Anthus **S3 object URL** (CFN cannot fetch CloudFront — that is why customer-role is GET then `--template-body`). Under the limit: `TemplateBody` is fine. CI must fail if synth drifts from the committed artifact.\n\n4. **`CreateStack` must pass `CAPABILITY_IAM` and `CAPABILITY_NAMED_IAM`.** Omitted from the plan; IAM roles are in the stack.\n\n5. **No production auto-provision flag.** Scenario 3 is a Gherkin fake that cannot `CreateStack` (test double), not `CHATTICUS_*_AUTOPROVISION=0` in Lambda. Two products is a defect.\n\nRevise PLAN.md in the existing worktree. Do not implement. Do not CreateStack. Do not edit `customer-role.yml`.",
+      "created_at": "2026-09-07T16:29:43.442569Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "47595cbe-f569-492f-9082-f9ee7f09b275",
+      "author": "home",
+      "text": "Plan re-reviewed and **authorized** with one hole closed.\n\nWorktree verified: `/tmp/chatticus-82dab7-customer-computers` on `feat/customer-computers-stack-82dab7` (not the primary clone). Five prior holes are closed: no S3 in this template, no Lambda image copy, TemplateBody 51,200 gate, both IAM capabilities, test-double refusal (no prod flag).\n\n**Closed on authorize:** Anthus ECR `:dev` pull is **per customer `aws_account_id` at provision time**, not a synth-time list of accounts in CDK. ComputerWorker (Anthus creds) merges that account into the Anthus `ComputerImage` repository policy (account root principal is enough; the customer execution role already has ECS pull APIs). A hardcoded lab account in CDK would be a second product. Lambda needs `ecr:GetRepositoryPolicy` / `ecr:SetRepositoryPolicy` on the Anthus repo only — not customer-visible.\n\nDo not edit `customer-role.yml`. Do not CreateStack until Gherkin is red for the right reasons. Tear down the worktree only after this card is closed and the product PR is on `develop`.",
+      "created_at": "2026-09-07T16:31:30.875334Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "13a2507d-809b-4f2a-ace9-76fb1c96244e",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/312 (feat/customer-computers-stack-82dab7). Composer 2.5 review in flight. Not merging yet.\n\nKnown pushback before live proof: Anthus ECR repo policy omits `ecr:BatchCheckLayerAvailability` (cross-account pull will fail); drop `spikes/82dab7-customer-computers/PLAN.md` from the product PR.",
+      "created_at": "2026-09-07T16:48:11.264277Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f873f854-e96c-44e8-ba65-23eaa6ab7f67",
+      "author": "home",
+      "text": "PR #312 **REQUEST CHANGES** (Composer 2.5 on `020ef81`). Prior two holes are closed. Remaining blocker: customer task **execution role** has only CloudWatch Logs — no `ecr:GetAuthorizationToken`. Anthus repo policy is not enough; live `RunTask` will `CannotPullContainerError`. Fix in `customer-computers-stack.ts`, re-synth committed template, assert in infra tests. DRY duplication of `ComputerStack` is non-blocking for this slice.",
+      "created_at": "2026-09-07T16:50:24.441818Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "13395fc7-c595-4895-ac6a-d672bd49835e",
+      "author": "home",
+      "text": "PR #312 HEAD `132dfff`: customer execution role granted ECR pull; committed template re-synced; infra test asserts GetAuthorizationToken. Re-review in flight. CI in progress. Not merging yet.",
+      "created_at": "2026-09-07T16:54:00.215148Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c7794906-e761-4e3e-90fe-73438666d411",
+      "author": "home",
+      "text": "PR #312 review was APPROVE on `132dfff`, but **infra CI failed**: `npm run check:customer-computers-template` (committed artifact drifted from CDK synth). Not merging. Re-synth, commit the artifact, push.",
+      "created_at": "2026-09-07T16:56:07.867505Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "9968565a-fd21-4c67-944f-2fedb90b3504",
+      "author": "home",
+      "text": "PR #312 HEAD `1ec4681`: template check uses `cdk synth --no-version-reporting` (Linux vs macOS Analytics drift). Re-review + CI in flight. Not merging yet.",
+      "created_at": "2026-09-07T17:11:31.866978Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "9fef46f6-75a4-4ce4-8c06-ac61e60afa24",
+      "author": "home",
+      "text": "PR #312 squash-merged to develop (`9826f2b`). Review APPROVE (`1ec4681`); CI green. Local feature branch left in the implementer worktree until live proof and close.\n\n**Live proof next** on development after ThinTurn deploy: kernel `post_channel_message` + `enqueue_computer_continuation`. Preflight Anthus `:dev`. Do not fold elapsed time into ~19 min. Card stays in_progress until customer `RunTask` or a labeled stop.",
+      "created_at": "2026-09-07T17:20:06.931502Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "990bb8a2-9579-4315-aaae-c75f2574b894",
+      "author": "home",
+      "text": "Closing. DoD met live on development after #312 (`9826f2b`, ThinTurn [34147142105](https://github.com/AnthusAI/Chatticus/actions/runs/34147142105)).\n\nKernel path (standing rule): attempt 2 turn `baddaae0-…` **dispatch_ok** host-start gen 29 (~111 s). AssumeRole yes. CreateStack `ChatticusComputers` in `CUSTOMER_ACCOUNT_ID` once (TemplateBody, both IAM capabilities, no S3). Customer `RunTask` yes (inferred: `mark_host_start_dispatched` without rollback). Anthus `RunTask` **0**; desiredCount **0**. Image is Anthus `:dev` via repo policy, not a customer ECR replica.\n\nDesk root cannot AssumeRole into the member account, so customer CloudTrail/`DescribeStacks` were not read directly. That is the known lab-root limitation, not a product hole.\n\nElapsed ~111 s (succeeding attempt) / ~280 s (first nack-while-provisioning). **Do not fold into ~19 min.**\n\nUnblocks `chatticus-3e72dc`. Snapshot bucket still `8a25af` before file-actions.",
+      "created_at": "2026-09-07T17:33:46.921515Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "be1a211d-66d3-46a6-b955-316a7f89ecc8",
+      "author": "home",
+      "text": "**Reopened.** `3e72dc` Layer B (lab IAM user, not root) `DescribeStacks(ChatticusComputers)` in `CUSTOMER_ACCOUNT_ID`: stack does not exist; ECS cluster list empty. Closure had inferred CreateStack/RunTask from ComputerWorker dispatch because management root cannot AssumeRole. Direct evidence now contradicts that DoD.\n\nInvestigate first: `list-stacks` including `DELETE_COMPLETE` / `ROLLBACK_COMPLETE`, stack events, CloudTrail `DeleteStack`/`CreateStack`. Do not CLI-create the stack. Restore only via the product CreateStack path after the cause is named.",
+      "created_at": "2026-09-07T17:47:19.691341Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d8b8a8bf-fc1c-4c3a-98aa-08135945d7ca",
+      "author": "home",
+      "text": "**Named cause:** `CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED`\n\nCustomer CloudTrail (lab IAM user): **28** failed `CreateStack` — `ssm:GetParameters` denied on `/cdk-bootstrap/hnb659fds/version`. **0** `DeleteStack`. **0** customer `RunTask`. Only `ChatticusCrossAccountRole` exists. Prior closure inferred success from ComputerWorker journal; that was wrong.\n\n**Fix (this card, not `8a25af`):** the committed `customer-computers.template.json` must not carry CDK `BootstrapVersion`. Customer accounts are not CDK-bootstrapped. Do **not** add `ssm:*` to `customer-role.yml`. Synth with a bootstrapless synthesizer (or equivalent) and assert the artifact has no SSM bootstrap parameter.\n\nLive CreateStack stays the product path after that lands. Do not CLI-create the stack.",
+      "created_at": "2026-09-07T17:49:48.790686Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "44035b68-4075-43c7-ae11-158a76cb0876",
+      "author": "home",
+      "text": "Plan reviewed and **authorized**. Worktree `/tmp/chatticus-82dab7-bootstrapless` on `feat/customer-computers-bootstrapless-82dab7` verified.\n\n`BootstraplessSynthesizer` on `CustomerComputersStack`; re-synth artifact with no `BootstrapVersion` / SSM; infra + pytest template-shape tests; **no** `customer-role.yml` edit; **no** new Gherkin. Do not claim Done until lab-user `DescribeStacks` `CREATE_COMPLETE` after merge (not ComputerWorker journal). Tear down worktree after close.",
+      "created_at": "2026-09-07T17:51:40.907681Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "7b38ed5b-829b-480c-8314-548410bff34f",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/313 — bootstrapless synth, BootstrapVersion stripped from artifact. Composer 2.5 review + CI in flight. Not merging. Do not claim Done until lab-user DescribeStacks after ThinTurn deploy.",
+      "created_at": "2026-09-07T17:58:11.908204Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8bb2e0a8-35cb-4464-86ad-a38701995fcb",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/313 to develop (`fb0d7d5`). Composer 2.5 APPROVE; CI green (infra template check + python).\n\nDo not close. Remaining DoD: ThinTurn development deploy of this commit, then lab-user (not root) DescribeStacks(ChatticusComputers)=CREATE_COMPLETE and customer RunTask >= 1 with Anthus RunTask 0.",
+      "created_at": "2026-09-07T18:32:52.174450Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "38a4d549-8cd3-4605-9d45-88047d8c0e0e",
+      "author": "home",
+      "text": "Live proof after #313: **FAIL**. Gate 0 passed ([34152080224](https://github.com/AnthusAI/Chatticus/actions/runs/34152080224), `7bd6b54`). Lab IAM user (not root, not journal):\n\n| Check | Result |\n| --- | --- |\n| DescribeStacks(ChatticusComputers) | ROLLBACK_FAILED |\n| CreateStack API (post-deploy) | 1 success (bootstrap SSM gone) |\n| `/cdk-bootstrap/` ssm:GetParameters | 0 |\n| Customer RunTask | 0 |\n| Anthus RunTask / desiredCount | 0 / 0 |\n\n**Named cause:** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED` — recorded on reopened `chatticus-8a25af`. Do not silent-edit `customer-role.yml` on this card.\n\nProduct hole on this card after the role lands: `ensure_stack` **refuses** `ROLLBACK_FAILED` forever. Recovery is DeleteStack then CreateStack (Gherkin). Do not CLI-create the stack. Card stays in_progress; blocked-by `8a25af` for live CreateStack.",
+      "created_at": "2026-09-07T18:40:31.474117Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ffc25ed8-c6b4-4361-b02b-276c86bb4cf0",
+      "author": "home",
+      "text": "Composer 2.5 planning ROLLBACK_FAILED recovery (DeleteStack then CreateStack). Worktree /tmp/chatticus-82dab7-rollback-recovery on feat/customer-computers-rollback-recovery-82dab7. Plan only. Do not edit customer-role.yml.",
+      "created_at": "2026-09-07T18:40:35.960379Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "a6a10837-c08e-4a6e-be42-e319d26d6e25",
+      "author": "home",
+      "text": "Plan reviewed, **not authorized**. Worktree `/tmp/chatticus-82dab7-rollback-recovery` on `feat/customer-computers-rollback-recovery-82dab7` is correct.\n\n**Hole:** a `ChatticusRecoveryAttempt=1` tag that permanently refuses a second DeleteStack. After one failed recreate (role still missing DescribeInternetGateways), the product would never recover even after `8a25af` lands — that forces a CLI delete, which this card forbids.\n\nRevise: on terminal-failed, always `DeleteStack` then nack; when missing, `CreateStack`. ComputerWorker nack is the rate limit. No stack-tag loop cap. Drop Gherkin scenario 5 (permanent refuse) or replace it with “CREATE_FAILED after recreate still starts DeleteStack.” Do not implement until that is in PLAN.md.",
+      "created_at": "2026-09-07T18:43:55.210526Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "21cd29d8-a9be-4c9a-84fd-0dd6dcf657c6",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/315 — DeleteStack on terminal-failed, then CreateStack when missing. No recovery-tag cap. Composer 2.5 review + CI in flight. Not merging. Live proof still waits on 8a25af role UpdateStack.",
+      "created_at": "2026-09-07T18:53:20.645789Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b9f473b2-7188-459e-9009-df6a99e59969",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/315 to develop (`6663c16`). Composer 2.5 APPROVE; CI green. Product path now DeleteStack on terminal-failed then CreateStack when missing.\n\nDo not close. Remaining: ThinTurn development deploy of this commit, `8a25af` lab role `UpdateStack`, then lab-user DescribeStacks(ChatticusComputers)=CREATE_COMPLETE and customer RunTask >= 1.",
+      "created_at": "2026-09-07T19:02:26.801483Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "cf0ce1cd-9b73-4ba8-81df-c503d5e6a67e",
+      "author": "home",
+      "text": "`chatticus-8a25af` closed: published role updated; lab CrossAccountRole UPDATE_COMPLETE. Blocker removed.\n\nLive proof next after ThinTurn deploy of #315 (`6663c16`): kernel computer continuation; lab-user DescribeStacks CREATE_COMPLETE; customer RunTask >= 1; Anthus RunTask 0. Do not infer from journal dispatch_ok.",
+      "created_at": "2026-09-07T19:03:13.872993Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d6c02d16-5f82-436b-8fa2-dd09af52fb9d",
+      "author": "home",
+      "text": "Live proof after #315: **FAIL** on RunTask. ThinTurn [34154013411](https://github.com/AnthusAI/Chatticus/actions/runs/34154013411) (`6663c16`). Lab IAM user:\n\n| Check | Result |\n| --- | --- |\n| DescribeStacks(ChatticusComputers) | **CREATE_COMPLETE** (product DeleteStack 19:04:08Z + CreateStack 19:04:14Z) |\n| bootstrap SSM | 0 |\n| Customer RunTask | **0** |\n| Anthus RunTask / desiredCount | 0 / 0 |\n\n**Named cause:** `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. Dispatch released (`host_start_dispatched_generation` 112 vs generation 113) so `start_host` is throwing before `ecs.RunTask`. ComputerWorker nack logs omit the exception (`lambda_handler` swallows `ComputerWorkerHostNotReady`). Do not close. Composer 2.5 will name the throw (stack outputs / `describe_services` subnets vs grant/lookup) and plan Gherkin plus nack-reason logging.",
+      "created_at": "2026-09-07T19:39:43.173519Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "50c24089-729c-4f3a-b390-28b6c40e09bb",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree /tmp/chatticus-82dab7-runtask-after-create on feat/customer-runtask-after-create-complete-82dab7. Plan only until the throw is named from lab DescribeStacks/describe_services. Do not implement.",
+      "created_at": "2026-09-07T19:39:54.462210Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b1e7ab70-adee-4733-828a-5c6dea956082",
+      "author": "home",
+      "text": "Plan reviewed and **authorized**. Worktree `/tmp/chatticus-82dab7-runtask-after-create` on `feat/customer-runtask-after-create-complete-82dab7` verified (`f468ac7`).\n\nNamed cause `LOOKUP_EMPTY_SUBNETS_DESCRIBE_SERVICES`. Implement: subnet/SG stack outputs; lookup from outputs only (no DescribeServices); `ensure_stack` **UpdateStack** on CREATE_COMPLETE when those outputs are missing (“No updates” = success); log HostNotReady `exc` on nack; Gherkin. Do not DeleteStack a healthy stack. No `customer-role.yml`. No PLAN.md in the PR.",
+      "created_at": "2026-09-07T19:49:24.894209Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "70d29869-3d43-4d0e-9631-32113fb6dadd",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/316 — subnet/SG outputs, UpdateStack on CREATE_COMPLETE, nack reason logging. Composer 2.5 review + CI in flight. Not merging. Live RunTask still required after ThinTurn deploy.",
+      "created_at": "2026-09-07T19:53:39.938720Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "285abc1d-d0bd-4791-881d-01bef883a37d",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/316 to develop (`6457a30`). Composer 2.5 APPROVE; CI green.\n\nDo not close. Remaining: ThinTurn development deploy, then lab-user CloudTrail **UpdateStack** on the existing CREATE_COMPLETE stack and customer **RunTask ≥ 1**. Do not infer from dispatch_ok.",
+      "created_at": "2026-09-07T20:04:53.223476Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "80cb6a9c-6923-484e-9ad6-0fbb11b756ae",
+      "author": "home",
+      "text": "## The snapshot-bucket row will fail as written (2026-09-07)\n\nThe **who creates what** table says the snapshot bucket is created by *\"Chatticus, inside `ChatticusComputers`\"*. That cannot work with the published role.\n\n```\ngrep -c 's3:' infra/customer-role.yml  ->  0\n```\n\n**The role has zero `s3:` actions.** CloudFormation creates resources with the **caller's** permissions, so a `CreateStack`/`UpdateStack` carrying an `AWS::S3::Bucket` will fail access-denied on the bucket, regardless of the stack name matching `ChatticusComputers*`. The `ChatticusComputers*` resource filter governs which *stacks* the role may touch, not which *resource types* it may create inside them.\n\n**So the template changes either way.** The card avoids a customer-run bucket partly to avoid a second template and a customer-visible change — but S3 permissions must be added to `infra/customer-role.yml` no matter which path is taken. That is a customer-visible change by `chatticus-8a25af`'s rule. Given it is unavoidable, choose on merit rather than on avoiding it.\n\n**Decision made 2026-09-07: the bucket is declared in the customer-run template.** See `chatticus-bb9084`. Reasoning:\n\n- The customer can **read what they are agreeing to** before running it — the standard `8a25af` sets. A bucket deployed later under an assumed role is not reviewable in advance.\n- It keeps **`s3:CreateBucket` off the Anthus role entirely**. The role needs only read/write on one named bucket — a far narrower ask of a security team than \"may create buckets in your account\".\n- No first-run race: the bucket exists before the first hydrate or publish.\n- Teardown and lifecycle belong to the customer's stack, with encryption, versioning and block-public-access declared and reviewable.\n\n**This does not change the rest of the table.** `ChatticusComputers` (VPC, cluster, task def, ECR, logs, task role) and the `:dev` image stay Chatticus-deployed under the assumed role, as recorded. Only the bucket row moves.\n\nOpen sub-questions are on `bb9084` — bucket naming from `OrganizationId`, `DeletionPolicy` (`Retain` recommended: deleting a customer's files as a side effect of removing an IAM role would be indefensible), region pinning, and whether the `tenants/{tenant_id}` prefix is still wanted with one bucket per organization.",
+      "created_at": "2026-09-07T20:14:47.823957Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2d219d24-1c6e-40bd-aaff-ee9ea7769b6e",
+      "author": "home",
+      "text": "## Description table rewritten (2026-09-07)\n\nThe snapshot-bucket row now matches the decision on `chatticus-bb9084`: **Customer, published CloudFormation template**. The rest of the who-creates-what table is unchanged.\n\nDo **not** add `AWS::S3::Bucket` to `ChatticusComputers` before the next deploy. `grep -c 's3:' infra/customer-role.yml` is 0. CloudFormation creates resources with the caller's permissions; `ChatticusComputers*` only names which stacks the role may touch.\n\nRefuse-not-fallback is now a citable wiki section: `project/wiki/runbooks/throwaway-account-provisioning.md` (not only this card).\n",
+      "created_at": "2026-09-07T20:22:16.501989Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "907b0767-8e63-46c5-bcfb-c15d4c580d3d",
+      "author": "home",
+      "text": "## Live proof after #316: FAIL — `RUNTASK_USER_ID_NONE`\n\nThinTurn development deploy of `6457a30` (https://github.com/AnthusAI/Chatticus/actions/runs/34158002739). Lab IAM user, not root.\n\n| Check | Result |\n| --- | --- |\n| Stack | `UPDATE_COMPLETE` |\n| Subnet/SG outputs | Present (2 subnets + SG) |\n| Product UpdateStack after deploy | 1 success |\n| Customer `RunTask` | **0** |\n| Anthus `RunTask` / desiredCount | **0** / **0** |\n| Nack `reason=` | Yes (#316 logging holds) |\n\n`#316` did what it claimed. `start_host` now reaches `ecs.run_task`; boto3 rejects overrides:\n\n`Invalid type for parameter overrides.containerOverrides[0].environment[1].value, value: None`\n\n`environment[1]` is `CHATTICUS_USER_ID`. `HostStartClaim.user_id` is `None` because `ComputerWorker._dispatch_host_start_if_needed` calls `request_computer_host_start(tenant_id, turn_id)` with the default `user_id=None`.\n\nDo not close. Next slice: pass a real string `user_id` on the computer-continuation host-start path. Do **not** add S3 to `ChatticusComputers`. Do **not** silent-edit the published role.\n",
+      "created_at": "2026-09-07T20:24:34.775879Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "440986d5-8555-4cdb-b86b-4b67f969253f",
+      "author": "home",
+      "text": "Composer 2.5 planning the `RUNTASK_USER_ID_NONE` slice. Worktree (planner will create): `/tmp/chatticus-82dab7-runtask-user-id` on `feat/customer-runtask-user-id-82dab7`. Plan only until authorized. Do not close this card without lab-user `RunTask ≥ 1`.\n",
+      "created_at": "2026-09-07T20:25:00.450369Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "381b49dc-5810-4552-9755-0a19940b8941",
+      "author": "home",
+      "text": "Plan accepted with two required strengthenings (not optional):\n\n1. Existing lambda scenario in `computer_continuation_worker.feature` must also assert the host start claim carries user \"ryan\" — that is the SQS → Lambda path that nacked live.\n2. pytest on `_run_task_overrides` must reject `None` and empty `user_id`. `RecordingHostStarter` never calls boto3; Gherkin alone would miss the live failure.\n\nWorktree not created yet. Not authorizing implementation.\n",
+      "created_at": "2026-09-07T20:27:35.933978Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "306785cc-6d1f-4b5d-8ae1-aef30155125a",
+      "author": "home",
+      "text": "Worktree verified: `/tmp/chatticus-82dab7-runtask-user-id` on `feat/customer-runtask-user-id-82dab7` at `9adcd5e`. Implementation authorized. Do not close until lab-user `RunTask ≥ 1`.\n",
+      "created_at": "2026-09-07T20:28:17.410350Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "5f0a2823-77b2-46d5-9e7f-f207acce18ca",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/317 — RUNTASK_USER_ID_NONE slice. Continuation host-start passes acting_member_user_id_for_turn to CHATTICUS_USER_ID. Composer 2.5 review + CI in flight. Not merging. Live RunTask still required after ThinTurn deploy.",
+      "created_at": "2026-09-07T20:34:53.372672Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2fff32ee-9740-40db-8ee0-e5a0641de7bc",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/317 to develop (`7d6dc1a`). Composer 2.5 APPROVE; CI python + infra green.\n\nDo not close. Remaining: ThinTurn development deploy of `7d6dc1a`, then kernel summon, then lab-user CloudTrail **customer `RunTask ≥ 1`**, Anthus `RunTask` 0, desiredCount 0. Named cause to beat: `RUNTASK_USER_ID_NONE`.\n",
+      "created_at": "2026-09-07T20:42:40.040821Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "802fbfea-b32a-49ee-aa01-044e08964d00",
+      "author": "home",
+      "text": "Live proof after #317: **PASS**. ThinTurn [34160413819](https://github.com/AnthusAI/Chatticus/actions/runs/34160413819) (`7d6dc1a`). Lab IAM user `chatticus-b88c0a-operator`.\n\n## Gate 0\n\nDeploy **success** at 2026-09-07T20:43:58Z before summon.\n\n## Gate 2 — kernel deviation\n\n`post_channel_message` + `prepare_computer_tool(request_computer_capability, gate=workspace)` + `commit_pending_computer_tool` + `enqueue_computer_continuation`. Turn `09ce8907-…` at 2026-09-07T20:47:39Z. SQS job carried non-empty `user_id` (develop control plane, not stale worktree).\n\n## Gate 3\n\n| Check | Result |\n| --- | --- |\n| Customer `ChatticusComputers` | **UPDATE_COMPLETE** |\n| `ComputerPublicSubnetIds` + `ComputerSecurityGroupId` | **Present** |\n| Customer CloudTrail `RunTask` after summon | **2** (first **+3 s** at 20:47:42Z; not `dispatch_ok`) |\n| Anthus `RunTask` | **0** |\n| Anthus Computers `desiredCount` | **0** |\n| Nack `reason=` | `has no ready computer host for 'request_computer_capability'` — **not** `RUNTASK_USER_ID_NONE` |\n\n**Elapsed:** ~3 s to first customer `RunTask`; ~95 s CloudTrail visibility.\n\nPrior `RUNTASK_USER_ID_NONE` is closed by #317. Manager may close `chatticus-82dab7` after verifying CloudTrail in `CUSTOMER_ACCOUNT_ID`.\n",
+      "created_at": "2026-09-07T20:50:05.586731Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "98b38228-aabc-4bee-b45e-57eecb149219",
+      "author": "home",
+      "text": "Closed. Lab-user verified: customer `ChatticusComputers` `UPDATE_COMPLETE` with subnet/SG outputs; CloudTrail `RunTask` **2** after kernel summon 2026-09-07T20:47:39Z (first +3 s); Anthus `RunTask` **0**; Anthus desiredCount **0**. ThinTurn `7d6dc1a` (#317). `RUNTASK_USER_ID_NONE` is gone.\n\nDo **not** fold this elapsed time into the ~19 min Chatticus-provision figure. Snapshot bucket remains `chatticus-bb9084`. Capability matrix `chatticus-3e72dc` is unblocked for terminal/browser; file-actions still need the bucket.\n",
+      "created_at": "2026-09-07T20:51:54.428575Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T16:22:36.278349Z",
+  "updated_at": "2026-09-07T20:51:54.445492Z",
+  "closed_at": "2026-09-07T20:51:54.445492Z",
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

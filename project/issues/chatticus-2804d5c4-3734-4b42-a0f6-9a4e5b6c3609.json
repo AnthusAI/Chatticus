@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-2804d5c4-3734-4b42-a0f6-9a4e5b6c3609",
+  "title": "Specify voice workspace wiring: busy teammate elsewhere, switched conversation",
+  "description": "The voice routing is specified in features/web_voice_control.feature through a tsx harness, but EnabledWorkspace's voice wiring is not: (1) a line to a teammate whose turn is running in a conversation that is not open is held (server getActiveTurn check), (2) a line is not sent when the member switched conversations while it was opening, (3) a failed busy lookup holds the line. Move the decision into a pure function the harness can drive, or add a component-level harness. From PR #385 review.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T16:40:44.152922Z",
+  "updated_at": "2026-10-04T16:40:44.152954Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

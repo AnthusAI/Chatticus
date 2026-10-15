@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-e460a5b8-408d-4cbe-82f3-14cedb9c55e0",
+  "title": "Verify the populated cost view in the signed-in workspace on development",
+  "description": "Acceptance: on develop.chattic.us, signed in, send a message in a throwaway bot channel; open the Costs tab and confirm the populated organization summary, breakdowns, recent turns and per-turn drill-down show real data; confirm the header cost chip and the Triggered/Took markers under the message in the live thread; repeat at 375 px width. Record findings as a comment and fix or file defects.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T18:30:09.801504Z",
+  "updated_at": "2026-10-13T18:30:09.801545Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The populated cost view still needs verification in the signed-in development workspace.",
+  "right_now_updated_at": "2026-10-13T18:30:12.668041Z",
+  "custom": {}
+}

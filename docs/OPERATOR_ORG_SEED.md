@@ -5,8 +5,7 @@ with AWS credentials and the messaging table name can bootstrap the first
 enabled organization before route enforcement lands in Kanbus **7b4616**.
 
 Enable and seed are **status-only**: they never call `ensure_computer` and
-never start Fargate. Deploy with `computerCount=0`. Never run
-`cdk deploy --all`.
+never start a computer. Never run `cdk deploy --all`.
 
 ## Prerequisites
 
@@ -14,7 +13,7 @@ never start Fargate. Deploy with `computerCount=0`. Never run
 - `CHATTICUS_MESSAGING_TABLE` set to that environment's messaging table
   (for example the `ChatticusThinTurn-Messaging...` table from the thin-turn
   stack).
-- Python env from `python/` with `pip install -e ".[dev]"`.
+- Node 22+ and `npm ci` at the repo root.
 - The owner's **verified Google email**, passed on every command as
   `--owner-email`. Never commit a real address in this repository.
 
@@ -41,18 +40,46 @@ owner identity with the existing `ryan` user id.
 ```bash
 export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
 
-python -m chatticus.members seed \
+node conversation/bin/members.ts seed \
   --tenant-id anthus \
   --owner-email ryan@anth.us \
   --name "Anthus AI Solutions" \
   --yes
 
-python -m chatticus.members show anthus
-python -m chatticus.members list --status enabled
+node conversation/bin/members.ts show anthus
+node conversation/bin/members.ts list --status enabled
 ```
 
 Confirm `status=enabled`, `name=Anthus AI Solutions`, and owner email keyed
-as `ryan@anth.us`. No computer row is created.
+as `ryan@anth.us`. The seed records `aws_account_id` from the STS caller
+identity of the operator credentials running the command (not a default
+placeholder). No computer row is created.
+
+**Migration:** Organizations seeded before this change may have
+`aws_account_id=None`. Computer start refuses until `members seed` is
+re-run for `anthus` (or the tenant) with live AWS credentials so the
+home account is recorded.
+
+**AWS home of organizations created in the app:** an organization created in
+the app is `pending` with no home and no setup path. Its owner may choose the
+customer-account setup path while it is pending. When the operator enables (or
+reinstates) it with no path chosen, it becomes Anthus-managed and is homed in
+the deployment account; that rule lives in the organization lifecycle, so
+`members enable` and `POST /operator/orgs/{tenant_id}/enable` behave the same.
+Organizations enabled before the rule hold no home. Home them once, as a dry
+run first (the script never writes without `--execute`):
+
+```bash
+export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
+export CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID=<deployment-account-id-from-AGENTS.local.md>
+
+node conversation/bin/migrate-organization-aws-home.ts --environment development
+node conversation/bin/migrate-organization-aws-home.ts --environment development --execute
+```
+
+Add `--tenant <tenant_id>` to limit either run to one organization. Only enabled
+organizations with no home and no setup path are touched, and a second run
+changes nothing.
 
 ## Cold bootstrap (empty org records, arbitrary tenant)
 
@@ -62,16 +89,16 @@ session:
 ```bash
 export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
 
-python -m chatticus.members create \
+node conversation/bin/members.ts create \
   --owner-email <verified-google-email> \
   --name "Bootstrap Labs" \
   --yes
 
-python -m chatticus.members list --status pending
+node conversation/bin/members.ts list --status pending
 
-python -m chatticus.members enable <tenant_id-from-create-output> --yes
+node conversation/bin/members.ts enable <tenant_id-from-create-output> --yes
 
-python -m chatticus.members show <tenant_id-from-create-output>
+node conversation/bin/members.ts show <tenant_id-from-create-output>
 ```
 
 `create` mints a UUID `tenant_id` in `pending` status. `enable` moves it to
@@ -86,12 +113,12 @@ tasks under tenant `anthus` with user `ryan`. Org records live under the
 ```bash
 export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
 
-python -m chatticus.members seed \
+node conversation/bin/members.ts seed \
   --tenant-id anthus \
   --owner-email <verified-google-email> \
   --yes
 
-python -m chatticus.members show anthus
+node conversation/bin/members.ts show anthus
 ```
 
 Behavior:
@@ -107,13 +134,15 @@ Behavior:
 - If the email already maps to a **different** `user_id`, the command fails
   loudly instead of splitting identity from legacy data.
 - Writes `enabled` directly (or enables an existing pending org).
+- Sets `aws_account_id` to the AWS account id returned by STS
+  `get_caller_identity` for the operator credentials running seed.
 - Re-running is idempotent when owner and status already match.
 - Never provisions a computer.
 
 Optional display name (default: tenant id):
 
 ```bash
-python -m chatticus.members seed \
+node conversation/bin/members.ts seed \
   --tenant-id anthus \
   --owner-email <verified-google-email> \
   --name "Anthus AI Solutions" \
@@ -125,8 +154,8 @@ python -m chatticus.members seed \
 After seeding:
 
 ```bash
-python -m chatticus.members show anthus
-python -m chatticus.members list --status enabled
+node conversation/bin/members.ts show anthus
+node conversation/bin/members.ts list --status enabled
 ```
 
 Confirm `status=enabled`, owner `user_id=ryan` for the `anthus` example, and
@@ -134,10 +163,31 @@ no computer row created by seed for that owner. Existing bots and channels
 under `anthus` / `ryan` should remain readable through the control plane
 unchanged.
 
+## HTTP API for external callers
+
+External systems (for example the private SaaS billing layer) can enable,
+suspend, and reinstate organizations through the authenticated operator HTTP
+API instead of shell access to the members CLI.
+
+```http
+POST /operator/orgs/{tenant_id}/enable
+POST /operator/orgs/{tenant_id}/suspend
+POST /operator/orgs/{tenant_id}/reinstate
+Authorization: Bearer <operator-key>
+```
+
+The operator bearer is deployment-wide. It is stored in Secrets Manager as
+`OperatorKey` and injected into the thin-turn Lambda as
+`CHATTICUS_OPERATOR_KEY`. The CloudFront invoke key is still required at the
+edge when configured; it is not operator identity.
+
+Self-hosters with AWS credentials and `CHATTICUS_MESSAGING_TABLE` can keep
+using `node conversation/bin/members.ts` for the same transitions. The CLI and the
+HTTP API are two callers of one control-plane implementation.
+
 ## What not to do
 
 - Do not edit Dynamo rows by hand except through this CLI.
 - Do not use `enable` to unsuspend; it accepts `pending` only.
 - Use `reinstate` to move a suspended organization back to `enabled`.
 - Do not run `cdk deploy --all`.
-- Do not set `computerCount` above zero for this workflow.

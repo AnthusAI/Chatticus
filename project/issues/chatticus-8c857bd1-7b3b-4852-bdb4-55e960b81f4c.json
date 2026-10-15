@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "title": "Cost transparency that rides with durable sessions",
+  "description": "Vision (owner): actual direct model token cost, priced from published vendor prices, per session, bot, message or turn, tool call or loop, and sub-agent, stored with the pi-durable session so it survives handoff, takeover, crash and restart, and stays at parity with durability features. Audit and plan: docs/COST_ACCOUNTING.md (PR 533). Audit result: per-turn token and dollar ledger exists (conversation/src/ledger/vendor-ledger.ts) but is a separate row, has no bot/channel/user, no API, no web view; the computer-owner path appears to count a turn twice (gateway ADD plus finalize ADD); cached input and long-context tier are not priced; sub-agents would be missed. Children: T1 to T10 in the plan. Done when: per-call cost records ride in the session document, API and web show cost by session, bot, message, tool call and sub-agent, parity guard is in CI.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2ff94cae-4d26-40d7-b37d-f219d2bcb5bf",
+      "author": "home",
+      "text": "T2 decision: no pi-durable afterResponse hook is used. Cost records are derived from the session entries (assistant message usage) after the fact, keyed idempotently, rather than written from a hook. T1 to T4 (PRs 535 to 538) are merged and verified live on development 2026-10-13. T5 (chatticus-10e4ad) is raised to P0 as next in the queue; T6 to T10 remain open.",
+      "created_at": "2026-10-13T14:11:40.668974Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:30:40.819440Z",
+  "updated_at": "2026-10-13T14:11:40.669001Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "Core cost tracking is live in development; T5 awaits review, while sub-agent, migration, limits, and web work continues.",
+  "right_now_updated_at": "2026-10-15T10:36:47.471904Z",
+  "custom": {}
+}

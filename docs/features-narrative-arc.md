@@ -1,5 +1,9 @@
 # Feature narrative arc
 
+> Historical. This is a snapshot of the pytest-to-Gherkin migration plan. The Python tree (`python/`), behave and pytest were deleted
+> (Kanbus chatticus-f27222); the accounting of every Python-era scenario is in
+> [Python retirement](PYTHON_RETIREMENT_SCENARIOS.md). Kept as a record only.
+
 Gherkin in `features/` is the product story. A new reader should walk this
 arc and understand Chatticus: who you are, which organization you act for,
 how a message becomes a turn, who runs that turn, what the turn may do,
@@ -108,6 +112,7 @@ The computer is summoned, not assumed. Readiness is per capability.
 | File | Role in the story |
 |------|-------------------|
 | `capability_gated_readiness.feature` | Work starts while the computer boots. |
+| `computer_without_browser.feature` | A computer with no browser boots, serves files, and answers browse with a clear message. |
 | `mid_turn_computer_escalation.feature` | First computer tool continues the same turn. |
 | `shared_computer.feature` | One user computer; shared files/browser; isolated bot memory. |
 | `single_computer_start.feature` | One host-start claim; expire; reclaim; stale local. |

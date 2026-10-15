@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-6d905db1-e9d3-4f70-aefb-ec98356b7ccf",
+  "title": "Owner container logs: emit start, claim, gateway, publish and exit lines",
+  "description": "The owner log group shows only owner_outcome lines. Add structured lines for start, turn claimed (owner id), model call via gateway (status, no secrets), snapshot publish or skip with the reason, and exit code. Related to TS-55. Scenarios first.",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "81dc8b2d-453d-4cb6-90ed-42d180c5874b",
+      "author": "home",
+      "text": "Merged in PRs 490 and 491: structured owner, starter and gateway log lines; the owner bundle no longer pulls in the starter, with a guard test. The container image with the owner logging is pushed as :dev.",
+      "created_at": "2026-10-10T18:36:39.580081Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    },
+    {
+      "id": "f75b1b8d-6b82-42dd-a531-9c4db4262912",
+      "author": "home",
+      "text": "Live: the owner logs show every step for the user's C program request and for the rehearsal runs.",
+      "created_at": "2026-10-10T21:40:10.402825Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
+  "created_at": "2026-10-09T17:01:09.166429Z",
+  "updated_at": "2026-10-10T21:40:10.402854Z",
+  "closed_at": "2026-10-10T18:36:42.342022Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Owner logs now show each step, from start and model call to snapshot publish and exit.",
+  "right_now_updated_at": "2026-10-10T21:40:11.772821Z",
+  "custom": {}
+}

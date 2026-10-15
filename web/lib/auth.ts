@@ -1,17 +1,15 @@
-import {
-  InMemoryWebStorage,
-  User,
-  UserManager,
-  WebStorageStateStore,
-} from "oidc-client-ts";
+import { User, UserManager, WebStorageStateStore, type UserManagerSettings } from "oidc-client-ts";
 
 import {
   cognitoIssuer,
   loadCognitoConfig,
   postLogoutRedirectUri,
+  silentRedirectUri,
   type CognitoConfig,
 } from "./cognito-config";
 import { verifyIdTokenClaims, type IdTokenClaims } from "./id-token";
+
+const SELECT_ACCOUNT_ON_SIGNIN_KEY = "chatticus:select_account_on_signin";
 
 let userManager: UserManager | null = null;
 let cachedConfig: CognitoConfig | null = null;
@@ -31,7 +29,7 @@ function createUserManager(config: CognitoConfig): UserManager {
   return new UserManager(buildUserManagerSettings(config));
 }
 
-/** Single in-memory UserManager for the SPA session. */
+/** Single UserManager for the SPA session. */
 export function getUserManager(): UserManager {
   if (!userManager) {
     userManager = createUserManager(cognitoConfig());
@@ -57,21 +55,97 @@ function verifiedSessionFromUser(user: User | null): VerifiedSession | null {
   };
 }
 
-/** Return the verified Cognito id_token held in memory, if any. */
+/**
+ * Internal helper: read stored user, verify it, and on failure attempt silent renewal.
+ * Returns verified session or null if no session can be obtained.
+ * Does not throw.
+ */
+async function getVerifiedSessionWithSilentRenewal(): Promise<VerifiedSession | null> {
+  const manager = getUserManager();
+  const user = await manager.getUser();
+  if (user) {
+    try {
+      const session = verifiedSessionFromUser(user);
+      if (session) {
+        return session;
+      }
+    } catch {
+      // Expired or invalid claims — fall through to silent sign-in.
+    }
+  }
+
+  try {
+    const renewed = await manager.signinSilent();
+    return verifiedSessionFromUser(renewed);
+  } catch {
+    return null;
+  }
+}
+
+/** Return the verified Cognito id_token for the signed-in user, if any. */
 export async function getIdToken(): Promise<string | null> {
-  const user = await getUserManager().getUser();
-  return verifiedSessionFromUser(user)?.idToken ?? null;
+  const session = await getVerifiedSessionWithSilentRenewal();
+  return session?.idToken ?? null;
 }
 
 /** Return verified session claims for the signed-in user. */
 export async function getVerifiedSession(): Promise<VerifiedSession | null> {
-  const user = await getUserManager().getUser();
-  return verifiedSessionFromUser(user);
+  return getVerifiedSessionWithSilentRenewal();
+}
+
+function selectAccountOnSignInPending(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.sessionStorage.getItem(SELECT_ACCOUNT_ON_SIGNIN_KEY) === "1";
+}
+
+/** Cognito hosted UI logout URL (not OIDC end_session_endpoint). */
+export function cognitoHostedLogoutUrl(config: CognitoConfig): string {
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    logout_uri: postLogoutRedirectUri(config),
+  });
+  return `https://${config.authDomain}/logout?${params.toString()}`;
+}
+
+/**
+ * Restore a verified session on mount: read persisted user, renew silently
+ * when claims fail or no user is stored, without surfacing verify errors.
+ */
+export async function restoreVerifiedSession(): Promise<VerifiedSession | null> {
+  if (selectAccountOnSignInPending()) {
+    return null;
+  }
+
+  return getVerifiedSessionWithSilentRenewal();
+}
+
+function consumeSelectAccountOnSignIn(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const flag = window.sessionStorage.getItem(SELECT_ACCOUNT_ON_SIGNIN_KEY);
+  if (flag !== "1") {
+    return false;
+  }
+  window.sessionStorage.removeItem(SELECT_ACCOUNT_ON_SIGNIN_KEY);
+  return true;
+}
+
+function markSelectAccountOnSignIn(): void {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(SELECT_ACCOUNT_ON_SIGNIN_KEY, "1");
+  }
 }
 
 /** Start Google sign-in (authorization code + PKCE). */
 export async function signInWithGoogle(): Promise<void> {
-  await getUserManager().signinRedirect();
+  const extraQueryParams: Record<string, string> = { identity_provider: "Google" };
+  if (consumeSelectAccountOnSignIn()) {
+    extraQueryParams.prompt = "select_account";
+  }
+  await getUserManager().signinRedirect({ extraQueryParams });
 }
 
 /** Complete the OAuth redirect callback and strip query params. */
@@ -87,25 +161,29 @@ export async function completeSignInRedirect(): Promise<VerifiedSession> {
   return session;
 }
 
+/** Complete a silent-renew iframe callback without navigating the parent frame. */
+export async function completeSilentSignInCallback(): Promise<void> {
+  await getUserManager().signinSilentCallback();
+}
+
 /** End the Cognito and Google SSO session, then redirect back to the SPA. */
 export async function signOut(): Promise<void> {
   const user = await getUserManager().getUser();
   if (user?.id_token) {
-    await getUserManager().signoutRedirect({ id_token_hint: user.id_token });
+    if (typeof window !== "undefined") {
+      window.location.assign(cognitoHostedLogoutUrl(cognitoConfig()));
+    }
     return;
   }
   await getUserManager().removeUser();
 }
 
-/** Complete the post-logout redirect and clear any remaining in-memory state. */
+/** Complete the post-logout redirect and clear any remaining persisted state. */
 export async function completeSignOutRedirect(): Promise<void> {
-  try {
-    await getUserManager().signoutRedirectCallback();
-  } finally {
-    await getUserManager().removeUser();
-    if (typeof window !== "undefined") {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+  await getUserManager().removeUser();
+  markSelectAccountOnSignIn();
+  if (typeof window !== "undefined") {
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
 
@@ -146,16 +224,16 @@ export function setUserManagerFactoryForTests(
 }
 
 /** Test-only UserManager settings builder. */
-export function buildUserManagerSettings(config: CognitoConfig) {
+export function buildUserManagerSettings(config: CognitoConfig): UserManagerSettings {
   return {
     authority: cognitoIssuer(config),
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
+    silent_redirect_uri: silentRedirectUri(config),
     post_logout_redirect_uri: postLogoutRedirectUri(config),
     response_type: "code",
     scope: "openid email profile",
-    extraQueryParams: { identity_provider: "Google", prompt: "select_account" },
-    userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
+    userStore: new WebStorageStateStore({ store: window.localStorage }),
     automaticSilentRenew: true,
     accessTokenExpiringNotificationTimeInSeconds: 60,
   };

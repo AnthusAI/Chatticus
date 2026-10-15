@@ -1,0 +1,240 @@
+{
+ "schema_version": 1,
+ "diagram_type": "sequence",
+ "meta": {
+  "title": "Handoff, step by step",
+  "subtitle": "Status: built and rehearsed on development. One turn: park, start, takeover, gateway call, snapshot, exit.",
+  "output": "docs/diagrams/pi-session-handoff/handoff.html",
+  "viewBox": [
+   1085,
+   640
+  ],
+  "column_fit": "spread",
+  "quality_profile": "showcase",
+  "legend": {
+   "mode": "auto",
+   "entries": {
+    "default": {
+     "label": "Call or write"
+    },
+    "emphasis": {
+     "label": "Main path of the turn"
+    },
+    "security": {
+     "label": "Carries a token or a key"
+    },
+    "return": {
+     "label": "Reply"
+    }
+   }
+  }
+ },
+ "participants": [
+  {
+   "id": "frontdoor",
+   "type": "backend",
+   "label": "FrontDoor",
+   "sublabel": "Lambda, admits turns"
+  },
+  {
+   "id": "executor",
+   "type": "backend",
+   "label": "TurnExecutor",
+   "sublabel": "Lambda running Pi"
+  },
+  {
+   "id": "store",
+   "type": "database",
+   "label": "Session store",
+   "sublabel": "DynamoDB + S3"
+  },
+  {
+   "id": "starter",
+   "type": "security",
+   "label": "Starter",
+   "sublabel": "Lambda, mints token"
+  },
+  {
+   "id": "owner",
+   "type": "backend",
+   "label": "Pi owner",
+   "sublabel": "Fargate task"
+  },
+  {
+   "id": "shell",
+   "type": "external",
+   "label": "Shell",
+   "sublabel": "uid 2000"
+  },
+  {
+   "id": "gateway",
+   "type": "security",
+   "label": "Model gateway",
+   "sublabel": "holds the real key"
+  },
+  {
+   "id": "snapshots",
+   "type": "database",
+   "label": "Snapshots",
+   "sublabel": "S3"
+  }
+ ],
+ "segments": [
+  {
+   "from": 155,
+   "to": 271,
+   "label": "Lambda runs Pi"
+  },
+  {
+   "from": 279,
+   "to": 331,
+   "label": "Park and start"
+  },
+  {
+   "from": 339,
+   "to": 511,
+   "label": "Owner runs the turn"
+  }
+ ],
+ "messages": [
+  {
+   "id": "queue-turn",
+   "from": "frontdoor",
+   "to": "executor",
+   "y": 168,
+   "label": "message arrives: admit turn, queue job",
+   "variant": "emphasis"
+  },
+  {
+   "id": "open-first",
+   "from": "executor",
+   "to": "store",
+   "y": 198,
+   "label": "claim turn, open session, fence 1"
+  },
+  {
+   "id": "park-turn",
+   "from": "executor",
+   "to": "store",
+   "y": 228,
+   "label": "first computer tool: record action, park turn"
+  },
+  {
+   "id": "start-job",
+   "from": "executor",
+   "to": "starter",
+   "y": 258,
+   "label": "publish start job",
+   "variant": "emphasis"
+  },
+  {
+   "id": "run-owner",
+   "from": "starter",
+   "to": "owner",
+   "y": 288,
+   "label": "mint token, AssumeRole, run task",
+   "variant": "security",
+   "note": "fresh owner id; env carries token and scoped keys"
+  },
+  {
+   "id": "take-over",
+   "from": "owner",
+   "to": "store",
+   "y": 318,
+   "label": "takeOverTurn with owner id, new fence",
+   "variant": "security"
+  },
+  {
+   "id": "replay-call",
+   "from": "owner",
+   "to": "shell",
+   "y": 348,
+   "label": "replay the pending call locally"
+  },
+  {
+   "id": "model-call",
+   "from": "owner",
+   "to": "gateway",
+   "y": 378,
+   "label": "model call + token",
+   "variant": "security",
+   "note": "token owner id must match the turn's current attempt"
+  },
+  {
+   "id": "return-answer",
+   "from": "gateway",
+   "to": "owner",
+   "y": 408,
+   "label": "forward with real key; stream back, record spend",
+   "variant": "return"
+  },
+  {
+   "id": "commit-events",
+   "from": "owner",
+   "to": "store",
+   "y": 438,
+   "label": "commit events and the answer"
+  },
+  {
+   "id": "publish-snapshot",
+   "from": "owner",
+   "to": "snapshots",
+   "y": 468,
+   "label": "publish /workspace if content changed"
+  },
+  {
+   "id": "exit-owner",
+   "from": "owner",
+   "to": "store",
+   "y": 498,
+   "label": "finish turn, exit 0",
+   "note": "the next message goes to a Lambda owner again"
+  }
+ ],
+ "activations": [
+  {
+   "participant": "executor",
+   "from": 163,
+   "to": 263,
+   "type": "backend"
+  },
+  {
+   "participant": "starter",
+   "from": 253,
+   "to": 293,
+   "type": "security"
+  },
+  {
+   "participant": "owner",
+   "from": 283,
+   "to": 503,
+   "type": "backend"
+  },
+  {
+   "participant": "gateway",
+   "from": 373,
+   "to": 413,
+   "type": "security"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "violet",
+   "title": "Who owns the session",
+   "items": [
+    "Only the owner holding the highest fence can write the session.",
+    "The Lambda holds fence 1 and the container takes a higher fence on takeover; the old owner can no longer commit.",
+    "A recovered attempt invalidates the old container's gateway token."
+   ]
+  },
+  {
+   "dot": "amber",
+   "title": "Limits",
+   "items": [
+    "A tool lost when an owner dies is reported to the model, not silently re-run.",
+    "Scoped credentials and the gateway token last one hour with no refresh.",
+    "A turn parked behind a live owner waits for it to exit."
+   ]
+  }
+ ]
+}

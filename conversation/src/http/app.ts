@@ -1,0 +1,563 @@
+import { Hono } from "hono";
+import { statusFor, DomainError } from "./errors.ts";
+import { createHash, timingSafeEqual } from "crypto";
+import type { IdTokenVerifier } from "../auth/cognito.ts";
+import {
+	INTEGRATION_TEST_SESSION_PATH,
+	integrationTestSessionEnabled,
+	type IntegrationTestAuthConfig,
+} from "../auth/integration-test.ts";
+import type { SignupMode } from "../domain/signup-mode.ts";
+import { ORGANIZATION_CREATION_RATE_LIMIT } from "../domain/creation-limits.ts";
+import type { MessagingStore } from "../store/messaging-store.ts";
+import { PrincipalHttpError } from "../auth/principal.ts";
+import { declareRoute } from "./route-audience.ts";
+import type { BudgetRollupReader } from "../domain/organization-spend.ts";
+import { setMonthlyAwsSpendCeilingHandler } from "./routes/spend-ceiling.ts";
+import { AwsCrossAccountRoleInspector, type CrossAccountRoleInspector } from "../computer/provisioning.ts";
+import { submitSelfSetupCrossAccountRoleHandler } from "./routes/self-setup.ts";
+import { getMeHandler } from "./routes/me.ts";
+import { createOrganizationHandler } from "./routes/organizations.ts";
+import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
+import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
+import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
+import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
+import { createUserTaskHandler, getTaskHandler, listUserTasksHandler, patchTaskHandler } from "./routes/tasks.ts";
+import { postVoiceMessageHandler } from "./routes/voice-messages.ts";
+import type { VoiceMessageDependencies } from "../domain/voice-messages.ts";
+import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
+import { modelGatewayResponsesHandler, type ModelGatewayDependencies } from "../gateway/model-gateway.ts";
+import type { UserUnderstanding } from "../voice/understanding.ts";
+import type { MessageDependencies } from "../domain/messages.ts";
+import type { TurnControlStore } from "../domain/turns.ts";
+import {
+	getChannelLatestTurnHandler,
+	getChannelTurnHandler,
+	getTurnHandler,
+	listTurnEventsHandler,
+} from "./routes/turns.ts";
+import { putTurnGrantHandler } from "./routes/grants.ts";
+import {
+	compareCostsHandler,
+	exportCostsHandler,
+	getChannelCostHandler,
+	getCostSummaryHandler,
+	getMessageCostHandler,
+	getTurnCostHandler,
+	listCostRowsHandler,
+} from "./routes/costs.ts";
+import type { PolicyStore } from "../store/policy-store.ts";
+import { OpenStreamCounter, streamTurnHandler } from "./routes/turn-stream.ts";
+import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamClock } from "./stream.ts";
+import { integrationTestSessionHandler } from "./routes/integration-test.ts";
+import { operatorOrganizationHandler } from "./routes/operator.ts";
+import { registerWorkerHandler } from "./routes/workers.ts";
+import { getComputerHandler, resumeTurnHandler } from "./routes/computers.ts";
+import {
+	listComputerFilesHandler,
+	readComputerFileContentHandler,
+	revealComputerFileHandler,
+	statComputerFileHandler,
+	watchComputerFilesHandler,
+	writeComputerFileContentHandler,
+} from "./routes/computer-files.ts";
+import { realFileWait, type FileWaitPort } from "../domain/live-files.ts";
+import type { SnapshotFileService } from "../snapshot/files.ts";
+import {
+	hostActionResultHandler,
+	hostClaimActionHandler,
+	hostComputerStateHandler,
+	hostGetComputerHandler,
+	hostHeartbeatHandler,
+	hostRegateActionHandler,
+	hostRenewActionHandler,
+	hostSnapshotHydratedHandler,
+	hostSnapshotPublishedHandler,
+} from "./host.ts";
+import type { ComputerHandoffDependencies } from "../turn/park.ts";
+import { createUserMembershipCache } from "./user-principal.ts";
+import { acceptsInvokeKey, type InvokeKeySource } from "../auth/invoke-key-source.ts";
+import {
+	authenticateOwnerHostRequest,
+	isBootstrapRequest,
+	isModelGatewayRequest,
+	ownerHostPrincipalOf,
+	rememberBootstrapRequest,
+	rememberOwnerHostPrincipal,
+} from "./owner-host-auth.ts";
+import type { OwnerCredentialBrokerPort } from "../computer/owner-credential-broker.ts";
+import {
+	ownerBootstrapHandler,
+	ownerCredentialsHandler,
+	ownerErrorResponse,
+	ownerFileResultHandler,
+	ownerOverlayAppliedHandler,
+	ownerOverlaySealHandler,
+	ownerPollHandler,
+	ownerStopRequestHandler,
+} from "./owner-supervisor.ts";
+import type { EditOverlayDependencies, EditOverlayRuntime } from "../domain/edit-overlay.ts";
+import { discardOverlayEntryHandler, listOverlayEntriesHandler } from "./routes/computer-file-overlay.ts";
+import { deleteComputerFileHandler, makeComputerFolderHandler, moveComputerFileHandler } from "./routes/computer-file-operations.ts";
+import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
+
+export interface Clock {
+	now(): Date;
+}
+
+export interface IdSource {
+	next(): string;
+}
+
+/** Compare two secrets in constant time regardless of their lengths, by comparing their SHA-256 digests. */
+export function invokeKeysMatch(provided: string, expected: string): boolean {
+	return timingSafeEqual(createHash("sha256").update(provided).digest(), createHash("sha256").update(expected).digest());
+}
+
+const INVOKE_HEADER = "X-Chatticus-Invoke-Key";
+const TENANT_HEADER = "X-Tenant-Id";
+
+/**
+ * Dependencies required to create an HTTP application.
+ */
+export interface AppDeps {
+	clock: Clock;
+	ids: IdSource;
+	store: unknown;
+	/** Message admission and listing, behind the routes under /channels/{id}/messages. */
+	messages: Omit<MessageDependencies, "store" | "ids" | "clock">;
+	/** The understand-the-user step and the ledger its spend is recorded in, behind POST .../voice-messages. */
+	voice: { understanding: UserUnderstanding; ledger: VendorLedgerDependencies; reportCostFailure?: VoiceMessageDependencies["reportCostFailure"] };
+	/** The turn control record, behind the turn read routes. */
+	turnControl: TurnControlStore;
+	/** Member standing ceilings, read when a member replaces a turn's grant. */
+	policy: PolicyStore;
+	/** The computer handoff: actions, start jobs and the spend pause, behind the resume and host action routes. */
+	computer: ComputerHandoffDependencies;
+	/** Reads the published computer snapshot behind the read-only file routes; absent or null answers those routes with 503. */
+	snapshotFiles?: SnapshotFileService | null;
+	/** The edit overlay of file changes made while the computer is off: its store, the snapshot it merges over and its audit sink. Absent where the deployment has none. */
+	editOverlay?: EditOverlayRuntime | null;
+	/** How a file route sleeps while it waits for the running owner's answer; defaults to real time. */
+	fileWait?: FileWaitPort;
+	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
+	budgetRollups: BudgetRollupReader;
+	/** The invoke keys CloudFront may present, read on every request from a source that caches; null turns the gate off. */
+	invokeKeys: InvokeKeySource | null;
+	/** While the transcript migration holds the gate closed, every write route answers 503; reads are unaffected. */
+	writeGate?: WriteGate;
+	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
+	operatorKey?: string;
+	/** The deployment's own AWS account; the operator enable and reinstate routes home an unchosen organization there. */
+	deploymentAwsAccountId?: string;
+	/** Inspects a customer's cross-account role at self-setup; defaults to the live STS and IAM inspector. */
+	roleInspector?: CrossAccountRoleInspector;
+	/** Integration-test session exchange; its route is registered only when this is enabled outside production. */
+	integrationTest?: IntegrationTestAuthConfig | null;
+	environment?: string;
+	verifier?: IdTokenVerifier | null;
+	signupMode?: SignupMode;
+	organizationCreationRateLimit?: number;
+	/** How the turn stream paces its reads, heartbeats, gives up and ends; defaults to the design's pacing. */
+	streamTiming?: StreamTiming;
+	/** The time source of turn streams; defaults to the wall clock. */
+	streamClock?: StreamClock;
+	/** Counts the turn streams open right now; defaults to a private counter. */
+	openStreams?: OpenStreamCounter;
+	/** The model gateway a container reaches with a session token; its route is registered only when this is given. */
+	modelGateway?: ModelGatewayDependencies;
+	/**
+	 * The long-lived computer owner's routes (bootstrap, poll, stop request) and the supervisor token that opens them. They
+	 * are registered only when this is given: the secret the tokens are signed with and the credential broker.
+	 */
+	ownerSupervisor?: { readonly signingKey: string; readonly broker: OwnerCredentialBrokerPort; readonly minimumProtocolVersion?: number };
+}
+
+/**
+ * Create a Hono application with the control plane foundation: error mapping,
+ * invoke key verification, and health reporting.
+ */
+export function createApp(deps: AppDeps): Hono {
+	const app = new Hono();
+
+	const environment = deps.environment || process.env.CHATTICUS_ENVIRONMENT || "local";
+
+	app.use(async (c, next) => {
+		if (c.req.path === "/health") {
+			return next();
+		}
+		const tenantId = c.req.header(TENANT_HEADER);
+		if (tenantId) {
+			return c.json(
+				{
+					detail: `${TENANT_HEADER} is not accepted; use /orgs/{tenant_id}/... in the request path.`,
+				},
+				400 as any,
+			);
+		}
+		return next();
+	});
+
+	const ownerSupervisorDeps = deps.ownerSupervisor;
+	app.use(async (c, next) => {
+		if (c.req.path === "/health" || ownerSupervisorDeps === undefined) {
+			return next();
+		}
+		const decision = await authenticateOwnerHostRequest(
+			{ signingKey: ownerSupervisorDeps.signingKey, clock: deps.clock, store: deps.store as MessagingStore },
+			{ method: c.req.method, path: c.req.path, authorization: c.req.header("Authorization") ?? null },
+		);
+		if (decision.kind === "refused") {
+			return ownerErrorResponse(c, decision.code, decision.detail);
+		}
+		if (decision.kind === "authenticated") {
+			rememberOwnerHostPrincipal(c.req.raw, decision.principal);
+		}
+		if (decision.kind === "bootstrap_request") {
+			rememberBootstrapRequest(c.req.raw);
+		}
+		return next();
+	});
+
+	app.use(async (c, next) => {
+		if (c.req.path === "/health") {
+			return next();
+		}
+		if (ownerHostPrincipalOf(c.req.raw) !== null || isBootstrapRequest(c.req.raw) || isModelGatewayRequest(c.req.method, c.req.path)) {
+			return next();
+		}
+		if (deps.invokeKeys) {
+			const provided = c.req.header(INVOKE_HEADER);
+			if (!provided || !acceptsInvokeKey(provided, await deps.invokeKeys(), invokeKeysMatch)) {
+				return c.json(
+					{
+						detail: "invoke key required",
+					},
+					403 as any,
+				);
+			}
+		}
+		return next();
+	});
+
+	const writeGate = deps.writeGate ?? null;
+	app.use(async (c, next) => {
+		if (writeGate === null || c.req.path === "/health" || ["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+			return next();
+		}
+		if (await writeGate.isClosed()) {
+			c.header("Retry-After", String(WRITE_GATE_RETRY_AFTER_SECONDS));
+			return c.json({ detail: WRITE_GATE_MESSAGE }, 503 as any);
+		}
+		return next();
+	});
+
+	app.onError((err, c) => {
+		if (err instanceof DomainError) {
+			const status = statusFor(err);
+			return c.json({ detail: err.message }, status as any);
+		}
+		if (err instanceof PrincipalHttpError) {
+			return c.json({ detail: err.detail }, err.status as any);
+		}
+		throw err;
+	});
+
+	app.get("/health", (c) => {
+		return c.json({
+			status: "ok",
+			environment,
+		});
+	});
+
+	const store = deps.store as MessagingStore;
+	const verifier = deps.verifier ?? null;
+	const membershipCache = createInvitationMembershipCache(deps.clock);
+	const integrationTest = deps.integrationTest ?? null;
+	const operatorKey = deps.operatorKey ?? "";
+
+	declareRoute(app, { method: "GET", path: "/me", audience: "user" }, (c) =>
+		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, rollups: deps.budgetRollups, environment }),
+	);
+
+	declareRoute(app, { method: "POST", path: "/organizations", audience: "user" }, (c) =>
+		createOrganizationHandler(c, {
+			store,
+			clock: deps.clock,
+			ids: deps.ids,
+			verifier,
+			signupMode: deps.signupMode ?? "invitation_only",
+			organizationCreationRateLimit: deps.organizationCreationRateLimit ?? ORGANIZATION_CREATION_RATE_LIMIT,
+		}),
+	);
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/invitations", audience: "user" }, (c) =>
+		createInvitationHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, membershipCache, integrationTest }),
+	);
+
+	const userRoutes = {
+		store,
+		ids: deps.ids,
+		verifier,
+		membershipCache: createUserMembershipCache(deps.clock),
+		integrationTest,
+	};
+
+	const taskRoutes = { ...userRoutes };
+
+	const messageRoutes = {
+		...userRoutes,
+		messages: { ...deps.messages, store, ids: deps.ids, clock: deps.clock } satisfies MessageDependencies,
+	};
+
+	declareRoute(app, { method: "PATCH", path: "/orgs/:tenant_id/monthly-aws-spend-ceiling", audience: "user" }, (c) =>
+		setMonthlyAwsSpendCeilingHandler(c, userRoutes),
+	);
+
+	const roleInspector = deps.roleInspector ?? new AwsCrossAccountRoleInspector();
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/self-setup/cross-account-role", audience: "user" }, (c) =>
+		submitSelfSetupCrossAccountRoleHandler(c, { ...userRoutes, roleInspector }),
+	);
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
+		createBotHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
+		lookupBotHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/bots/:bot_id", audience: "user" }, (c) =>
+		getBotHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/bots", audience: "user" }, (c) =>
+		listUserBotsHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/channels", audience: "user" }, (c) =>
+		listUserChannelsHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels", audience: "user" }, (c) =>
+		createChannelHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id", audience: "user" }, (c) =>
+		getChannelHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
+		postChannelMessageHandler(c, messageRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
+		listChannelMessagesHandler(c, messageRoutes),
+	);
+
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/tasks", audience: "user" }, (c) =>
+		listUserTasksHandler(c, taskRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/users/:user_id/tasks", audience: "user" }, (c) =>
+		createUserTaskHandler(c, taskRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/tasks/:task_id", audience: "user" }, (c) =>
+		getTaskHandler(c, taskRoutes),
+	);
+	declareRoute(app, { method: "PATCH", path: "/orgs/:tenant_id/tasks/:task_id", audience: "user" }, (c) =>
+		patchTaskHandler(c, taskRoutes),
+	);
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/voice-messages", audience: "user" }, (c) =>
+		postVoiceMessageHandler(c, { ...messageRoutes, voice: { ...deps.voice, messages: messageRoutes.messages } }),
+	);
+
+	const turnRoutes = {
+		...userRoutes,
+		turns: { store: deps.turnControl, clock: deps.clock, ids: deps.ids },
+	};
+
+	const costRoutes = {
+		...turnRoutes,
+		costs: { client: deps.voice.ledger.client, tableName: deps.voice.ledger.tableName },
+		listing: deps.messages.listing,
+		clock: deps.clock,
+	};
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs", audience: "user" }, (c) => getCostSummaryHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs/turns", audience: "user" }, (c) => listCostRowsHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs/export", audience: "user" }, (c) => exportCostsHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/costs/compare", audience: "user" }, (c) => compareCostsHandler(c, costRoutes));
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/cost", audience: "user" }, (c) =>
+		getChannelCostHandler(c, costRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages/:seq/cost", audience: "user" }, (c) =>
+		getMessageCostHandler(c, costRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/cost", audience: "user" }, (c) =>
+		getTurnCostHandler(c, costRoutes),
+	);
+
+	const openStreams = deps.openStreams ?? new OpenStreamCounter();
+
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/turn", audience: "user" }, (c) =>
+		getChannelTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/turns/latest", audience: "user" }, (c) =>
+		getChannelLatestTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id", audience: "user" }, (c) =>
+		getTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/events", audience: "user" }, (c) =>
+		listTurnEventsHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/stream", audience: "user" }, (c) =>
+		streamTurnHandler(c, {
+			...turnRoutes,
+			streamTiming: deps.streamTiming ?? DEFAULT_STREAM_TIMING,
+			streamClock: deps.streamClock ?? wallStreamClock,
+			openStreams,
+		}),
+	);
+
+	declareRoute(app, { method: "PUT", path: "/orgs/:tenant_id/turns/:turn_id/grant", audience: "user" }, (c) =>
+		putTurnGrantHandler(c, { ...turnRoutes, store, policyStore: deps.policy }),
+	);
+
+	const computerRoutes = {
+		...userRoutes,
+		park: {
+			turns: turnRoutes.turns,
+			messaging: store,
+			turnRuns: deps.messages.turnRuns,
+			turnProbes: deps.messages.turnProbes,
+			computer: deps.computer,
+			faults: deps.messages.faults,
+		},
+	};
+
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer", audience: "user" }, (c) =>
+		getComputerHandler(c, computerRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/computer", audience: "user" }, (c) =>
+		getComputerHandler(c, computerRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/turns/:turn_id/resume", audience: "user" }, (c) =>
+		resumeTurnHandler(c, computerRoutes),
+	);
+
+	const overlayDependencies: EditOverlayDependencies | null =
+		deps.editOverlay === undefined || deps.editOverlay === null
+			? null
+			: { ...deps.editOverlay, store, clock: deps.clock, ids: deps.ids, heartbeatTimeoutSeconds: deps.computer.heartbeatTimeoutSeconds };
+	const computerFileRoutes = {
+		...userRoutes,
+		files: deps.snapshotFiles ?? null,
+		overlay: overlayDependencies,
+		clock: deps.clock,
+		heartbeatTimeoutSeconds: deps.computer.heartbeatTimeoutSeconds,
+		deploymentAwsAccountId: deps.deploymentAwsAccountId,
+		wait: deps.fileWait ?? realFileWait,
+	};
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files", audience: "user" }, (c) =>
+		listComputerFilesHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/stat", audience: "user" }, (c) =>
+		statComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/content", audience: "user" }, (c) =>
+		readComputerFileContentHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "PUT", path: "/orgs/:tenant_id/computer/files/content", audience: "user" }, (c) =>
+		writeComputerFileContentHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/reveal", audience: "user" }, (c) =>
+		revealComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/watch", audience: "user" }, (c) =>
+		watchComputerFilesHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "DELETE", path: "/orgs/:tenant_id/computer/files", audience: "user" }, (c) =>
+		deleteComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/move", audience: "user" }, (c) =>
+		moveComputerFileHandler(c, computerFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/directories", audience: "user" }, (c) =>
+		makeComputerFolderHandler(c, computerFileRoutes),
+	);
+
+	const overlayFileRoutes = { ...userRoutes, overlay: overlayDependencies };
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer/files/overlay", audience: "user" }, (c) =>
+		listOverlayEntriesHandler(c, overlayFileRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/computer/files/overlay/discard", audience: "user" }, (c) =>
+		discardOverlayEntryHandler(c, overlayFileRoutes),
+	);
+
+	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/workers/register", audience: "public" }, (c) =>
+		registerWorkerHandler(c, workerRoutes),
+	);
+	const hostRoutes = {
+		store,
+		clock: deps.clock,
+		ids: deps.ids,
+		park: computerRoutes.park,
+		policyStore: deps.policy,
+		editOverlay: overlayDependencies,
+	};
+	const hostPaths = [
+		["GET", "/computer", hostGetComputerHandler],
+		["POST", "/computer/state", hostComputerStateHandler],
+		["POST", "/snapshot/hydrated", hostSnapshotHydratedHandler],
+		["POST", "/snapshot/published", hostSnapshotPublishedHandler],
+		["POST", "/actions/claim", hostClaimActionHandler],
+		["POST", "/actions/:action_id/renew", hostRenewActionHandler],
+		["POST", "/actions/:action_id/result", hostActionResultHandler],
+		["POST", "/actions/:action_id/regate", hostRegateActionHandler],
+		["POST", "/heartbeat", hostHeartbeatHandler],
+	] as const;
+	for (const [method, path, handler] of hostPaths) {
+		declareRoute(app, { method, path: `/orgs/:tenant_id/host${path}`, audience: "worker" }, (c) => handler(c, hostRoutes));
+	}
+
+	if (ownerSupervisorDeps !== undefined) {
+		const ownerRoutes = { ...ownerSupervisorDeps, store, clock: deps.clock, park: computerRoutes.park };
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/bootstrap", audience: "owner-bootstrap" }, (c) =>
+			ownerBootstrapHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/poll", audience: "computer-owner" }, (c) =>
+			ownerPollHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/stop-request", audience: "computer-owner" }, (c) =>
+			ownerStopRequestHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/credentials", audience: "computer-owner" }, (c) =>
+			ownerCredentialsHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/file-results", audience: "computer-owner" }, (c) =>
+			ownerFileResultHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/overlay-seal", audience: "computer-owner" }, (c) =>
+			ownerOverlaySealHandler(c, overlayDependencies),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/overlay-applied", audience: "computer-owner" }, (c) =>
+			ownerOverlayAppliedHandler(c, overlayDependencies),
+		);
+	}
+
+	const modelGateway = deps.modelGateway;
+	if (modelGateway !== undefined) {
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/model-gateway/v1/responses", audience: "model-gateway" }, (c) =>
+			modelGatewayResponsesHandler(c, modelGateway),
+		);
+	}
+
+	for (const action of ["enable", "suspend", "reinstate"] as const) {
+		declareRoute(app, { method: "POST", path: `/operator/orgs/:tenant_id/${action}`, audience: "operator" }, (c) =>
+			operatorOrganizationHandler(c, action, { store, operatorKey, deploymentAwsAccountId: deps.deploymentAwsAccountId }),
+		);
+	}
+
+	if (integrationTestSessionEnabled(integrationTest) && integrationTest !== null) {
+		declareRoute(app, { method: "POST", path: INTEGRATION_TEST_SESSION_PATH, audience: "integration" }, (c) =>
+			integrationTestSessionHandler(c, integrationTest),
+		);
+	}
+
+	return app;
+}
