@@ -4,7 +4,11 @@ import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { DELEGATIONS } from "../lib/dns-delegations";
-import { MARKETING_SES_AND_CERTIFICATE_RECORDS } from "../lib/dns-marketing-records";
+import {
+  MARKETING_SES_AND_CERTIFICATE_RECORDS,
+  MARKETING_SITE_CLOUDFRONT_DOMAIN,
+  repointMarketingSiteAliases,
+} from "../lib/dns-marketing-records";
 import { DEDICATED_ACCOUNT_HOSTNAMES } from "../lib/environments";
 import {
   CLOUDFRONT_ALIAS_HOSTED_ZONE_ID,
@@ -207,5 +211,30 @@ describe("the marketing SES and certificate records", () => {
     assert.equal(validation.length, 2);
     assert.equal(MARKETING_SES_AND_CERTIFICATE_RECORDS.filter((record) => record.AliasTarget).length, 0);
     template.resourceCountIs("AWS::Route53::RecordSet", 5 + MARKETING_SES_AND_CERTIFICATE_RECORDS.length);
+  });
+});
+
+describe("repointMarketingSiteAliases", () => {
+  const original = loadZoneRecords(EXAMPLE_EXPORT);
+  const repointed = repointMarketingSiteAliases(original);
+
+  it("moves only the apex and www alias A and AAAA records to the marketing distribution", () => {
+    const changed = repointed.filter((record, index) => record !== original[index]);
+    assert.ok(changed.length > 0);
+    for (const record of changed) {
+      assert.ok(["chattic.us.", "www.chattic.us."].includes(record.Name));
+      assert.ok(record.Type === "A" || record.Type === "AAAA");
+      assert.equal(record.AliasTarget?.DNSName, `${MARKETING_SITE_CLOUDFRONT_DOMAIN}.`);
+      assert.equal(record.AliasTarget?.HostedZoneId, CLOUDFRONT_ALIAS_HOSTED_ZONE_ID);
+    }
+  });
+
+  it("leaves every other record untouched", () => {
+    assert.equal(repointed.length, original.length);
+    original.forEach((record, index) => {
+      if (!["chattic.us.", "www.chattic.us."].includes(record.Name) || !record.AliasTarget) {
+        assert.deepEqual(repointed[index], record);
+      }
+    });
   });
 });
