@@ -133,7 +133,7 @@ the infra README and the repo:
 
 | Item | development | staging | production |
 | --- | --- | --- | --- |
-| Dedicated AWS account exists | yes | yes | yes |
+| AWS account exists | yes | yes (the production account, shared with production; see section 11) | yes |
 | Budgets, Snapshots, Computers, thin-turn data stack in the new account | yes | yes (budget placeholder 25 USD) | yes (100 USD placeholder) |
 | Zones, certificates, DNS delegation | yes (`develop.chattic.us`) | **no** | **no** |
 | Auth (Cognito) and web (CloudFront) in the new account | yes | **no** | **no** |
@@ -292,7 +292,7 @@ no AWS resource.
    commits. Expected effects, to verify within minutes: CI green; semantic-release
    creates v0.44.0 and a changelog commit; no deploy workflow starts.
 8. **Bootstrap staging, human-run, one stack at a time, never `--all`**, using the
-   allowed per-stack script with the staging account's own SSO session
+   allowed per-stack script with the production account's SSO session (staging and production share it; section 11)
    (`sh infra/deploy-chatticus-dedicated-account.sh staging STACK`): confirm budgets,
    snapshots, computers, thin-turn exist; `zones`; delegate from the management
    zone and verify with `dig` (this needs legacy to release `staging.chattic.us`
@@ -356,9 +356,71 @@ no AWS resource.
   docs).
 - **D7. Hostnames:** confirm legacy releases `staging.chattic.us` and
   `hey.chattic.us` (and the apex-alias ordering with the website) so staging and
-  production can be bootstrapped in their own accounts.
+  production can be bootstrapped in the production account (staging and production share it; section 11).
 - **D8. Staging parity:** should staging enable the integration-test principal
   (chatticus-80b17c), and does the owner-computer (Pi) path ship to staging and
   production in this promotion or stay development-only (chatticus-d6997c)?
 - **D9. Stale PRs and branches:** close #347 and #348, merge or keep #394, prune the
   `ts/owner-supervisor*` branches.
+
+## 11. Account topology: staging and production share one AWS account
+
+Decision by the project owner (supersedes the "account per environment" wording above): there is no separate staging
+AWS account. Development has an account of its own. Staging and production are separate environments in one account,
+the production account, in `us-east-1`. No account ids appear here; take them from `AGENTS.local.md`.
+
+### Isolation by name
+
+Every stack except the account-level ones carries the environment in its id, so the two environments never collide on a
+CloudFormation stack, an ECR repository, an ECS task definition family, an IAM role or a Cognito pool. Development keeps the
+unsuffixed ids it has always had (a test compares the development templates of the changed stacks to committed copies of
+the previous output).
+
+| Kind | Development | Staging | Production |
+| --- | --- | --- | --- |
+| Snapshots | `ChatticusSnapshots` | `ChatticusSnapshotsStaging` | `ChatticusSnapshotsProduction` |
+| Computers (ECR, ECS, task definition family) | `ChatticusComputers` (`ChatticusComputerOwner`) | `ChatticusComputersStaging` (`ChatticusComputerOwnerStaging`) | `ChatticusComputersProduction` (`ChatticusComputerOwnerProduction`) |
+| Delegated zones | `ChatticusEnvironmentZones` | `ChatticusEnvironmentZonesStaging` | `ChatticusEnvironmentZonesProduction` |
+| Certificates | `ChatticusEnvironmentCertificates` | `ChatticusEnvironmentCertificatesStaging` | `ChatticusEnvironmentCertificatesProduction` |
+| Thin-turn, control-plane, web, auth | unsuffixed | `...Staging` | `...Production` |
+| Deploy role stack | `ChatticusAccountDeploy` | `ChatticusAccountDeployStaging` | `ChatticusAccountDeployProduction` |
+| Deploy role name | `chatticus-github-actions-deploy` | `chatticus-github-actions-deploy-staging` | `chatticus-github-actions-deploy-production` |
+| Owner task image tag | `dev` | `staging` | `production` |
+
+Account-level, one copy in the production account: `ChatticusBudgets` (its monthly limit is the combined limit of staging
+and production; per-environment spend comes from the `chatticus:environment` tag) and `ChatticusGitHubOidcProvider` (the
+single GitHub OIDC provider, retained and termination-protected). CDK bootstrap (`CDKToolkit`) is also once per account.
+
+### Ordered bootstrap of the production account
+
+Each step is one stack, run by a person with the production account's SSO session, never `--all`. Staging goes first all
+the way through and is proven before production starts.
+
+1. `npx cdk bootstrap aws://ACCOUNT_ID/us-east-1` once (account id from `AGENTS.local.md`).
+2. `sh infra/deploy-chatticus-oidc-provider.sh` once.
+3. `sh infra/deploy-chatticus-account-deploy.sh staging` and `... production`: the two deploy roles. Set each GitHub
+   environment's `AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN` and dispatch `verify-account-deploy-role.yml`.
+4. `sh infra/deploy-chatticus-dedicated-account.sh staging budgets` once (the production account has one budget).
+5. For staging, then for production, each with `sh infra/deploy-chatticus-dedicated-account.sh ENV STACK` in this order:
+   `snapshots`, `computers`, `zones`, (delegate both names from the management zone, wait for `dig`), `certificates`,
+   `thin-turn`, (a person seeds the Google OAuth secret and the OpenAI parameter), `control-plane`, `auth`, `web`.
+
+### What the shared account does not isolate
+
+- The two deploy roles are `AdministratorAccess` with explicit denies on the other environment's stacks, SSM parameter
+  paths and `chatticus:environment`-tagged resources. CDK deploys go through the one set of bootstrap roles
+  (`cdk-*-deploy-role`, `cdk-*-cfn-exec-role`), which both environments share, so a deploy role that is compromised can still
+  reach the other environment through them. Closing that needs a separate bootstrap qualifier per environment. This is
+  decision D10 below.
+- ECS, VPC and CloudFront account quotas are shared; the two computers stacks each create a VPC.
+
+### Not built here (follow-ups)
+
+- A promote workflow for staging and production computer images, the staging/production counterpart of
+  `promote-computer-image-development.yml`. Until it exists the staging and production repositories hold no image.
+- The control-plane owner wiring (`computerOwnerStartConfig`) is still development-only (decision D8).
+
+### Decision D10
+
+Accept the shared bootstrap roles (above), or bootstrap the production account twice with distinct qualifiers and give each
+environment's stacks its own synthesizer.

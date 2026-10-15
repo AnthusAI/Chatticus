@@ -49,6 +49,21 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     assert.equal(execFileSync("sh", ["-n", script]).length, 0);
   });
 
+  it("maps every shared-by-name stack to the environment's own stack id, so staging and production never collide", () => {
+    for (const [stack, base] of [
+      ["snapshots", "ChatticusSnapshots"],
+      ["computers", "ChatticusComputers"],
+      ["zones", "ChatticusEnvironmentZones"],
+      ["certificates", "ChatticusEnvironmentCertificates"],
+    ]) {
+      assert.match(contents, new RegExp(`development:${stack}\\) STACK="${base}"`));
+      assert.match(contents, new RegExp(`staging:${stack}\\) STACK="${base}Staging"`));
+      assert.match(contents, new RegExp(`production:${stack}\\) STACK="${base}Production"`));
+    }
+    assert.match(contents, /\*:budgets\) STACK="ChatticusBudgets"/);
+    assert.doesNotMatch(contents, /\*:(snapshots|computers|zones|certificates)\)/);
+  });
+
   it("accepts the control-plane stack for every environment, mapped to that environment's own stack id", () => {
     assert.match(contents, /development:control-plane\) STACK="ChatticusControlPlane"/);
     assert.match(contents, /staging:control-plane\) STACK="ChatticusControlPlaneStaging"/);
@@ -267,5 +282,26 @@ exit "\${line%%|*}"
       assert.match(contents, /cdk synth/);
       assert.match(contents, /--app "\$\{CLOUD_ASSEMBLY_DIRECTORY\}"/);
     });
+  });
+});
+
+describe("deploy-chatticus-account-deploy.sh and deploy-chatticus-oidc-provider.sh", () => {
+  const accountDeploy = readFileSync(join(__dirname, "..", "deploy-chatticus-account-deploy.sh"), "utf8");
+  const oidcProvider = readFileSync(join(__dirname, "..", "deploy-chatticus-oidc-provider.sh"), "utf8");
+
+  it("deploys each environment's own deploy-role stack", () => {
+    assert.match(accountDeploy, /development\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeploy" ;;/);
+    assert.match(accountDeploy, /staging\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeployStaging" ;;/);
+    assert.match(accountDeploy, /production\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeployProduction" ;;/);
+    assert.match(accountDeploy, /cdk deploy "\$\{STACK\}" --exclusively --require-approval never/);
+    assert.doesNotMatch(accountDeploy.split("\n").filter((line) => !line.startsWith("#")).join("\n"), /--all/);
+  });
+
+  it("deploys the account's one OIDC provider as a single named stack", () => {
+    assert.match(oidcProvider, /cdk deploy ChatticusGitHubOidcProvider --exclusively --require-approval never -c githubOidcProvider=true/);
+    assert.doesNotMatch(oidcProvider.split("\n").filter((line) => !line.startsWith("#")).join("\n"), /--all/);
+    assert.doesNotMatch(oidcProvider, /\b\d{12}\b/);
+    assert.equal(execFileSync("sh", ["-n", join(__dirname, "..", "deploy-chatticus-oidc-provider.sh")]).length, 0);
+    assert.equal(spawnSync("sh", [join(__dirname, "..", "deploy-chatticus-oidc-provider.sh"), "extra"]).status, 2);
   });
 });

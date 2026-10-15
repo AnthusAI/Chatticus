@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import {
+  ACCOUNT_DEPLOY_STACK_IDS,
   AUTH_STACK_IDS,
+  COMPUTERS_STACK_IDS,
+  ENVIRONMENT_CERTIFICATES_STACK_IDS,
+  ENVIRONMENT_ZONES_STACK_IDS,
+  SNAPSHOT_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
   CONTROL_PLANE_STACK_IDS,
   THIN_TURN_STACK_IDS,
@@ -23,6 +28,16 @@ describe("stack tag registry", () => {
       assert.deepEqual(stackTagsFor(WEB_STACK_IDS[environment]), { component: "web", environment });
       assert.deepEqual(stackTagsFor(AUTH_STACK_IDS[environment]), { component: "auth", environment });
       assert.deepEqual(stackTagsFor(CONTROL_PLANE_STACK_IDS[environment]), { component: "control-plane", environment });
+    }
+  });
+
+  it("classifies the suffixed snapshots, computers, zones, certificates and deploy stacks of staging and production", () => {
+    for (const environment of ["staging", "production"] as const) {
+      assert.deepEqual(stackTagsFor(SNAPSHOT_STACK_IDS[environment]), { component: "snapshots", environment });
+      assert.deepEqual(stackTagsFor(COMPUTERS_STACK_IDS[environment]), { component: "computer", environment });
+      assert.deepEqual(stackTagsFor(ENVIRONMENT_ZONES_STACK_IDS[environment]), { component: "dns", environment });
+      assert.deepEqual(stackTagsFor(ENVIRONMENT_CERTIFICATES_STACK_IDS[environment]), { component: "dns", environment });
+      assert.deepEqual(stackTagsFor(ACCOUNT_DEPLOY_STACK_IDS[environment]), { component: "deploy", environment });
     }
   });
 

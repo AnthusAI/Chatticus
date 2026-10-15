@@ -3,8 +3,6 @@ import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import {
-  ENVIRONMENT_CERTIFICATES_STACK_ID,
-  ENVIRONMENT_ZONES_STACK_ID,
   buildDedicatedAccountStacks,
   readDedicatedEnvironment,
 } from "../lib/dedicated-account-stacks";
@@ -14,6 +12,8 @@ import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
   CONTROL_PLANE_STACK_IDS,
   DEDICATED_ACCOUNT_HOSTNAMES,
+  ENVIRONMENT_CERTIFICATES_STACK_IDS,
+  ENVIRONMENT_ZONES_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
 } from "../lib/environments";
@@ -45,8 +45,8 @@ describe("dedicated account mode", () => {
       "ChatticusAuth",
       "ChatticusComputers",
       "ChatticusControlPlane",
-      ENVIRONMENT_CERTIFICATES_STACK_ID,
-      ENVIRONMENT_ZONES_STACK_ID,
+      ENVIRONMENT_CERTIFICATES_STACK_IDS.development,
+      ENVIRONMENT_ZONES_STACK_IDS.development,
       "ChatticusSnapshots",
       "ChatticusThinTurn",
       "ChatticusWeb",
@@ -64,20 +64,20 @@ describe("dedicated account mode", () => {
   });
 
   it("gives each name its own delegated zone, retained and protected", () => {
-    const zones = template(app, ENVIRONMENT_ZONES_STACK_ID);
+    const zones = template(app, ENVIRONMENT_ZONES_STACK_IDS.development);
     zones.resourceCountIs("AWS::Route53::HostedZone", 2);
     zones.hasResourceProperties("AWS::Route53::HostedZone", { Name: "develop.chattic.us." });
     zones.hasResourceProperties("AWS::Route53::HostedZone", { Name: "auth-develop.chattic.us." });
     for (const zone of Object.values(zones.findResources("AWS::Route53::HostedZone"))) {
       assert.equal((zone as { DeletionPolicy?: string }).DeletionPolicy, "Retain");
     }
-    assert.equal((app.node.findChild(ENVIRONMENT_ZONES_STACK_ID) as cdk.Stack).terminationProtection, true);
+    assert.equal((app.node.findChild(ENVIRONMENT_ZONES_STACK_IDS.development) as cdk.Stack).terminationProtection, true);
     const outputs = zones.toJSON().Outputs as Record<string, unknown>;
     assert.ok("SiteNameServers" in outputs && "AuthNameServers" in outputs);
   });
 
   it("issues one certificate per name, each validated by DNS in that name's own zone", () => {
-    const certificates = template(app, ENVIRONMENT_CERTIFICATES_STACK_ID);
+    const certificates = template(app, ENVIRONMENT_CERTIFICATES_STACK_IDS.development);
     certificates.resourceCountIs("AWS::CertificateManager::Certificate", 2);
     for (const [domain] of [["develop.chattic.us"], ["auth-develop.chattic.us"]]) {
       certificates.hasResourceProperties("AWS::CertificateManager::Certificate", {
@@ -199,8 +199,8 @@ describe("readDedicatedEnvironment", () => {
 
 describe("tags in a dedicated account", () => {
   it("classifies the zone and certificate stacks as dns", () => {
-    assert.equal(stackTagsFor(ENVIRONMENT_ZONES_STACK_ID).component, "dns");
-    assert.equal(stackTagsFor(ENVIRONMENT_CERTIFICATES_STACK_ID).component, "dns");
+    assert.equal(stackTagsFor(ENVIRONMENT_ZONES_STACK_IDS.development).component, "dns");
+    assert.equal(stackTagsFor(ENVIRONMENT_CERTIFICATES_STACK_IDS.development).component, "dns");
   });
 
   it("gives the account's own environment to stacks that are shared in legacy", () => {

@@ -399,8 +399,9 @@ remains the fallback when CI cannot be used.
 ### Cloud stacks (do not destroy)
 
 `ChatticusDns`, `ChatticusAuth`, `ChatticusWeb*` (development CF enabled; staging/
-production CF disabled), `ChatticusThinTurn*`, `ChatticusSnapshots`, `ChatticusComputers`,
-`ChatticusBudgets`. Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
+production CF disabled), `ChatticusThinTurn*`, `ChatticusSnapshots*`, `ChatticusComputers*`
+(development unsuffixed; staging and production, which share one AWS account, have
+`Staging` and `Production` copies), `ChatticusBudgets` (one per account). Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
 
 ### Kernel-only on `develop` (not on live worker loop)
 
@@ -610,8 +611,8 @@ If Docker Desktop is running, the snapshot packer can be checked with
 `sh computer/test_relocate.sh`.
 
 AWS resources are CDK only (`infra/`). Do not create them in the console.
-`cdk deploy --all` would touch **ChatticusSnapshots**,
-**ChatticusComputers**, and every thin-turn environment; never do that.
+`cdk deploy --all` would touch every snapshots and computers stack and every
+thin-turn environment; never do that.
 Deploy one named stack:
 
 Deploy development ThinTurn only:

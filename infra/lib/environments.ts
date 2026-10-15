@@ -30,6 +30,80 @@ export const AUTH_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   production: "ChatticusAuthProduction",
 };
 
+/**
+ * Stack ids of the stacks that were once one copy per account. Development keeps
+ * the unsuffixed id it has always had; staging and production, which share one
+ * AWS account, each get their own suffixed copy so the two never collide.
+ */
+export const SNAPSHOT_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusSnapshots",
+  staging: "ChatticusSnapshotsStaging",
+  production: "ChatticusSnapshotsProduction",
+};
+
+export const COMPUTERS_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusComputers",
+  staging: "ChatticusComputersStaging",
+  production: "ChatticusComputersProduction",
+};
+
+export const ENVIRONMENT_ZONES_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusEnvironmentZones",
+  staging: "ChatticusEnvironmentZonesStaging",
+  production: "ChatticusEnvironmentZonesProduction",
+};
+
+export const ENVIRONMENT_CERTIFICATES_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusEnvironmentCertificates",
+  staging: "ChatticusEnvironmentCertificatesStaging",
+  production: "ChatticusEnvironmentCertificatesProduction",
+};
+
+export const ACCOUNT_DEPLOY_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusAccountDeploy",
+  staging: "ChatticusAccountDeployStaging",
+  production: "ChatticusAccountDeployProduction",
+};
+
+/**
+ * The GitHub OIDC identity provider exists once per AWS account. Development's
+ * account creates it inside ChatticusAccountDeploy; the account that holds
+ * staging and production creates it once in this stack, and both environments'
+ * deploy stacks import it.
+ */
+export const GITHUB_OIDC_PROVIDER_STACK_ID = "ChatticusGitHubOidcProvider";
+
+export const ACCOUNT_DEPLOY_ROLE_NAMES: Record<ChatticusCloudEnvironment, string> = {
+  development: "chatticus-github-actions-deploy",
+  staging: "chatticus-github-actions-deploy-staging",
+  production: "chatticus-github-actions-deploy-production",
+};
+
+/**
+ * The moving ECR tag each environment's owner task definition runs. Each
+ * environment has its own repository (its own Computers stack), so the tag name
+ * only has to identify the environment for a human reading a task definition.
+ */
+export const COMPUTER_IMAGE_TAGS: Record<ChatticusCloudEnvironment, string> = {
+  development: "dev",
+  staging: "staging",
+  production: "production",
+};
+
+/**
+ * The environments whose stacks live in the same AWS account as the given one.
+ * Staging and production share the production account; development has an
+ * account of its own.
+ */
+export function peerEnvironmentsInSameAccount(
+  environment: ChatticusCloudEnvironment,
+): ChatticusCloudEnvironment[] {
+  if (environment === "development") {
+    return [];
+  }
+  return environment === "staging" ? ["production"] : ["staging"];
+}
+
 export const AUTH_DOMAIN_NAMES: Record<ChatticusCloudEnvironment, string> = {
   development: "auth-dev.chattic.us",
   staging: "auth-staging.chattic.us",
@@ -79,6 +153,21 @@ export const WEB_CROSS_ORIGIN_ISOLATION: Record<ChatticusCloudEnvironment, boole
   staging: false,
   production: false,
 };
+
+/** Every stack id that belongs to exactly one environment, shared-by-name stacks included. */
+export function stackIdsOfEnvironment(environment: ChatticusCloudEnvironment): string[] {
+  return [
+    THIN_TURN_STACK_IDS,
+    CONTROL_PLANE_STACK_IDS,
+    WEB_STACK_IDS,
+    AUTH_STACK_IDS,
+    SNAPSHOT_STACK_IDS,
+    COMPUTERS_STACK_IDS,
+    ENVIRONMENT_ZONES_STACK_IDS,
+    ENVIRONMENT_CERTIFICATES_STACK_IDS,
+    ACCOUNT_DEPLOY_STACK_IDS,
+  ].map((ids) => ids[environment]);
+}
 
 export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/thin-turn`;

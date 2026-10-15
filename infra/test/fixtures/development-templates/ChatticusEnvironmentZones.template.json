@@ -1,0 +1,137 @@
+{
+  "Description": "Delegated Route 53 zones for the development environment's names.",
+  "Resources": {
+    "SiteZoneFF0EAA7C": {
+      "Type": "AWS::Route53::HostedZone",
+      "Properties": {
+        "HostedZoneTags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "dns"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "development"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ],
+        "Name": "develop.chattic.us."
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "AuthZone1B40937F": {
+      "Type": "AWS::Route53::HostedZone",
+      "Properties": {
+        "HostedZoneTags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "dns"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "development"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ],
+        "Name": "auth-develop.chattic.us."
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    }
+  },
+  "Outputs": {
+    "SiteNameServers": {
+      "Description": "Delegate develop.chattic.us to these name servers from the management zone.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          {
+            "Fn::GetAtt": [
+              "SiteZoneFF0EAA7C",
+              "NameServers"
+            ]
+          }
+        ]
+      }
+    },
+    "AuthNameServers": {
+      "Description": "Delegate auth-develop.chattic.us to these name servers from the management zone.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          {
+            "Fn::GetAtt": [
+              "AuthZone1B40937F",
+              "NameServers"
+            ]
+          }
+        ]
+      }
+    },
+    "ExportsOutputRefSiteZoneFF0EAA7CF0B39F08": {
+      "Value": {
+        "Ref": "SiteZoneFF0EAA7C"
+      },
+      "Export": {
+        "Name": "ChatticusEnvironmentZones:ExportsOutputRefSiteZoneFF0EAA7CF0B39F08"
+      }
+    },
+    "ExportsOutputRefAuthZone1B40937F8A89DA59": {
+      "Value": {
+        "Ref": "AuthZone1B40937F"
+      },
+      "Export": {
+        "Name": "ChatticusEnvironmentZones:ExportsOutputRefAuthZone1B40937F8A89DA59"
+      }
+    }
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
+  }
+}

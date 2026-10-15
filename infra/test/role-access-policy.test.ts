@@ -3,7 +3,7 @@ import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
-import { OWNER_TASK_DEFINITION_FAMILY } from "../lib/computer-stack";
+import { ownerTaskDefinitionFamily } from "../lib/computer-stack";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
 import type { PolicyStatement } from "../../conversation/features-support/iam-policy-evaluator";
 import {
@@ -24,7 +24,7 @@ const OWNER_CONTEXT: Record<string, string> = {
   computerEcsSubnets: "subnet-aaa,subnet-bbb",
   computerEcsSecurityGroups: "sg-111",
   computerEcrRepositoryUri: "111111111111.dkr.ecr.us-east-1.amazonaws.com/computer",
-  computerOwnerTaskDefinition: `arn:aws:ecs:us-east-1:111111111111:task-definition/${OWNER_TASK_DEFINITION_FAMILY}:3`,
+  computerOwnerTaskDefinition: `arn:aws:ecs:us-east-1:111111111111:task-definition/${ownerTaskDefinitionFamily("development")}:3`,
   computerOwnerTaskRoleArn: "arn:aws:iam::111111111111:role/owner-task",
   computerOwnerExecutionRoleArn: "arn:aws:iam::111111111111:role/owner-execution",
   computerSnapshotBucketName: SNAPSHOT_BUCKET_NAME,

@@ -1,10 +1,21 @@
 import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
-import { COMPUTER_REPOSITORY_NAME_PREFIX } from "./computer-stack";
+import { computerRepositoryNamePrefix } from "./computer-stack";
+import {
+  ACCOUNT_DEPLOY_ROLE_NAMES,
+  COMPUTERS_STACK_IDS,
+  peerEnvironmentsInSameAccount,
+  stackIdsOfEnvironment,
+  webParameterPrefix,
+  thinTurnParameterPrefix,
+  integrationTestParameterPrefix,
+  type ChatticusCloudEnvironment,
+} from "./environments";
 import { createGithubDeployRole, type GithubDeployEnvironment } from "./github-deploy-stack";
+import { TAG_ENVIRONMENT } from "./tagging";
 
-export const ACCOUNT_DEPLOY_ROLE_NAME = "chatticus-github-actions-deploy";
+export const GITHUB_OIDC_PROVIDER_URL = "token.actions.githubusercontent.com";
 
 export const COMPUTER_IMAGE_PUSH_ACTIONS = [
   "ecr:BatchCheckLayerAvailability",
@@ -23,7 +34,11 @@ export const COMPUTER_IMAGE_PUSH_ACTIONS = [
  * token (account-wide by AWS design), the push actions on the Computers
  * repository of this account only, and a read of the Computers stack outputs.
  */
-function grantComputerImagePublish(stack: cdk.Stack, role: iam.Role): void {
+function grantComputerImagePublish(
+  stack: cdk.Stack,
+  role: iam.Role,
+  environment: ChatticusCloudEnvironment,
+): void {
   role.addToPolicy(
     new iam.PolicyStatement({
       sid: "EcrLoginToken",
@@ -39,7 +54,7 @@ function grantComputerImagePublish(stack: cdk.Stack, role: iam.Role): void {
         stack.formatArn({
           service: "ecr",
           resource: "repository",
-          resourceName: `${COMPUTER_REPOSITORY_NAME_PREFIX}*`,
+          resourceName: `${computerRepositoryNamePrefix(environment)}*`,
         }),
       ],
     }),
@@ -52,7 +67,7 @@ function grantComputerImagePublish(stack: cdk.Stack, role: iam.Role): void {
         stack.formatArn({
           service: "cloudformation",
           resource: "stack",
-          resourceName: "ChatticusComputers/*",
+          resourceName: `${COMPUTERS_STACK_IDS[environment]}/*`,
         }),
       ],
     }),
@@ -64,10 +79,67 @@ export interface AccountGitHubDeployStackProps extends cdk.StackProps {
 }
 
 /**
- * GitHub OIDC trust for one dedicated environment account: the provider
- * (created here, since a new account has none) and the single deploy role for
- * that account's own GitHub environment. The legacy account keeps the
- * three-role GitHubDeployStack until it is retired.
+ * Explicit denies that keep the deploy role of one environment out of the other
+ * environments that share its AWS account: CloudFormation on their stacks, their
+ * SSM parameter paths, and anything tagged with their environment. The cost
+ * attribution tags (`chatticus:environment`) are applied to every resource of a
+ * stack, so the tag deny reaches resources whose names carry no environment.
+ */
+function peerEnvironmentDenyStatements(
+  stack: cdk.Stack,
+  peers: readonly ChatticusCloudEnvironment[],
+): iam.PolicyStatement[] {
+  if (peers.length === 0) {
+    return [];
+  }
+  const peerStackArns = peers.flatMap((peer) =>
+    stackIdsOfEnvironment(peer).map((stackId) =>
+      stack.formatArn({ service: "cloudformation", resource: "stack", resourceName: `${stackId}/*` }),
+    ),
+  );
+  const peerParameterArns = peers.flatMap((peer) =>
+    [webParameterPrefix(peer), thinTurnParameterPrefix(peer), integrationTestParameterPrefix(peer)].map(
+      (prefix) =>
+        stack.formatArn({
+          service: "ssm",
+          resource: "parameter",
+          resourceName: `${prefix.slice(1)}/*`,
+        }),
+    ),
+  );
+  return [
+    new iam.PolicyStatement({
+      sid: "DenyPeerEnvironmentStacks",
+      effect: iam.Effect.DENY,
+      actions: ["cloudformation:*"],
+      resources: peerStackArns,
+    }),
+    new iam.PolicyStatement({
+      sid: "DenyPeerEnvironmentParameters",
+      effect: iam.Effect.DENY,
+      actions: ["ssm:*"],
+      resources: peerParameterArns,
+    }),
+    new iam.PolicyStatement({
+      sid: "DenyPeerEnvironmentTaggedResources",
+      effect: iam.Effect.DENY,
+      actions: ["*"],
+      resources: ["*"],
+      conditions: { StringEquals: { [`aws:ResourceTag/${TAG_ENVIRONMENT}`]: [...peers] } },
+    }),
+  ];
+}
+
+/**
+ * GitHub OIDC trust for one environment: that environment's own deploy role,
+ * named for the environment, trusting only that GitHub environment.
+ *
+ * Development lives in an account of its own, so its stack creates the OIDC
+ * provider there. Staging and production share one account: the provider exists
+ * once, created by the GitHubOidcProviderStack, and each of their stacks imports
+ * it. A shared account also gets the explicit denies that keep each environment's
+ * role away from the other environment's stacks, parameters and tagged resources.
+ * The legacy account keeps the three-role GitHubDeployStack until it is retired.
  */
 export class AccountGitHubDeployStack extends cdk.Stack {
   public readonly deployRole: iam.Role;
@@ -75,22 +147,39 @@ export class AccountGitHubDeployStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: AccountGitHubDeployStackProps) {
     super(scope, id, props);
 
-    const provider = new iam.OidcProviderNative(this, "GitHubOidc", {
-      url: "https://token.actions.githubusercontent.com",
-      clientIds: ["sts.amazonaws.com"],
-    });
+    const peers = peerEnvironmentsInSameAccount(props.githubEnvironment);
+    const providerArn =
+      peers.length === 0
+        ? new iam.OidcProviderNative(this, "GitHubOidc", {
+            url: `https://${GITHUB_OIDC_PROVIDER_URL}`,
+            clientIds: ["sts.amazonaws.com"],
+          }).oidcProviderArn
+        : iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+            this,
+            "GitHubOidc",
+            this.formatArn({
+              service: "iam",
+              region: "",
+              resource: "oidc-provider",
+              resourceName: GITHUB_OIDC_PROVIDER_URL,
+            }),
+          ).openIdConnectProviderArn;
 
     this.deployRole = createGithubDeployRole(
       this,
       "GithubActionsDeploy",
-      ACCOUNT_DEPLOY_ROLE_NAME,
+      ACCOUNT_DEPLOY_ROLE_NAMES[props.githubEnvironment],
       `GitHub Actions OIDC deploy: ${props.githubEnvironment} environment of this account.`,
-      provider.oidcProviderArn,
+      providerArn,
       props.githubEnvironment,
     );
 
     if (props.githubEnvironment === "development") {
-      grantComputerImagePublish(this, this.deployRole);
+      grantComputerImagePublish(this, this.deployRole, props.githubEnvironment);
+    }
+
+    for (const statement of peerEnvironmentDenyStatements(this, peers)) {
+      this.deployRole.addToPolicy(statement);
     }
 
     new cdk.CfnOutput(this, "GithubDeployRoleArn", {

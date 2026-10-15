@@ -1,6 +1,9 @@
 #!/bin/sh
-# Deploy ONE stack of ONE environment into its dedicated account. Never --all.
-# Run with that environment account's credentials, never the legacy account's.
+# Deploy ONE stack of ONE environment into the account that holds it. Never --all.
+# Run with that account's credentials, never the legacy account's. Staging and
+# production share one account; every stack but budgets has its own per-environment
+# id, so the two never collide. ChatticusBudgets is account-level: one copy, the
+# same for either environment name.
 #
 # Development fault switch of the owner credential broker
 # (docs/OWNER_CREDENTIAL_RENEWAL.md, R22). It exists for the development
@@ -33,18 +36,26 @@ esac
 
 case "$ENVIRONMENT:$2" in
   *:budgets) STACK="ChatticusBudgets" ;;
-  *:snapshots) STACK="ChatticusSnapshots" ;;
-  *:computers) STACK="ChatticusComputers" ;;
-  *:zones) STACK="ChatticusEnvironmentZones" ;;
-  *:certificates) STACK="ChatticusEnvironmentCertificates" ;;
+  development:snapshots) STACK="ChatticusSnapshots" ;;
+  development:computers) STACK="ChatticusComputers" ;;
+  development:zones) STACK="ChatticusEnvironmentZones" ;;
+  development:certificates) STACK="ChatticusEnvironmentCertificates" ;;
   development:thin-turn) STACK="ChatticusThinTurn" ;;
   development:control-plane) STACK="ChatticusControlPlane" ;;
   development:web) STACK="ChatticusWeb" ;;
   development:auth) STACK="ChatticusAuth" ;;
+  staging:snapshots) STACK="ChatticusSnapshotsStaging" ;;
+  staging:computers) STACK="ChatticusComputersStaging" ;;
+  staging:zones) STACK="ChatticusEnvironmentZonesStaging" ;;
+  staging:certificates) STACK="ChatticusEnvironmentCertificatesStaging" ;;
   staging:thin-turn) STACK="ChatticusThinTurnStaging" ;;
   staging:control-plane) STACK="ChatticusControlPlaneStaging" ;;
   staging:web) STACK="ChatticusWebStaging" ;;
   staging:auth) STACK="ChatticusAuthStaging" ;;
+  production:snapshots) STACK="ChatticusSnapshotsProduction" ;;
+  production:computers) STACK="ChatticusComputersProduction" ;;
+  production:zones) STACK="ChatticusEnvironmentZonesProduction" ;;
+  production:certificates) STACK="ChatticusEnvironmentCertificatesProduction" ;;
   production:thin-turn) STACK="ChatticusThinTurnProduction" ;;
   production:control-plane) STACK="ChatticusControlPlaneProduction" ;;
   production:web) STACK="ChatticusWebProduction" ;;
