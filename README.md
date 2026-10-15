@@ -70,7 +70,34 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-15.** Git **`develop`** is ahead of **`main`**.
+**Last updated: 2026-10-15.** `develop` was merged into `main`; release
+**v0.44.0** is published (release commit `4bc44d8b`). It was cut by running
+semantic-release locally as the owner, because the Actions release job cannot
+push to protected `main` (GH006). `main` is protected (PR required, checks
+`infra`, `web`, `conversation`, no force push) and the `staging` and
+`production` environments require the owner as reviewer and allow `main` only.
+
+### Staging and the marketing site moved into the production AWS account
+
+There is no separate staging AWS account. **Staging** now runs in the production
+account as `Staging`-suffixed stacks (`AccountDeployStaging`, `SnapshotsStaging`,
+`ComputersStaging`, `EnvironmentZonesStaging`, `EnvironmentCertificatesStaging`,
+`ThinTurnStaging`, `ControlPlaneStaging`, `AuthStaging`, `WebStaging`), and
+`staging.chattic.us` serves 200. Production keeps its existing stack names. The
+old staging account's stacks are deleted; empty leftovers remain and the account
+is not yet closed. **Limits:** staging computers are not available (no promoted
+computer image), the staging integration test principal is not wired (staging
+acceptance fails with 403 on bearer exchange), and the staging deny policy is
+not yet on the production deploy role.
+
+The **marketing site** (`chattic.us` and `www`) is now served from the production
+AWS account by the `ChatticusMarketing` stack in the private website repo, with
+its own intake Lambda, DynamoDB table and SES, instead of proxying to this repo's
+thin-turn. Waitlist and contact leads are recorded. **Limit:** SES production
+access was denied (sandbox), so confirmation emails reach only verified
+recipients until an appeal succeeds. Legacy marketing and thin-turn resources
+are unused but not yet deleted. Deploy workflows for staging and production are
+`workflow_dispatch` only.
 
 ### The control plane is TypeScript on `develop`
 
@@ -78,11 +105,11 @@ The Python tree is deleted from `develop` (Kanbus chatticus-f27222). The
 control plane is the TypeScript service in `conversation/`, built on Pi-durable
 (see [Pi harness](docs/PI_HARNESS.md) and
 [TypeScript control plane](docs/TYPESCRIPT_CONTROL_PLANE.md)). The **development**
-environment runs it, and the computer path is proven live there. **Staging and
-production still run the Python control plane**, built from `main`; they change
-only when `develop` is promoted to `main`. That promotion carries a migration
-runbook for existing transcripts (the design's cutover and rollback sections);
-until it runs, do not assume staging or production behave like development.
+environment runs it, and the computer path is proven live there. **`main` now carries the TypeScript
+control plane (v0.44.0) and staging runs it in the production account;
+production has not been cut over**, so do not assume production behaves like
+development. Existing transcripts need the migration runbook (the design's
+cutover and rollback sections) before production moves.
 The Gherkin features run under cucumber-js with TypeScript steps. The sections
 below that predate this change describe the Python-era stack on the environments
 that still run it.
@@ -378,10 +405,10 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 
 | Host | Role | Notes |
 | --- | --- | --- |
-| [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; same-origin `/api` to this repo's thin-turn front door |
+| [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; served from the production AWS account with its own intake (SES sandbox) |
 | [develop.chattic.us](https://develop.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
 | [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
-| [staging.chattic.us](https://staging.chattic.us) | Staging (planned) | Web CloudFront **disabled** |
+| [staging.chattic.us](https://staging.chattic.us) | Staging (production AWS account) | Serves 200; computers not available |
 
 ### Live acceptance gate
 
@@ -391,8 +418,8 @@ and send a message.
 Named deploy workflows (`deploy-thinturn-development.yml`,
 `deploy-web-development.yml`, `deploy-auth-development.yml`, and the matching
 staging/production workflows) run on **push** to the environment branch
-(`develop` for development; `main` for staging and production) and on
-**`workflow_dispatch`**. GitHub Actions deploys to live AWS through OIDC
+(`develop` for development) and on **`workflow_dispatch`**; the staging and
+production workflows are `workflow_dispatch` only. GitHub Actions deploys to live AWS through OIDC
 (`ChatticusGitHubDeploy` roles). Local `cdk deploy` via `infra/deploy-*.sh`
 remains the fallback when CI cannot be used.
 
