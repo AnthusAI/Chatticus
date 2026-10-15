@@ -1,0 +1,289 @@
+{
+  "Description": "Canonical S3 store for Chatticus computer snapshots.",
+  "Resources": {
+    "ComputerSnapshotsB892D73F": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 7
+              },
+              "Status": "Enabled"
+            },
+            {
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 30
+              },
+              "Status": "Enabled"
+            }
+          ]
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "snapshots"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ],
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "ComputerSnapshotsPolicy73B73DAA": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "ComputerSnapshotsB892D73F"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "ComputerSnapshotsB892D73F",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "ComputerSnapshotsB892D73F",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      }
+    },
+    "LocalWorkerRole985C6056": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "Garage Mac and other local hosts: publish and hydrate computer snapshots.",
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "snapshots"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "production"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      }
+    },
+    "LocalWorkerRoleDefaultPolicyBED3A3AA": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:Abort*",
+                "s3:DeleteObject*",
+                "s3:GetBucket*",
+                "s3:GetObject*",
+                "s3:List*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "ComputerSnapshotsB892D73F",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "ComputerSnapshotsB892D73F",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "LocalWorkerRoleDefaultPolicyBED3A3AA",
+        "Roles": [
+          {
+            "Ref": "LocalWorkerRole985C6056"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "SnapshotBucketName": {
+      "Description": "Set CHATTICUS_SNAPSHOT_BUCKET to this value. Snapshot URIs use s3://this-name/...",
+      "Value": {
+        "Ref": "ComputerSnapshotsB892D73F"
+      }
+    },
+    "SnapshotBucketArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ComputerSnapshotsB892D73F",
+          "Arn"
+        ]
+      }
+    },
+    "LocalWorkerRoleArn": {
+      "Description": "Local hosts may assume this role to read and write snapshot packs.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LocalWorkerRole985C6056",
+          "Arn"
+        ]
+      }
+    },
+    "ExportsOutputRefComputerSnapshotsB892D73F153A1C23": {
+      "Value": {
+        "Ref": "ComputerSnapshotsB892D73F"
+      },
+      "Export": {
+        "Name": "ChatticusSnapshots:ExportsOutputRefComputerSnapshotsB892D73F153A1C23"
+      }
+    }
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
+  }
+}

@@ -3,6 +3,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 import { computerRepositoryNamePrefix } from "./computer-stack";
 import {
+  ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_ROLE_NAMES,
   COMPUTERS_STACK_IDS,
   peerEnvironmentsInSameAccount,
@@ -135,10 +136,12 @@ function peerEnvironmentDenyStatements(
  * named for the environment, trusting only that GitHub environment.
  *
  * Development lives in an account of its own, so its stack creates the OIDC
- * provider there. Staging and production share one account: the provider exists
- * once, created by the GitHubOidcProviderStack, and each of their stacks imports
- * it. A shared account also gets the explicit denies that keep each environment's
- * role away from the other environment's stacks, parameters and tagged resources.
+ * provider there. Staging and production share one account, and production's
+ * stack was there first: it creates the provider (as it always has) and staging's
+ * stack imports it by ARN, so staging's stack can only be deployed after
+ * production's. A shared account also gets the explicit denies that keep each
+ * environment's role away from the other environment's stacks, parameters and
+ * tagged resources.
  * The legacy account keeps the three-role GitHubDeployStack until it is retired.
  */
 export class AccountGitHubDeployStack extends cdk.Stack {
@@ -149,7 +152,7 @@ export class AccountGitHubDeployStack extends cdk.Stack {
 
     const peers = peerEnvironmentsInSameAccount(props.githubEnvironment);
     const providerArn =
-      peers.length === 0
+      ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER[props.githubEnvironment]
         ? new iam.OidcProviderNative(this, "GitHubOidc", {
             url: `https://${GITHUB_OIDC_PROVIDER_URL}`,
             clientIds: ["sts.amazonaws.com"],

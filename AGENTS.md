@@ -277,9 +277,12 @@ deploys through `infra/deploy-chatticus-dedicated-account.sh ENV STACK`; the
 script refuses the legacy account. Development has an AWS account of its own.
 Staging and production are separate environments that share one AWS account
 (the production account, `us-east-1`): there is no separate staging account.
-Every stack of theirs except `ChatticusBudgets` carries the environment in its
-id (`ChatticusSnapshotsStaging`, `ChatticusComputersProduction`, and so on), so
-the two never collide. See `docs/PROMOTE_TO_MAIN.md` section 11.
+Production is already live there under the stack names it was deployed with
+(`ChatticusSnapshots`, `ChatticusComputers`, `ChatticusAccountDeploy`, ...) and
+keeps them: renaming a live stack would replace its resources. Staging, added
+to that account later, carries the environment in its ids
+(`ChatticusSnapshotsStaging`, `ChatticusComputersStaging`, and so on), so the
+two never collide. See `docs/PROMOTE_TO_MAIN.md` section 11.
 
 The GitHub `staging` and `production` environments require a reviewer, and
 branch protection on `main` requires a PR, review and green CI. These are
@@ -326,12 +329,14 @@ is enabled in development and staging, where acceptance runs need it, and never
 in production: the script refuses it there and no production workflow passes it.
 
 Snapshots, Computers, zones and certificates are per environment:
-development keeps `ChatticusSnapshots`, `ChatticusComputers`,
-`ChatticusEnvironmentZones` and `ChatticusEnvironmentCertificates`; staging and
-production have the `Staging` and `Production` suffixed copies in their shared
-account. Only `ChatticusBudgets` and the GitHub OIDC provider stack are
-account-level, one copy each. Never `cdk deploy --all`. Never destroy the
-snapshots or computers stacks of any environment.
+development and production keep the unsuffixed `ChatticusSnapshots`,
+`ChatticusComputers`, `ChatticusEnvironmentZones` and
+`ChatticusEnvironmentCertificates` in their own accounts; staging has the
+`Staging` suffixed copies in production's account. Only `ChatticusBudgets` is
+account-level (one copy, owned by production), and the account's GitHub OIDC
+provider is created by `ChatticusAccountDeploy` and imported by staging's deploy
+stack. Never `cdk deploy --all`. Never destroy the snapshots or computers stacks
+of any environment.
 
 **The computer image tag flips only after the server side is verified.** The
 `ChatticusComputers` owner task definition runs the ECR tag `dev` (staging runs

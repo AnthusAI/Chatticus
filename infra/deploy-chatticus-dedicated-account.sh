@@ -1,9 +1,11 @@
 #!/bin/sh
 # Deploy ONE stack of ONE environment into the account that holds it. Never --all.
 # Run with that account's credentials, never the legacy account's. Staging and
-# production share one account; every stack but budgets has its own per-environment
-# id, so the two never collide. ChatticusBudgets is account-level: one copy, the
-# same for either environment name.
+# production share one account. Production's stacks keep the unsuffixed ids they
+# were deployed under (ChatticusSnapshots, ChatticusComputers, and so on); staging's
+# carry a Staging suffix, so the two never collide. ChatticusBudgets is
+# account-level and belongs to production: only development and production deploy
+# it, staging reads its alerts topic from the production copy.
 #
 # Development fault switch of the owner credential broker
 # (docs/OWNER_CREDENTIAL_RENEWAL.md, R22). It exists for the development
@@ -35,7 +37,7 @@ case "$1" in
 esac
 
 case "$ENVIRONMENT:$2" in
-  *:budgets) STACK="ChatticusBudgets" ;;
+  development:budgets | production:budgets) STACK="ChatticusBudgets" ;;
   development:snapshots) STACK="ChatticusSnapshots" ;;
   development:computers) STACK="ChatticusComputers" ;;
   development:zones) STACK="ChatticusEnvironmentZones" ;;
@@ -52,10 +54,10 @@ case "$ENVIRONMENT:$2" in
   staging:control-plane) STACK="ChatticusControlPlaneStaging" ;;
   staging:web) STACK="ChatticusWebStaging" ;;
   staging:auth) STACK="ChatticusAuthStaging" ;;
-  production:snapshots) STACK="ChatticusSnapshotsProduction" ;;
-  production:computers) STACK="ChatticusComputersProduction" ;;
-  production:zones) STACK="ChatticusEnvironmentZonesProduction" ;;
-  production:certificates) STACK="ChatticusEnvironmentCertificatesProduction" ;;
+  production:snapshots) STACK="ChatticusSnapshots" ;;
+  production:computers) STACK="ChatticusComputers" ;;
+  production:zones) STACK="ChatticusEnvironmentZones" ;;
+  production:certificates) STACK="ChatticusEnvironmentCertificates" ;;
   production:thin-turn) STACK="ChatticusThinTurnProduction" ;;
   production:control-plane) STACK="ChatticusControlPlaneProduction" ;;
   production:web) STACK="ChatticusWebProduction" ;;

@@ -31,13 +31,24 @@ describe("stack tag registry", () => {
     }
   });
 
-  it("classifies the suffixed snapshots, computers, zones, certificates and deploy stacks of staging and production", () => {
-    for (const environment of ["staging", "production"] as const) {
-      assert.deepEqual(stackTagsFor(SNAPSHOT_STACK_IDS[environment]), { component: "snapshots", environment });
-      assert.deepEqual(stackTagsFor(COMPUTERS_STACK_IDS[environment]), { component: "computer", environment });
-      assert.deepEqual(stackTagsFor(ENVIRONMENT_ZONES_STACK_IDS[environment]), { component: "dns", environment });
-      assert.deepEqual(stackTagsFor(ENVIRONMENT_CERTIFICATES_STACK_IDS[environment]), { component: "dns", environment });
-      assert.deepEqual(stackTagsFor(ACCOUNT_DEPLOY_STACK_IDS[environment]), { component: "deploy", environment });
+  it("classifies the suffixed snapshots, computers, zones, certificates and deploy stacks of staging", () => {
+    const environment = "staging";
+    assert.deepEqual(stackTagsFor(SNAPSHOT_STACK_IDS[environment]), { component: "snapshots", environment });
+    assert.deepEqual(stackTagsFor(COMPUTERS_STACK_IDS[environment]), { component: "computer", environment });
+    assert.deepEqual(stackTagsFor(ENVIRONMENT_ZONES_STACK_IDS[environment]), { component: "dns", environment });
+    assert.deepEqual(stackTagsFor(ENVIRONMENT_CERTIFICATES_STACK_IDS[environment]), { component: "dns", environment });
+    assert.deepEqual(stackTagsFor(ACCOUNT_DEPLOY_STACK_IDS[environment]), { component: "deploy", environment });
+  });
+
+  it("tags the unsuffixed stacks of the production account with production, the budgets stack included", () => {
+    for (const stackId of [
+      SNAPSHOT_STACK_IDS.production,
+      COMPUTERS_STACK_IDS.production,
+      ENVIRONMENT_ZONES_STACK_IDS.production,
+      ENVIRONMENT_CERTIFICATES_STACK_IDS.production,
+      "ChatticusBudgets",
+    ]) {
+      assert.equal(stackTagsFor(stackId, "production").environment, "production", stackId);
     }
   });
 

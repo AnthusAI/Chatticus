@@ -51,8 +51,9 @@ picture: they share the production account. That account has exactly one
 `ChatticusBudgets` stack and one monthly limit, which is the combined limit of
 staging and production together; the limit and alerts do not split by
 environment. Per-environment spend is read from the `chatticus:environment`
-cost tag, which every stack of the two environments carries (the budget stack
-itself is tagged `shared`).
+cost tag, which every stack of the two environments carries. The budget stack
+already existed in the production account before staging was added, so it keeps
+its `production` tag, and only development and production deploy it.
 
 That boundary covers the AWS meter completely. **It does nothing for the
 vendor meter.** OpenAI does not know what an AWS account is. Vendor spend

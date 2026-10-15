@@ -26,8 +26,10 @@ The build never moves `dev`. `computer/push-computer-image.sh` (break-glass) pus
 
 Each environment has its own Computers stack and therefore its own ECR repository, so a tag never crosses
 environments. The owner task definition runs the moving tag `dev` in development (`ChatticusComputers`), `staging` in
-staging (`ChatticusComputersStaging`) and `production` in production (`ChatticusComputersProduction`); staging and
-production share one AWS account but not a repository. The tag name comes from `COMPUTER_IMAGE_TAGS` in
+staging (`ChatticusComputersStaging`) and `production` in production (`ChatticusComputers` in the production account,
+the name it was deployed under); staging and production share one AWS account but not a repository. The production
+owner task definition and its repository image do not exist yet (the deployed Computers stack predates them), so the
+`production` tag replaces nothing that runs. The tag name comes from `COMPUTER_IMAGE_TAGS` in
 `infra/lib/environments.ts`. Only the development build and promote workflows exist today. A promote workflow for staging
 and production (retag `sha-<commit>` after that environment's server side is verified, with the same rollback) is a
 follow-up; until it exists those repositories have no image and nothing in staging or production starts an owner task.

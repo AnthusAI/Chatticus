@@ -6,17 +6,16 @@ import * as cdk from "aws-cdk-lib";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { buildDedicatedAccountStacks } from "../lib/dedicated-account-stacks";
 import {
+  ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_ROLE_NAMES,
   ACCOUNT_DEPLOY_STACK_IDS,
   COMPUTER_IMAGE_TAGS,
   COMPUTERS_STACK_IDS,
-  GITHUB_OIDC_PROVIDER_STACK_ID,
   SNAPSHOT_STACK_IDS,
   peerEnvironmentsInSameAccount,
   stackIdsOfEnvironment,
   type ChatticusCloudEnvironment,
 } from "../lib/environments";
-import { GitHubOidcProviderStack } from "../lib/github-oidc-provider-stack";
 import { applyStandardTags, stackTagsFor } from "../lib/tagging";
 import { stubWebsiteDeploySource } from "../lib/web-bundle-stub";
 import { normalizedTemplateText } from "./template-normalization";
@@ -40,7 +39,6 @@ function synthesizeEnvironmentInSharedAccount(environment: "staging" | "producti
     budgetsConfig: BUDGETS_CONFIG,
     websiteDeploySource: stubWebsiteDeploySource,
   });
-  new GitHubOidcProviderStack(app, GITHUB_OIDC_PROVIDER_STACK_ID, { env: PRODUCTION_ACCOUNT_ENV });
   new AccountGitHubDeployStack(app, ACCOUNT_DEPLOY_STACK_IDS[environment], {
     env: PRODUCTION_ACCOUNT_ENV,
     githubEnvironment: environment,
@@ -59,7 +57,31 @@ const synthesized: Record<"staging" | "production", SynthesizedTemplates> = {
   production: synthesizeEnvironmentInSharedAccount("production"),
 };
 
-const ACCOUNT_LEVEL_STACK_NAMES = ["ChatticusBudgets", GITHUB_OIDC_PROVIDER_STACK_ID];
+const ACCOUNT_LEVEL_STACK_NAMES = ["ChatticusBudgets"];
+const LIVE_PRODUCTION_STACK_NAMES = [
+  "ChatticusAccountDeploy",
+  "ChatticusAuthProduction",
+  "ChatticusBudgets",
+  "ChatticusComputers",
+  "ChatticusControlPlaneProduction",
+  "ChatticusEnvironmentCertificates",
+  "ChatticusEnvironmentZones",
+  "ChatticusSnapshots",
+  "ChatticusThinTurnProduction",
+  "ChatticusWebProduction",
+];
+const NEW_STAGING_STACK_NAMES = [
+  "ChatticusAccountDeployStaging",
+  "ChatticusAuthStaging",
+  "ChatticusBudgets",
+  "ChatticusComputersStaging",
+  "ChatticusControlPlaneStaging",
+  "ChatticusEnvironmentCertificatesStaging",
+  "ChatticusEnvironmentZonesStaging",
+  "ChatticusSnapshotsStaging",
+  "ChatticusThinTurnStaging",
+  "ChatticusWebStaging",
+];
 
 function stackNamesOf(environment: "staging" | "production"): string[] {
   return Object.keys(synthesized[environment]).sort();
@@ -91,32 +113,27 @@ describe("staging and production in one AWS account", () => {
     }
   });
 
-  it("gives staging and production disjoint stack names, sharing only the account-level stacks", () => {
+  it("gives staging and production disjoint stack names, sharing only the account-level budget stack", () => {
     const staging = stackNamesOf("staging");
     const production = stackNamesOf("production");
     const shared = staging.filter((name) => production.includes(name)).sort();
     assert.deepEqual(shared, [...ACCOUNT_LEVEL_STACK_NAMES].sort());
   });
 
-  it("names the stacks that exist in the production account for each environment", () => {
-    assert.deepEqual(
-      [
-        "Snapshots",
-        "Computers",
-        "EnvironmentZones",
-        "EnvironmentCertificates",
-        "AccountDeploy",
-      ].flatMap((base) => ["Staging", "Production"].map((suffix) => `Chatticus${base}${suffix}`)).sort(),
-      stackNamesOf("staging")
-        .concat(stackNamesOf("production"))
-        .filter((name) => /^Chatticus(Snapshots|Computers|EnvironmentZones|EnvironmentCertificates|AccountDeploy)(Staging|Production)$/.test(name))
-        .sort(),
-    );
+  it("builds for production exactly the stacks the production account already holds, under their live names", () => {
+    assert.deepEqual(stackNamesOf("production"), LIVE_PRODUCTION_STACK_NAMES);
   });
 
-  it("keeps the budget stack to one account-level copy that is identical whichever environment synthesizes it", () => {
-    assert.deepEqual(synthesized.staging.ChatticusBudgets, synthesized.production.ChatticusBudgets);
-    assert.deepEqual(synthesized.staging[GITHUB_OIDC_PROVIDER_STACK_ID], synthesized.production[GITHUB_OIDC_PROVIDER_STACK_ID]);
+  it("builds for staging the suffixed copies, which do not exist yet", () => {
+    assert.deepEqual(stackNamesOf("staging"), NEW_STAGING_STACK_NAMES);
+  });
+
+  it("deploys the budget stack from production only: the account's one budget keeps its production tag", () => {
+    assert.equal(stackTagsFor("ChatticusBudgets", "production").environment, "production");
+    assert.deepEqual(
+      resourcesOf({ budgets: synthesized.production.ChatticusBudgets }, ["AWS::SNS::Topic"]).map((entry) => entry.resource.Type),
+      ["AWS::SNS::Topic"],
+    );
   });
 
   it("keeps resources with fixed names apart: no two environments claim the same account-wide name", () => {
@@ -163,7 +180,8 @@ describe("staging and production in one AWS account", () => {
     };
     const staging = taskDefinitionOf("staging");
     const production = taskDefinitionOf("production");
-    assert.notEqual(staging.Family, production.Family);
+    assert.equal(production.Family, "ChatticusComputerOwner");
+    assert.equal(staging.Family, "ChatticusComputerOwnerStaging");
     assert.match(JSON.stringify(staging.ContainerDefinitions[0].Image), new RegExp(`:${COMPUTER_IMAGE_TAGS.staging}"`));
     assert.match(JSON.stringify(production.ContainerDefinitions[0].Image), new RegExp(`:${COMPUTER_IMAGE_TAGS.production}"`));
     assert.doesNotMatch(JSON.stringify(staging.ContainerDefinitions[0].Image), /:dev"/);
@@ -179,13 +197,15 @@ describe("staging and production in one AWS account", () => {
     assert.deepEqual(COMPUTER_IMAGE_TAGS, { development: "dev", staging: "staging", production: "production" });
   });
 
-  it("creates the GitHub OIDC provider once for the account and imports it in both deploy stacks", () => {
-    const providers = [...SHARED_ACCOUNT_ENVIRONMENTS].flatMap((environment) =>
-      resourcesOf(synthesized[environment], ["AWS::IAM::OIDCProvider"]).map((entry) => entry.stack),
+  it("creates the GitHub OIDC provider in production's deploy stack only, and imports it in staging's", () => {
+    assert.deepEqual(ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER, { development: true, staging: false, production: true });
+    const providers = SHARED_ACCOUNT_ENVIRONMENTS.flatMap((environment) =>
+      resourcesOf(synthesized[environment], ["AWS::IAM::OIDCProvider"]).map((entry) => `${environment}:${entry.stack}`),
     );
-    assert.deepEqual(providers, [GITHUB_OIDC_PROVIDER_STACK_ID, GITHUB_OIDC_PROVIDER_STACK_ID]);
-    const stagingProvider = resourcesOf(synthesized.staging, ["AWS::IAM::OIDCProvider"])[0].resource;
-    assert.deepEqual(stagingProvider, resourcesOf(synthesized.production, ["AWS::IAM::OIDCProvider"])[0].resource);
+    assert.deepEqual(providers, ["production:ChatticusAccountDeploy"]);
+    const [{ resource }] = resourcesOf(synthesized.production, ["AWS::IAM::OIDCProvider"]);
+    assert.equal(resource.Properties?.Url, "https://token.actions.githubusercontent.com");
+    assert.deepEqual(resource.Properties?.ClientIdList, ["sts.amazonaws.com"]);
   });
 
   it("gives each environment its own deploy role name", () => {
@@ -211,6 +231,10 @@ describe("IAM is scoped per environment in the shared account", () => {
     return resourcesOf(stacks, IAM_TYPES).map(({ stack, id, resource }) => ({ stack, id, text: JSON.stringify(resource) }));
   }
 
+  function namesStack(text: string, stackId: string): boolean {
+    return new RegExp(`${stackId}(?![A-Za-z])`).test(text);
+  }
+
   it("lets no staging role or policy name a production resource, and no production role or policy name a staging one", () => {
     const stagingIam = iamTextOf("staging");
     const productionIam = iamTextOf("production");
@@ -218,13 +242,13 @@ describe("IAM is scoped per environment in the shared account", () => {
     for (const entry of stagingIam) {
       assert.doesNotMatch(entry.text, /production/i, `${entry.stack}/${entry.id}`);
       for (const productionStackId of stackIdsOfEnvironment("production")) {
-        assert.equal(entry.text.includes(productionStackId), false, `${entry.stack}/${entry.id} names ${productionStackId}`);
+        assert.equal(namesStack(entry.text, productionStackId), false, `${entry.stack}/${entry.id} names ${productionStackId}`);
       }
     }
     for (const entry of productionIam) {
       assert.doesNotMatch(entry.text, /staging/i, `${entry.stack}/${entry.id}`);
       for (const stagingStackId of stackIdsOfEnvironment("staging")) {
-        assert.equal(entry.text.includes(stagingStackId), false, `${entry.stack}/${entry.id} names ${stagingStackId}`);
+        assert.equal(namesStack(entry.text, stagingStackId), false, `${entry.stack}/${entry.id} names ${stagingStackId}`);
       }
     }
   });
@@ -260,15 +284,13 @@ describe("IAM is scoped per environment in the shared account", () => {
     }
   });
 
-  it("tags every stack of an environment with that environment, and the account-level stacks as shared", () => {
+  it("tags every stack of an environment with that environment, the account's budget stack with production", () => {
     for (const environment of SHARED_ACCOUNT_ENVIRONMENTS) {
       for (const id of stackIdsOfEnvironment(environment)) {
         assert.equal(stackTagsFor(id, environment).environment, environment, id);
       }
-      assert.equal(stackTagsFor("ChatticusBudgets", environment).environment, "shared");
-      assert.equal(stackTagsFor(GITHUB_OIDC_PROVIDER_STACK_ID, environment).environment, "shared");
     }
-    assert.equal(stackTagsFor("ChatticusBudgets", "development").environment, "development");
+    assert.equal(stackTagsFor("ChatticusBudgets", "production").environment, "production");
   });
 });
 
@@ -325,5 +347,57 @@ describe("development is unchanged by the shared-account design", () => {
       ["ChatticusSnapshots", "ChatticusComputers", "ChatticusAccountDeploy"],
     );
     assert.deepEqual(peerEnvironmentsInSameAccount("development"), []);
+  });
+});
+
+describe("production keeps the stacks, logical ids and resource names it was deployed with", () => {
+  const FIXTURE_DIRECTORY = join(__dirname, "fixtures", "production-templates");
+  const PRODUCTION_ENV = { region: "us-east-1" };
+  const cdkJsonContext = JSON.parse(readFileSync(join(__dirname, "..", "cdk.json"), "utf8")).context as Record<string, unknown>;
+
+  const productionApp = new cdk.App({ context: cdkJsonContext });
+  buildDedicatedAccountStacks(productionApp, {
+    env: PRODUCTION_ENV,
+    environmentName: "production",
+    websiteDeploySource: stubWebsiteDeploySource,
+  });
+  new AccountGitHubDeployStack(productionApp, ACCOUNT_DEPLOY_STACK_IDS.production, {
+    env: PRODUCTION_ENV,
+    githubEnvironment: "production",
+    description: "GitHub Actions OIDC provider and production deploy role for this environment account.",
+  });
+  for (const stack of productionApp.node.children.filter(cdk.Stack.isStack)) {
+    applyStandardTags(stack, "Test", stack.node.id === ACCOUNT_DEPLOY_STACK_IDS.production ? undefined : "production");
+  }
+  const productionAssembly = productionApp.synth();
+
+  for (const stackId of [
+    "ChatticusSnapshots",
+    "ChatticusComputers",
+    "ChatticusEnvironmentZones",
+    "ChatticusEnvironmentCertificates",
+    "ChatticusAccountDeploy",
+  ]) {
+    it(`synthesizes ${stackId} to the committed production template`, () => {
+      assert.equal(
+        normalizedTemplateText(productionAssembly.getStackByName(stackId).template),
+        readFileSync(join(FIXTURE_DIRECTORY, `${stackId}.template.json`), "utf8"),
+      );
+    });
+  }
+
+  it("keeps the production zones' and certificates' hostnames, the delegation the live name servers depend on", () => {
+    const zones = productionAssembly.getStackByName("ChatticusEnvironmentZones").template as SynthesizedTemplates[string];
+    const names = resourcesOf({ zones }, ["AWS::Route53::HostedZone"]).map((entry) => entry.resource.Properties?.Name).sort();
+    assert.deepEqual(names, ["auth.chattic.us.", "hey.chattic.us."]);
+  });
+
+  it("owns the GitHub OIDC provider and the unsuffixed deploy role it already has", () => {
+    const template = productionAssembly.getStackByName("ChatticusAccountDeploy").template as SynthesizedTemplates[string];
+    assert.equal(resourcesOf({ template }, ["AWS::IAM::OIDCProvider"]).length, 1);
+    assert.deepEqual(
+      resourcesOf({ template }, ["AWS::IAM::Role"]).map((entry) => entry.resource.Properties?.RoleName),
+      ["chatticus-github-actions-deploy"],
+    );
   });
 });

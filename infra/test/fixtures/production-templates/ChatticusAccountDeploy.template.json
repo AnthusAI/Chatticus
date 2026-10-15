@@ -1,0 +1,373 @@
+{
+  "Description": "GitHub Actions OIDC provider and production deploy role for this environment account.",
+  "Resources": {
+    "GitHubOidcA2A496A3": {
+      "Type": "AWS::IAM::OIDCProvider",
+      "Properties": {
+        "ClientIdList": [
+          "sts.amazonaws.com"
+        ],
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "deploy"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "shared"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ],
+        "Url": "https://token.actions.githubusercontent.com"
+      }
+    },
+    "GithubActionsDeploy108F71AB": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                },
+                "StringLike": {
+                  "token.actions.githubusercontent.com:sub": "repo:*@152415604/*@1350947261:environment:production"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Federated": {
+                  "Ref": "GitHubOidcA2A496A3"
+                }
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "GitHub Actions OIDC deploy: production environment of this account.",
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/AdministratorAccess"
+              ]
+            ]
+          }
+        ],
+        "RoleName": "chatticus-github-actions-deploy",
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "deploy"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "shared"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      }
+    },
+    "GithubActionsDeployDefaultPolicy4040E2E2": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "cloudformation:*",
+              "Effect": "Deny",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusAccountDeployStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusAuthStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusComputersStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusControlPlaneStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusEnvironmentCertificatesStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusEnvironmentZonesStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusSnapshotsStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusThinTurnStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusWebStaging/*"
+                    ]
+                  ]
+                }
+              ],
+              "Sid": "DenyPeerEnvironmentStacks"
+            },
+            {
+              "Action": "ssm:*",
+              "Effect": "Deny",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/staging/integration-test/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/staging/thin-turn/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/staging/web/*"
+                    ]
+                  ]
+                }
+              ],
+              "Sid": "DenyPeerEnvironmentParameters"
+            },
+            {
+              "Action": "*",
+              "Condition": {
+                "StringEquals": {
+                  "aws:ResourceTag/chatticus:environment": [
+                    "staging"
+                  ]
+                }
+              },
+              "Effect": "Deny",
+              "Resource": "*",
+              "Sid": "DenyPeerEnvironmentTaggedResources"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "GithubActionsDeployDefaultPolicy4040E2E2",
+        "Roles": [
+          {
+            "Ref": "GithubActionsDeploy108F71AB"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "GithubDeployRoleArn": {
+      "Description": "Environment secret AWS_DEPLOY_ROLE_ARN for the production GitHub environment, set only at cutover.",
+      "Value": {
+        "Fn::GetAtt": [
+          "GithubActionsDeploy108F71AB",
+          "Arn"
+        ]
+      }
+    }
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
+  }
+}

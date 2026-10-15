@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -49,7 +49,7 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     assert.equal(execFileSync("sh", ["-n", script]).length, 0);
   });
 
-  it("maps every shared-by-name stack to the environment's own stack id, so staging and production never collide", () => {
+  it("maps every shared-by-name stack to the environment's stack id: production keeps its live unsuffixed ids, staging is suffixed", () => {
     for (const [stack, base] of [
       ["snapshots", "ChatticusSnapshots"],
       ["computers", "ChatticusComputers"],
@@ -58,9 +58,12 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     ]) {
       assert.match(contents, new RegExp(`development:${stack}\\) STACK="${base}"`));
       assert.match(contents, new RegExp(`staging:${stack}\\) STACK="${base}Staging"`));
-      assert.match(contents, new RegExp(`production:${stack}\\) STACK="${base}Production"`));
+      assert.match(contents, new RegExp(`production:${stack}\\) STACK="${base}"`));
+      assert.doesNotMatch(contents, new RegExp(`${base}Production`));
     }
-    assert.match(contents, /\*:budgets\) STACK="ChatticusBudgets"/);
+    assert.match(contents, /development:budgets \| production:budgets\) STACK="ChatticusBudgets"/);
+    assert.doesNotMatch(contents, /staging:budgets/);
+    assert.doesNotMatch(contents, /\*:budgets/);
     assert.doesNotMatch(contents, /\*:(snapshots|computers|zones|certificates)\)/);
   });
 
@@ -285,23 +288,20 @@ exit "\${line%%|*}"
   });
 });
 
-describe("deploy-chatticus-account-deploy.sh and deploy-chatticus-oidc-provider.sh", () => {
+describe("deploy-chatticus-account-deploy.sh", () => {
   const accountDeploy = readFileSync(join(__dirname, "..", "deploy-chatticus-account-deploy.sh"), "utf8");
-  const oidcProvider = readFileSync(join(__dirname, "..", "deploy-chatticus-oidc-provider.sh"), "utf8");
 
-  it("deploys each environment's own deploy-role stack", () => {
+  it("deploys each environment's own deploy-role stack, production under the name it already has", () => {
     assert.match(accountDeploy, /development\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeploy" ;;/);
     assert.match(accountDeploy, /staging\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeployStaging" ;;/);
-    assert.match(accountDeploy, /production\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeployProduction" ;;/);
+    assert.match(accountDeploy, /production\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeploy" ;;/);
     assert.match(accountDeploy, /cdk deploy "\$\{STACK\}" --exclusively --require-approval never/);
     assert.doesNotMatch(accountDeploy.split("\n").filter((line) => !line.startsWith("#")).join("\n"), /--all/);
   });
 
-  it("deploys the account's one OIDC provider as a single named stack", () => {
-    assert.match(oidcProvider, /cdk deploy ChatticusGitHubOidcProvider --exclusively --require-approval never -c githubOidcProvider=true/);
-    assert.doesNotMatch(oidcProvider.split("\n").filter((line) => !line.startsWith("#")).join("\n"), /--all/);
-    assert.doesNotMatch(oidcProvider, /\b\d{12}\b/);
-    assert.equal(execFileSync("sh", ["-n", join(__dirname, "..", "deploy-chatticus-oidc-provider.sh")]).length, 0);
-    assert.equal(spawnSync("sh", [join(__dirname, "..", "deploy-chatticus-oidc-provider.sh"), "extra"]).status, 2);
+  it("has no separate OIDC provider script or stack: the production deploy stack owns the provider", () => {
+    assert.equal(existsSync(join(__dirname, "..", "deploy-chatticus-oidc-provider.sh")), false);
+    assert.equal(existsSync(join(__dirname, "..", "lib", "github-oidc-provider-stack.ts")), false);
+    assert.doesNotMatch(accountDeploy, /oidc-provider|githubOidcProvider/);
   });
 });

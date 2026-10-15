@@ -31,52 +31,61 @@ export const AUTH_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
 };
 
 /**
- * Stack ids of the stacks that were once one copy per account. Development keeps
- * the unsuffixed id it has always had; staging and production, which share one
- * AWS account, each get their own suffixed copy so the two never collide.
+ * Stack ids of the stacks that were once one copy per account. Development and
+ * production keep the unsuffixed ids they have always had: production's account
+ * already holds those stacks, live, and renaming one would replace its resources
+ * and change the name servers of its delegated zones. Staging joins the
+ * production account later and takes the suffixed ids, so the two environments
+ * that share that account never collide.
  */
 export const SNAPSHOT_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusSnapshots",
   staging: "ChatticusSnapshotsStaging",
-  production: "ChatticusSnapshotsProduction",
+  production: "ChatticusSnapshots",
 };
 
 export const COMPUTERS_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusComputers",
   staging: "ChatticusComputersStaging",
-  production: "ChatticusComputersProduction",
+  production: "ChatticusComputers",
 };
 
 export const ENVIRONMENT_ZONES_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusEnvironmentZones",
   staging: "ChatticusEnvironmentZonesStaging",
-  production: "ChatticusEnvironmentZonesProduction",
+  production: "ChatticusEnvironmentZones",
 };
 
 export const ENVIRONMENT_CERTIFICATES_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusEnvironmentCertificates",
   staging: "ChatticusEnvironmentCertificatesStaging",
-  production: "ChatticusEnvironmentCertificatesProduction",
+  production: "ChatticusEnvironmentCertificates",
 };
 
 export const ACCOUNT_DEPLOY_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusAccountDeploy",
   staging: "ChatticusAccountDeployStaging",
-  production: "ChatticusAccountDeployProduction",
+  production: "ChatticusAccountDeploy",
 };
 
 /**
- * The GitHub OIDC identity provider exists once per AWS account. Development's
- * account creates it inside ChatticusAccountDeploy; the account that holds
- * staging and production creates it once in this stack, and both environments'
- * deploy stacks import it.
+ * Whether an environment's deploy stack creates the GitHub OIDC identity provider
+ * of its account. AWS allows one provider per issuer URL per account. Development
+ * and production each own the provider of their account (production's
+ * ChatticusAccountDeploy has always created it). Staging shares production's
+ * account, so its deploy stack imports that provider by ARN and requires
+ * production's deploy stack to exist first.
  */
-export const GITHUB_OIDC_PROVIDER_STACK_ID = "ChatticusGitHubOidcProvider";
+export const ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER: Record<ChatticusCloudEnvironment, boolean> = {
+  development: true,
+  staging: false,
+  production: true,
+};
 
 export const ACCOUNT_DEPLOY_ROLE_NAMES: Record<ChatticusCloudEnvironment, string> = {
   development: "chatticus-github-actions-deploy",
   staging: "chatticus-github-actions-deploy-staging",
-  production: "chatticus-github-actions-deploy-production",
+  production: "chatticus-github-actions-deploy",
 };
 
 /**
