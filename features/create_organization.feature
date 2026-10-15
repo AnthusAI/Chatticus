@@ -46,3 +46,16 @@ Feature: Create an organization from the product
     Then POST /organizations responds with status 403
     When GET /me is called with a valid id token for "sam@example.com"
     Then GET /me organizations are empty
+
+  Scenario: An already-enabled member of an invitation-only deployment signs in and uses the workspace
+    Given a Cognito-verified HTTP front door with invitation-only signup
+    And "ryan@example.com" has signed in on the me front door
+    And that user has created and enabled organization "Anthus Labs"
+    When GET /me is called with a valid id token for "ryan@example.com"
+    Then GET /me responds with status 200
+    And GET /me organizations include one with status "enabled"
+    When "ryan@example.com" creates bot "Pilot" in organization "Anthus Labs" via the HTTP front door
+    Then POST /bots responds with status 200
+    When "ryan@example.com" opens a direct channel with bot "Pilot" in organization "Anthus Labs" via the HTTP front door
+    And "ryan@example.com" sends "Hello" to bot "Pilot" in organization "Anthus Labs" via the HTTP front door
+    Then the message post responds with status 200 and starts a turn

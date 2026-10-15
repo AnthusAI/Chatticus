@@ -283,6 +283,14 @@ describe("ControlPlaneStack", () => {
       assert.ok(variables[name] !== undefined, `the FrontDoor sets ${name}`);
     }
     assert.equal(variables.CHATTICUS_SIGNUP_MODE, "open");
+    for (const environmentName of ["staging", "production"] as const) {
+      assert.equal(
+        functionByDescription(synthControlPlane(environmentName), "TypeScript front door").Environment.Variables
+          .CHATTICUS_SIGNUP_MODE,
+        "invitation_only",
+        `${environmentName} refuses organization creation without an invitation`,
+      );
+    }
     assert.equal(variables.CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER, "/chatticus/development/web/cognito-user-pool-id");
     assert.equal(variables.CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER, "/chatticus/development/web/cognito-app-client-id");
     assert.equal(variables.CHATTICUS_INTEGRATION_TEST_ENABLED, "true");
