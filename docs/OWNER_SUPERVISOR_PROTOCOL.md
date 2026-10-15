@@ -477,6 +477,12 @@ and `claimHostStartGeneration` remove the same fields. A dead idle owner that ne
 `liveOwnerOf` is false after 30 seconds and the next start claims a generation and overwrites the owner fields at
 bootstrap (step 8 of 5.2).
 
+The stopped report may carry `disk_matches_published: true`. The supervisor sends it only when, after the child ended and
+the live file path stopped accepting, its index scan found the live disk equal to the last published pack, so no publish
+ran. The Front Door then clears `disk_dirty` in the same write that records the stop, and the next start does not hydrate
+the snapshot the record already names. A stop that published leaves the flag as the publish route set it, and a stop whose
+scan failed sends nothing, so the flag stays set.
+
 ## 7. The credential broker
 
 `OwnerCredentialBroker` is a Lambda in the ControlPlane stack, source

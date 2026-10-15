@@ -138,7 +138,7 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 	}
 	let computer = await computerForOrganization(tenantId, deps);
 	if (body.value.stopped !== undefined) {
-		computer = await setComputerStopped(tenantId, body.value.stopped, deps);
+		computer = await setComputerStopped(tenantId, body.value.stopped, deps, body.value.disk_matches_published === true);
 		if (body.value.stopped && body.value.start_generation !== undefined) {
 			await releaseHostStartLease(tenantId, body.value.start_generation, deps);
 		}

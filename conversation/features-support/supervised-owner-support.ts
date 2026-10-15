@@ -110,8 +110,8 @@ class DiskScenarioPlane implements SupervisorPlane {
 		return this.computerRoutes.getComputer();
 	}
 
-	setComputerStopped(stopped: boolean, startGeneration?: number): Promise<HostComputer> {
-		return this.computerRoutes.setComputerStopped(stopped, startGeneration);
+	setComputerStopped(stopped: boolean, startGeneration?: number, diskMatchesPublished?: boolean): Promise<HostComputer> {
+		return this.computerRoutes.setComputerStopped(stopped, startGeneration, diskMatchesPublished);
 	}
 
 	recordComputerCapabilityReady(capability: string): Promise<HostComputer> {

@@ -21,17 +21,21 @@ export const regateKindSchema = z.enum(["browse", "read", "write", "edit", "term
 /** The capability a computer image may leave out and report unavailable instead of failing to boot. */
 export const hostOptionalCapabilitySchema = z.literal("browser");
 
-/** POST /orgs/{tenant}/host/computer/state: the host says the computer runs or stopped (an owner adds the start generation it was started for), and which capability cleared or is unavailable. */
+/** POST /orgs/{tenant}/host/computer/state: the host says the computer runs or stopped (an owner adds the start generation it was started for, and whether its live disk matches the last published pack), and which capability cleared or is unavailable. */
 export const computerStateRequestSchema = z
 	.object({
 		stopped: z.boolean().optional(),
 		start_generation: z.number().int().positive().optional(),
+		disk_matches_published: z.boolean().optional(),
 		capability_ready: hostCapabilitySchema.optional(),
 		capability_unavailable: hostOptionalCapabilitySchema.optional(),
 	})
 	.strict()
 	.refine((body) => body.start_generation === undefined || body.stopped === true, {
 		message: "start_generation is only valid with stopped true",
+	})
+	.refine((body) => body.disk_matches_published === undefined || body.stopped === true, {
+		message: "disk_matches_published is only valid with stopped true",
 	})
 	.refine((body) => body.stopped !== undefined || body.capability_ready !== undefined || body.capability_unavailable !== undefined, {
 		message: "stopped, capability_ready or capability_unavailable is required",

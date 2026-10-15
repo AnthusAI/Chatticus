@@ -86,7 +86,9 @@ export async function computerIsStopped(tenantId: string, deps: { store: Messagi
 }
 
 /**
- * Mark the organization computer stopped or running without deleting it. Stopping clears every readiness gate.
+ * Mark the organization computer stopped or running without deleting it. Stopping clears every readiness gate. A stop
+ * whose reporter found the live disk equal to the last published pack also clears the dirty flag, so the next start does
+ * not hydrate the snapshot it already holds.
  *
  * Ported from python/src/chatticus/control_plane.py lines 2841-2851.
  */
@@ -94,11 +96,12 @@ export async function setComputerStopped(
 	tenantId: string,
 	stopped: boolean,
 	deps: { store: MessagingStore; ids: IdSource },
+	diskMatchesPublished = false,
 ): Promise<Computer> {
 	const computer = await ensureComputer(tenantId, deps);
 	const { browserUnavailable: _kept, ...withoutUnavailable } = computer;
 	const updated: Computer = stopped
-		? { ...withoutOwner(computer), stopped, modelReady: false, workspaceReady: false, browserReady: false }
+		? { ...withoutOwner(computer), stopped, modelReady: false, workspaceReady: false, browserReady: false, diskDirty: diskMatchesPublished ? false : computer.diskDirty }
 		: { ...withoutUnavailable, stopped };
 	await deps.store.putComputer(updated);
 	return updated;
