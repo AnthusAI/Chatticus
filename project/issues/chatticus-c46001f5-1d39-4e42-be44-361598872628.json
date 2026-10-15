@@ -3,23 +3,36 @@
   "title": "Release job cannot push to protected main: choose a release path",
   "description": "The Actions release job fails with GH006 pushing to protected main, and GitHub does not allow the Actions app as a bypass actor here. v0.44.0 was released by running semantic-release locally as the owner. Options: owner PAT or GitHub App token in the release workflow with a repository ruleset; or document the manual local release: npx semantic-release --no-ci from a fresh clone with the owner's admin gh token.\n\nFeature: Releases from main\n  Scenario: A release is cut\n    Given main is protected\n    When a release is run by the chosen path\n    Then the tag, changelog commit and release are published",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "907e1e5c-1157-40f1-b60e-ece27676c112",
+      "author": "home",
+      "text": "Cause removed: main branch protection was deleted on 2026-10-15 at the owner's instruction, so the release job can push to main again. The temporary manual local release is no longer needed. Closing.",
+      "created_at": "2026-10-15T17:26:54.911925Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-15T17:21:16.067745Z",
-  "updated_at": "2026-10-15T17:21:16.067776Z",
-  "closed_at": null,
+  "updated_at": "2026-10-15T17:27:04.396679Z",
+  "closed_at": "2026-10-15T17:27:04.396622Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "sonnet-bookkeeper"
   },
-  "right_now_summary": "The team must choose between automated App-token releases and documented owner-run local releases.",
-  "right_now_updated_at": "2026-10-15T17:21:17.307534Z",
+  "right_now_summary": "Main branch protection was removed, so the release job can push to main again.",
+  "right_now_updated_at": "2026-10-15T17:27:05.683084Z",
   "custom": {}
 }

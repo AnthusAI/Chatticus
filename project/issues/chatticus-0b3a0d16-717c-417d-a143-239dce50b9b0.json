@@ -34,17 +34,29 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "3008c79c-0ef3-4115-a9c6-3aef7293e929",
+      "author": "home",
+      "text": "Owner decision (2026-10-15): no GitHub branch protection on main and no required reviewers on the staging and production environments. Friction-free, no protection. Safety is workflow_dispatch-only deploys plus an environment deployment branch policy limiting deploys to main.",
+      "created_at": "2026-10-15T17:26:58.409523Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-13T11:37:28.900227Z",
-  "updated_at": "2026-10-15T01:46:15.745894Z",
+  "updated_at": "2026-10-15T17:26:58.409552Z",
   "closed_at": "2026-10-13T15:29:35.028759Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The owner still needs to confirm the remaining promotion choices before production cutover.",
-  "right_now_updated_at": "2026-10-15T01:46:18.204843Z",
+  "right_now_summary": "Most decisions are resolved; website handling and marketing intake still need answers before cutover.",
+  "right_now_updated_at": "2026-10-15T17:27:00.725728Z",
   "custom": {}
 }
