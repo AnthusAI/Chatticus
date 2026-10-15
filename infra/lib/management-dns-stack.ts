@@ -83,6 +83,13 @@ export class ManagementDnsStack extends cdk.Stack {
           domainName: record.ResourceRecords[0].Value,
           ttl: cdk.Duration.seconds(record.TTL),
         });
+      } else if (record.Type === "TXT" && record.ResourceRecords?.length === 1 && record.TTL !== undefined) {
+        new route53.TxtRecord(this, logicalId, {
+          zone: this.hostedZone,
+          recordName,
+          values: [record.ResourceRecords[0].Value.replace(/^"|"$/g, "")],
+          ttl: cdk.Duration.seconds(record.TTL),
+        });
       } else {
         throw new Error(`Unsupported record ${record.Type} ${record.Name}; add support and a test before moving it.`);
       }
