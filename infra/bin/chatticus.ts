@@ -20,6 +20,7 @@ import { BudgetsStack } from "../lib/budgets-stack";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { DELEGATIONS } from "../lib/dns-delegations";
+import { MARKETING_SES_AND_CERTIFICATE_RECORDS } from "../lib/dns-marketing-records";
 import { ManagementDnsStack, loadZoneRecords } from "../lib/management-dns-stack";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
@@ -144,7 +145,7 @@ if (app.node.tryGetContext("managementDns") === "true") {
   }
   new ManagementDnsStack(app, "ChatticusManagementDns", {
     env,
-    records: loadZoneRecords(zoneRecordsFile),
+    records: [...loadZoneRecords(zoneRecordsFile), ...MARKETING_SES_AND_CERTIFICATE_RECORDS],
     delegations: DELEGATIONS,
     description: "Route 53 hosted zone for chattic.us, owned by the management account.",
   });
