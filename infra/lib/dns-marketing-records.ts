@@ -30,7 +30,7 @@ export const MARKETING_SES_AND_CERTIFICATE_RECORDS: readonly ExportedRecordSet[]
     Name: "_dmarc.chattic.us.",
     Type: "TXT",
     TTL: 300,
-    ResourceRecords: [{ Value: '"v=DMARC1; p=none; rua=mailto:dmarc@chattic.us"' }],
+    ResourceRecords: [{ Value: '"v=DMARC1; p=none"' }],
   },
   cname(
     "_28652e71c2fe9bff2134ff3fff181a9b.chattic.us",
