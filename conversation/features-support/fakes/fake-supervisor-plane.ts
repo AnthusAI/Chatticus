@@ -81,7 +81,7 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 	sequenceToTimeOut: number | null = null;
 	stopScript: OwnerStopResponse[] = [];
 	vetoesByReason = new Map<OwnerStopReason, OwnerStopVetoReason>();
-	pollAfterNextStopRequest: OwnerPollResponse | null = null;
+	pollAfterNextStopRequest: OwnerPollResponse | Error | null = null;
 	fileResultScript: Array<Error | "ok"> = [];
 	/** The answer to each credentials request, taken in turn; a fresh set that ends in an hour once the script is used up. */
 	renewalScript: Array<OwnerCredentialsResponse | Error> = [];
@@ -195,6 +195,10 @@ export class FakeSupervisorPlane implements SupervisorPlane {
 			const offered = this.pollAfterNextStopRequest;
 			this.pollAfterNextStopRequest = null;
 			this.stopRequestedSincePoll = false;
+			if (offered instanceof Error) {
+				this.pollFailures.push({ sequence: request.sequence, error: offered });
+				throw offered;
+			}
 			return offered;
 		}
 		if (this.parkedDispatch !== null) return this.parkedDispatch;

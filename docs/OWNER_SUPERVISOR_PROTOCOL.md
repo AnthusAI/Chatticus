@@ -45,7 +45,7 @@ Broker Lambda      OwnerCredentialBroker: the only principal that assumes the tw
 | `file_requests` in the poll response | 3 | Not in the schema. The response schema is not strict, so an old owner ignores a field a newer server adds; the request schema is strict. |
 | `interactiveUntilAt` on the computer record, the 500 ms poll while a panel is open | 3, 4 | Not stored, not read. |
 | `POST /host/owner/credentials` (refresh), credential providers in the child, `/run/chatticus/supervisor.sock` | 2b | In 2a the child gets its credentials once, in its environment, at fork. Specified in [Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md). |
-| Drain on `protocol_version` below `OWNER_MINIMUM_PROTOCOL_VERSION` (`drain_reason: "protocol_version"`) | 2b | The field is sent and stored. The server's minimum is 1, so nothing drains. `drain_reason` is a free string on the wire so a newer value never breaks an old owner. Specified in the 2b contract (6.5; the minimum stays 1 in the rollout). |
+| Drain on `protocol_version` below `OWNER_MINIMUM_PROTOCOL_VERSION` (`drain_reason: "protocol_version"`) | 2b | The field is sent and stored. The server's minimum was 1 in the rollout and is 3 after the 2b live proof, so an owner announcing a lower version is told to drain. `drain_reason` is a free string on the wire so a newer value never breaks an old owner. Specified in the 2b contract (6.5, 19.1). |
 | Lifetime above 50 minutes; the external `OwnerLifetimeCheck` message chain with `ecs:StopTask` | 2b | See decision D3 below. The 2b contract derives the drain from the credentials the server issued (so the 3000 second value of C6 and C9 becomes the special case of an owner that never renews), raises the hard end to 8 hours, and does **not** build the external chain (decided P5). |
 | Background processes, previews, `stop_ok`, two concurrent turns | 4, 5 | The dispatch list is capped at one and `active_turns` at one. |
 
@@ -85,8 +85,8 @@ timeouts through options.
 
 | Constant | Value | Used by |
 | --- | --- | --- |
-| `OWNER_PROTOCOL_VERSION` | 1 | supervisor sends; server stores |
-| `OWNER_MINIMUM_PROTOCOL_VERSION` | 1 | server (drain reserved for 2b) |
+| `OWNER_PROTOCOL_VERSION` | 3 | supervisor sends; server stores |
+| `OWNER_MINIMUM_PROTOCOL_VERSION` | 3 | server (drain with `protocol_version` below it) |
 | `OWNER_BOOTSTRAP_TOKEN_LIFETIME_SECONDS` | 300 | starter |
 | `OWNER_CREDENTIAL_LIFETIME_SECONDS` | 3600 | broker (tokens and `DurationSeconds`) |
 | `OWNER_DISPATCH_LEASE_SECONDS` | 30 | server |

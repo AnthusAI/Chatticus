@@ -99,11 +99,16 @@ Feature: The control plane drains a computer owner from the credentials it issue
 
   @server
   Scenario: An owner below the minimum protocol version is told to drain and is offered nothing
-    Given the control plane requires protocol version 3
-    And a bootstrapped owner of the household computer that announced protocol version 2
+    Given a bootstrapped owner of the household computer that announced protocol version 2
     And a turn of bot "Researcher" parked on a workspace action
     When the owner polls in state "idle" with sequence 1
     Then the poll answered drain with reason "protocol_version" and no dispatch
+
+  @server
+  Scenario: An owner at the minimum protocol version, the one that renews its credentials, is not told to drain
+    Given a bootstrapped owner of the household computer that announced protocol version 3
+    When the owner polls in state "idle" with sequence 1
+    Then the poll answered no drain
 
   @server
   Scenario: An owner far past its lifetime is reported

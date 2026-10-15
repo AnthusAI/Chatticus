@@ -60,7 +60,7 @@ Broker       **new purpose supervisor_renewal; every credential it issues ends b
 | The broker assumes with `DurationSeconds: 3600`, has no store, and its roles allow at most 3600 | `owner-credential-broker.ts:144`, `infra/lib/computer-host-start.ts:26,310` |
 | The supervisor token opens a fixed list of routes; a stopped owner is accepted only for a repeated stopped report | `conversation/src/http/owner-host-auth.ts:27-37,190-197` |
 | The poll only logs a protocol version below the minimum; nothing drains for it | `owner-supervisor.ts:243` |
-| `OWNER_PROTOCOL_VERSION` is 2 | `host-protocol/src/supervisor.ts:5` |
+| `OWNER_PROTOCOL_VERSION` is 2 (before 2b; it is 3 now and `OWNER_MINIMUM_PROTOCOL_VERSION` is 3 since the minimum was raised, section 19.1) | `host-protocol/src/supervisor.ts` |
 | The in-container watchdog has the numbers 3300 and 3420 written into the script | `computer/chatticus-watchdog` (`terminate_after`, `kill_after`), tied to the constants by `conversation/test/computer-image-structure.test.ts` |
 | `/run/chatticus` is root-owned, mode 0700, created by the supervisor | `supervisor-main.ts:79-80` |
 
@@ -69,7 +69,7 @@ Broker       **new purpose supervisor_renewal; every credential it issues ends b
 | Not in 2b | Why |
 | --- | --- |
 | The external `OwnerLifetimeCheck` message chain with `ecs:StopTask` | Decided P5: not built. An alarm on `owner_overdue` replaces it (section 13). |
-| Raising `OWNER_MINIMUM_PROTOCOL_VERSION` above 1 | The mechanism (drain with `drain_reason: "protocol_version"`) lands; using it is an operator change made only after the new image is promoted **and proven live**; until then the minimum stays 1 (decision R17, decided P3). |
+| Raising `OWNER_MINIMUM_PROTOCOL_VERSION` above 1 | The mechanism (drain with `drain_reason: "protocol_version"`) lands; using it was an operator change made only after the new image was promoted **and proven live**. Done after the live proof: the minimum is 3 (decision R17, decided P3, section 19.1). |
 | Background processes, previews, two concurrent turns | Phases 4 and 5. Unchanged. |
 | A longer credential for any single session | Every credential stays at most one hour (decision R5). |
 
@@ -117,7 +117,7 @@ anything is built. The right-hand column is where this page settles it.
 | R14 | **The supervisor drains itself** when 600 seconds of its credentials remain and no renewal has succeeded, asks to stop with a new reason `credentials` (always approved), and has a **hard deadline** 30 seconds before the credentials end, at which it kills the child and exits with code 9. | The server's stored expiry can differ from the supervisor's (a renewal whose response was lost). The supervisor must not wait for a drain it will not be told about, and a stop that hangs must not outlive the credentials it needs. |
 | R15 | **A renewal is not work.** It does not touch the idle clock, a dispatch, a file operation or the stop veto. An owner lives 40 minutes only if work arrives at least every 15 minutes (or a turn runs). | The idle timeout stays the bound on cost (D1, D2). Renewal must never make an unused computer last longer. |
 | R16 | **The external `OwnerLifetimeCheck` chain stays deferred.** The Front Door logs `owner_overdue` for a live owner older than the hard lifetime plus the drain budget, and a metric filter alarms on it. | An owner that outlives 28800 seconds needs the idle timer, the drain, the in-container watchdog (which a wedged Node loop cannot affect) and its credentials to all fail. The chain adds a permission (`ecs:StopTask`) and a message type for that case alone. **Decided (P5):** not built. |
-| R17 | `OWNER_PROTOCOL_VERSION` becomes 3 in the change that renews. The drain for a version below `OWNER_MINIMUM_PROTOCOL_VERSION` is implemented (`drain_reason: "protocol_version"`); the minimum stays 1 in the rollout. Lifetime does not branch on the version (R4 makes it unnecessary). | A gate on the version for lifetime would be the "support both ways" fork the project forbids, and raising the minimum with the server deploy would drain every new owner until the image moves (F11). |
+| R17 | `OWNER_PROTOCOL_VERSION` becomes 3 in the change that renews. The drain for a version below `OWNER_MINIMUM_PROTOCOL_VERSION` is implemented (`drain_reason: "protocol_version"`); the minimum stayed 1 in the rollout and was raised to 3 after the live proof (section 19.1). Lifetime does not branch on the version (R4 makes it unnecessary). | A gate on the version for lifetime would be the "support both ways" fork the project forbids, and raising the minimum with the server deploy would drain every new owner until the image moves (F11). |
 | R18 | **No change to either role, to the trust policies, to `maxSessionDuration`, to any permission of the broker, or to the real-IAM manifest.** A renewal is an `AssumeRole` of the same role, with the same tags, by the same principal, for `DurationSeconds` between 900 and 3600. | Nothing the roles may touch changes. Section 15. |
 | R19 | **Tokens stay stateless.** A renewed owner's earlier token stays valid until its own expiry (at most an hour). There is no rotating serial. | A serial would be checked on every request and need a two-token grace for a lost response, which leaves the previous token valid for as long as the expiry does. **Decided (S3):** accepted. |
 | R20 | **The role session name is stable for an owner**: `supervisor-<ownerId>` at bootstrap and at every renewal; `turn-<ownerId>` for every turn grant. | The assumed-role principal ARN is the same across renewals, so an S3 multipart upload begun with one set of credentials may be continued with the next (A5), and CloudTrail correlates the sessions of one owner. |
@@ -146,7 +146,7 @@ marked; the others exist and are listed because the arithmetic uses them.
 | `OWNER_CREDENTIAL_HARD_DEADLINE_MARGIN_SECONDS` (new) | 30 | supervisor (exit 9) |
 | `OWNER_SUPERVISOR_SOCKET_PATH` (new) | `/run/chatticus/supervisor.sock` | supervisor, child |
 | `OWNER_PROTOCOL_VERSION` (**changes**) | 3 (was 2), in the change that renews | supervisor |
-| `OWNER_MINIMUM_PROTOCOL_VERSION` | 1, unchanged in the rollout | server |
+| `OWNER_MINIMUM_PROTOCOL_VERSION` | 1 in the rollout; 3 after the live proof (section 19.1) | server |
 | `OWNER_WATCHDOG_TERMINATE_SECONDS` (**derived, changes**) | `OWNER_MAX_LIFETIME_SECONDS + OWNER_DRAIN_GRACE_SECONDS` = 28500 (was 3300) | watchdog script, image test |
 | `OWNER_WATCHDOG_KILL_SECONDS` (**derived, changes**) | terminate + `OWNER_FINAL_PUBLISH_BUDGET_SECONDS` = 28620 (was 3420) | watchdog script, image test |
 | `OWNER_CHILD_ENVIRONMENT_NAMES`, `OWNER_CHILD_FORBIDDEN_ENVIRONMENT_NAMES` (**change**) | see R10 | supervisor, tests |
@@ -421,7 +421,7 @@ steps set `ownerCredentialsExpireAt` where they set `ownerStartedAt` (section 21
 
 The 2a poll logs `owner_protocol_version_low`; that line is replaced by the drain above. A drained owner is offered no dispatch
 (the existing refinement of `ownerPollResponseSchema`), finishes its turn inside the grace, publishes and stops. The minimum
-stays 1 when this lands (R17); the scenario raises it through the dependency.
+stayed 1 when this landed (R17) and is 3 after the live proof (section 19.1). An owner below the minimum is not refused at the bootstrap: the bootstrap stores the version it announced, and the next poll is answered with `drain: true`, `drain_reason: "protocol_version"` and no dispatch.
 
 ## 7. The credential broker
 
@@ -1028,7 +1028,7 @@ same commit is verified. Development only; there is no compatibility path.
    ControlPlane and ThinTurn runs for that commit succeeded.
 7. The live proof (section 19).
 8. **Only after step 7 has passed,** and the new image has run in the field, an operator may raise
-   `OWNER_MINIMUM_PROTOCOL_VERSION` to 3 in a separate change (decided P3). Until then it stays 1.
+   `OWNER_MINIMUM_PROTOCOL_VERSION` to 3 in a separate change (decided P3). Until then it stays 1. Done: section 19.1.
 9. **Rolling back:** the image first (`COMPUTER_IMAGE_PROMOTION.md`, "Rolling back"). The server stays: it serves an old image
    unchanged. **Never roll the server back below the promoted image**: a supervisor of this phase against a server without the
    route retries a missing route for 10 minutes, drains itself, and its `credentials` stop reason is a 422 to the older server.
@@ -1077,10 +1077,11 @@ for the record. Run from a logged-in shell; the commands use `AWS_PROFILE` as in
    expiry. Restore the deploy afterwards.
 4. **Failure of renewal.** Deploy with `ownerBrokerFault=deny_supervisor_renewal` and `ownerBrokerCredentialSeconds=900`: the
    owner bootstraps with 900 second credentials, every renewal is a 503, so `owner_credentials_refresh_failed` repeats at 15,
-   30, 60 seconds; at 300 seconds `owner_draining reason=credentials` and `owner_credentials_expiring`; with a turn running,
-   `owner_child_exited` at about 600 seconds; `owner_stop_requested reason=credentials`, `owner_stop_decision approved=true`,
+   30, 60 seconds; at 300 seconds after the bootstrap (600 seconds before the 900 second credentials end)
+   `owner_draining reason=credentials` and `owner_credentials_expiring`; with a turn running,
+   `owner_child_exited` at about 600 seconds after the bootstrap (the 300 second grace); `owner_stop_requested reason=credentials`, `owner_stop_decision approved=true`,
    `snapshot_published` if changed, `owner_stopping reason=credentials`, the task STOPPED, the record stopped with no owner,
-   and the owner gone before 900 seconds. A message sent during the drain parks, and the stopped report starts the next
+   the container exit code 0, and the owner gone before 900 seconds. A message sent during the drain parks, and the stopped report starts the next
    owner. Restore the deploy afterwards.
 5. **Nothing is renewed after a stop.** Send `ecs stop-task` to an owner at 41 minutes into step 1 (inside its renewal window):
    `owner_stopping reason=sigterm`, the stopped report, and, in the broker's log group, no `owner_broker_issued
@@ -1091,6 +1092,51 @@ for the record. Run from a logged-in shell; the commands use `AWS_PROFILE` as in
 
 **Cost of the proof.** Steps 1 and 2 cost model calls for a few dozen small turns and one computer-hour each. Steps 3 and 4
 need two ControlPlane deploys.
+
+### 19.1 Live proof results (development)
+
+Both proofs were run on the development environment against the image that renews.
+
+**Success path, 81 minutes.** One owner, one task, no self-stop. The supervisor renewed its credentials at minute 40 and again
+at minute 80, each time with about 1200 seconds remaining (the renewal margin), as in step 1.
+
+**Failure path, with the development broker fault** (`deny_supervisor_renewal`, 900 second credentials). The broker answered
+every renewal 503 `credentials_unavailable`. The retry pauses were 15, 30 and then 60 seconds. The owner drained when 600
+seconds of its credentials remained (`owner_draining reason=credentials`), asked to stop with the reason `credentials`, and
+`owner_stopping reason=credentials` followed about five minutes after the bootstrap. The next message started a fresh owner.
+
+**What the code says, and where the observations need a reason**
+
+- *The drain begins at expiry minus 600 seconds.* `OWNER_CREDENTIAL_DRAIN_BUDGET_SECONDS` is the drain grace (300) plus the final
+  publish budget (120) plus the lifetime margin (180), which is 600. `CredentialLease.localDrainAtMilliseconds()` returns the
+  expiry minus that budget, and the supervisor begins its own drain from it (`beginCredentialDrainWhenExpiring`) without
+  waiting for the control plane. With 900 second credentials that is 300 seconds after the bootstrap. The hard deadline is the
+  expiry minus 30 seconds.
+- *The first failed renewal comes about 60 seconds after the bootstrap when credentials last 900 seconds.* The 1200 second
+  renew-ahead window is longer than the 900 second lifetime, so renewing is already due at the bootstrap. What delays it is the
+  minimum interval: `CredentialLease.dueAtMilliseconds()` takes the latest of the window start, the last success plus
+  `OWNER_CREDENTIAL_RENEWAL_MINIMUM_INTERVAL_SECONDS` (60), and, after a failure, the retry pause. The bootstrap counts as the
+  first success, so the first attempt is at 60 seconds. Later attempts follow the 15, 30, 60, 60... pauses because the 60
+  second floor has already passed.
+- *Exit codes by cause* (`computer/host/src/supervisor-ports.ts`): 0 for a stop the control plane approved, whatever its reason
+  (`idle`, `lifetime`, `credentials`, `unhealthy`); 143 for SIGTERM; 9 (`SUPERVISOR_EXIT_CREDENTIALS_EXPIRED`) when the hard
+  deadline cut a stop short, logged as `owner_stopping reason=credentials_expired`; 5 when the owner learned it is no longer the
+  owner (`owner_stopping reason=superseded`); 4 when the control plane fell silent (`fenced`); 6 bootstrap failed; 7 wrong
+  settings; 8 the disk could not be restored.
+- *The container exit code 5 and the second `owner_stopping reason=superseded` line 0.3 seconds after `reason=credentials` were
+  a bug, not the design.* While the approved stop was running, the supervisor kept polling. A poll the control plane answered
+  with an ownership refusal (403 `not_current_owner`) made the poll failure handler end the owner as superseded: a second
+  `owner_stopping` line and, because that came before the stopped report returned, exit code 5 instead of 0. The scenario
+  "A poll refused while the owner is stopping does not turn an approved stop into superseded" in
+  `features/computer_owner_supervisor.feature` reproduces exactly that log and exit code and now passes. A poll refused while
+  the owner is stopping changes nothing; the stopped report decides, and a refused stopped report still ends the owner as
+  superseded. A credentials stop exits 0 from this change on.
+- *The minimum protocol version is 3.* The live owner record reports `owner_protocol_version` 3, the version that renews
+  (`OWNER_PROTOCOL_VERSION` in `host-protocol/src/supervisor.ts`, announced in the bootstrap and every poll, and imported by both
+  the supervisor and the control plane). An owner that announced a lower version is not refused at the bootstrap; its next poll
+  is answered with `drain_reason: "protocol_version"` and no dispatch. The development image tag already runs the new image;
+  the staging and production images must be built from this code before this change reaches `main`, or their owners drain
+  on every poll.
 
 ## 20. Decisions taken
 
@@ -1119,7 +1165,7 @@ column says where.
 | --- | --- | --- |
 | P1 | **No longer grace.** The drain grace stays 300 seconds. A turn cut off at the cap is recovered by the next owner (lost-owner recovery, 9.3 of the 2a contract). | 4, 8.4 |
 | P2 | **Yes: the 8 hours are measured from the bootstrap**, not from the last activity. A computer busy all day is replaced every 7 hours 50 minutes with one cold start of about 30 seconds. | 1, 4, 19 |
-| P3 | `OWNER_MINIMUM_PROTOCOL_VERSION` is raised (to 3) **only after the new image is promoted and proven live**; until then it stays 1. The drain mechanism lands in the rollout; raising the minimum is a later operator change, never a rollout step. | 1.2, R17, 6.5, 18 |
+| P3 | `OWNER_MINIMUM_PROTOCOL_VERSION` is raised (to 3) **only after the new image is promoted and proven live**; until then it stayed 1 (it is 3 now, section 19.1). The drain mechanism lands in the rollout; raising the minimum is a later operator change, never a rollout step. | 1.2, R17, 6.5, 18 |
 | P4 | **Yes: the development-only fault switch is built,** gated off in production at build time and at runtime by the four gates of R22, with a scenario and a structural test that production cannot enable it. | R22, 15, 17 B2, 19 |
 | P5 | **No external `ecs:StopTask` watchdog.** The in-container watchdog (2a), the drain, the idle timer and the `owner_overdue` alarm are the bound. | R16, 13 |
 | S1 | **The broker stays store-free.** The Front Door reads the computer record and refuses before it invokes the broker. | R7, 6.2, 7 |

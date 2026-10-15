@@ -569,7 +569,7 @@ export class OwnerSupervisor {
 	private onPollFailure(error: unknown): void {
 		if (error instanceof HostProtocolError) {
 			if (this.refusalEndsOwnership(error)) {
-				this.endAsSuperseded();
+				if (!this.stopping) this.endAsSuperseded();
 				return;
 			}
 			if (error.status === 409 && error.code === "stale_poll") {
