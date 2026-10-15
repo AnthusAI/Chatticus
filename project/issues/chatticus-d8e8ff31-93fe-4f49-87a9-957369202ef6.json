@@ -31,17 +31,29 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "f3468bad-937c-47ed-9fd5-50fcea2e5caa",
+      "author": "home",
+      "text": "Progress 2026-10-15: production is deployed with the v0.44.0 code (ChatticusComputers, ChatticusSnapshots, ChatticusControlPlaneProduction, ChatticusThinTurnProduction, ChatticusWebProduction updated; ChatticusAuthProduction no diff), first via the local script and then by CI (deploy-auth-production, deploy-thinturn-production, deploy-controlplane-production green from GitHub Actions after the production AWS_DEPLOY_ROLE_ARN secret was repointed). Production computer image promoted (tag production exists), so computers can start. Marketing site served from the production account since 2026-10-15 17:17 UTC. Left open because acceptance criteria are not met: a production acceptance run is not possible without an integration principal (repo rule: production never trusts it), the first live signed-in test is the owner's, and the 14-day legacy retention window has not elapsed.",
+      "created_at": "2026-10-15T18:50:53.539474Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-13T11:37:17.667034Z",
-  "updated_at": "2026-10-15T17:21:03.065567Z",
+  "updated_at": "2026-10-15T18:50:53.539501Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Production uses the new marketing account; legacy resources remain untouched pending acceptance and 14-day retention.",
-  "right_now_updated_at": "2026-10-15T17:21:05.736694Z",
+  "right_now_summary": "Production is deployed and serving traffic; acceptance and the 14-day legacy retention window remain.",
+  "right_now_updated_at": "2026-10-15T18:50:54.900617Z",
   "custom": {}
 }

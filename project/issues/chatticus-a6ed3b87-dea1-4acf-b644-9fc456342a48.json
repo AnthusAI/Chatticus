@@ -3,23 +3,36 @@
   "title": "Promote the computer image for staging and build images for staging and production tags",
   "description": "Staging computers are not available: there is no promote workflow for the computer image and no image for the staging or production tags. Add the promote workflow and build the images.\n\nFeature: Staging and production computers\n  Scenario: A staging turn escalates to the computer\n    Given the staging and production image tags exist\n    When a staging turn first needs the computer\n    Then the computer starts from the staging image",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d91aa84a-2e3e-44df-af04-1e6d52daa394",
+      "author": "home",
+      "text": "Done 2026-10-15. PR 575 added build-computer-image-release.yml (builds once on push to main, pushes sha-<commit> into the staging and production ECR repositories) and infra/promote-computer-image.sh <env> <commit>, with dispatch-only promote-computer-image-staging.yml and promote-computer-image-production.yml (no gates). PR 576 (develop to main) merged. Images tagged staging and production now exist in the production account ECR repositories and point at one digest, so staging and production computers can start. No live computer turn has been tested in either environment (see the new live-turn story). Known flaw in the promote rule filed as a separate story.",
+      "created_at": "2026-10-15T18:50:15.644030Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-15T17:21:08.337120Z",
-  "updated_at": "2026-10-15T17:21:08.337156Z",
-  "closed_at": null,
+  "updated_at": "2026-10-15T18:50:28.059557Z",
+  "closed_at": "2026-10-15T18:50:28.059314Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "sonnet-bookkeeper"
   },
-  "right_now_summary": "The promote workflow and staging and production computer images still need to be added.",
-  "right_now_updated_at": "2026-10-15T17:21:09.818532Z",
+  "right_now_summary": "Staging and production computer images now exist and can start computers, but live turns still need testing.",
+  "right_now_updated_at": "2026-10-15T18:50:30.290304Z",
   "custom": {}
 }

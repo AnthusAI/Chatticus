@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "f71ea43d-c896-45c6-acd9-ebe25228bf65",
+      "author": "home",
+      "text": "Progress 2026-10-15: staging CI deploys for thinturn and controlplane are green, verify-account-deploy-role passed for staging, and the computer image tagged staging now exists (chatticus-a6ed3b closed), so staging computers can start. Still open: the integration test principal (chatticus-99cae9), so acceptance still cannot pass, and no live computer turn has been tested on staging.",
+      "created_at": "2026-10-15T18:50:48.900812Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-13T11:37:14.713495Z",
-  "updated_at": "2026-10-15T17:20:59.202666Z",
+  "updated_at": "2026-10-15T18:50:48.900838Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Staging runs in the production AWS account and serves 200, but acceptance still fails with a 403.",
-  "right_now_updated_at": "2026-10-15T17:21:01.001608Z",
+  "right_now_summary": "Staging is deployed, but acceptance fails because the integration test principal is missing; no live turn has run.",
+  "right_now_updated_at": "2026-10-15T18:50:51.308948Z",
   "custom": {}
 }

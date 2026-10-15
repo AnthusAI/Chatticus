@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-6b45d332-9648-4194-89eb-d2bb96550a08",
+  "title": "Promote rule rejects deployed content when the release commit moves main",
+  "description": "The computer image promote rule requires the latest deploy-controlplane-<env> and deploy-thinturn-<env> runs to have succeeded for the exact commit being promoted. The release job pushes a chore(release) commit to main after each feature merge, so main moves between the deploys and the promote. The build workflow skips release commits ([skip ci]), so the image is built only for the previous commit.\n\nFeature: Promote computer image\n  Scenario: Release commit follows a deployed feature commit\n    Given a feature commit was deployed and then a chore(release) commit touching only CHANGELOG.md and package files landed on main\n    When promote-computer-image is run for the release commit or the deployed commit\n    Then the promote accepts it because the content matches the deployed commit\n  Scenario: Real content change\n    Given a descendant commit changes files other than CHANGELOG.md and package*.json\n    When promote-computer-image is run for it\n    Then the promote is refused until that content is deployed\n\nApproach options: compare the tree of the promoted commit with the deployed commits, or accept a descendant whose diff is only CHANGELOG.md and package*.json.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T18:50:57.294404Z",
+  "updated_at": "2026-10-15T18:50:57.294439Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "Promote rejects release commits because main moves after deployment, even when only metadata files changed.",
+  "right_now_updated_at": "2026-10-15T18:50:58.856509Z",
+  "custom": {}
+}
