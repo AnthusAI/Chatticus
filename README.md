@@ -383,11 +383,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   (#325, `chatticus-9c8dbf`): `GET /me` includes `name`; welcome and
   workspace list CloudFormation `OrganizationId` without the members CLI.
   Live on development after the web deploy from this merge.
-- **Pending owners submit cross-account RoleArn in-product** (#326,
-  `chatticus-070cb4`): `POST /orgs/{tenant_id}/self-setup/cross-account-role`.
-  Live on development: inspect 422 when ExternalId does not match; 403
-  without a user token. Operator enable stays break-glass without AWS
-  home.
+- **Customer cross-account RoleArn is an API, not an onboarding step**
+  (#326, `chatticus-070cb4`): `POST /orgs/{tenant_id}/self-setup/cross-account-role`
+  for a pending organization. An organization created in the app is enabled and
+  homed in the deployment account at once; the web no longer asks for an AWS
+  account.
 - **Enabled members create a named bot in the workspace** (#327,
   `chatticus-7622fd`): `CreateBotPanel` → `POST /bots` → roster refresh.
   Live on development: `LiveCreate` **200** and listed. Google SPA

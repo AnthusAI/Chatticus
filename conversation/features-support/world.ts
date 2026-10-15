@@ -119,6 +119,9 @@ export class ChatticusWorld extends World {
 	directChannelPayloads: Array<Record<string, any>> = [];
 	namedChannelPayload: Record<string, any> | null = null;
 	createBotResponse: RecordedResponse | null = null;
+	createdBotIdsByName: Map<string, string> | null = null;
+	createdChannelId: string | null = null;
+	postMessageResponse: RecordedResponse | null = null;
 	messageError: Error | Response | null = null;
 	postResponses: RecordedResponse[] = [];
 	listedMessages: Array<Record<string, any>> | null = null;
