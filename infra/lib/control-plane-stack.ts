@@ -134,7 +134,9 @@ export class ControlPlaneStack extends cdk.Stack {
       partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: dataRetention,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      deletionProtection: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
     for (const index of CONVERSATIONS_TABLE_LOCAL_SECONDARY_INDEXES) {
       conversationsTable.addLocalSecondaryIndex({
@@ -148,9 +150,12 @@ export class ControlPlaneStack extends cdk.Stack {
     const piSessionsBucket = new s3.Bucket(this, "PiSessions", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
-      versioned: false,
+      versioned: true,
       removalPolicy: dataRetention,
       autoDeleteObjects: isDevelopment,
+    });
+    piSessionsBucket.addLifecycleRule({
+      noncurrentVersionExpiration: cdk.Duration.days(30),
     });
     this.piSessionsBucket = piSessionsBucket;
 
