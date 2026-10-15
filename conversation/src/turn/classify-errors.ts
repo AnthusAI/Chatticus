@@ -3,6 +3,10 @@ import { redactSecrets } from "./tool-event-fields.ts";
 /** The member-readable reason for a provider that refused the request for want of credits. */
 export const OUT_OF_QUOTA_REASON = "The model provider refused the request: the account is out of credits or over its quota.";
 
+/** The member-readable reason for a call the model gateway refused because the organization reached its monthly model spend ceiling. */
+export const MODEL_SPEND_CEILING_REASON =
+	"The organization has reached its monthly model spend ceiling, so no more model calls are made until next month.";
+
 /** The member-readable reason for a rejected API key. */
 export const REJECTED_KEY_REASON = "The model provider rejected the API key.";
 
@@ -55,6 +59,7 @@ export function classifyModelFailure(detail: unknown): string {
 	const text = typeof detail === "string" ? detail : JSON.stringify(detail ?? "");
 	const { status, code } = parseProviderFailure(text);
 	if (OUT_OF_QUOTA_MARKER.test(text)) return OUT_OF_QUOTA_REASON;
+	if (code === "model_spend_ceiling_reached") return MODEL_SPEND_CEILING_REASON;
 	if (status === 401 || code === "invalid_api_key") return REJECTED_KEY_REASON;
 	if (code === "model_access_denied" || (status === 403 && code !== null)) return ACCESS_DENIED_REASON;
 	if (code === "unsupported_value" || code === "invalid_request_error" || ((status === 400 || status === 404) && code !== null)) {

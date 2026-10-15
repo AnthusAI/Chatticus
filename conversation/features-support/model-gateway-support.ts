@@ -1,5 +1,7 @@
+import { Decimal } from "../src/budget/decimal.ts";
 import type { GatewayLogEvent, ModelGatewayDependencies } from "../src/gateway/model-gateway.ts";
 import { DynamoGatewayObservationSink } from "../src/ledger/gateway-observation.ts";
+import { DEFAULT_MONTHLY_MODEL_SPEND_CEILING_USD, DynamoModelSpendReader } from "../src/ledger/model-spend.ts";
 import { startFakeResponsesVendor, type FakeResponsesVendor } from "./fakes/fake-responses-vendor.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -19,6 +21,8 @@ export type GatewayScenario = {
 	lastToken: string;
 	/** Tokens minted for named turns, by label. */
 	readonly tokens: Map<string, string>;
+	/** Whether the gateway's read of the organization's model spend fails. */
+	spendReadFails: boolean;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, GatewayScenario>();
@@ -27,7 +31,7 @@ const scenarios = new WeakMap<ChatticusWorld, GatewayScenario>();
 export function gatewayScenarioOf(world: ChatticusWorld): GatewayScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { vendor: null, logEvents: [], consoleLines: [], lastResponse: null, lastBody: "", lastToken: "", tokens: new Map() };
+		scenario = { vendor: null, logEvents: [], consoleLines: [], lastResponse: null, lastBody: "", lastToken: "", tokens: new Map(), spendReadFails: false };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -65,5 +69,15 @@ export function modelGatewayFor(world: ChatticusWorld): ModelGatewayDependencies
 			scenario.consoleLines.push(JSON.stringify(event));
 		},
 		observations: new DynamoGatewayObservationSink({ client: world.messagingTable.client, tableName: world.messagingTable.tableName }),
+		modelSpend: {
+			monthToDateUsd: async (tenantId, now) => {
+				if (scenario.spendReadFails) throw new Error("the cost index could not be read");
+				return new DynamoModelSpendReader({ client: world.messagingTable.client, tableName: world.messagingTable.tableName }).monthToDateUsd(
+					tenantId,
+					now,
+				);
+			},
+		},
+		monthlyModelSpendCeilingUsd: Decimal.parse(DEFAULT_MONTHLY_MODEL_SPEND_CEILING_USD),
 	};
 }

@@ -30,6 +30,7 @@ import { DynamoPolicyStore } from "../store/policy-store.ts";
 import { DynamoTurnAdmission } from "../store/turn-admission-store.ts";
 import { DynamoTurnControlStore } from "../store/turn-store.ts";
 import { DynamoGatewayObservationSink } from "../ledger/gateway-observation.ts";
+import { DynamoModelSpendReader, monthlyModelSpendCeilingUsdFrom } from "../ledger/model-spend.ts";
 import { createOpenAiModels } from "../turn/openai-models.ts";
 import { SqsComputerStartQueue, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 import { ModelUserUnderstanding } from "../voice/understanding.ts";
@@ -213,6 +214,8 @@ export async function composeFrontDoorApp(
 					},
 					log: (event) => console.log(JSON.stringify({ component: "model-gateway", ...event })),
 					observations: new DynamoGatewayObservationSink({ client, tableName: messagingTableName }),
+					modelSpend: new DynamoModelSpendReader({ client, tableName: messagingTableName }),
+					monthlyModelSpendCeilingUsd: monthlyModelSpendCeilingUsdFrom(environment),
 				};
 	const snapshotBucket = environment[SNAPSHOT_BUCKET_VARIABLE] ?? "";
 	return createApp({

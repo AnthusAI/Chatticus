@@ -32,6 +32,7 @@ Feature: A failed model call ends the turn honestly
       | 401    | invalid_api_key     | The model provider rejected the API key.                                                 |
       | 403    | model_access_denied | The model provider denied access to the configured model.                                |
       | 400    | unsupported_value   | The model provider rejected the request as invalid.                                      |
+      | 403    | model_spend_ceiling_reached | The organization has reached its monthly model spend ceiling, so no more model calls are made until next month. |
 
   Scenario Outline: A temporary provider error is retried inside the turn and then fails it
     Given the model provider answers every request with status <status> and error code "<code>"
