@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { DELEGATIONS } from "../lib/dns-delegations";
+import { MARKETING_SES_AND_CERTIFICATE_RECORDS } from "../lib/dns-marketing-records";
 import { DEDICATED_ACCOUNT_HOSTNAMES } from "../lib/environments";
 import {
   CLOUDFRONT_ALIAS_HOSTED_ZONE_ID,
@@ -173,5 +174,38 @@ describe("the committed delegations", () => {
       delegations: DELEGATIONS,
     });
     Template.fromStack(stack).resourceCountIs("AWS::Route53::RecordSet", 5 + DELEGATIONS.length);
+  });
+});
+
+describe("the marketing SES and certificate records", () => {
+  const app = new cdk.App();
+  const stack = new ManagementDnsStack(app, "ChatticusManagementDns", {
+    env: { account: "333333333333", region: "us-east-1" },
+    records: [...loadZoneRecords(EXAMPLE_EXPORT), ...MARKETING_SES_AND_CERTIFICATE_RECORDS],
+  });
+  const template = Template.fromStack(stack);
+
+  it("add three DKIM CNAMEs pointing at SES", () => {
+    const dkim = MARKETING_SES_AND_CERTIFICATE_RECORDS.filter((record) => record.Name.includes("._domainkey."));
+    assert.equal(dkim.length, 3);
+    for (const record of dkim) {
+      assert.match(record.ResourceRecords?.[0].Value ?? "", /^[a-z0-9]{32}\.dkim\.amazonses\.com$/);
+      template.hasResourceProperties("AWS::Route53::RecordSet", { Name: record.Name, Type: "CNAME" });
+    }
+  });
+
+  it("add a monitoring-only DMARC policy as an unquoted TXT value CDK quotes itself", () => {
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "_dmarc.chattic.us.",
+      Type: "TXT",
+      ResourceRecords: ['"v=DMARC1; p=none; rua=mailto:dmarc@chattic.us"'],
+    });
+  });
+
+  it("add the two ACM validation CNAMEs and nothing that routes traffic", () => {
+    const validation = MARKETING_SES_AND_CERTIFICATE_RECORDS.filter((record) => record.Name.includes("_28652e") || record.Name.includes("_08c4e1"));
+    assert.equal(validation.length, 2);
+    assert.equal(MARKETING_SES_AND_CERTIFICATE_RECORDS.filter((record) => record.AliasTarget).length, 0);
+    template.resourceCountIs("AWS::Route53::RecordSet", 5 + MARKETING_SES_AND_CERTIFICATE_RECORDS.length);
   });
 });
