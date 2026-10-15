@@ -1,3 +1,10 @@
+## [0.46.0](https://github.com/AnthusAI/Chatticus/compare/v0.45.0...v0.46.0) (2026-10-15)
+
+### Features
+
+* organizations created in the app are enabled and hosted in the deployment account ([#580](https://github.com/AnthusAI/Chatticus/issues/580)) ([6eaba7e](https://github.com/AnthusAI/Chatticus/commit/6eaba7e2637f2f6a73868d6f9b3e57c62f374c84))
+* staging and production signup is invitation_only until the owner opens it ([#581](https://github.com/AnthusAI/Chatticus/issues/581)) ([4108aff](https://github.com/AnthusAI/Chatticus/commit/4108affa7e42cca7a04d0e88bb07cf53cf39eb91))
+
 ## [0.45.0](https://github.com/AnthusAI/Chatticus/compare/v0.44.0...v0.45.0) (2026-10-15)
 
 ### Features
