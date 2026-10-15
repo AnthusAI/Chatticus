@@ -9,8 +9,12 @@ import { EnvironmentZonesStack } from "./environment-zones-stack";
 import {
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
+  COMPUTERS_STACK_IDS,
   CONTROL_PLANE_STACK_IDS,
   DEDICATED_ACCOUNT_HOSTNAMES,
+  ENVIRONMENT_CERTIFICATES_STACK_IDS,
+  ENVIRONMENT_ZONES_STACK_IDS,
+  SNAPSHOT_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
   type ChatticusCloudEnvironment,
@@ -19,9 +23,6 @@ import { SnapshotStack } from "./snapshot-stack";
 import { ControlPlaneStack } from "./control-plane-stack";
 import { ThinTurnStack } from "./thin-turn-stack";
 import { WebStack } from "./web-stack";
-
-export const ENVIRONMENT_ZONES_STACK_ID = "ChatticusEnvironmentZones";
-export const ENVIRONMENT_CERTIFICATES_STACK_ID = "ChatticusEnvironmentCertificates";
 
 export interface DedicatedAccountProps {
   env: cdk.Environment;
@@ -44,10 +45,16 @@ export function readDedicatedEnvironment(app: cdk.App): ChatticusCloudEnvironmen
 }
 
 /**
- * The stacks of ONE environment in its own dedicated account: that environment's
- * thin-turn, web and auth stacks, its own copies of the shared stacks, and its
- * own delegated zones and certificates. The legacy three-environment account is
- * built by the default path in bin/chatticus.ts and is unchanged.
+ * The stacks of ONE environment: that environment's thin-turn, control-plane, web
+ * and auth stacks, its own snapshots, computers, delegated zones and
+ * certificates. Every one of them has an id that names the environment
+ * (development keeps the unsuffixed ids it has always had), so staging and
+ * production can both be deployed into the one account that holds them without a
+ * stack, repository, task definition family or role colliding. The budget stack
+ * is account-level: its id is the same for every environment, so an account that
+ * holds two environments has exactly one copy of it. The legacy
+ * three-environment account is built by the default path in bin/chatticus.ts and
+ * is unchanged.
  */
 export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccountProps): void {
   const { env, environmentName, budgetsConfig } = props;
@@ -63,23 +70,24 @@ export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccoun
     : undefined;
   const budgetsAlertsTopicArn = budgetsStack?.alertsTopic.topicArn;
 
-  const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
+  const snapshots = new SnapshotStack(app, SNAPSHOT_STACK_IDS[environmentName], {
     env,
     description: "Canonical S3 store for Chatticus computer snapshots.",
   });
-  new ComputerStack(app, "ChatticusComputers", {
+  new ComputerStack(app, COMPUTERS_STACK_IDS[environmentName], {
     env,
+    chatticusEnvironment: environmentName,
     description: "ECS cluster, ECR, and Fargate task definition for computer hosts.",
     snapshotBucket: snapshots.bucket,
   });
 
-  const zones = new EnvironmentZonesStack(app, ENVIRONMENT_ZONES_STACK_ID, {
+  const zones = new EnvironmentZonesStack(app, ENVIRONMENT_ZONES_STACK_IDS[environmentName], {
     env,
     siteDomain: hostnames.siteDomain,
     authDomain: hostnames.authDomain,
     description: `Delegated Route 53 zones for the ${environmentName} environment's names.`,
   });
-  const certificates = new EnvironmentCertificatesStack(app, ENVIRONMENT_CERTIFICATES_STACK_ID, {
+  const certificates = new EnvironmentCertificatesStack(app, ENVIRONMENT_CERTIFICATES_STACK_IDS[environmentName], {
     env,
     siteDomain: hostnames.siteDomain,
     authDomain: hostnames.authDomain,

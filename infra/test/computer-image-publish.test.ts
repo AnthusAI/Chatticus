@@ -7,7 +7,7 @@ import {
   AccountGitHubDeployStack,
   COMPUTER_IMAGE_PUSH_ACTIONS,
 } from "../lib/account-github-deploy-stack";
-import { COMPUTER_REPOSITORY_NAME_PREFIX, ComputerStack } from "../lib/computer-stack";
+import { computerRepositoryNamePrefix, ComputerStack } from "../lib/computer-stack";
 
 const ENV = { account: "222222222222", region: "us-east-1" };
 
@@ -98,12 +98,13 @@ describe("computer repository name prefix", () => {
     const support = new cdk.Stack(app, "Support", { env: ENV });
     const stack = new ComputerStack(app, "ChatticusComputers", {
       env: ENV,
+      chatticusEnvironment: "development",
       snapshotBucket: new s3.Bucket(support, "Snapshots"),
     });
     const repositories = Template.fromStack(stack).findResources("AWS::ECR::Repository");
     const logicalIds = Object.keys(repositories);
     assert.equal(logicalIds.length, 1);
-    assert.ok(`${stack.stackName}-${logicalIds[0]}`.toLowerCase().startsWith(COMPUTER_REPOSITORY_NAME_PREFIX));
+    assert.ok(`${stack.stackName}-${logicalIds[0]}`.toLowerCase().startsWith(computerRepositoryNamePrefix("development")));
     assert.equal(
       (repositories[logicalIds[0]].Properties as { RepositoryName?: string }).RepositoryName,
       undefined,

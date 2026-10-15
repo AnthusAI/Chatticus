@@ -6,24 +6,37 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import { COMPUTER_IMAGE_TAGS, COMPUTERS_STACK_IDS, type ChatticusCloudEnvironment } from "./environments";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
-/** Task definition family of the Pi session owner task. */
-export const OWNER_TASK_DEFINITION_FAMILY = "ChatticusComputerOwner";
+/**
+ * Task definition family of the Pi session owner task of one environment. A
+ * family is an account-wide name, so staging and production, which share an
+ * account, each get their own. Development keeps the name it has always had.
+ */
+export function ownerTaskDefinitionFamily(environment: ChatticusCloudEnvironment): string {
+  const suffix = environment === "development" ? "" : environment === "staging" ? "Staging" : "Production";
+  return `ChatticusComputerOwner${suffix}`;
+}
 
 /**
  * CloudFormation names the computer ECR repository
  * `<stack name>-<logical id><hash>-<suffix>` in lower case. The deploy role
  * that pushes the image cannot know the full name before the stack exists, so
- * it is scoped to this prefix inside its own account. A test pins the prefix to
- * the synthesized logical id.
+ * it is scoped to this prefix inside its own account. Each environment's prefix
+ * starts with its own Computers stack name, so one environment's prefix never
+ * matches another's repository. A test pins the prefix to the synthesized
+ * logical id.
  */
-export const COMPUTER_REPOSITORY_NAME_PREFIX = "chatticuscomputers-computerimage";
+export function computerRepositoryNamePrefix(environment: ChatticusCloudEnvironment): string {
+  return `${COMPUTERS_STACK_IDS[environment].toLowerCase()}-computerimage`;
+}
 
 /** Seconds ECS waits after SIGTERM before it kills the owner container: room for the supervisor to stop its child, publish the final snapshot and report stopped. */
 export const OWNER_CONTAINER_STOP_TIMEOUT_SECONDS = 90;
 
 export interface ComputerStackProps extends cdk.StackProps {
+  chatticusEnvironment: ChatticusCloudEnvironment;
   snapshotBucket: s3.IBucket;
 }
 
@@ -95,7 +108,7 @@ export class ComputerStack extends cdk.Stack {
       this,
       "ComputerOwnerTask",
       {
-        family: OWNER_TASK_DEFINITION_FAMILY,
+        family: ownerTaskDefinitionFamily(props.chatticusEnvironment),
         cpu: 256,
         memoryLimitMiB: 512,
         taskRole: ownerTaskRole,
@@ -106,7 +119,10 @@ export class ComputerStack extends cdk.Stack {
       },
     );
     ownerTaskDefinition.addContainer("computer", {
-      image: ecs.ContainerImage.fromEcrRepository(repository, "dev"),
+      image: ecs.ContainerImage.fromEcrRepository(
+        repository,
+        COMPUTER_IMAGE_TAGS[props.chatticusEnvironment],
+      ),
       logging: ecs.LogDrivers.awsLogs({
         logGroup,
         streamPrefix: "computer-owner",

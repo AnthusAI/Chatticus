@@ -5,7 +5,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
-import { ComputerStack, OWNER_TASK_DEFINITION_FAMILY } from "../lib/computer-stack";
+import { ComputerStack, ownerTaskDefinitionFamily } from "../lib/computer-stack";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
 import { ChatticusCloudEnvironment } from "../lib/environments";
 import { OWNER_ROLE_POLICY_FILE, SUPERVISOR_ROLE_POLICY_FILE } from "../lib/owner-role-policy";
@@ -22,7 +22,7 @@ const HOST_CONTEXT: Record<string, string> = {
 
 const OWNER_CONTEXT: Record<string, string> = {
   ...HOST_CONTEXT,
-  computerOwnerTaskDefinition: `arn:aws:ecs:us-east-1:111111111111:task-definition/${OWNER_TASK_DEFINITION_FAMILY}:3`,
+  computerOwnerTaskDefinition: `arn:aws:ecs:us-east-1:111111111111:task-definition/${ownerTaskDefinitionFamily("development")}:3`,
   computerOwnerTaskRoleArn: "arn:aws:iam::111111111111:role/owner-task",
   computerOwnerExecutionRoleArn: "arn:aws:iam::111111111111:role/owner-execution",
   computerSnapshotBucketName: "chatticus-snapshots-bucket",
@@ -32,7 +32,7 @@ function synthComputers(): Template {
   const app = new cdk.App();
   const support = new cdk.Stack(app, "Support", { env: ENV });
   const snapshotBucket = new s3.Bucket(support, "Snapshots");
-  return Template.fromStack(new ComputerStack(app, "Computers", { env: ENV, snapshotBucket }));
+  return Template.fromStack(new ComputerStack(app, "Computers", { env: ENV, chatticusEnvironment: "development", snapshotBucket }));
 }
 
 function synthControlPlane(
@@ -117,7 +117,7 @@ describe("ChatticusComputers owner task definition", () => {
   it("defines exactly one task definition, the owner, at 256 CPU and 512 MiB on ARM64 with the owner task role", () => {
     assert.equal(definitions.length, 1);
     const owner = definitions[0]!;
-    assert.equal(owner.Properties.Family, OWNER_TASK_DEFINITION_FAMILY);
+    assert.equal(owner.Properties.Family, ownerTaskDefinitionFamily("development"));
     assert.deepEqual(owner.Properties.TaskRoleArn, { "Fn::GetAtt": [ownerRoleId, "Arn"] });
     assert.equal(owner.Properties.Cpu, "256");
     assert.equal(owner.Properties.Memory, "512");
@@ -411,12 +411,12 @@ describe("ControlPlane credential broker and owner roles", () => {
     const run = starterStatements.filter(
       (statement) =>
         actionsOf(statement).includes("ecs:RunTask") &&
-        JSON.stringify(statement.Resource).includes(OWNER_TASK_DEFINITION_FAMILY),
+        JSON.stringify(statement.Resource).includes(ownerTaskDefinitionFamily("development")),
     );
     assert.equal(run.length, 1);
     assert.equal(
       run[0]!.Resource,
-      `arn:aws:ecs:us-east-1:111111111111:task-definition/${OWNER_TASK_DEFINITION_FAMILY}:*`,
+      `arn:aws:ecs:us-east-1:111111111111:task-definition/${ownerTaskDefinitionFamily("development")}:*`,
     );
     const pass = starterStatements.filter(
       (statement) =>

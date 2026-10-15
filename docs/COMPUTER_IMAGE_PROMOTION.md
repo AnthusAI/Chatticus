@@ -22,6 +22,16 @@ computer start, so moving it is the production-relevant step of an image rollout
 The build never moves `dev`. `computer/push-computer-image.sh` (break-glass) pushes a `manual-<utc time>` tag and never
 `dev` either.
 
+## Per-environment tags
+
+Each environment has its own Computers stack and therefore its own ECR repository, so a tag never crosses
+environments. The owner task definition runs the moving tag `dev` in development (`ChatticusComputers`), `staging` in
+staging (`ChatticusComputersStaging`) and `production` in production (`ChatticusComputersProduction`); staging and
+production share one AWS account but not a repository. The tag name comes from `COMPUTER_IMAGE_TAGS` in
+`infra/lib/environments.ts`. Only the development build and promote workflows exist today. A promote workflow for staging
+and production (retag `sha-<commit>` after that environment's server side is verified, with the same rollback) is a
+follow-up; until it exists those repositories have no image and nothing in staging or production starts an owner task.
+
 ## Promoting
 
 1. Merge to `develop`. The build pushes `sha-<commit>`; the ControlPlane and ThinTurn deploys run for the same commit.

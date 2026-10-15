@@ -4,7 +4,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
-import { ChatticusCloudEnvironment } from "./environments";
+import { COMPUTER_IMAGE_TAGS, COMPUTERS_STACK_IDS, ChatticusCloudEnvironment } from "./environments";
 import {
   OWNER_SESSION_TAG_KEYS,
   SUPERVISOR_SESSION_TAG_KEYS,
@@ -54,6 +54,7 @@ function contextCsv(scope: Construct, key: string): string[] {
 function computerRepositoryArn(
   scope: Construct,
   repositoryUri: string,
+  environmentName: ChatticusCloudEnvironment,
 ): { repositoryName: string; repositoryArn: string; imageUri: string } {
   const region =
     cdk.Stack.of(scope).region ||
@@ -68,12 +69,13 @@ function computerRepositoryArn(
   return {
     repositoryName,
     repositoryArn: `arn:aws:ecr:${region}:${account}:repository/${repositoryName}`,
-    imageUri: `${repositoryUri}:dev`,
+    imageUri: `${repositoryUri}:${COMPUTER_IMAGE_TAGS[environmentName]}`,
   };
 }
 
 function configFromContext(
   scope: Construct,
+  environmentName: ChatticusCloudEnvironment,
 ): ComputerHostStartEcsConfig | undefined {
   const cluster = contextString(scope, "computerEcsCluster");
   const subnets = contextCsv(scope, "computerEcsSubnets");
@@ -81,7 +83,7 @@ function configFromContext(
   if (!cluster || subnets.length === 0 || !repositoryUri) {
     return undefined;
   }
-  const repository = computerRepositoryArn(scope, repositoryUri);
+  const repository = computerRepositoryArn(scope, repositoryUri, environmentName);
   return {
     cluster,
     subnets,
@@ -102,8 +104,11 @@ function awsJson(args: string[]): unknown {
   return JSON.parse(raw);
 }
 
-/** The outputs of the live ChatticusComputers stack, by output key. Throws when the stack cannot be described. */
-function computersStackOutputs(scope: Construct): Record<string, string> {
+/** The outputs of the live Computers stack of one environment, by output key. Throws when the stack cannot be described. */
+function computersStackOutputs(
+  scope: Construct,
+  environmentName: ChatticusCloudEnvironment,
+): Record<string, string> {
   const region =
     cdk.Stack.of(scope).region ||
     process.env.AWS_DEFAULT_REGION ||
@@ -113,7 +118,7 @@ function computersStackOutputs(scope: Construct): Record<string, string> {
     "cloudformation",
     "describe-stacks",
     "--stack-name",
-    "ChatticusComputers",
+    COMPUTERS_STACK_IDS[environmentName],
     "--region",
     region,
     "--output",
@@ -139,9 +144,10 @@ function computersStackOutputs(scope: Construct): Record<string, string> {
  */
 function lookupComputersHostStart(
   scope: Construct,
+  environmentName: ChatticusCloudEnvironment,
 ): ComputerHostStartEcsConfig | undefined {
   try {
-    const outputs = computersStackOutputs(scope);
+    const outputs = computersStackOutputs(scope, environmentName);
     const cluster = outputs.ComputerClusterName;
     const repositoryUri = outputs.ComputerRepositoryUri;
     const subnets = (outputs.ComputerSubnetIds || "")
@@ -152,7 +158,7 @@ function lookupComputersHostStart(
     if (!cluster || !repositoryUri || subnets.length === 0 || !securityGroupId) {
       return undefined;
     }
-    const repository = computerRepositoryArn(scope, repositoryUri);
+    const repository = computerRepositoryArn(scope, repositoryUri, environmentName);
     return {
       cluster,
       subnets,
@@ -184,7 +190,7 @@ export function computerHostStartEcsConfig(
   if (contextString(scope, "computerHostStart") === "noop") {
     return undefined;
   }
-  return configFromContext(scope) || lookupComputersHostStart(scope);
+  return configFromContext(scope, environmentName) || lookupComputersHostStart(scope, environmentName);
 }
 
 /**
@@ -246,9 +252,10 @@ function ownerConfigFromContext(
 
 function lookupComputersOwnerStart(
   scope: Construct,
+  environmentName: ChatticusCloudEnvironment,
 ): ComputerOwnerStartConfig | undefined {
   try {
-    const outputs = computersStackOutputs(scope);
+    const outputs = computersStackOutputs(scope, environmentName);
     const taskDefinition = outputs.ComputerOwnerTaskDefinitionArn;
     const taskRoleArn = outputs.ComputerOwnerTaskRoleArn;
     const executionRoleArn = outputs.ComputerOwnerExecutionRoleArn;
@@ -280,7 +287,7 @@ export function computerOwnerStartConfig(
   if (contextString(scope, "computerHostStart") === "noop") {
     return undefined;
   }
-  return ownerConfigFromContext(scope) || lookupComputersOwnerStart(scope);
+  return ownerConfigFromContext(scope) || lookupComputersOwnerStart(scope, environmentName);
 }
 
 /** The control-plane resources the scoped owner role may touch. */

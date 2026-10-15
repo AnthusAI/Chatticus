@@ -4,15 +4,19 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { ACCOUNT_DEPLOY_ROLE_NAME, AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
-import { CHATTICUS_CLOUD_ENVIRONMENTS } from "../lib/environments";
+import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
+import {
+  ACCOUNT_DEPLOY_ROLE_NAMES,
+  ACCOUNT_DEPLOY_STACK_IDS,
+  CHATTICUS_CLOUD_ENVIRONMENTS,
+} from "../lib/environments";
 import { federatedPrincipalConditions, roleAssumeRolePolicy } from "./github-deploy-stack-harness";
 
 const GITHUB_SUB_PREFIX = "repo:*@152415604/*@1350947261";
 
 function synth(environment: (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number]): Template {
   const app = new cdk.App();
-  const stack = new AccountGitHubDeployStack(app, "ChatticusAccountDeploy", {
+  const stack = new AccountGitHubDeployStack(app, ACCOUNT_DEPLOY_STACK_IDS[environment], {
     env: { account: "222222222222", region: "us-east-1" },
     githubEnvironment: environment,
   });
@@ -24,21 +28,30 @@ describe("AccountGitHubDeployStack", () => {
     describe(environment, () => {
       const template = synth(environment);
 
-      it("creates the GitHub OIDC provider, since a new account has none", () => {
-        template.resourceCountIs("AWS::IAM::OIDCProvider", 1);
-        template.hasResourceProperties("AWS::IAM::OIDCProvider", {
-          Url: "https://token.actions.githubusercontent.com",
-          ClientIdList: ["sts.amazonaws.com"],
+      if (environment === "development") {
+        it("creates the GitHub OIDC provider, since its account has none", () => {
+          template.resourceCountIs("AWS::IAM::OIDCProvider", 1);
+          template.hasResourceProperties("AWS::IAM::OIDCProvider", {
+            Url: "https://token.actions.githubusercontent.com",
+            ClientIdList: ["sts.amazonaws.com"],
+          });
         });
-      });
+      } else {
+        it("imports the account's one GitHub OIDC provider instead of creating a second", () => {
+          template.resourceCountIs("AWS::IAM::OIDCProvider", 0);
+          const policy = roleAssumeRolePolicy(template, ACCOUNT_DEPLOY_ROLE_NAMES[environment]);
+          const federated = (policy.Statement as Array<{ Principal: { Federated: unknown } }>)[0].Principal.Federated;
+          assert.match(JSON.stringify(federated), /oidc-provider\/token\.actions\.githubusercontent\.com/);
+        });
+      }
 
       it("creates exactly one deploy role, not one per environment", () => {
         template.resourceCountIs("AWS::IAM::Role", 1);
-        template.hasResourceProperties("AWS::IAM::Role", { RoleName: ACCOUNT_DEPLOY_ROLE_NAME });
+        template.hasResourceProperties("AWS::IAM::Role", { RoleName: ACCOUNT_DEPLOY_ROLE_NAMES[environment] });
       });
 
       it("trusts only this environment's sub claim, pinned to the repository ids", () => {
-        const condition = federatedPrincipalConditions(roleAssumeRolePolicy(template, ACCOUNT_DEPLOY_ROLE_NAME));
+        const condition = federatedPrincipalConditions(roleAssumeRolePolicy(template, ACCOUNT_DEPLOY_ROLE_NAMES[environment]));
         const audience = (condition.StringEquals as Record<string, string>)["token.actions.githubusercontent.com:aud"];
         const subject = (condition.StringLike as Record<string, string>)["token.actions.githubusercontent.com:sub"];
         assert.equal(audience, "sts.amazonaws.com");
@@ -48,8 +61,8 @@ describe("AccountGitHubDeployStack", () => {
         }
       });
 
-      it("federates through the provider it creates in this account", () => {
-        const policy = roleAssumeRolePolicy(template, ACCOUNT_DEPLOY_ROLE_NAME);
+      it("federates through the provider of this account", { skip: environment !== "development" }, () => {
+        const policy = roleAssumeRolePolicy(template, ACCOUNT_DEPLOY_ROLE_NAMES[environment]);
         const statement = (policy.Statement as Array<{ Principal: { Federated: { Ref: string } } }>)[0];
         const providerIds = Object.keys(template.findResources("AWS::IAM::OIDCProvider"));
         assert.deepEqual(statement.Principal.Federated, { Ref: providerIds[0] });

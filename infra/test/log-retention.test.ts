@@ -21,6 +21,7 @@ function synthComputerStack(): Template {
   const snapshots = new SnapshotStack(app, "TestSnapshots", { env: testEnv });
   const stack = new ComputerStack(app, "TestComputers", {
     env: testEnv,
+    chatticusEnvironment: "development",
     snapshotBucket: snapshots.bucket,
   });
   return Template.fromStack(stack);

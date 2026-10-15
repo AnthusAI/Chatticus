@@ -273,8 +273,13 @@ are `workflow_dispatch` only: a push or merge to `main` never deploys
 anything. A structural test in `infra/test/deploy-workflows.test.ts` fails if
 a workflow bound to the `staging` or `production` GitHub environment regains
 a push, pull_request, schedule or workflow_run trigger. Every environment
-deploys through `infra/deploy-chatticus-dedicated-account.sh ENV STACK` into
-that environment's own AWS account; the script refuses the legacy account.
+deploys through `infra/deploy-chatticus-dedicated-account.sh ENV STACK`; the
+script refuses the legacy account. Development has an AWS account of its own.
+Staging and production are separate environments that share one AWS account
+(the production account, `us-east-1`): there is no separate staging account.
+Every stack of theirs except `ChatticusBudgets` carries the environment in its
+id (`ChatticusSnapshotsStaging`, `ChatticusComputersProduction`, and so on), so
+the two never collide. See `docs/PROMOTE_TO_MAIN.md` section 11.
 
 The GitHub `staging` and `production` environments require a reviewer, and
 branch protection on `main` requires a PR, review and green CI. These are
@@ -320,12 +325,18 @@ The integration-test principal (`CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN`)
 is enabled in development and staging, where acceptance runs need it, and never
 in production: the script refuses it there and no production workflow passes it.
 
-Shared stacks `ChatticusSnapshots` and `ChatticusComputers` are not
-per-environment. Never `cdk deploy --all`. Never destroy those two
-stacks.
+Snapshots, Computers, zones and certificates are per environment:
+development keeps `ChatticusSnapshots`, `ChatticusComputers`,
+`ChatticusEnvironmentZones` and `ChatticusEnvironmentCertificates`; staging and
+production have the `Staging` and `Production` suffixed copies in their shared
+account. Only `ChatticusBudgets` and the GitHub OIDC provider stack are
+account-level, one copy each. Never `cdk deploy --all`. Never destroy the
+snapshots or computers stacks of any environment.
 
 **The computer image tag flips only after the server side is verified.** The
-`ChatticusComputers` owner task definition runs the ECR tag `dev`. The build
+`ChatticusComputers` owner task definition runs the ECR tag `dev` (staging runs
+`staging` and production `production` in their own repositories; their promote
+workflows are not built yet). The build
 workflow (`build-computer-image-development.yml`) pushes only the immutable
 `sha-<commit>` tag and never moves `dev`. `dev` moves only through the
 `promote-computer-image-development.yml` workflow (`workflow_dispatch`, input
