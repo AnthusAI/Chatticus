@@ -202,7 +202,7 @@ describe("the marketing SES and certificate records", () => {
     template.hasResourceProperties("AWS::Route53::RecordSet", {
       Name: "_dmarc.chattic.us.",
       Type: "TXT",
-      ResourceRecords: ['"v=DMARC1; p=none; rua=mailto:dmarc@chattic.us"'],
+      ResourceRecords: ['"v=DMARC1; p=none"'],
     });
   });
 
