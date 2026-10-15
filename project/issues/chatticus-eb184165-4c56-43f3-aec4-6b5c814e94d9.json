@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-eb184165-4c56-43f3-aec4-6b5c814e94d9",
+  "title": "Flaky 20 s step timeouts in CI cucumber: shared_channels.feature:33 and computer_action_handoff.feature:135",
+  "description": "Both time out at the 20 s step limit under load (parallel 4), pass alone. Find what makes them slow or hang and fix it rather than rerunning.",
+  "type": "bug",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "307fe169-4a28-47fd-b78c-4b333091c323",
+      "author": "home",
+      "text": "Fixed as far as step headroom goes in PR 480 (long steps split, test timers lengthened). Scenario totals unchanged (about 15 s and 9 s). Follow-up: cut the roughly 135 DynamoDB/S3 round trips per park/resume cycle (pi-durable context scans, guard commit).",
+      "created_at": "2026-10-08T02:25:44.228495Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    },
+    {
+      "id": "25b937eb-4fbd-42b5-bdd2-26be8123baa9",
+      "author": "home",
+      "text": "Seen again 2026-10-14 on the PR 545 merge commit CI: channel_mailbox_and_log.feature:35 failed with 'SyntaxError: Unexpected token <, <!doctype ... is not valid JSON' at the step 'an owner holds the session of bot ada in channel general' (moto returned an HTML error page to the DynamoDB client under load); 1654 of 1655 scenarios passed and the rerun of the failed job is the remedy. Same family as the thin_task_http.feature:33 moto HTML error. Likely fix: a bounded retry/health wait in the moto test harness client, or a lower cucumber parallelism in CI.",
+      "created_at": "2026-10-14T02:02:12.676740Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
+    }
+  ],
+  "created_at": "2026-10-08T00:47:42.027497Z",
+  "updated_at": "2026-10-14T02:02:12.676776Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "CI still sees flaky moto failures under parallel load, including timeouts and HTML responses from DynamoDB.",
+  "right_now_updated_at": "2026-10-14T02:02:14.314724Z",
+  "custom": {}
+}

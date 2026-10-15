@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-450ad728-fec4-4017-a561-8c79c04af468",
+  "title": "Session policy headroom: 30 characters under the 2048 STS limit",
+  "description": "buildOwnerSessionPolicy packs to 2018 characters for the long-id fixture; each extra tenant id character costs about 7. Before more tenants or longer ids, shorten: one LeadingKeys list, fewer repeated statements, or use a role per computer for the static part. Guard: the existing size scenario with a realistic longest tenant id.",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "ad7d3a1c-bcb9-4b2c-a24d-04eabf38bdc8",
+      "author": "home",
+      "text": "Triage 2026-10-14: closing as obsolete. buildOwnerSessionPolicy no longer exists on origin/develop (no match in conversation/, infra/ or features/). The credential broker (conversation/src/lambdas/owner-credential-broker.ts, PR 517 and 518) assumes ComputerOwnerScopedRole with session tags and NO session policy; features/owner_credential_broker.feature asserts 'the broker's assume-role call carries no session policy'. The permissions are a static policy file conversation/src/gateway/owner-role-policy.json written with IAM tag variables (docs/PI_SESSION_HANDOFF.md says the 2048 character session policy limit no longer applies). features/owner_role_policy.feature and supervisor_role_policy.feature judge the static policies.",
+      "created_at": "2026-10-14T03:08:55.979620Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-09T17:01:14.338919Z",
+  "updated_at": "2026-10-14T03:09:48.383558Z",
+  "closed_at": "2026-10-14T03:09:48.383523Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The session policy was removed and replaced with a static tagged role policy, so the 2048-character limit no longer",
+  "right_now_updated_at": "2026-10-14T03:09:50.349680Z",
+  "custom": {}
+}

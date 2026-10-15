@@ -1,0 +1,92 @@
+name: Build computer image (development)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - "computer/**"
+      - "conversation/**"
+      - "host-protocol/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-computer-image-development.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: build-computer-image-development
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-24.04-arm
+    environment: development
+    env:
+      LOCAL_IMAGE: chatticus-computer:ci
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the linux/arm64 computer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: computer/Dockerfile
+          platforms: linux/arm64
+          load: true
+          push: false
+          provenance: false
+          tags: ${{ env.LOCAL_IMAGE }}
+          cache-from: type=gha,scope=computer-image
+          cache-to: type=gha,scope=computer-image,mode=max
+
+      - name: Prove the toolchain and the unprivileged user are in the image
+        run: |
+          docker run --rm --platform linux/arm64 --entrypoint sh "${LOCAL_IMAGE}" -c \
+            'gcc --version | head -1; node --version; git --version; id chatticus-shell'
+
+      - name: Prove the owner program and the shell isolation in a real container
+        env:
+          CHATTICUS_OWNER_TEST_IMAGE: chatticus-computer:ci
+          CHATTICUS_OWNER_TEST_SKIP_BUILD: "1"
+        run: sh computer/test_owner_container.sh
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Push the immutable sha tag only
+        run: |
+          REPO="$(aws cloudformation describe-stacks \
+            --stack-name ChatticusComputers \
+            --region "${AWS_REGION}" \
+            --query "Stacks[0].Outputs[?OutputKey=='ComputerRepositoryUri'].OutputValue" \
+            --output text)"
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${REPO%%/*}"
+          SHA_TAG="sha-${GITHUB_SHA}"
+          docker tag "${LOCAL_IMAGE}" "${REPO}:${SHA_TAG}"
+          docker push "${REPO}:${SHA_TAG}"
+          REPO_NAME="${REPO#*/}"
+          SHA_DIGEST="$(aws ecr describe-images --region "${AWS_REGION}" \
+            --repository-name "${REPO_NAME}" --image-ids "imageTag=${SHA_TAG}" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+          {
+            echo "### Computer image pushed"
+            echo ""
+            echo "- repository: \`${REPO_NAME}\`"
+            echo "- tag: \`${SHA_TAG}\`"
+            echo "- digest: \`${SHA_DIGEST}\`"
+            echo ""
+            echo "The dev tag did not move. After the ControlPlane and ThinTurn deploys of this commit succeed, run the"
+            echo "\"Promote computer image (development)\" workflow with commit \`${GITHUB_SHA}\`."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "OK: pushed ${REPO}:${SHA_TAG} at ${SHA_DIGEST}; dev is unchanged"

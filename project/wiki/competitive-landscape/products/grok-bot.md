@@ -37,6 +37,8 @@ Individuals on Cursor Pro+ / Ultra / Teams or SuperGrok Plus/Heavy (per FAQ); Te
 
 ## Related wiki pages
 
+- [Cage and lasting memory](../cage-and-lasting-memory.md)
+
 - [Cursor Cloud Agents](cursor-cloud-agents.md)
 - [Zo Computer](zo-computer.md)
 - [Hermes Agent](hermes-agent.md)

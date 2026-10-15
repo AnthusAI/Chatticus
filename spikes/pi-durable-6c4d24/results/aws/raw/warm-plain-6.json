@@ -1,0 +1,165 @@
+{
+  "label": "warm-plain-6",
+  "payload": {
+    "action": "turn",
+    "kind": "plain"
+  },
+  "wallMs": 3050,
+  "durationMs": 2547.46,
+  "billedMs": 2548,
+  "initMs": null,
+  "maxMemoryMB": 161,
+  "body": {
+    "cold": false,
+    "invocationCount": 7,
+    "processAgeMilliseconds": 24946,
+    "ssmMilliseconds": 0,
+    "handlerMilliseconds": 2545.8,
+    "heapUsedMB": 122.9,
+    "result": {
+      "kind": "plain",
+      "status": "done",
+      "setupMilliseconds": 156.1,
+      "turnMilliseconds": 2389.1,
+      "openCalls": {
+        "byCommand": {
+          "UpdateItemCommand": {
+            "count": 1,
+            "capacityUnits": 1,
+            "errors": 0,
+            "p50": 5.5,
+            "p95": 5.5
+          },
+          "GetItemCommand": {
+            "count": 2,
+            "capacityUnits": 2,
+            "errors": 0,
+            "p50": 11.1,
+            "p95": 11.1
+          },
+          "PutItemCommand": {
+            "count": 1,
+            "capacityUnits": 1,
+            "errors": 0,
+            "p50": 5.3,
+            "p95": 5.3
+          },
+          "QueryCommand": {
+            "count": 15,
+            "capacityUnits": 15,
+            "errors": 0,
+            "p50": 4,
+            "p95": 14.2
+          },
+          "BatchGetItemCommand": {
+            "count": 1,
+            "capacityUnits": 5,
+            "errors": 0,
+            "p50": 4.3,
+            "p95": 4.3
+          },
+          "PutObjectCommand": {
+            "count": 1,
+            "capacityUnits": 0,
+            "errors": 0,
+            "p50": 29.6,
+            "p95": 29.6
+          },
+          "TransactWriteItemsCommand": {
+            "count": 1,
+            "capacityUnits": 37,
+            "errors": 0,
+            "p50": 20.4,
+            "p95": 20.4
+          }
+        },
+        "readCapacityUnits": 22,
+        "writeCapacityUnits": 39,
+        "s3Puts": 1,
+        "s3Gets": 0,
+        "s3Deletes": 0
+      },
+      "turn": {
+        "byCommand": {
+          "QueryCommand": {
+            "count": 16,
+            "capacityUnits": 16,
+            "errors": 0,
+            "p50": 4,
+            "p95": 4.7
+          },
+          "GetItemCommand": {
+            "count": 20,
+            "capacityUnits": 20,
+            "errors": 0,
+            "p50": 3.7,
+            "p95": 4.1
+          },
+          "BatchGetItemCommand": {
+            "count": 5,
+            "capacityUnits": 6,
+            "errors": 0,
+            "p50": 4.4,
+            "p95": 4.7
+          },
+          "PutObjectCommand": {
+            "count": 7,
+            "capacityUnits": 0,
+            "errors": 0,
+            "p50": 29,
+            "p95": 32.4
+          },
+          "TransactWriteItemsCommand": {
+            "count": 7,
+            "capacityUnits": 102,
+            "errors": 0,
+            "p50": 24.8,
+            "p95": 27.4
+          }
+        },
+        "readCapacityUnits": 42,
+        "writeCapacityUnits": 102,
+        "s3Puts": 7,
+        "s3Gets": 0,
+        "s3Deletes": 0
+      },
+      "commits": 8,
+      "commitMilliseconds": [
+        75.6,
+        62.3,
+        54.3,
+        56.7,
+        63,
+        63.8,
+        64,
+        67.4
+      ],
+      "commitAttempts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "meterEstimateTurn": {
+        "writeRequestUnits": 99,
+        "readRequestUnits": 42,
+        "s3Puts": 7,
+        "s3Gets": 0,
+        "dynamoRequests": 48
+      },
+      "meterEstimateTotal": {
+        "dynamoRequests": 68,
+        "writeRequestUnits": 137,
+        "readRequestUnits": 60,
+        "s3Puts": 8,
+        "s3Gets": 0,
+        "s3BytesPut": 11314,
+        "largestIndexItemBytes": 327
+      }
+    }
+  }
+}

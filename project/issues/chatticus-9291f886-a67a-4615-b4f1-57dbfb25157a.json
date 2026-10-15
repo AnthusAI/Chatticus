@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-9291f886-a67a-4615-b4f1-57dbfb25157a",
+  "title": "Document the new features in the product docs and README",
+  "description": "Keep docs/ and README 'What is live today' truthful as features land (live files, long-lived owner, cost accounting, promotion status). Done per milestone by the Kanbus and README sub-agent (AGENTS.md Milestones); this ticket tracks gaps found.\n## Acceptance\n- README matches git and AWS state; each shipped feature has a docs/ entry or link; unproven items are labelled.",
+  "type": "chore",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:39:08.830452Z",
+  "updated_at": "2026-10-13T11:39:08.830500Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "No recent activity is recorded on the documentation review.",
+  "right_now_updated_at": "2026-10-13T11:39:11.444779Z",
+  "custom": {}
+}

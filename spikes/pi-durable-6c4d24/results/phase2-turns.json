@@ -1,0 +1,71 @@
+{
+  "storageId": "tenant-1#bot-ada#channel-4fbe9fd6",
+  "turn1": {
+    "submissionId": 8,
+    "status": "done",
+    "milliseconds": 2894,
+    "answer": "Nice choice—teal is a great color.",
+    "commits": {
+      "commits": 8,
+      "rejected": [],
+      "writeKinds": {
+        "conversation": 1,
+        "document.create": 5,
+        "entry": 3,
+        "submission": 2,
+        "task": 4,
+        "document.change": 6
+      },
+      "maxTransactionItems": 13,
+      "maxTransactionBytes": 6188,
+      "totalTransactionBytes": 19512,
+      "maxItemBytes": 338,
+      "preReadsPerCommit": 2.125,
+      "commitMillisecondsP50": 47.1,
+      "commitMillisecondsP95": 85.2
+    }
+  },
+  "reopen": {
+    "milliseconds": 46,
+    "readRoundTrips": 7,
+    "commits": 0
+  },
+  "duplicateRequestId": {
+    "sameSubmission": true,
+    "originalId": 8,
+    "returnedId": 8,
+    "status": "done",
+    "commitsCausedByDuplicate": 0
+  },
+  "turn2": {
+    "status": "done",
+    "milliseconds": 2417,
+    "answer": "teal",
+    "commits": {
+      "commits": 7,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 2,
+        "submission": 2,
+        "task": 4,
+        "document.change": 6
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 5812,
+      "totalTransactionBytes": 15057,
+      "maxItemBytes": 335,
+      "preReadsPerCommit": 1.5714285714285714,
+      "commitMillisecondsP50": 33.5,
+      "commitMillisecondsP95": 57.6
+    }
+  },
+  "transcript": [
+    "#7 pi.user user: My favourite colour is teal. Reply with one short sentence.",
+    "#10 pi.system system: ",
+    "#11 pi.assistant assistant(stop): [thinking] Nice choice—teal is a great color.",
+    "#12 pi.user user: What is my favourite colour? One word.",
+    "#15 pi.assistant assistant(stop): [thinking] teal"
+  ],
+  "staleOwnerCommit": "rejected: OwnershipLost: Owner fence moved: this owner is stale",
+  "staleFenceClaim": "rejected: ConditionalCheckFailedException"
+}

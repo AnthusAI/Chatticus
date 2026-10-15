@@ -50,7 +50,11 @@ A worker advertises:
 
 - `worker_id`
 - `tenant_id`
-- capabilities: `computer`, `browser`, `terminal`, `cpu`
+- capabilities: `computer`, `browser`, `terminal`, `cpu` -- worker registration
+  advertises `terminal`; the agent tool is **`run_terminal`**, granted explicitly
+  on a human task (not the conversation preset). Host execution lives in
+  `terminal_action_executor.py`, dispatched from `HostActionExecutor` beside
+  workspace and browser executors.
 - optional `computer_id` (the workplace this process hosts)
 - cost class: `local`, `fargate`, or `ec2`
 - heartbeat timestamp
@@ -109,7 +113,7 @@ anyway has no marginal cost here.
 warm and cheapest first". Rename it before a third host type arrives.
 
 The in-memory scheduler that encodes this protocol lives in
-`python/src/chatticus/` and is specified by `features/*.feature`.
+`conversation/src/` and is specified by `features/*.feature`.
 
 ## The computer image
 
@@ -123,7 +127,10 @@ One Docker image, three hosts:
 
 The image contains Xvfb (or equivalent) virtual displays, Chromium, a shell,
 noVNC or equivalent for watch and takeover, `chatticus-worker`, and
-`chatticus-agent`. v1 AWS computers run this image on **Fargate ARM64**
+`chatticus-agent`. **The shell is present in the image.** A bot reaches it only
+through the granted **`run_terminal`** tool on the summoned host; without that
+grant the honest answer is that shell commands are unavailable. v1 AWS computers
+run this image on **Fargate ARM64**
 (same architecture as Apple Silicon Docker). Scale the Fargate service to
 0 when no host is needed. Stop/start EC2 is a later host, not the v1
 path.
@@ -137,7 +144,7 @@ detail.** The container brings up its capabilities independently and
 | Gate | Needed for |
 | --- | --- |
 | Process and network | Model calls, memory, MCP and connector tools |
-| `/workspace` hydrated | File actions |
+| `/workspace` hydrated | File actions and `run_terminal` |
 | Browser profile hydrated, display and Chromium up | Browser actions |
 | Watch and takeover surface | A human watching or taking over |
 
@@ -161,16 +168,44 @@ published is gone.
 
 See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER_MANIFOLD.md) (work-kind placement; not implemented).
 
-**This section describes the live system and is superseded as a design
-target.** The September 3, 2026 storage design (initiative
-`chatticus-fbae4e`) makes one EFS filesystem the store for `/org` and
-`/workspace`, mounted by every host class -- directly in the VPC, over the
-worker's outbound tunnel elsewhere. A real filesystem has POSIX locking, so
-the snapshot cycle, `hydrate_required`, and the disk-write lease exist only
-to work around S3's lack of it and go away with it. Large artifacts --
-datasets, model weights, screenshots -- stay objects in S3; that is a
-files-versus-objects split, not a second file store. The snapshot path
-stays in place until EFS lands.
+**Two file layers coexist:**
+
+1. `ControlPlane.read_workspace` / `write_workspace` **refuse**, raising
+   `WorkspaceHostOnlyError` ("workspace reads/writes run on the summoned
+   computer host"). There is deliberately **one reader, not two**. The
+   in-process `computer.workspace` dict survives only as
+   `seed_snapshot_workspace`, for relocate protocol specs.
+2. `chatticus.snapshot` (`pack_live_disk` / `unpack_live_disk`) packs **real
+   directories** on the summoned host -- `/workspace` plus the Chromium
+   profile, as [Computer snapshots](COMPUTER_SNAPSHOTS.md) specifies. The
+   customer computer host **hydrates on boot** and **publishes before exit**
+   when a snapshot store is configured, persisting metadata through the Front
+   Door. Host boot records `workspace_ready` only after hydrate completes.
+
+`ControlPlane.publish_snapshot` still bridges the dict into `plane._snapshots`
+for relocate protocol specs that run without a host disk. That bridge is not
+the durable path on a running host.
+
+**Agent file and terminal tools run on the container's `/workspace` on a summoned host.**
+`HostActionExecutor` dispatches `read_workspace`, `write_workspace`, and
+`run_terminal` to host executors beside the Chromium executor. Proven end to end on
+2026-09-08 against a throwaway customer organization: write, publish to
+`chatticus-snapshots-{ORGANIZATION_ID}` in the **customer's own account**, stop
+and start the host, read the file back.
+
+**The remaining gap is computerless turns.** A computerless worker has no host,
+so a file tool there hits the control-plane refusal above rather than
+escalating to a computer-capable host. Wiring that escalation is a later slice
+(`chatticus-fccc4e9a`).
+
+The storage conclusions still hold: `chatticus-fbae4e`
+proposed replacing host-local disk with EFS and was **measured out** (in-VPC
+EFS ran 23-54x local for a mutating tree, ~10x read-only warm --
+`chatticus-3d5357`). `/workspace` stays on host-local disk, so publish and
+hydrate remain the mechanism and the snapshot library **must not
+be deleted**. EFS,
+if ever built, is for a shared read-mostly `/org` tree only. Large artifacts
+-- datasets, model weights, screenshots -- stay objects in S3.
 
 ## What lives where
 
@@ -181,7 +216,7 @@ stays in place until EFS lands.
 | In-flight turn chunks | DynamoDB items with a TTL, polled by the streaming function |
 | Turn jobs, heartbeats | SQS + scheduler records |
 | Routine wake-ups, worker starts, `turn.completed` to device push | EventBridge |
-| `/workspace` and browser profile | S3 snapshot (canonical); local volume, EBS, or EFS as a cache on the current host. Target: EFS as the store, mounted by every host -- see `chatticus-fbae4e` |
+| `/workspace` and browser profile | S3 snapshot (canonical); local volume or EBS as a cache on the current host. **Which account holds the pack depends on the organization:** a customer organization's packs live in ``chatticus-snapshots-{OrganizationId}`` in the **customer's own AWS account**, created when the customer runs the published cross-account CloudFormation template (`infra/customer-role.yml`); the Anthus `ChatticusSnapshots` bucket serves **Anthus-managed organizations only**. Customer Fargate hosts receive ``CHATTICUS_SNAPSHOT_BUCKET`` from the customer ``ChatticusComputers`` stack, not from Anthus. If the bucket is missing, hydrate and publish skip without crashing the host. |
 | Secrets | Secrets Manager |
 | Object files / artifacts (screenshots, datasets, model weights) | S3 |
 
@@ -224,6 +259,15 @@ escalates on its own. See challenge 5 in
 
 Provider-hosted tools (if the vendor offers them) may run on the provider.
 Custom tools and computer actions always run on the worker.
+
+On the TypeScript control plane in development, the agent loop runs in a
+Lambda that owns the bot's Pi session until the first computer tool call. For
+computers in Anthus's own accounts, that call parks the turn and a Pi owner
+inside the computer container takes the same session over, runs Pi's own tools
+locally and calls the model through a gateway that keeps the real key in the
+control plane. Computers in a customer's account never get Pi; they keep the
+HTTP host protocol and the host worker. [Pi session handoff](PI_SESSION_HANDOFF.md)
+explains this with diagrams, what was proven on development, and the limits.
 
 ## Approvals in the loop
 

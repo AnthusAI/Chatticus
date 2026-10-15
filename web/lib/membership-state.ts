@@ -52,3 +52,10 @@ export function pickActiveOrg(me: MeResponse): ActiveOrg | null {
   }
   return null;
 }
+
+export function reuseActiveOrg(previous: ActiveOrg | null, next: ActiveOrg | null): ActiveOrg | null {
+  if (previous !== null && next !== null && previous.tenantId === next.tenantId && previous.userId === next.userId) {
+    return previous;
+  }
+  return next;
+}

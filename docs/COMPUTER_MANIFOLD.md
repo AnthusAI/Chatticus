@@ -67,7 +67,7 @@ latency, not a product SLA.
 
 ### 1.3 Computer image
 
-The workplace image is **Debian bookworm** (`python:3.12-slim-bookworm`) with
+The workplace image is **Debian bookworm** (`node:22-bookworm-slim`) with
 **Xvfb** and **Chromium** from apt. The same image is intended to run on
 Fargate, EC2, and local Docker. It is **not** a full desktop distribution.
 
@@ -96,7 +96,9 @@ the next host. While `hydrate_required` is set, turns for that
 
 ### 1.5 Summoned Fargate worker lifetime
 
-The Fargate host override (`python -m chatticus.computer_host_worker`) polls
+For computers in Anthus's own accounts the Fargate session is now the Pi owner
+task (see [Pi session handoff](PI_SESSION_HANDOFF.md)). For customer-account
+computers, the Fargate host override (`node /opt/chatticus/host/host-worker.mjs`) polls
 for at most **`CHATTICUS_HOST_WORKER_SECONDS` (default 120)** before
 exiting. That is today's practical ceiling on a headless Fargate session
 without changing the worker loop or service model.

@@ -1,0 +1,1 @@
+{"pk": {"S": "user#user-123"}, "sk": {"S": "identity"}, "user_id": {"S": "user-123"}, "email": {"S": "alice@example.com"}, "created_at": {"S": "2024-01-15T10:30:00+00:00"}}

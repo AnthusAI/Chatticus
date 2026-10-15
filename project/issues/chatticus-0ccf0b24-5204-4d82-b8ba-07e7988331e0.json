@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-0ccf0b24-5204-4d82-b8ba-07e7988331e0",
+  "title": "Owner leaves disk_dirty true after a clean exit with unchanged content",
+  "description": "After a read-only owner turn the computer record keeps disk_dirty true and no snapshot is published, so the next start re-hydrates the same snapshot. Decide whether a clean exit with unchanged content should clear the flag; if not, document it. Scenario first.",
+  "type": "task",
+  "status": "closed",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2ea62be4-7cec-41e2-ad35-bf9514f96af5",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Not decided or documented: docs/COMPUTER_SNAPSHOTS.md describes dirty on write but not what a clean exit with unchanged content does. features/owner_observability.feature shows the owner skipping the publish for an unchanged workspace (snapshot_skipped reason unchanged), and features/computer_owner_snapshot.feature clears dirty only after a publish. Still needs the decision (clear the flag on a clean unchanged exit, or document that it stays) and a scenario.",
+      "created_at": "2026-10-14T03:11:43.179075Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    },
+    {
+      "id": "eaeeff6c-c178-41f1-9d8e-0480b5db88e3",
+      "author": "home",
+      "text": "Done in PR 561 (merged, commit 633ba0b4): a clean owner exit with unchanged content now clears disk_dirty. The supervisor sends disk_matches_published on the stopped report and the Front Door clears the flag in the same write. Image promoted to development; the owner reported the live test on develop.chattic.us worked very well.",
+      "created_at": "2026-10-15T10:36:12.407956Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
+  "created_at": "2026-10-09T17:01:18.593432Z",
+  "updated_at": "2026-10-15T10:36:21.207518Z",
+  "closed_at": "2026-10-15T10:36:21.207005Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "A clean unchanged owner exit now clears `disk_dirty`, and the live test passed.",
+  "right_now_updated_at": "2026-10-15T10:36:22.902374Z",
+  "custom": {}
+}

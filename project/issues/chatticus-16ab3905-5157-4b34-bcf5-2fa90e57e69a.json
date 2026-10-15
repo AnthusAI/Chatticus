@@ -3,7 +3,7 @@
   "title": "News-desk editorial policy for Updates and Agent Zoo",
   "description": "Write web/content/blog/AGENTS.md as the editor guide. One-line pointer from root AGENTS.md. Do not dump this into the engineering AGENTS.md.\n\nMust state: the beat (persistent multi-agent workplaces; jargon moves), who is in the zoo, Updates vs Agent Zoo split, voice, how to publish.\n\nSynonyms the desk covers, not names for the blog: software factory, bot farm, model zoo, agent org, reactor chamber (a chamber where AI agents collaborate and do useful work). Editors may add further synonyms for the same idea. The public masthead stays Agent Zoo.",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -16,34 +16,32 @@
       "author": "ubuntu",
       "text": "Adding web/content/blog/AGENTS.md editorial policy (structure slice).",
       "created_at": "2026-09-04T10:53:05.661275Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "7a0510b5-8bd9-4cb2-a66f-6641c3db0d7d",
       "author": "ubuntu",
       "text": "web/content/blog/AGENTS.md editorial policy written; root AGENTS.md pointer added.",
       "created_at": "2026-09-04T10:54:10.930062Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "b42a4446-3c0e-4636-a1aa-22f9de31c82d",
       "author": "ubuntu",
       "text": "Editorial policy landed at web/content/blog/AGENTS.md. Root AGENTS.md points at it. Agent Zoo is the masthead; model zoo / reactor chamber / factory / farm are synonyms the desk covers, not the blog name.",
       "created_at": "2026-09-04T10:57:00.275392Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "5298a591-46f1-47b6-91ae-881267ec90e3",
+      "author": "home",
+      "text": "Editorial policy landed, then marketing moved to Chattic.us-web (`3926bc`). This repo no longer ships Updates/Agent Zoo. Close here; further desk edits belong in the private marketing repo.",
+      "created_at": "2026-09-05T17:59:24.691448Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-04T10:51:30.960201Z",
-  "updated_at": "2026-09-04T10:57:00.275458Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-09-05T17:59:24.705358Z",
+  "closed_at": "2026-09-05T17:59:24.705358Z",
+  "custom": {}
 }

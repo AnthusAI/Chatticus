@@ -1,0 +1,1 @@
+{"pk": {"S": "org-456#org"}, "sk": {"S": "member#user-123"}, "tenant_id": {"S": "org-456"}, "user_id": {"S": "user-123"}, "role": {"S": "owner"}, "joined_at": {"S": "2024-01-15T10:30:00+00:00"}}

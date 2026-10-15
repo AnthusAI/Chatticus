@@ -1,0 +1,63 @@
+{
+  "id": "chatticus-47533582-91c7-4437-a7f5-3004617c8121",
+  "title": "Wire ComputerHostDisk hydrate and publish on the host",
+  "description": "**Step 2 of the accepted `chatticus-fccc4e9a` host-disk plan.** `chatticus-4ac60c71` (Dynamo metadata) and `chatticus-8fe4c7e1` (host that runs) and `chatticus-2b3c4173` (customer ECR) are closed.\n\n`ComputerHostDisk.hydrate` at `computer_host_worker` start; pack and publish before exit. One path: do not leave the dict readable beside host disk. `docs/ARCHITECTURE.md` drops \"design target, not currently wired\" when this lands — not before.\n\nSnapshot library is to be wired, not deleted. No `/workspace` EFS. No prompt tuning. Snapshot **bucket** in the published template is `chatticus-bb908488` (step 4) — do not mix that customer-visible template change into this slice. Gherkin may fake object storage.\n\n```\nFeature: Computer host hydrates and publishes workplace disk\n\n  Scenario: Host start hydrates from the published snapshot\n    Given a computer with snapshot metadata in Dynamo\n    When the customer computer host boots\n    Then ComputerHostDisk hydrates the live root from the published snapshot\n\n  Scenario: Host exit publishes a new snapshot generation\n    Given unpublished writes on the live disk\n    When the host worker finishes the job\n    Then a snapshot is published and snapshot metadata is stored\n```\n\n## Done when\n\nHydrate-on-boot and publish-before-exit are specified in Gherkin and green. Dict is not a second workplace reader. No `customer-role.yml` edit. No live matrix rows beyond what this card needs.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "09cdfda0-a500-4d24-92fd-14ec27e74e05",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-475335-host-disk` on `feat/475335-host-disk-hydrate-publish`. Implementation not authorized until the plan is reviewed. Do not mix `chatticus-bb9084` (snapshot bucket / customer-role.yml) into this slice.\n",
+      "created_at": "2026-09-08T00:37:44.562238Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "05b2deaf-2c10-4bde-8bb6-bb7767cc29b6",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with four holes closed.\n\nWorktree verified: `/tmp/chatticus-475335-host-disk` on `feat/475335-host-disk-hydrate-publish` (HEAD `41230a5`, not the primary clone). Hydrate-on-boot, publish-before-exit, Front Door metadata, `FilesystemSnapshotStore` in Gherkin, no `customer-role.yml` — those stand.\n\n**Closed on authorize:**\n1. **This is not step 3 or step 5.** Do not gut `ControlPlane.read_workspace` / computerless file tools / `computer.workspace`. Do not rewrite `computer_snapshots.feature` onto host disk in this PR. Dict remains what computerless tools reach until the file-tools-on-host card.\n2. **ARCHITECTURE.md:** Remove \"Fargate host worker never publishes or hydrates\" and \"workspace_ready without hydrating\". Do **not** delete the dict layer or claim agent tools reach `/workspace`. Do not leave the 3e72dc \"open decision\" sentence (host disk is decided on `chatticus-fccc4e9a`).\n3. **Relocate Gherkin needs two workers.** Relocate to the same `computer-host-1` is not a hydrate story. Recycle-with-file-bytes is in scope only if Then-steps read **host disk** after hydrate, not `plane.read_workspace`.\n4. **No snapshot bucket env → skip, do not crash.** Live `browser_open` must keep working. Do not default publish/hydrate to the Anthus `ChatticusSnapshots` bucket.\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T00:40:44.299774Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "50306547-498c-42c5-92aa-8198ee11fef6",
+      "author": "home",
+      "text": "Implementation on PR https://github.com/AnthusAI/Chatticus/pull/321 (`feat/475335-host-disk-hydrate-publish`). Composer 2.5 review + skip-path acceptance in flight. Do not merge until review and CI are green. Worktree stays at `/tmp/chatticus-475335-host-disk`.\n",
+      "created_at": "2026-09-08T01:42:14.359433Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b4007078-8200-4e62-83b3-25d1da9e87c0",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/321 **request changes**. Do not merge.\n\nComposer 2.5 review found two blockers:\n\n1. **Auth:** `POST /host-worker/computers/snapshot/hydrated` and `…/publish` never call `_assert_worker_id_matches`. A co-hosted worker can publish as another host.\n2. **False-green publish:** Gherkin marks `disk_dirty` by writing the messaging store in the step. Production host writes never set that flag, so `publish_before_exit` is a no-op for real disk mutations.\n\nSkip-when-unset is in-process PASS; live development acceptance is **blocked** until this lands and deploys (expected). Worktree stays `/tmp/chatticus-475335-host-disk`.\n",
+      "created_at": "2026-09-08T01:44:14.472337Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b752c020-46fe-4575-8ff7-4197528edaf8",
+      "author": "home",
+      "text": "Follow-up `97818f6` on PR https://github.com/AnthusAI/Chatticus/pull/321: worker-id binding on snapshot routes, checksum-based publish, skip-without-store Gherkin. Re-review + CI in flight. Do not merge until both are green.\n",
+      "created_at": "2026-09-08T01:52:14.511896Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b8d3bba3-0416-42e4-9101-f9b36f9d9dad",
+      "author": "home",
+      "text": "**Closed.** Step 2 landed on `develop` as `17a3fb8` / PR https://github.com/AnthusAI/Chatticus/pull/321.\n\nHost hydrates after the model gate and publishes before exit when a snapshot store is configured (live-disk checksum, not a Dynamo dirty poke). Snapshot Front Door routes bind `worker_id` to the principal. Skip-when-unset so `browser_open` still works without a customer bucket. Dict `read_workspace` untouched. `ARCHITECTURE.md` host hydrate/publish is wired; computerless file tools still use the dict until step 3.\n\nWorktree `/tmp/chatticus-475335-host-disk` to be removed by the implementer.\n",
+      "created_at": "2026-09-08T02:02:28.601669Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T00:37:32.534651Z",
+  "updated_at": "2026-09-08T02:02:28.616591Z",
+  "closed_at": "2026-09-08T02:02:28.616591Z",
+  "custom": {}
+}

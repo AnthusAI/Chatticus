@@ -10,14 +10,14 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import {
-  AUTH_DOMAIN_NAMES,
   ChatticusCloudEnvironment,
-  WEB_SITE_DOMAINS,
   webParameterPrefix,
 } from "./environments";
 
 export interface AuthStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
+  siteDomain: string;
+  authDomainName: string;
   hostedZone: route53.IHostedZone;
   siteCertificate: acm.ICertificate;
   /** When set, Cognito flood alarms notify this SNS topic (ChatticusBudgets). */
@@ -35,11 +35,10 @@ export class AuthStack extends cdk.Stack {
     super(scope, id, props);
 
     const environmentName = props.chatticusEnvironment;
-    const authDomainName = AUTH_DOMAIN_NAMES[environmentName];
-    const siteDomain = WEB_SITE_DOMAINS[environmentName];
+    const authDomainName = props.authDomainName;
+    const siteDomain = props.siteDomain;
     const webPrefix = webParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
-    cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
     const googleOAuth = secretsmanager.Secret.fromSecretNameV2(
       this,
@@ -81,7 +80,10 @@ export class AuthStack extends cdk.Stack {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
         ],
-        callbackUrls: [`https://${siteDomain}/auth/callback`],
+        callbackUrls: [
+          `https://${siteDomain}/auth/callback`,
+          `https://${siteDomain}/auth/silent-callback`,
+        ],
         logoutUrls: [
           `https://${siteDomain}/`,
           `https://${siteDomain}/auth/signout-callback`,

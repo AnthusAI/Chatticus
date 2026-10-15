@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-80b17c6d-c774-4d45-be14-348fe5c4045e",
+  "title": "Decide whether staging should enable the integration test principal",
+  "description": "CHATTICUS_INTEGRATION_TEST_ENABLED is set whenever environmentName is not production, so staging enables the integration principal (PR 532 lets its sessions write files). Decide whether staging should, or only development, and record the decision.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "5a84c6a7-9613-48df-acee-afaffad5a35c",
+      "author": "home",
+      "text": "Decided (D8): staging enables the integration-test principal (needed for acceptance runs); production never does. Implemented in PR 540: control-plane stack creates the allowed-role parameter for any non-production environment, deploy-chatticus-dedicated-account.sh accepts the variable for development and staging and exits 1 for production, staging workflows pass CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN, production workflows never do. Owner must set the GitHub environment variable CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN on the staging environment at bootstrap.\n",
+      "created_at": "2026-10-13T15:29:22.585118Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "promote-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T07:04:48.052387Z",
+  "updated_at": "2026-10-13T15:29:22.585154Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "Staging enables the integration-test principal; its GitHub environment must set the allowed-role ARN at bootstrap.",
+  "right_now_updated_at": "2026-10-13T15:29:24.597277Z",
+  "custom": {}
+}

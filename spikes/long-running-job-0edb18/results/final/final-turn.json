@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-05T19:25:17.866238+00:00",
+  "turn_id": "83d5ef2c-68e4-483e-bbb6-8b485c106180",
+  "status": "failed",
+  "claimed_by_worker_id": null,
+  "lease_expires_at": null,
+  "deadline_at": "2026-09-05T18:46:36+00:00",
+  "recovery_attempts": 1,
+  "fence_token": 4,
+  "waiting_for": null,
+  "terminal_reason": "recovery attempts exhausted"
+}

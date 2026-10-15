@@ -1,0 +1,18 @@
+{
+  "name": "voice-moonshine-spike",
+  "version": "1.0.0",
+  "description": "Throwaway feasibility spike for chatticus-a2000f: Moonshine WASM always-on listening in the browser.",
+  "scripts": {
+    "serve": "node server.mjs",
+    "measure": "node run.mjs",
+    "fixture": "python3 scripts/make_fixture.py"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@moonshine-ai/moonshine-wasm": "0.1.5"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  },
+  "private": true
+}

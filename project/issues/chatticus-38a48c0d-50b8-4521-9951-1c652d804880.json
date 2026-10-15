@@ -1,0 +1,55 @@
+{
+  "id": "chatticus-38a48c0d-50b8-4521-9951-1c652d804880",
+  "title": "Top-level workspace error banner cannot be dismissed",
+  "description": "When workspace loading, bot creation, or channel creation fails, the error banner at the top of the chat area has no dismiss button or auto-clear mechanism and remains visible permanently.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "56d37b45-5bb4-49bb-9d5a-03e35f7f2275",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CODE CONFIRMED; live banner not present to click-test.\n\n`EnabledWorkspace` renders `{error ? <div role=\"alert\">\u2026</div> : null}` with no dismiss control. Error clears only on `loadWorkspace` start or `selectItem`. `streamError` under the composer is similarly non-dismissible.\n\nFix: add an explicit dismiss (X) that `setError(null)` / `setStreamError(null)`.",
+      "created_at": "2026-09-14T13:16:59.390266Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    },
+    {
+      "id": "60ad84ae-a949-4c43-9ce8-134cc4ef3676",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Dismissible error and streamError alerts.",
+      "created_at": "2026-09-14T13:32:19.079601Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
+  "created_at": "2026-09-13T13:23:36.887523Z",
+  "updated_at": "2026-09-14T13:32:20.114997Z",
+  "closed_at": "2026-09-14T13:32:20.114852Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity",
+    "settings": {}
+  }
+}

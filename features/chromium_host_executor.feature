@@ -36,3 +36,10 @@ Feature: Chromium host executor
     When a chromium executor opens an untrusted browser page
     Then the chromium executor used the untrusted browser profile directory
     And the chromium executor did not use the privileged banking browser profile directory
+
+  Scenario: A browse tool call runs on the host browser and resumes the turn
+    Given a browser-waiting turn with a queued continuation job
+    And the computer host has booted through the browser gate
+    When a computer-capable pull worker with a chromium executor runs the browse action
+    Then the turn journal records the opened page for the browse action
+    And the chromium executor launched the browser on that page

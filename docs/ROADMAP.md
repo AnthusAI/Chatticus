@@ -79,7 +79,7 @@ Deploy and accept against named cloud environments from the start:
 - Computer manifold memo: work kinds vs hosts ([Computer manifold](COMPUTER_MANIFOLD.md); design only)
 
 This repository currently encodes worker routing, approvals, and
-snapshot/relocate in Gherkin and an in-memory Python control plane.
+snapshot/relocate in Gherkin and an in-memory control plane (TypeScript in `conversation/`; the Python original is deleted).
 Hosts can pack and hydrate a workplace through a filesystem object store
 or the CDK S3 bucket (`ChatticusSnapshots`).
 

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-5dbb7e16-f5f1-44ca-a0d4-e0459aa82706",
+  "title": "A read of a pending offline edit reports source snapshot where the contract says overlay",
+  "description": "Observed live: reading a file with a pending offline edit labels source as snapshot, while docs/LIVE_FILES_PROTOCOL.md says overlay. Decide which is right, then reconcile the contract and the code, with a Gherkin scenario in features/computer_file_live.feature.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T07:04:29.200085Z",
+  "updated_at": "2026-10-13T07:04:29.200129Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "Pending offline reads report “snapshot,” but the contract says “overlay,” so the code and docs need alignment.",
+  "right_now_updated_at": "2026-10-13T07:04:30.790190Z",
+  "custom": {}
+}

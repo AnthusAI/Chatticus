@@ -1,0 +1,9 @@
+{
+  "heartbeat_timeout_seconds": 30.0,
+  "worker_id": "spike-local-0edb18",
+  "healthy_at_register": 1,
+  "healthy_after_35s_no_heartbeat": 0,
+  "healthy_after_heartbeat": 1,
+  "healthy_after_second_35s_gap": 0,
+  "finding": "The scheduler cannot distinguish a busy worker from a dead one: without periodic POST /workers/{id}/heartbeat, the worker is dropped after heartbeat_timeout (~30s). computer_host_worker does not send heartbeats during a long execute() call."
+}

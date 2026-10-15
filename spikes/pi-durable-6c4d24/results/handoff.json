@@ -1,0 +1,133 @@
+{
+  "storageId": "tenant-1#bot-ada#channel-92781f6e",
+  "lambda": {
+    "outcome": "parked",
+    "millisecondsToPark": 1830,
+    "tasksWhenParked": [
+      {
+        "id": 9,
+        "kind": "pi.generation",
+        "status": "waiting",
+        "phase": "tools"
+      },
+      {
+        "id": 12,
+        "kind": "pi.tool",
+        "status": "running",
+        "phase": "execute"
+      }
+    ],
+    "providerSession": {
+      "sessionId": "01a10884-620b-7589-9e04-4af789097143"
+    }
+  },
+  "lambdaClose": {
+    "milliseconds": 0,
+    "commits": {
+      "commits": 10,
+      "rejected": [],
+      "writeKinds": {
+        "conversation": 1,
+        "document.create": 5,
+        "entry": 3,
+        "submission": 1,
+        "task": 7,
+        "document.change": 7
+      },
+      "maxTransactionItems": 13,
+      "maxTransactionBytes": 5206,
+      "totalTransactionBytes": 19367,
+      "maxItemBytes": 338,
+      "preReadsPerCommit": 1.9,
+      "commitMillisecondsP50": 19.3,
+      "commitMillisecondsP95": 37.1
+    },
+    "executionsSoFar": 0
+  },
+  "computerTasksAtOpen": [
+    {
+      "id": 9,
+      "kind": "pi.generation",
+      "status": "waiting",
+      "phase": "tools"
+    },
+    {
+      "id": 12,
+      "kind": "pi.tool",
+      "status": "pending",
+      "phase": "execute"
+    }
+  ],
+  "computer": {
+    "status": "done",
+    "millisecondsOpenToDone": 3117,
+    "answer": "Linux ada-computer 6.8.0-1012-aws #13-Ubuntu SMP x86_64 GNU/Linux",
+    "executions": [
+      {
+        "phase": "started",
+        "owner": "computer",
+        "taskId": 12,
+        "command": "uname -a",
+        "at": 1791144257891
+      },
+      {
+        "phase": "finished",
+        "owner": "computer",
+        "taskId": 12,
+        "command": "uname -a",
+        "at": 1791144257892
+      }
+    ],
+    "executionsPerToolTask": {
+      "12": 1
+    },
+    "tasksAfter": [
+      {
+        "id": 9,
+        "kind": "pi.generation",
+        "status": "terminal",
+        "outcome": "completed"
+      },
+      {
+        "id": 12,
+        "kind": "pi.tool",
+        "status": "terminal",
+        "outcome": "completed"
+      },
+      {
+        "id": 14,
+        "kind": "pi.generation",
+        "status": "terminal",
+        "outcome": "completed"
+      }
+    ],
+    "providerSession": {
+      "sessionId": "01a10884-620b-7589-9e04-4af789097143"
+    },
+    "commits": {
+      "commits": 13,
+      "rejected": [],
+      "writeKinds": {
+        "task": 9,
+        "document.change": 9,
+        "entry": 2,
+        "submission": 1
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 6236,
+      "totalTransactionBytes": 20835,
+      "maxItemBytes": 335,
+      "preReadsPerCommit": 1.3076923076923077,
+      "commitMillisecondsP50": 16,
+      "commitMillisecondsP95": 122.7
+    }
+  },
+  "transcript": [
+    "#7 pi.user user: Use run_terminal to run `uname -a` on the computer, then tell me the exact output it printed.",
+    "#10 pi.system system: ",
+    "#11 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"uname -a\"})",
+    "#13 pi.tool-result toolResult: Linux ada-computer 6.8.0-1012-aws #13-Ubuntu SMP x86_64 GNU/Linux",
+    "#15 pi.assistant assistant(stop): [thinking] Linux ada-computer 6.8.0-1012-aws #13-Ubuntu SMP x86_64 GNU/Linux"
+  ],
+  "staleLambdaCommitAfterHandoff": "rejected: OwnershipLost: Owner fence moved: this owner is stale"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-057250f5-459b-4304-90f2-4d6ffc1c1878",
+  "title": "Tactus upstream asks for a voice HITL channel",
+  "description": "(1) Control-loop capability filter should let a channel opt out of select, input and upload by capability (today it checks only approval, input, review, escalation). (2) The SSE channel should set responder_id. See docs/VOICE.md, Design > 3a, 'Upstream work in Tactus'.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T13:39:21.188605Z",
+  "updated_at": "2026-10-04T13:39:21.188634Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -1,0 +1,12 @@
+import { mkdirSync } from "node:fs";
+const t0 = performance.now();
+const m = await import("@earendil-works/pi-coding-agent");
+console.log("import ms", Math.round(performance.now() - t0));
+const workspace = "/tmp/pi-handoff-probe";
+mkdirSync(workspace, { recursive: true });
+const tools = m.createCodingTools(workspace);
+for (const t of tools) console.log(t.name, Object.keys(t).join(","), JSON.stringify(t.parameters).slice(0, 160));
+const w = tools.find((t) => t.name === "write");
+console.log(JSON.stringify(await w.execute("c1", { path: "hello.txt", content: "hi\n" })));
+const b = tools.find((t) => t.name === "bash");
+console.log(JSON.stringify(await b.execute("c2", { command: "ls; echo $0" })));

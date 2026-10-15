@@ -3,7 +3,7 @@
 Decided designs in this repository rest on assumptions nobody has run.
 Each test below answers one question that gates one decision. They are
 research, not product: the code is throwaway and does not belong in
-`python/src`.
+`conversation/src`.
 
 Run these before building on the decisions they gate.
 
@@ -27,3 +27,20 @@ challenge 5 and is the smallest thing that is actually Chatticus.
 Do it using challenge 1's transport result in
 [Design challenges](DESIGN_CHALLENGES.md). Do not let it absorb the
 spikes: a measurement that becomes a feature is a measurement nobody trusts.
+
+## Voice: on-device listening in the browser
+
+The spike (`chatticus-a2000f`) ran tests 1 and 2 from
+[Voice](VOICE.md#feasibility-tests) headless, and test 4 only partially
+(12 synthetic utterances). The results are in
+[Voice](VOICE.md#spike-results). These parts are still open, each with the
+failure branch written in that document:
+
+- A live microphone in a real browser for 60 minutes, foreground and
+  background, with battery drain measured.
+- iOS Safari on a device, where the question is memory: about 650 MB above a
+  blank page.
+- Cross-origin isolation (COOP `same-origin` plus COEP `require-corp`)
+  against the Google and Cognito sign-in and the Vultus avatar.
+- Test 4 as specified: about 50 real recordings, false-addressing rates,
+  and phonetic name matching.

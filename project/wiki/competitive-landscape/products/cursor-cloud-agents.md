@@ -30,6 +30,12 @@ GA / evolving 2026.
 
 ## Related wiki pages
 
+- [Claude Code](claude-code.md)
+
+- [OpenAI Codex](openai-codex.md)
+
+- [Cage and lasting memory](../cage-and-lasting-memory.md)
+
 - [Grok Bot](grok-bot.md)
 - [Devin](devin.md)
 - [Factory 2.0](factory-20.md)

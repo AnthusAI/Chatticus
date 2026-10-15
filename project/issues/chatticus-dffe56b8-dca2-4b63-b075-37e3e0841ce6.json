@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-dffe56b8-dca2-4b63-b075-37e3e0841ce6",
+  "title": "T10 Web: compare sessions and export",
+  "description": "Depends on T8 and T9. Files: new web/components/CostCompare.tsx, web/lib/api.ts. Pick two or more channels or turns, show totals and normalized metrics (cost per turn, per tool call, per sub-agent, cached ratio, rounds per turn), download CSV or NDJSON. Acceptance: plan scenarios 22 and 23 reachable from the UI; web tests green.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:46.073866Z",
+  "updated_at": "2026-10-13T11:31:46.073899Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "The team is building a web view to compare sessions and export normalized cost metrics.",
+  "right_now_updated_at": "2026-10-13T11:31:47.566803Z",
+  "custom": {}
+}

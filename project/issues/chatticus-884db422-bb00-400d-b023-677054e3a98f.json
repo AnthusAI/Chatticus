@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-884db422-bb00-400d-b023-677054e3a98f",
+  "title": "TS-65 Handoff step 1: the computer owner core in conversation/src",
+  "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\nScenarios first. (1) a seam so TurnAttempt.execute no longer hard-codes computerToolsExtension (optional deps override; production default unchanged); (2) an env option on openOwnerSession (pi-durable NodeExecutionEnv rooted at /workspace); (3) local computer tools: Pi's CodingTools wrapped with our tool names (read_workspace, write_workspace, edit_workspace, run_terminal: the gate denies Pi's native names), each call recorded in the action ledger, replay safe (idempotent tools rerun; run_terminal that was started but not finished reports interrupted and is NOT rerun), the existing gate and grant checks still apply; (4) a takeOverTurn / computer owner function that resumes a parked turn (resumeTurnForAction) and runs the same executor core with the Lambda-only pieces injectable (SQS visibility, acknowledge, turnRuns and turnProbes sends); (5) scenarios: takeover and finish; hand back and the next owner sees the container's results; a crash in the middle of run_terminal does not rerun the command; two owners racing for the fence: one wins, the other stops with OwnershipLost and does nothing; the grant gate still denies a path outside the grant in the computer owner; the Lambda path is unchanged. Mutation checks. No AWS.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "dac4eee0-782d-4953-9d2a-3586d1a0713c",
+      "author": "home",
+      "text": "Triage 2026-10-14: closing as done. Evidence on origin/develop: conversation/src/turn/computer-owner.ts (takeOverTurn, the owner core that resumes a parked turn and runs the shared executor with the Lambda-only pieces injected); features/computer_owner_handoff.feature covers every scenario this ticket listed (takeover and finish, hand back to a Lambda-style owner sees the container's results, a crash mid-command does not rerun it, two owners racing for the fence: one wins, the other changes nothing, grant gate denies a path outside the grant, the edit tool, scrubbed environment, no start outside the workspace); features/computer_owner_lost_claim.feature and features/pi_session_ownership.feature pin the fence. Merged: PR 486 (phase 1), PR 487 (cutover), PR 488 (docs). Live proof: README 'The computer runs Pi on development' and docs/PI_SESSION_HANDOFF.md (smoke turn, security check, recovery after a stopped owner, a bug-fix task persisted to a fresh owner).",
+      "created_at": "2026-10-14T03:08:41.503693Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-07T19:08:40.469739Z",
+  "updated_at": "2026-10-14T03:09:34.371602Z",
+  "closed_at": "2026-10-14T03:09:34.371282Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The computer owner core now resumes parked turns and runs Pi tools with shared ownership and safety checks.",
+  "right_now_updated_at": "2026-10-14T03:09:35.732686Z",
+  "custom": {}
+}

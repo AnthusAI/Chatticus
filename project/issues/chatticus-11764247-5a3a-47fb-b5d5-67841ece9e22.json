@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-11764247-5a3a-47fb-b5d5-67841ece9e22",
+  "title": "Member invitation UI is unreachable while the app tells people to ask for an invite",
+  "description": "**Found 2026-09-16 by the orphan survey on `77c09b`, which was itself prompted by `930da7`.**\n\n`web/components/InviteMemberPanel.tsx` is imported by nothing, and it is the **only** caller of `web/lib/invitations.ts`. The panel and its entire API client are unreachable from the running app.\n\nAt the same time, `NoOrganizationPanel` — which IS mounted, through `MembershipShell` — renders this to a person with no organization:\n\n> Ask an operator to invite you before using the workspace.\n\nSo the product tells people to request an invite from an operator, and gives the operator no way to send one.\n\n## Why this is not just another orphan\n\n`930da7` was a control a person could work around — the API existed and authority defaulted closed. This one is on the path to having any users at all. Story `786185` (\"An operator invites a signup and the link is single use\") sits under the waitlist epic and presumably assumes this works.\n\n## Worth establishing before building\n\nCheck whether operators currently invite people some other way — a CLI, a console, a manual DynamoDB write. If there is a working out-of-band path, this is a convenience gap and should be priced accordingly. If there is not, then the invite flow does not exist in the product at all, and the copy in `NoOrganizationPanel` is a promise we do not keep.\n\nDo not assume the panel is correct just because it exists. It was written, never wired, and never exercised against the real app — treat its behavior as unverified, the same way `TurnGrantPanel`'s was.\n\n## Done when\n\nAn operator can invite a member from the running app and the invited person can act on it, or — if invitations are deliberately out-of-band for now — `NoOrganizationPanel` stops telling people to do something the product cannot support, and this card records where invitations actually happen.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "web"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-16T18:38:26.569369Z",
+  "updated_at": "2026-09-16T18:38:26.569409Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

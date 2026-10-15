@@ -1,0 +1,64 @@
+{
+  "id": "chatticus-65b431cf-a9da-4f27-8116-75dc6ca07d35",
+  "title": "Worker does not renew its lease during tool execution",
+  "description": "**Found 2026-09-17 while working out how long-running tool calls should behave. Blocks recursive sub-agents.**\n\n`attempt_lease` is 60s and `turn_deadline` is 120s (`control_plane.py:263-264`). A worker must renew or the watchdog reclaims its turn.\n\nThe wrapper for surviving a long blocking call already exists: `RenewingTextCompletionClient` (`worker/computerless.py:263`) runs a thread renewing every 30s. It is used in exactly ONE place — `computerless.py:386`, around the model completion — and its `finally` stops the renewal thread the moment `complete()` returns.\n\nTool dispatch runs after that, with no renewal active. `grep renew python/src/chatticus/worker/tool_dispatch.py` returns nothing. `_handle_gated_tool_call` calls `dispatch_gated_tool(...)` inline and synchronously.\n\n**So any inline tool call taking more than ~60s loses its lease, and the watchdog marks the turn reconciling at 120s while the worker is healthy and still working.**\n\nThis is not biting today only because the inline gated tools are cheap. It bites the moment a tool does real work — and a sub-agent that recursively calls other tools and agents is the case this was raised for. On the current code that turn is reclaimed at two minutes regardless of anything the SSE layer does.\n\n## What to do\n\nGeneralize the renewal from \"a model completion\" to \"any blocking operation the worker performs on behalf of a turn\" — a `renewing(renew, interval)` context manager, with tool dispatch inside it. Keep the 30s interval; it is comfortably under the 60s lease.\n\nNote `SlowTextCompletionClient` at `computerless.py:381` takes a different path via `blocking_hook`. Whatever shape this takes should not leave two ways to renew.\n\n## Done when\n\nA tool call that blocks for several minutes keeps its turn: the lease stays live, the watchdog does not reclaim it, and the turn completes normally. A test proves it with a deliberately slow tool, and fails if the renewal is removed.\n\nRelated: [[6bd49c]] gave the SSE stream a 10-minute inactivity window. That window is irrelevant while this bug exists, because the turn is reclaimed at 120s first.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "backend"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "7596283f-7a85-412c-bd3b-5fb0346d1e93",
+      "author": "home",
+      "text": "**Correcting my own priority on this card, after checking what actually runs inline.**\n\nI filed this P0 on the reasoning that a long inline tool call loses its lease. The mechanism is real, but I did not check how reachable it is. `dispatch_gated_tool` (`worker/tool_dispatch.py`) handles exactly ONE tool — `browse` — and even that only calls `turn_client.authorize_browse(...)` and returns the URL as content. Every other tool name falls through to `deny_model_tool`. There is no inline tool today that does substantial work.\n\nSo this is currently **unreachable**, not merely \"not biting\". Dropping to P1.\n\nWhat does not change: the moment a tool does real work on this path, a call over ~60s loses its lease and the watchdog reclaims a healthy turn at 120s. The fix is small and belongs with whatever adds the first such tool.\n\n**Sequencing that I got wrong:** I wrote that this blocks the sub-agent work. It only blocks it if sub-agents run as inline blocking calls — which is exactly the question `c7abd6` is there to settle. If sub-agents park on a gate instead, inline calls stay short and this stays unreachable. So `c7abd6` should be answered first; this card's urgency follows from that answer rather than preceding it.\n\n`78bf6e` stays blocked-by this one regardless: keying the stream on the lease requires the lease to be renewed for as long as work legitimately runs, whichever shape that work takes.\n",
+      "created_at": "2026-09-17T12:15:52.141036Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "384d9e82-90be-41fa-89c2-709370add2ad",
+      "author": "home",
+      "text": "**Decision logged on c7abd6 (2026-09-19): sub-agents park on gates.**\n\nThis means inline tool calls stay short and this bug is currently unreachable. Remains P1: a small preventative fix for whenever someone adds substantial work to the inline path — which should not happen, but the guard is cheap and catches mistakes.\n\nRelated: `78bf6e` (lease-based stream give-up) remains blocked-by this.\n",
+      "created_at": "2026-09-19T12:23:38.214383Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-haiku-4-5-20251001",
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "db172f59-faa4-407f-81fe-1707376347c7",
+      "author": "home",
+      "text": "Triage 2026-10-14: closing as obsolete (Python-era). The python/ tree and worker/computerless.py were deleted (PR 467). In the TypeScript executor the attempt lease is renewed by a timer for the whole attempt, not just around the model call: conversation/src/turn/executor.ts starts setInterval(renew) at renewIntervalMilliseconds = 20_000 and renew() calls renewAttempt, so a long tool call cannot lose the lease; features/turn_probes.feature covers renewing before the claim runs out and a former owner that can no longer renew. The earlier decision (sub-agents park on gates) is also moot for the same reason.",
+      "created_at": "2026-10-14T03:08:59.608313Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
+  "created_at": "2026-09-17T12:03:40.789972Z",
+  "updated_at": "2026-10-14T03:09:52.920541Z",
+  "closed_at": "2026-10-14T03:09:52.920507Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The Python code was removed, and the TypeScript executor now renews leases throughout each attempt.",
+  "right_now_updated_at": "2026-10-14T03:09:54.075658Z",
+  "custom": {}
+}

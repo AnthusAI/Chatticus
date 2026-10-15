@@ -1,0 +1,65 @@
+{
+  "duration_seconds": 72.382,
+  "utterances": [
+    {
+      "text": "Ada, open a pull request for the voice spike against develop.",
+      "start": 2.0,
+      "end": 5.445
+    },
+    {
+      "text": "Switch to Grace.",
+      "start": 9.445,
+      "end": 10.434
+    },
+    {
+      "text": "Grace, what is the status of the release branch?",
+      "start": 14.434,
+      "end": 17.197
+    },
+    {
+      "text": "I think we should get lunch after this meeting.",
+      "start": 21.197,
+      "end": 23.445
+    },
+    {
+      "text": "Repeat that.",
+      "start": 27.445,
+      "end": 28.242
+    },
+    {
+      "text": "Ada, rename the branch to voice moonshine and push it.",
+      "start": 32.242,
+      "end": 35.211
+    },
+    {
+      "text": "Stop listening.",
+      "start": 39.211,
+      "end": 40.177
+    },
+    {
+      "text": "Approve, blue seven.",
+      "start": 44.177,
+      "end": 45.637
+    },
+    {
+      "text": "Option two.",
+      "start": 49.637,
+      "end": 50.432
+    },
+    {
+      "text": "Grace, run the behave suite and tell me which scenarios fail.",
+      "start": 54.432,
+      "end": 57.949
+    },
+    {
+      "text": "Did you see the game last night?",
+      "start": 61.949,
+      "end": 63.555
+    },
+    {
+      "text": "Scratch that.",
+      "start": 67.555,
+      "end": 68.382
+    }
+  ]
+}

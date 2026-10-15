@@ -1,0 +1,74 @@
+{
+  "id": "chatticus-96e12bb9-cc22-43b7-9f13-e1e289297c9e",
+  "title": "The image build and the Lambda deploys must not displace each other in the shared queue group",
+  "description": "2026-10-11: dispatching the image build while the deploy workflows were queued cancelled the pending ControlPlane and ThinTurn deploys (GitHub keeps one pending run per concurrency group), so the new image went live against the old starter and every owner crashed at startup (CHATTICUS_OWNER_HOST_TOKEN required) in a retry loop of about 10 starts. Fix: give the image build its own concurrency group, make the deploy workflows wait for the image of the same commit (or the other way round), or publish the image under the sha tag first and flip dev after the Lambdas deploy. Also: the starter should stop retrying an owner that exits with a configuration error.\n\nWhat remains (triage 2026-10-14): PR 543 gave the image build its own concurrency group (it can no longer displace pending ControlPlane or ThinTurn deploys) and PR 547 made the image tag move only through promote-computer-image-development.yml after the server side deploys succeeded. Left: the starter still retrying an owner that exits at startup with a configuration error (the CHATTICUS_OWNER_HOST_TOKEN required crash loop, about 10 starts). PR 546 bounds failures of the start call itself to 3 deliveries, but an owner task that starts and then exits on a config error is a different path and has no scenario in features/computer_owner_start.feature. Close once that is scenario-pinned or judged out of scope.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "45374835-03e8-44fd-ab68-ce6481321dc1",
+      "author": "home",
+      "text": "Related new bug chatticus-36012d: after the Phase 2a merges, a single merge triggering ThinTurn, ControlPlane and the image build together again had deploy runs cancelled by concurrency. Same family; fix them together (separate groups or explicit sequencing).",
+      "created_at": "2026-10-12T17:50:08.193794Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "75a843af-d381-47dc-8f54-393d1d341b86",
+      "author": "home",
+      "text": "Addressed by PR 543: the image build now has its own group (build-computer-image-development) and can no longer displace pending ControlPlane or ThinTurn deploys. Ordering of the image tag move relative to the Lambdas remains chatticus-d88a0f. Starter retry on config error is not part of this change.\n",
+      "created_at": "2026-10-14T00:53:36.824222Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "reliability-c"
+      }
+    },
+    {
+      "id": "96ff607d-abd3-4e12-b075-566a90c0dd82",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): PR 543 gave the image build its own concurrency group (it can no longer displace pending ControlPlane or ThinTurn deploys) and PR 547 made the image tag move only through promote-computer-image-development.yml after the server side deploys succeeded. Left: the starter still retrying an owner that exits at startup with a configuration error (the CHATTICUS_OWNER_HOST_TOKEN required crash loop, about 10 starts). PR 546 bounds failures of the start call itself to 3 deliveries, but an owner task that starts and then exits on a config error is a different path and has no scenario in features/computer_owner_start.feature. Close once that is scenario-pinned or judged out of scope.",
+      "created_at": "2026-10-14T03:11:12.335156Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    },
+    {
+      "id": "47614032-bbd5-44c6-8945-3152eacb2eda",
+      "author": "home",
+      "text": "Mostly done by PRs 543, 547 and 548: the image build has its own concurrency group and no longer moves the dev tag (a separate manual promotion workflow does, after the Lambda deploys succeed). Open remainder: the starter's retry loop for an owner that exits on a configuration error is not pinned.",
+      "created_at": "2026-10-14T03:33:49.317915Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
+    }
+  ],
+  "created_at": "2026-10-11T17:37:40.103261Z",
+  "updated_at": "2026-10-14T03:33:49.317945Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Image and deploy sequencing is separated; the starter still retries owners that exit with configuration errors.",
+  "right_now_updated_at": "2026-10-14T03:33:51.491106Z",
+  "custom": {}
+}

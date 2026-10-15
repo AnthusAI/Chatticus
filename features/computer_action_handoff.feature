@@ -1,0 +1,229 @@
+Feature: Computer action handoff
+  As a member of an organization
+  I want a bot that needs the computer to wait for it without losing its turn
+  So that each computer tool call runs once on the shared computer and the bot continues from its result
+
+  Background:
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+
+  Scenario: A computer tool call parks the turn and records one action
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    Then the turn is waiting on the workspace gate
+    And the turn names the pending computer tool "write_workspace"
+    And the computer has one open action for "write_workspace"
+    And no turn owner holds the turn
+    And the turn journal shows the tool call before the waiting event
+    And a computer start job is queued for the turn
+
+  Scenario: The host's result resumes the turn and the tool runs once
+    Given host worker "garage-mac-1" serves the household computer
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    When host worker "garage-mac-1" runs the next computer action
+    And bot "Researcher" works its turn after the computer answered
+    Then the turn is completed
+    And the host executed "write_workspace" exactly once
+    And the turn journal records one tool result containing "wrote /workspace/notes.md"
+    And the model saw "wrote /workspace/notes.md" in its next request
+    And the turn has one computer action and it is done
+
+  Scenario: A live host is not asked to start
+    Given host worker "garage-mac-1" serves the household computer
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    Then no computer start job is queued
+
+  Scenario: A host that exited cleanly is not counted as live while its last heartbeat is still recent
+    Given host worker "garage-mac-1" serves the household computer
+    And host worker "garage-mac-1" reports the computer stopped as it exits
+    And 15 seconds pass
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    Then a computer start job is queued for the turn
+
+  Scenario: A running host with a recent heartbeat is not asked to start
+    Given host worker "garage-mac-1" serves the household computer
+    And 15 seconds pass
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    Then no computer start job is queued
+
+  Scenario: A host that is still starting is started only once however many start jobs arrive
+    Given a recording host start driver
+    And host worker "booting-host" serves the household computer
+    And host worker "booting-host" reports the computer stopped as it exits
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And the queued start job is delivered to the starter together with a second start job for the same computer
+    Then the host start driver was invoked once
+
+  Scenario: An owner that reports the computer stopped hands the next start to the very next start job
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    When host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked twice
+    And the latest host start claimed generation 2
+
+  Scenario: A duplicate start job for the generation that is starting does not start a second owner
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    And host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    When the queued start job is delivered to the starter together with a second start job for the same computer
+    Then the host start driver was invoked twice
+    And the latest host start claimed generation 2
+
+  Scenario: The report of an owner of an older generation does not end the lease of the newer generation
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    And host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    And every queued start job is delivered to the starter
+    When host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked twice
+    And the latest host start claimed generation 2
+
+  Scenario: The report of an owner that names a generation the computer has not reached ends no lease
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    When host worker "owner-host" reports the computer stopped as the owner of start generation 7
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked once
+    And the latest host start claimed generation 1
+
+  Scenario: A host that reports the computer stopped without a start generation leaves the start lease alone
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "booting-host" serves the household computer
+    When host worker "booting-host" reports the computer stopped as it exits
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked once
+
+  Scenario: An organization that allows only AWS hosts is not served by a live local host
+    Given the household computer policy is "aws_only"
+    And host worker "garage-mac-1" serves the household computer
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    Then a computer start job is queued for the turn with policy "aws_only"
+
+  Scenario: The same result posted twice resumes the turn once
+    Given host worker "garage-mac-1" serves the household computer
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    When host worker "garage-mac-1" runs the next computer action
+    And host worker "garage-mac-1" posts that result again
+    Then exactly one run job is queued for the turn
+
+  Scenario: A turn resumed before the host answers parks again on the same action
+    Given host worker "garage-mac-1" serves the household computer
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    When user "ryan" of tenant "anthus" resumes that waiting turn
+    And bot "Researcher" works its turn until it waits for the computer
+    Then the turn is waiting on the workspace gate
+    And the turn has one computer action and it is not done
+
+  Scenario: A waiting turn delivered to an executor again does not ask the model again
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And the run job of that turn is delivered again
+    Then the executor leaves the redelivered run job alone
+    And the model was asked once
+    And the turn is waiting on the workspace gate
+    And the turn has one computer action and it is not done
+
+  Scenario: A crash after parking and before the start job still gets the computer started
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And the worker stops right after the turn parks and before the start job is queued
+    And 61 seconds pass
+    And the turn probe runs
+    Then a computer start job is queued for the turn
+    And the turn is waiting on the workspace gate
+
+  Scenario: A host lost while running a write does not run it again
+    Given host worker "garage-mac-1" serves the household computer
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    When host worker "garage-mac-1" runs the next computer action but is lost before it posts the result
+    And 61 seconds pass
+    And the turn probe runs
+    And bot "Researcher" works its turn after the computer answered
+    Then the turn is completed
+    And the host executed "write_workspace" exactly once
+    And the model saw "may have partially run" in its next request
+
+  Scenario: A host lost while running a read hands the read to the next claim
+    Given host worker "garage-mac-1" serves the household computer
+    And the computer holds the file "/workspace/notes.md" containing "draft-one"
+    And bot "Researcher" is asked "read workspace file /workspace/notes.md"
+    And bot "Researcher" works its turn until it waits for the computer
+    When host worker "garage-mac-1" runs the next computer action but is lost before it posts the result
+    And 61 seconds pass
+    And the turn probe runs
+    And host worker "garage-mac-1" runs the next computer action
+    And bot "Researcher" works its turn after the computer answered
+    Then the turn is completed
+    And the turn journal records one tool result containing "draft-one"
+
+  Scenario: A parked turn that no host claims asks for a host start again
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And 61 seconds pass
+    And the turn probe runs
+    Then another computer start job is queued for the turn
+
+  Scenario: Six parallel computer tool calls in one message each get a real result
+    Given host worker "garage-mac-1" serves the household computer
+    And the computer holds the file "/workspace/alpha.txt" containing "alpha-content"
+    And the computer holds the file "/workspace/bravo.txt" containing "bravo-content"
+    And the computer holds the file "/workspace/charlie.txt" containing "charlie-content"
+    And the computer holds the file "/workspace/delta.txt" containing "delta-content"
+    And the computer holds the file "/workspace/echo.txt" containing "echo-content"
+    And the computer holds the file "/workspace/foxtrot.txt" containing "foxtrot-content"
+    And the model is scripted to read these workspace files in one message and then answer "All six read.":
+      | /workspace/alpha.txt |
+      | /workspace/bravo.txt |
+      | /workspace/charlie.txt |
+      | /workspace/delta.txt |
+      | /workspace/echo.txt |
+      | /workspace/foxtrot.txt |
+    And bot "Researcher" is asked "check the six notes"
+    When bot "Researcher" works its turn until it waits for the computer
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    Then the turn is completed
+    And the host executed "read_workspace" 6 times
+    And the turn has 6 computer actions and all are done
+    And the turn journal records 6 tool results
+    And the turn journal records a tool result containing "alpha-content"
+    And the turn journal records a tool result containing "bravo-content"
+    And the turn journal records a tool result containing "charlie-content"
+    And the turn journal records a tool result containing "delta-content"
+    And the turn journal records a tool result containing "echo-content"
+    And the turn journal records a tool result containing "foxtrot-content"
+    And the last request to the model contains "alpha-content"
+    And the last request to the model contains "bravo-content"
+    And the last request to the model contains "charlie-content"
+    And the last request to the model contains "delta-content"
+    And the last request to the model contains "echo-content"
+    And the last request to the model contains "foxtrot-content"

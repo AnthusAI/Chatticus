@@ -1,0 +1,62 @@
+{
+  "id": "chatticus-d88a0fee-17ed-426b-b299-62ea22db002c",
+  "title": "Incident follow-up: pre-deploy check of real IAM for new S3 access paths, and image tag flips only after server side is verified",
+  "description": "Incident 2026-10-13: the computer image was pushed to development before the Front Door IAM for the overlay was proven, and every computer start on development failed for about 40 minutes. Tests passed because moto does not enforce IAM. Add (1) a pre-deploy CI check that exercises real IAM for new S3 access paths, for example an IAM policy simulator check of the Front Door and supervisor roles against the keys they need; (2) a rule, in docs and the deploy scripts, that the image tag flips only after the server side is deployed and verified. Related fix: PR 531 (Front Door ListBucket).",
+  "type": "chore",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2ad359ac-933e-4085-8083-39796224dea6",
+      "author": "home",
+      "text": "PR 547 (branch ts/iam-predeploy-guard, not merged).\n\nGuard 1 (IAM): a role access manifest (conversation/src/gateway/role-access-manifest.json) lists the request shapes of the Front Door, the per-turn owner and the supervisor. Recording clients note every DynamoDB and S3 request of those roles in every cucumber scenario; an After hook fails a scenario whose request has no manifest row, or that reads a missing key on a row claiming the key always exists. features/role_access_manifest.feature judges the manifest against the deployed JSON policy files and the 404-versus-403 rule; infra/test/role-access-policy.test.ts judges every row against the policies CDK synthesizes. conversation/bin/simulate-role-access.ts runs iam:SimulatePrincipalPolicy for the deployed roles (read-only).\n\nGuard 2 (image tag): the build pushes sha-<commit> only; promote-computer-image-development.yml (workflow_dispatch) refuses unless the latest ControlPlane and ThinTurn development deploys for the commit succeeded, then moves dev and prints the previous digest and the rollback command. Break-glass scripts no longer push dev. Docs: docs/COMPUTER_IMAGE_PROMOTION.md, docs/ROLE_ACCESS_GUARD.md, AGENTS.md.\n\nEvidence: full cucumber suite 1656/1656, conversation vitest green, infra 566 green, typecheck clean. Ticket stays in_progress until the PR merges.",
+      "created_at": "2026-10-14T02:45:02.843638Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "reliability-b"
+      }
+    },
+    {
+      "id": "290c9aa7-5770-4267-8669-ee4437d32b7b",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Status update: PR 547 is merged (2026-10-14T02:56Z): conversation/src/gateway/role-access-manifest.json and role-access-manifest.ts, features/role_access_manifest.feature, docs/ROLE_ACCESS_GUARD.md, docs/COMPUTER_IMAGE_PROMOTION.md, .github/workflows/promote-computer-image-development.yml, conversation/bin/simulate-role-access.ts all exist on origin/develop. PR 549 (role access simulation: one IAM call per group, with backoff) is still open. Left: merge PR 549, and decide whether simulate-role-access.ts should run in a deploy workflow (it is not referenced by any workflow yet; the in-process manifest checks run in CI). Then close.",
+      "created_at": "2026-10-14T03:11:59.897670Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    },
+    {
+      "id": "c9125294-4303-41da-a73e-9465d86f7192",
+      "author": "home",
+      "text": "Closing: PR 547 (role access manifest with 39 rows recorded and enforced after every cucumber scenario, offline evaluation of the synthesized policies, a separate manual image promotion workflow that refuses unless the matching Lambda deploys succeeded, bypass scripts closed) and PR 549 (the read-only post-deploy simulation, batched and backed off). Verified live on development 2026-10-14: conversation/bin/simulate-role-access.ts --environment development printed PASS 42 of 42 allowed (frontDoor 12, ownerTurn 28, supervisor 2). Follow-up not done: the simulation needs operator credentials, so no workflow runs it; run it after any deploy that changes a role or adds a store path.",
+      "created_at": "2026-10-14T03:33:40.847101Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T07:04:45.040678Z",
+  "updated_at": "2026-10-14T03:33:44.905111Z",
+  "closed_at": "2026-10-14T03:33:44.905070Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "IAM guards are merged and verified; post-deploy role checks still require a manual run.",
+  "right_now_updated_at": "2026-10-14T03:33:47.232294Z",
+  "custom": {}
+}

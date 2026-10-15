@@ -1,0 +1,1146 @@
+[
+ {
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-direct"
+  },
+  "sk": {
+   "S": "latest_turn"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-5"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "kind": {
+   "S": "direct"
+  },
+  "next_seq": {
+   "N": "4"
+  },
+  "participants": {
+   "S": "[{\"kind\": \"human\", \"actor_id\": \"ryan\"}, {\"kind\": \"bot\", \"actor_id\": \"ada\"}]"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-direct"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": "ada"
+  },
+  "author_id": {
+   "S": "ryan"
+  },
+  "author_kind": {
+   "S": "human"
+  },
+  "body": {
+   "S": "ada, summarize my inbox"
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:01:40+00:00"
+  },
+  "message_id": {
+   "S": "chan-direct-m1"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-direct"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "msg#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": ""
+  },
+  "author_id": {
+   "S": "ada"
+  },
+  "author_kind": {
+   "S": "bot"
+  },
+  "body": {
+   "S": "You have three unread messages, one urgent."
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:01:44+00:00"
+  },
+  "message_id": {
+   "S": "chan-direct-m2"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-direct"
+  },
+  "seq": {
+   "N": "2"
+  },
+  "sk": {
+   "S": "msg#0000000002"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": "ada"
+  },
+  "author_id": {
+   "S": "ryan"
+  },
+  "author_kind": {
+   "S": "human"
+  },
+  "body": {
+   "S": "unicode check: cafe\u0301 \u2014 done"
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:01:50+00:00"
+  },
+  "message_id": {
+   "S": "chan-direct-m3"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-direct"
+  },
+  "seq": {
+   "N": "3"
+  },
+  "sk": {
+   "S": "msg#0000000003"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "sk": {
+   "S": "active_turn"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-3"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "sk": {
+   "S": "latest_turn"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-3"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "kind": {
+   "S": "named"
+  },
+  "name": {
+   "S": "general"
+  },
+  "next_seq": {
+   "N": "7"
+  },
+  "participants": {
+   "S": "[{\"kind\": \"human\", \"actor_id\": \"ryan\"}, {\"kind\": \"bot\", \"actor_id\": \"ada\"}, {\"kind\": \"bot\", \"actor_id\": \"bo\"}]"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": ""
+  },
+  "author_id": {
+   "S": "ryan"
+  },
+  "author_kind": {
+   "S": "human"
+  },
+  "body": {
+   "S": "Good morning team. Lunch is at noon."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:00:00+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m1"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "msg#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": "ada"
+  },
+  "author_id": {
+   "S": "ryan"
+  },
+  "author_kind": {
+   "S": "human"
+  },
+  "body": {
+   "S": "ada, what is on the calendar today?"
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:00:05.123456+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m2"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "2"
+  },
+  "sk": {
+   "S": "msg#0000000002"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": ""
+  },
+  "author_id": {
+   "S": "ada"
+  },
+  "author_kind": {
+   "S": "bot"
+  },
+  "body": {
+   "S": "Two meetings: standup at ten and review at three."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:00:09+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m3"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "3"
+  },
+  "sk": {
+   "S": "msg#0000000003"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": "bo"
+  },
+  "author_id": {
+   "S": "ryan"
+  },
+  "author_kind": {
+   "S": "human"
+  },
+  "body": {
+   "S": "bo, please book a room for the review."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:00:20+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m4"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "4"
+  },
+  "sk": {
+   "S": "msg#0000000004"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": ""
+  },
+  "author_id": {
+   "S": "bo"
+  },
+  "author_kind": {
+   "S": "bot"
+  },
+  "body": {
+   "S": "Booked room 4 for the three o'clock review."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:00:31.000007+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m5"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "5"
+  },
+  "sk": {
+   "S": "msg#0000000005"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": "ada"
+  },
+  "author_id": {
+   "S": "ryan"
+  },
+  "author_kind": {
+   "S": "human"
+  },
+  "body": {
+   "S": "Thanks. ada, remind me at 2:30."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:00:40+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m6"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "6"
+  },
+  "sk": {
+   "S": "msg#0000000006"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "bot_id": {
+   "S": "ada"
+  },
+  "memory": {
+   "S": "{}"
+  },
+  "name": {
+   "S": "Ada"
+  },
+  "pk": {
+   "S": "anthus#roster"
+  },
+  "sk": {
+   "S": "bot#ada"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "bot_id": {
+   "S": "bo"
+  },
+  "memory": {
+   "S": "{\"preference\": \"short answers\"}"
+  },
+  "name": {
+   "S": "Bo"
+  },
+  "pk": {
+   "S": "anthus#roster"
+  },
+  "sk": {
+   "S": "bot#bo"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "bot_id": {
+   "S": "ada"
+  },
+  "name": {
+   "S": "Ada"
+  },
+  "pk": {
+   "S": "anthus#roster"
+  },
+  "sk": {
+   "S": "bot_name#Ada"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "bot_id": {
+   "S": "bo"
+  },
+  "name": {
+   "S": "Bo"
+  },
+  "pk": {
+   "S": "anthus#roster"
+  },
+  "sk": {
+   "S": "bot_name#Bo"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "pk": {
+   "S": "anthus#roster"
+  },
+  "sk": {
+   "S": "channel#ryan#chan-direct"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "user_id": {
+   "S": "ryan"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "pk": {
+   "S": "anthus#roster"
+  },
+  "sk": {
+   "S": "channel#ryan#chan-general"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "user_id": {
+   "S": "ryan"
+  }
+ },
+ {
+  "expires_at": {
+   "N": "1788256800"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-1"
+  },
+  "sk": {
+   "S": "chunk#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": "Two meetings"
+  },
+  "turn_id": {
+   "S": "turn-1"
+  }
+ },
+ {
+  "body": {
+   "S": ""
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-1-e1"
+  },
+  "kind": {
+   "S": "turn.started"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-1"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "evt#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-1"
+  }
+ },
+ {
+  "body": {
+   "S": ""
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-1-e2"
+  },
+  "kind": {
+   "S": "turn.token"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-1"
+  },
+  "seq": {
+   "N": "2"
+  },
+  "sk": {
+   "S": "evt#0000000002"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": "Two meetings"
+  },
+  "turn_id": {
+   "S": "turn-1"
+  }
+ },
+ {
+  "body": {
+   "S": "Two meetings: standup at ten and review at three."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-1-e3"
+  },
+  "kind": {
+   "S": "turn.completed"
+  },
+  "message_seq": {
+   "N": "3"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-1"
+  },
+  "seq": {
+   "N": "3"
+  },
+  "sk": {
+   "S": "evt#0000000003"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-1"
+  }
+ },
+ {
+  "attempt_id": {
+   "S": "att-1"
+  },
+  "bot_id": {
+   "S": "ada"
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "claimed_by_worker_id": {
+   "S": "worker-1"
+  },
+  "deadline_at": {
+   "N": "1788253320"
+  },
+  "fence_token": {
+   "N": "0"
+  },
+  "lease_expires_at": {
+   "N": "1788253207"
+  },
+  "next_chunk_seq": {
+   "N": "1"
+  },
+  "next_event_seq": {
+   "N": "4"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-1"
+  },
+  "prompt_message_seq": {
+   "N": "2"
+  },
+  "recovery_attempts": {
+   "N": "0"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "status": {
+   "S": "completed"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-1"
+  }
+ },
+ {
+  "body": {
+   "S": ""
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-2-e1"
+  },
+  "kind": {
+   "S": "turn.started"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-2"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "evt#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-2"
+  }
+ },
+ {
+  "body": {
+   "S": "Booked room 4 for the three o'clock review."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-2-e2"
+  },
+  "kind": {
+   "S": "turn.completed"
+  },
+  "message_seq": {
+   "N": "5"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-2"
+  },
+  "seq": {
+   "N": "2"
+  },
+  "sk": {
+   "S": "evt#0000000002"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-2"
+  }
+ },
+ {
+  "bot_id": {
+   "S": "bo"
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "fence_token": {
+   "N": "0"
+  },
+  "next_chunk_seq": {
+   "N": "1"
+  },
+  "next_event_seq": {
+   "N": "3"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-2"
+  },
+  "prompt_message_seq": {
+   "N": "4"
+  },
+  "recovery_attempts": {
+   "N": "0"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "status": {
+   "S": "completed"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-2"
+  }
+ },
+ {
+  "body": {
+   "S": ""
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-3-e1"
+  },
+  "kind": {
+   "S": "turn.started"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-3"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "evt#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-3"
+  }
+ },
+ {
+  "attempt_id": {
+   "S": "att-3"
+  },
+  "bot_id": {
+   "S": "ada"
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "claimed_by_worker_id": {
+   "S": "worker-2"
+  },
+  "deadline_at": {
+   "N": "1788253360"
+  },
+  "fence_token": {
+   "N": "0"
+  },
+  "lease_expires_at": {
+   "N": "1788253245"
+  },
+  "next_chunk_seq": {
+   "N": "1"
+  },
+  "next_event_seq": {
+   "N": "2"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-3"
+  },
+  "prompt_message_seq": {
+   "N": "6"
+  },
+  "recovery_attempts": {
+   "N": "0"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "status": {
+   "S": "active"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-3"
+  }
+ },
+ {
+  "body": {
+   "S": ""
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "event_id": {
+   "S": "turn-4-e1"
+  },
+  "kind": {
+   "S": "turn.started"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-4"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "evt#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-4"
+  }
+ },
+ {
+  "body": {
+   "S": "You have three unread messages, one urgent."
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "event_id": {
+   "S": "turn-4-e2"
+  },
+  "kind": {
+   "S": "turn.completed"
+  },
+  "message_seq": {
+   "N": "2"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-4"
+  },
+  "seq": {
+   "N": "2"
+  },
+  "sk": {
+   "S": "evt#0000000002"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-4"
+  }
+ },
+ {
+  "attempt_id": {
+   "S": "att-4"
+  },
+  "bot_id": {
+   "S": "ada"
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "fence_token": {
+   "N": "0"
+  },
+  "next_chunk_seq": {
+   "N": "1"
+  },
+  "next_event_seq": {
+   "N": "3"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-4"
+  },
+  "prompt_message_seq": {
+   "N": "1"
+  },
+  "recovery_attempts": {
+   "N": "0"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "status": {
+   "S": "completed"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-4"
+  }
+ },
+ {
+  "body": {
+   "S": ""
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "event_id": {
+   "S": "turn-5-e1"
+  },
+  "kind": {
+   "S": "turn.started"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-5"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "evt#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-5"
+  }
+ },
+ {
+  "body": {
+   "S": "model_provider_error"
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "event_id": {
+   "S": "turn-5-e2"
+  },
+  "kind": {
+   "S": "turn.failed"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-5"
+  },
+  "seq": {
+   "N": "2"
+  },
+  "sk": {
+   "S": "evt#0000000002"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-5"
+  }
+ },
+ {
+  "attempt_id": {
+   "S": "att-5"
+  },
+  "bot_id": {
+   "S": "ada"
+  },
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "fence_token": {
+   "N": "0"
+  },
+  "next_chunk_seq": {
+   "N": "1"
+  },
+  "next_event_seq": {
+   "N": "3"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-5"
+  },
+  "prompt_message_seq": {
+   "N": "3"
+  },
+  "recovery_attempts": {
+   "N": "0"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "status": {
+   "S": "failed"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "terminal_reason": {
+   "S": "model_provider_error"
+  },
+  "turn_id": {
+   "S": "turn-5"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-direct"
+  },
+  "pk": {
+   "S": "channel_lookup#chan-direct"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "pk": {
+   "S": "channel_lookup#chan-general"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ }
+]

@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-5fd280e2-6f8f-4f48-87b1-2fad9e28f92a",
+  "title": "TS-72 Tool-call events omit arguments, which makes audits hard",
+  "description": "The turn event stream shows tool names and results but not arguments. Record arguments (redacting secrets) so a rehearsal or incident can be audited. Also: edit_workspace missing new_text error should say what to supply; write_workspace content gained a trailing newline versus what was sent (decide and document). Scenarios first.",
+  "type": "task",
+  "status": "closed",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "eae08a6d-5d27-4000-882a-6a85191fa0de",
+      "author": "home",
+      "text": "Done in PR 507 (deployed): tool.call carries sanitised arguments and a summary, tool.result carries ok, summary, truncated output and duration; turn.thinking and computer.starting/ready added; contract in docs/MESSAGING.md. Verified live in the chat UI.",
+      "created_at": "2026-10-12T10:49:55.453490Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
+  "created_at": "2026-10-07T21:17:23.692124Z",
+  "updated_at": "2026-10-12T10:49:55.970351Z",
+  "closed_at": "2026-10-12T10:49:55.970316Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is defining scenarios before adding redacted tool arguments and clarifying workspace behavior.",
+  "right_now_updated_at": "2026-10-07T21:17:26.001410Z",
+  "custom": {}
+}

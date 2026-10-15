@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-dd1539dd-ff4a-4f3c-ab0a-32533c23c176",
+  "title": "Seven of 13 Phase 2b live proof turns had a bot reply without the nonce",
+  "description": "In live proof 1, 7 of 13 trivial computer turns produced a bot reply that lacked the nonce. Unexplained; probably model wording. Read the reply texts to confirm and decide whether the proof check or the prompt needs changing. Turns still completed and the owner kept serving.",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-14T23:12:08.783956Z",
+  "updated_at": "2026-10-14T23:12:08.783994Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "Seven of 13 live proof turns lacked the nonce, and the replies are under review.",
+  "right_now_updated_at": "2026-10-14T23:12:11.087086Z",
+  "custom": {}
+}

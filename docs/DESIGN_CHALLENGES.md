@@ -200,7 +200,7 @@ a build decision.
 bills per request and costs nothing when nobody is working.
 
 **Tested (2026-08-30).** Test 1 in `spikes/sse-transport/` measured Python Lambda
-response streaming (Lambda Web Adapter) through a function URL and through
+response streaming (historical; the spike's Python code was deleted, the results stay) (Lambda Web Adapter) through a function URL and through
 CloudFront. **Pass.** No failure branch applied. Spike stack `ChatticusSseSpike`
 in `us-east-1`. Endpoints were stack outputs at measurement time; do not
 commit those URLs.
@@ -857,8 +857,9 @@ actually ships.
   how summaries compound. The "bot deciding to speak unaddressed" question
   under challenge 4 is also still open. Discuss those here and in chat
   before encoding them in Gherkin.
-- The messaging kernel in `python/src/chatticus/` and
-  `features/messages.feature` predate these decisions. They encode a
+- The original Python messaging kernel and `features/messages.feature`
+  (both deleted; see git history and
+  [Python retirement](PYTHON_RETIREMENT_SCENARIOS.md)) predate these decisions. They encode a
   transport-agnostic protocol that survives, but they are not yet the
   DynamoDB and server-sent-events design. Do not treat them as either
   the schema or the transport.

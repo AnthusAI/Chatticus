@@ -2,21 +2,31 @@
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
 import { DnsStack } from "../lib/dns-stack";
+import { buildDedicatedAccountStacks, readDedicatedEnvironment } from "../lib/dedicated-account-stacks";
 import { AuthStack } from "../lib/auth-stack";
 import {
+  ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
+  ACCOUNT_DEPLOY_STACK_IDS,
+  AUTH_DOMAIN_NAMES,
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
+  CONTROL_PLANE_STACK_IDS,
   THIN_TURN_STACK_IDS,
+  WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
 } from "../lib/environments";
 import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
+import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
-import { IntegrationTestStack } from "../lib/integration-test-stack";
+import { DELEGATIONS } from "../lib/dns-delegations";
+import { ManagementDnsStack, loadZoneRecords } from "../lib/management-dns-stack";
+import { ControlPlaneStack } from "../lib/control-plane-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { websiteDeploySourceForApp } from "../lib/web-bundle-stub";
 import { WebStack } from "../lib/web-stack";
+import { applyStandardTags, readInstallationName } from "../lib/tagging";
 
 const app = new cdk.App();
 
@@ -26,98 +36,142 @@ const env: cdk.Environment = {
 };
 
 const budgetsConfig = readBudgetsConfig(app);
+const installationName = readInstallationName();
 
-let budgetsStack: BudgetsStack | undefined;
-if (budgetsConfig) {
-  budgetsStack = new BudgetsStack(app, "ChatticusBudgets", {
+function buildLegacyAccountStacks(): void {
+  let budgetsStack: BudgetsStack | undefined;
+  if (budgetsConfig) {
+    budgetsStack = new BudgetsStack(app, "ChatticusBudgets", {
+      env,
+      monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
+      notificationEmails: budgetsConfig.notificationEmails,
+      description: "Account-level AWS spend budget and alerts.",
+    });
+  }
+
+  const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
     env,
-    monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
-    notificationEmails: budgetsConfig.notificationEmails,
-    description: "Account-level AWS spend budget and alerts.",
+    description: "Canonical S3 store for Chatticus computer snapshots.",
   });
+
+  const budgetsAlertsTopicArn = budgetsStack?.alertsTopic.topicArn;
+
+  new ComputerStack(app, "ChatticusComputers", {
+    env,
+    chatticusEnvironment: "development",
+    description: "ECS cluster, ECR, and Fargate task definition for computer hosts.",
+    snapshotBucket: snapshots.bucket,
+  });
+
+  const dns = new DnsStack(app, "ChatticusDns", {
+    env,
+    description: "Route 53 hosted zone and ACM certificate for chattic.us.",
+  });
+
+  new GitHubDeployStack(app, "ChatticusGitHubDeploy", {
+    env,
+    description:
+      "GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production).",
+  });
+
+  for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+    const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      budgetsAlertsTopicArn,
+      budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
+      description:
+        `Permanent data stack (${environmentName}): Messaging table, secrets and budget jobs.`,
+    });
+
+    const controlPlane = new ControlPlaneStack(app, CONTROL_PLANE_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      messagingTable: thinTurn.messagingTable,
+      description:
+        `TypeScript conversation control plane (${environmentName}), fronts /api/* through the web stack.`,
+    });
+
+    const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      siteDomain: WEB_SITE_DOMAINS[environmentName],
+      hostedZone: dns.hostedZone,
+      siteCertificate: dns.siteCertificate,
+      frontDoorFunctionUrl: controlPlane.frontDoorFunctionUrl,
+      invokeSecret: thinTurn.invokeSecret,
+      websiteDeploySource: websiteDeploySourceForApp(),
+      description:
+        `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
+        "proxy to the control-plane function URL.",
+    });
+    web.addDependency(thinTurn);
+    web.addDependency(controlPlane);
+
+    new AuthStack(app, AUTH_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      siteDomain: WEB_SITE_DOMAINS[environmentName],
+      authDomainName: AUTH_DOMAIN_NAMES[environmentName],
+      hostedZone: dns.hostedZone,
+      siteCertificate: dns.siteCertificate,
+      budgetsAlertsTopicArn,
+      description:
+        `Cognito user pool (${environmentName}) with Google federation and ` +
+        "custom auth domain for SPA authorization code + PKCE.",
+    });
+  }
 }
 
-const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
-  env,
-  description: "Canonical S3 store for Chatticus computer snapshots.",
-});
-
-const budgetsAlertsTopicArn = budgetsStack?.alertsTopic.topicArn;
-
-new ComputerStack(app, "ChatticusComputers", {
-  env,
-  description: "ECS cluster, ECR, and Fargate task definition for computer hosts.",
-  snapshotBucket: snapshots.bucket,
-});
-
-const dns = new DnsStack(app, "ChatticusDns", {
-  env,
-  description: "Route 53 hosted zone and ACM certificate for chattic.us.",
-});
-
-new GitHubDeployStack(app, "ChatticusGitHubDeploy", {
-  env,
-  description:
-    "GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production).",
-});
-
-for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
-  const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
+const dedicatedEnvironment = readDedicatedEnvironment(app);
+if (dedicatedEnvironment !== undefined) {
+  buildDedicatedAccountStacks(app, {
     env,
-    chatticusEnvironment: environmentName,
-    budgetsAlertsTopicArn,
-    budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
-    description:
-      `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
-      "Lambda SSE front door.",
-  });
-
-  const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
-    env,
-    chatticusEnvironment: environmentName,
-    hostedZone: dns.hostedZone,
-    siteCertificate: dns.siteCertificate,
-    frontDoorFunctionUrl: thinTurn.frontDoorFunctionUrl,
-    invokeSecret: thinTurn.invokeSecret,
+    environmentName: dedicatedEnvironment,
+    budgetsConfig,
     websiteDeploySource: websiteDeploySourceForApp(),
-    description:
-      `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
-      "proxy to the thin-turn function URL.",
   });
-  web.addDependency(thinTurn);
+} else {
+  buildLegacyAccountStacks();
+}
 
-  new AuthStack(app, AUTH_STACK_IDS[environmentName], {
+if (app.node.tryGetContext("managementDns") === "true") {
+  const zoneRecordsFile = app.node.tryGetContext("zoneRecordsFile");
+  if (typeof zoneRecordsFile !== "string" || zoneRecordsFile.length === 0) {
+    throw new Error(
+      "managementDns needs -c zoneRecordsFile=PATH, a local Route 53 record export kept outside the repository.",
+    );
+  }
+  new ManagementDnsStack(app, "ChatticusManagementDns", {
     env,
-    chatticusEnvironment: environmentName,
-    hostedZone: dns.hostedZone,
-    siteCertificate: dns.siteCertificate,
-    budgetsAlertsTopicArn,
-    description:
-      `Cognito user pool (${environmentName}) with Google federation and ` +
-      "custom auth domain for SPA authorization code + PKCE.",
+    records: loadZoneRecords(zoneRecordsFile),
+    delegations: DELEGATIONS,
+    description: "Route 53 hosted zone for chattic.us, owned by the management account.",
   });
 }
 
-const integrationTestEnvironment = app.node.tryGetContext("integrationTestEnvironment");
-if (
-  typeof integrationTestEnvironment === "string" &&
-  integrationTestEnvironment.length > 0
-) {
+const githubDeployEnvironment = app.node.tryGetContext("githubDeployEnvironment");
+if (typeof githubDeployEnvironment === "string" && githubDeployEnvironment.length > 0) {
   if (
     !CHATTICUS_CLOUD_ENVIRONMENTS.includes(
-      integrationTestEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
+      githubDeployEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
     )
   ) {
     throw new Error(
-      `Unknown integrationTestEnvironment '${integrationTestEnvironment}'. ` +
+      `Unknown githubDeployEnvironment '${githubDeployEnvironment}'. ` +
         `Expected one of: ${CHATTICUS_CLOUD_ENVIRONMENTS.join(", ")}`,
     );
   }
-  new IntegrationTestStack(app, "ChatticusIntegrationTest", {
+  const deployEnvironment = githubDeployEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number];
+  new AccountGitHubDeployStack(app, ACCOUNT_DEPLOY_STACK_IDS[deployEnvironment], {
     env,
-    integrationTestEnvironment:
-      integrationTestEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
-    description:
-      "Scheduled Lambda smoke tests against one named thin-turn environment.",
+    githubEnvironment: deployEnvironment,
+    description: ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER[deployEnvironment]
+      ? `GitHub Actions OIDC provider and ${githubDeployEnvironment} deploy role for this environment account.`
+      : `GitHub Actions ${githubDeployEnvironment} deploy role, importing the account's OIDC provider.`,
   });
+}
+
+for (const stack of app.node.children.filter(cdk.Stack.isStack)) {
+  applyStandardTags(stack, installationName, dedicatedEnvironment);
 }

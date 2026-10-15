@@ -7,8 +7,14 @@ Use Kanbus for task management.
 Why: Kanbus task management is MANDATORY here; every task must live in Kanbus.
 When: Create/update the Kanbus task before coding; close it only after the change lands.
 How: See CONTRIBUTING_AGENT.md for the Kanbus workflow, hierarchy, status rules, priorities, command examples, and the mistakes to avoid. Never inspect project/ or issue JSON directly (including with cat or jq); use Kanbus commands only.
-Performance: Prefer kbs (Rust) when available; kanbus (Python) is equivalent but slower.
+Performance: Prefer kbs (Rust) when available; the Python kanbus is equivalent but slower (it is a separate tool, not part of this repo).
 Warning: Editing project/ directly violates The Way. Do not read or write anything in project/; work only through Kanbus.
+
+Kanbus board and wiki commits are **project management, not product**. After `kbs` create/update/comment/close (or a wiki edit), commit those files on `develop` and push `origin develop`. **Do not open a pull request.** Do not use a feature branch or worktree. Do not wait for CI or a reviewer. A PR is for product behavior and production code (`conversation/`, `web/`, `infra/`, `features/`, `computer/`). See CONTRIBUTING_AGENT.md.
+
+**Agent provenance:** AI coding agents must set `KANBUS_AGENT_PLATFORM` and `KANBUS_AGENT_MODEL` (prefer also `KANBUS_AGENT_NAME` / `KANBUS_AGENT_SETTINGS`) on every `kbs create` and `kbs comment`, or pass the matching `--agent-*` flags. Humans are exempt. Details in CONTRIBUTING_AGENT.md.
+
+**Product git policy (this repo):** bots and coding agents may commit and open pull requests into `develop` (not `main`). `develop` is the continuous-integration branch; merge accepted green product work there. `main` is the release branch only — promote `develop` → `main` when you intend a release. Do not merge product work straight to `main`.
 
 ## What this project is
 
@@ -39,31 +45,33 @@ and future agents. A new reader (person or agent) should be able to read the
 `.feature` files in order and understand the system.
 
 - **Behavior changes start in `features/`.** Write or change the Gherkin
-  scenario first (Given/When/Then), then implement the Python steps in
-  `features/steps/`, then the production code. This is outside-in. Do not
+  scenario first (Given/When/Then), then implement the TypeScript steps in
+  `conversation/features-support/steps/`, then the production code. This is outside-in. Do not
   write production code first and back-fill a scenario.
 - **The features should read as a coherent narrative**, not a pile of
   isolated scenarios. Group related scenarios under one feature with a
   `Feature:` line that states the capability. Order scenarios within a
   feature so they tell a story (happy path, then variations, then errors).
   When a feature grows large, split by capability, not arbitrarily.
-- **`pytest` is the exception, not the default.** Use it only for cases
+- **A vitest unit test is the exception, not the default.** Use it only for cases
   that genuinely cannot be expressed as behavior: pure unit tests of
   internal helpers, pure functions, serializers, parsers, data transforms,
   and structural/coverage guards (e.g. the account-origin scan). If a test
   describes user-observable behavior — an HTTP response, a route guard, a
   membership branch, a turn/stream event, a worker dispatch, an org-scoped
   access decision, a recovery or approval flow — it belongs in Gherkin, not
-  pytest.
+  vitest.
 - **Regressions go to Gherkin.** When fixing a bug, add or extend a
   `.feature` scenario that fails before the fix and passes after. Do not
-  add a pytest regression for behavior that has a Gherkin home.
+  add a vitest regression for behavior that has a Gherkin home.
 - **Do not split one behavior across both.** A behavior lives in exactly
-  one place: Gherkin. A pure helper lives in exactly one place: pytest.
+  one place: Gherkin. A pure helper lives in exactly one place: vitest.
   Two sources of truth for the same behavior is a defect.
 
-`behave` from `python/` is the behavior gate. `pytest` is the unit gate. Both
-must pass. Neither is a substitute for the other.
+`cucumber-js` from `conversation/` is the behavior gate. `vitest` is the unit
+gate. Both must pass. Neither is a substitute for the other. Every feature
+`cucumber-js` runs is named in `features/cucumber-features.txt`; a new
+`.feature` file must be added to that list.
 
 ## Layout
 
@@ -76,10 +84,13 @@ must pass. Neither is a substitute for the other.
   decided but unmeasured; run the test before building on the decision
   it gates. Read `docs/BRAND_GUIDELINES.md` before touching backgrounds,
   regions, or borders on any `web/` surface. Spike code is throwaway and
-  does not go in `python/src`.
-- `features/` — shared Gherkin. Behavior changes start here.
-- `python/` — control plane, scheduler, roster, approvals, later agent and
-  worker processes.
+  does not go in `conversation/src`.
+- `features/` — shared Gherkin. Behavior changes start here. The TypeScript
+  steps live in `conversation/features-support/`.
+- `conversation/` — the TypeScript control plane: HTTP front door, scheduler,
+  roster, approvals, Pi-durable harness, workers, migration tools.
+- `host-protocol/` and `computer/host/` — the host protocol and the computer
+  host worker.
 - `web/` — Next.js app: the product workspace at `/chat` and `/auth`
   (`hey.chattic.us` in production). No marketing routes -- those live in the
   private `AnthusAI/Chattic.us-web` repo (chatticus-3926bc), which depends
@@ -96,11 +107,11 @@ must pass. Neither is a substitute for the other.
 - No emojis in code, docs, commit messages, or Gherkin.
 - No backward-compatibility forks or "support both ways" branches. One
   correct path. Migrate data; do not keep dual readers.
-- Long, clear names. No line-level comments. Sphinx docstrings on public
-  Python. Rustdoc later if a Rust worker appears.
+- Long, clear names. No line-level comments. TSDoc on public TypeScript.
+  Rustdoc later if a Rust worker appears.
 - Gherkin in `features/` is the product narrative (see **Behavior-driven design**
-  above). Implement Python steps in `features/steps/` so `behave` from
-  `python/` passes.
+  above). Implement TypeScript steps in `conversation/features-support/steps/`
+  so `cucumber-js` from `conversation/` passes.
 - `tenant_id` is required in worker registration, jobs, bots, computers,
   channels, and messages even while v1 has a single household tenant.
 - A **channel** is the conversation object. There is no separate thread.
@@ -111,30 +122,35 @@ must pass. Neither is a substitute for the other.
 
 ### Pudicus Inspection Gate
 To prevent secrets from leaking into the repository, Chatticus uses the `pudicus` pre-commit gate.
-Install it globally (or in your venv) and initialize the repo:
+`pudicus` is a separate developer tool (distributed on PyPI, not part of this
+repo's code). Install it globally and initialize the repo:
 ```bash
 pip install pudicus
 pudicus install
 ```
 
 ### Local Testing
-From `python/` after `pip install -e ".[dev]"`:
+After `npm ci` at the repo root. DynamoDB-backed tests and scenarios need moto:
+`npm run moto:start` in one shell (port 5555), then
+`export CHATTICUS_TEST_AWS_ENDPOINT=http://127.0.0.1:5555`.
 
 ```bash
-black --check src ../features tests
-ruff check src ../features tests
-behave
-pytest
+cd conversation
+npm run typecheck
+npm test              # vitest
+npm run test:features # cucumber-js, the behavior gate (features/cucumber-features.txt)
+cd ../infra && npm test
+cd ../web && npm test
 ```
 
-`black` and `ruff` versions are pinned in `python/pyproject.toml` so a
-local venv matches GitHub CI. Do not upgrade them in one place only.
+The black-box acceptance runner (`conversation/bin/acceptance.ts`, always with
+`--environment`) checks a deployed environment.
 
-Do not declare worker-protocol work done if `behave` or `pytest` is failing.
+Do not declare worker-protocol work done if `cucumber-js` or `vitest` is failing.
 
 Those gates are in-process. They use in-memory stores and moto. They do
 not prove a CloudFront origin, SQS, or Lambda. To check the real stack,
-sign in at [dev.chattic.us](https://dev.chattic.us) and send a message.
+sign in at [develop.chattic.us](https://develop.chattic.us) and send a message.
 
 ## Computer and Lambda
 
@@ -194,12 +210,24 @@ runnable on Fargate, EC2, and local Docker.
 
 Durable computer disk is an S3 snapshot plus a local cache on the current
 host. Do not mount S3 as the container root. Do not live-migrate containers.
-Pack I/O lives in `python/src/chatticus/snapshot/`. See
+Pack I/O lives in `conversation/src/snapshot/`. See
 `docs/COMPUTER_SNAPSHOTS.md`.
 
 AWS resources exist only as CDK in `infra/`. Do not `aws s3 mb`, create
 clusters, or click a bucket into existence. `cdk bootstrap` and
 `cdk deploy` are the allowed AWS writes.
+
+### IAM access keys (hard control)
+
+Do **not** create IAM users or mint long-lived IAM access keys in this
+repository, in CDK/Terraform/CloudFormation it deploys, or in scripts and
+workflows Chatticus ships. Prefer GitHub OIDC deploy roles
+(`infra/lib/github-deploy-stack.ts`), `sts:AssumeRole` (customer
+cross-account and operator scripts), and Identity Center–compatible
+sessions (`aws login`). Temporary keys forwarded from an existing OIDC or
+AssumeRole session (for example SAM docker bundling) are not minting; storing
+those values as standing GitHub or AWS secrets is. See `docs/AWS_AUTH.md`
+for allowed paths, verification commands, and ops cleanup of legacy keys.
 
 ## Git
 
@@ -216,10 +244,15 @@ workflow is local to this repo and authenticates with `GITHUB_TOKEN`;
 do not call the platform-ci reusable workflow, which requires an
 `anthusbot_gh_token` this repository does not have.
 
-Open pull requests against `develop`. Merge them there as soon as
-sub-agent review is addressed and CI is green. Do not park completed
-work on feature branches. Promote `develop` to `main` when you intend a
-release, not as the daily integration path.
+Open pull requests against `develop` for **product** work. Merge them
+there as soon as sub-agent review is addressed and CI is green. Do not
+park completed work on feature branches. Promote `develop` to `main`
+when you intend a release, not as the daily integration path.
+
+**Do not open a pull request for project management.** Kanbus issues,
+comments, status changes, and `project/wiki` pages commit on `develop`
+and push. No feature branch, no PR, no review loop. Mixing board files
+into a product PR is also wrong: land the board on `develop` first.
 
 ## Cloud environments
 
@@ -228,30 +261,100 @@ Chatticus has three named AWS environments for the thin-turn front door:
 pass `--environment` for one of those names. Run them from a logged-in
 developer or agent shell, not from GitHub Actions.
 
-| Git | Cloud environment | CDK stack |
-| --- | --- | --- |
-| `develop` | development | `ChatticusThinTurn` |
-| `main` (release) | staging + production | `ChatticusThinTurnStaging` / `ChatticusThinTurnProduction` |
+| Branch | Cloud environment | Trigger | CDK stack |
+| --- | --- | --- | --- |
+| `develop` | development | push to `develop`, or `workflow_dispatch` | `ChatticusThinTurn` |
+| `main` (release) | staging | `workflow_dispatch` only | `ChatticusThinTurnStaging` |
+| `main` (release) | production | `workflow_dispatch` only | `ChatticusThinTurnProduction` |
 
-Deployment is a real CI/CD pipeline, not a manual step: each of the nine
-`deploy-{web,thinturn,auth}-{development,staging,production}.yml`
-workflows triggers on `push` to its branch (`develop` for development,
-`main` for both staging and production) in addition to `workflow_dispatch`.
-A push to `main` deploys staging and production in the same motion --
-there is no separate approval gate between them. Branch protection on
-`main` (required PR review + green CI before merge) is the safety gate,
-not a deploy-time click. So "deploy this" from a human means: get the
-work merged to `main` (through the normal `develop` -> `main` promotion
-PR, reviewed and green) and then watch those workflow runs to
-completion -- not run `cdk deploy` by hand from a local shell with
-`aws login`. Local `cdk deploy` (via the `infra/deploy-*.sh` scripts)
-still works and remains the fallback when CI can't be used, but prefer
-the CI path: it authenticates via OIDC (`configure-aws-credentials`),
-not a personal AWS session.
+Only the development deploy workflows trigger on push. The staging and
+production deploy workflows (`deploy-{controlplane,web,thinturn,auth}-{staging,production}.yml`)
+are `workflow_dispatch` only: a push or merge to `main` never deploys
+anything. A structural test in `infra/test/deploy-workflows.test.ts` fails if
+a workflow bound to the `staging` or `production` GitHub environment regains
+a push, pull_request, schedule or workflow_run trigger. Every environment
+deploys through `infra/deploy-chatticus-dedicated-account.sh ENV STACK`; the
+script refuses the legacy account. Development has an AWS account of its own.
+Staging and production are separate environments that share one AWS account
+(the production account, `us-east-1`): there is no separate staging account.
+Production is already live there under the stack names it was deployed with
+(`ChatticusSnapshots`, `ChatticusComputers`, `ChatticusAccountDeploy`, ...) and
+keeps them: renaming a live stack would replace its resources. Staging, added
+to that account later, carries the environment in its ids
+(`ChatticusSnapshotsStaging`, `ChatticusComputersStaging`, and so on), so the
+two never collide. See `docs/PROMOTE_TO_MAIN.md` section 11.
 
-Shared stacks `ChatticusSnapshots` and `ChatticusComputers` are not
-per-environment. Never `cdk deploy --all`. Never destroy those two
-stacks.
+The GitHub `staging` and `production` environments require a reviewer, and
+branch protection on `main` requires a PR, review and green CI. These are
+repository settings the owner controls; agents do not change them. Production
+is deployed only by a manual dispatch that the environment reviewer approves,
+and only a staging-proven release goes there. "Deploy this" from a human
+therefore means: get the work merged (`develop` for development; the normal
+`develop` -> `main` promotion PR for release), then dispatch the workflow for
+the target environment and watch the run to completion. Do not run `cdk deploy`
+by hand from a local shell with `aws login` unless CI cannot be used; the CI
+path authenticates via OIDC (`configure-aws-credentials`), not a personal AWS
+session.
+
+One merge to `develop` starts five workflows: the four development deploys
+and `Build computer image (development)`. GitHub keeps one running and one
+pending run per concurrency group and cancels older pending runs, so a shared
+group silently drops sibling workflows. Each of the five therefore has its own
+group (`deploy-{auth,controlplane,thinturn,web}-development` and
+`build-computer-image-development`) with `cancel-in-progress: false`: a
+newer merge queues behind a running deploy, and only a pending run of the same
+workflow can be replaced, always by a run for a later `develop` commit (each
+deploy checks out `github.sha`). In development each stack is deployed by
+exactly one workflow, the one it is named for (ControlPlane deploys
+control-plane, Web deploys web, ThinTurn deploys thin-turn, Auth deploys auth);
+a guard in `infra/test/deploy-workflows.test.ts` enforces it. Nothing imports
+the thin-turn CloudFormation exports; control-plane and web only read thin-turn
+SSM parameters at deploy time, so the workflows need no mutual ordering beyond
+the one-time first deploy of thin-turn in a new account. Staging and production
+still chain control-plane, web and thin-turn inside each manual workflow.
+`infra/deploy-chatticus-dedicated-account.sh` still waits for its target stack
+to leave `*_IN_PROGRESS`, synthesizes once, and retries `cdk deploy` (up to five
+attempts, each after another bounded wait) only when the output matches the
+named list `OVERLAPPING_DEPLOY_MESSAGE_PATTERNS` (stack "is in ... IN_PROGRESS
+state and can not be updated", "Cannot delete ChangeSet in status
+CREATE_IN_PROGRESS", a ChangeSet "already exists", ConcurrentModificationException,
+"concurrent update"), which is how two overlapping deploys of one stack
+surface; every other failure exits at once. The image build does not wait for
+the Lambda deploys; the image tag promotion order is owned by chatticus-d88a0f.
+Staging and production keep one group each, since they are manual dispatches.
+A cancelled development run is now a defect to investigate, not routine.
+
+The integration-test principal (`CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN`)
+is enabled in development and staging, where acceptance runs need it, and never
+in production: the script refuses it there and no production workflow passes it.
+
+Snapshots, Computers, zones and certificates are per environment:
+development and production keep the unsuffixed `ChatticusSnapshots`,
+`ChatticusComputers`, `ChatticusEnvironmentZones` and
+`ChatticusEnvironmentCertificates` in their own accounts; staging has the
+`Staging` suffixed copies in production's account. Only `ChatticusBudgets` is
+account-level (one copy, owned by production), and the account's GitHub OIDC
+provider is created by `ChatticusAccountDeploy` and imported by staging's deploy
+stack. Never `cdk deploy --all`. Never destroy the snapshots or computers stacks
+of any environment.
+
+**The computer image tag flips only after the server side is verified.** The
+`ChatticusComputers` owner task definition runs the ECR tag `dev` (staging runs
+`staging` and production `production` in their own repositories; their promote
+workflows are not built yet). The build
+workflow (`build-computer-image-development.yml`) pushes only the immutable
+`sha-<commit>` tag and never moves `dev`. `dev` moves only through the
+`promote-computer-image-development.yml` workflow (`workflow_dispatch`, input
+`commit`), which refuses unless the latest ControlPlane and ThinTurn development
+deploys of that commit succeeded, and prints the previous digest. Roll back with
+`aws ecr put-image --image-tag dev` and the previous digest's manifest
+(`aws ecr batch-get-image --image-ids imageDigest=<previous>`); the exact
+commands are in `docs/COMPUTER_IMAGE_PROMOTION.md`. Never push `:dev` by hand.
+Moto enforces no IAM, so a new S3 key shape or DynamoDB partition a role touches
+ships only with a row in `conversation/src/gateway/role-access-manifest.json`
+that the synthesized policy allows (`docs/ROLE_ACCESS_GUARD.md`); after a deploy
+an operator can run `npx tsx conversation/bin/simulate-role-access.ts
+--environment development` (read-only).
 
 ## Local desk configuration (`AGENTS.local.md`)
 
@@ -263,6 +366,11 @@ propagates, AWS account id, and similar deploy-local values. Copy
 That file is **gitignored and must never be committed**. If it is missing,
 resolve URLs from SSM or CloudFormation with `aws login`, or ask the
 human — do not paste account-specific URLs into committed docs.
+**AWS account ids, member-account ids, billing emails, and other desk
+account facts belong only in `AGENTS.local.md`.** Do not put them in
+`project/wiki` (the wiki is git history). Write runbooks with placeholders
+(`ANTHUS_ACCOUNT_ID`, `CUSTOMER_ACCOUNT_ID`) and tell the reader to take
+values from `AGENTS.local.md`.
 
 ## Pull request review
 

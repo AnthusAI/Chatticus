@@ -1,0 +1,57 @@
+{
+  "id": "chatticus-dfe04875-fa80-4ae2-8b73-4329080c402b",
+  "title": "Live files B: infrastructure and policy for the edit overlay (Front Door write, supervisor deny)",
+  "description": "Contract: docs/LIVE_FILES_PROTOCOL.md (revision 2) sections 12.8, 15 (B), 3 (L30, L37). Independent of the other parts; deploy before anything writes an overlay object. Gherkin first (features/computer_file_live.feature, scenarios \"The owner roles cannot write or delete overlay objects\" and \"The Front Door writes the overlay with conditional puts\" are shared with A3).\n\nWhy infrastructure is needed (owner decision: files are edited with the computer off, through an overlay in the snapshot bucket): the Front Door role has only s3:GetObject and s3:ListBucket on the snapshot prefix (infra/lib/control-plane-stack.ts around lines 414-427), and the supervisor role may PutObject on its whole computer prefix.\n\nFiles:\n- infra/lib/control-plane-stack.ts: next to ReadComputerSnapshots add the Front Door statement Sid WriteComputerEditOverlay, Effect Allow, Actions s3:PutObject and s3:DeleteObject, Resource arn:aws:s3:::SNAPSHOT_BUCKET/tenants/*/computers/*/overlay/* . Do not grant s3:DeleteObjectVersion.\n- conversation/src/gateway/supervisor-role-policy.json: keep SnapshotObjects (Allow) and add Sid OverlayIsWrittenByTheFrontDoorOnly, Effect Deny, Actions s3:PutObject, s3:DeleteObject, s3:DeleteObjectVersion, s3:PutObjectTagging, s3:AbortMultipartUpload, Resource {{snapshotBucketArn}}/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/overlay/* .\n- infra/lib/owner-role-policy.ts: pass the statement Effect through (supervisorRolePolicyStatements) so Deny is deployed.\n- conversation/features-support/iam-policy-evaluator.ts: the statement type is Effect \"Allow\" only today; learn Deny (a matching deny overrides any allow).\n- features/owner_role_policy.feature and features/computer_owner_policy_coverage.feature: rows for overlay/index.json and overlay/blobs/<hash>: per-turn role denied Get, Put and Delete; supervisor role allowed Get, denied Put, Delete, DeleteObjectVersion; the supervisor still allowed Put on snapshot.tar.gz; denied on another computer's overlay.\n- infra/test/computer-owner-stack.test.ts: assertions for the Front Door statement (only overlay/*), the supervisor deny, no DeleteObjectVersion.\n- Only if the owner approves Q-O3: infra/lib/snapshot-stack.ts noncurrentVersionExpiration 30 days. Otherwise leave and say so in a comment on this ticket.\n\nAcceptance: cd infra && npm test; cd conversation && npm run typecheck && npm test && npm run test:features (the existing supervisor role scenarios stay green; 'allows only Get, Put and Abort on its own prefix' remains true for everything except overlay/).\n\nDependencies: none. Blocks A2 and C2 reaching development (merge first in the deploy order).\n\nRules: no emojis, no line comments. AWS resources only through CDK. Do not read or write project/.\n\n\nREVISION 3 (owner decision O5: delete, rename and new folders are required in Phase 3, also while the computer is off; contract sections 3 L48 to L66, 5.2, 5.5, 7.8, 8.1):\n- The lifecycle rule is part of this ticket, not optional (owner decision O6): infra/lib/snapshot-stack.ts, noncurrentVersionExpiration of 30 days on the bucket, with a CDK assertion in infra/test. Plain explanation for the PR description: the bucket is versioned, so S3 keeps every overwritten object as a hidden older version; today every publish overwrites the whole pack, so those versions are whole-workspace snapshots, not per-file history, and they are never expired; it is a storage cost and a recovery window, not a product feature. The rule does not touch current objects.\n- LocalWorkerRole is left as it is (owner decision O7).\n- The Front Door statement WriteComputerEditOverlay (PutObject, DeleteObject on overlay/*) also covers the deletes the clear performs.",
+  "type": "sub-task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-041a1034-6ea9-4790-b8be-10f464f70024",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3eb85038-8823-480b-9b49-48523527c3a8",
+      "author": "home",
+      "text": "Description revised for contract revision 3 (delete, rename, new folders); see docs/LIVE_FILES_PROTOCOL.md section 7.8 and PR 519.",
+      "created_at": "2026-10-12T22:22:38.162090Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "planner"
+      }
+    },
+    {
+      "id": "d8a690d2-2d2c-4305-a8ac-fad1041f2617",
+      "author": "home",
+      "text": "Merged to develop in PR 521 (B), part of Phase 3 (contract PR 519). Proven live on development on 2026-10-13: with the computer off a person can create folders, create a file, rename it and is refused 409 on a stale hash; the next turn on a freshly started computer sees the offline edit (applied at hydrate); with the computer on, read, edit, the bot reads the edit back, delete, then stat is 404; a save with a stale hash after the bot edited is refused 409 and the bot's line survives; If-Match and ETag pass through CloudFront. Not yet proven: the Files panel in a browser at 375 px or with a real signed-in user (chatticus-bf7fd2). Follow-ups: chatticus-5dbb7e, chatticus-f9cfda, chatticus-7c6040, chatticus-d88a0f, chatticus-80b17c, chatticus-e7a52f, chatticus-ed8e4e.",
+      "created_at": "2026-10-13T07:07:24.906039Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    },
+    {
+      "id": "eb8eff3b-aa18-4059-bec4-631519b90d9b",
+      "author": "home",
+      "text": "Phase 3 implemented, merged and proven live at API level on development 2026-10-13.",
+      "created_at": "2026-10-13T07:07:30.749748Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-10-12T22:01:11.509869Z",
+  "updated_at": "2026-10-13T07:07:35.538071Z",
+  "closed_at": "2026-10-13T07:07:35.538034Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "planner"
+  },
+  "right_now_summary": "Phase 3 is live on development; API flows work, but browser testing at 375 px and with a real user remains.",
+  "right_now_updated_at": "2026-10-13T07:07:37.410511Z",
+  "custom": {}
+}

@@ -23,7 +23,7 @@ describe("fetchMe", () => {
         JSON.stringify({
           email: "owner@example.com",
           user_id: "user-1",
-          organizations: [{ tenant_id: "anthus", status: "enabled" }],
+          organizations: [{ tenant_id: "anthus", name: "Anthus", status: "enabled" }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );

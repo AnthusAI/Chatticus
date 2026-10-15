@@ -1,0 +1,61 @@
+#!/bin/sh
+# The watchdog of the owner supervisor: a separate process that shares nothing with the supervisor's Node event loop.
+# It holds no credential and calls no API. Usage: chatticus-watchdog SUPERVISOR_PID [LIVENESS_FILE]
+#
+# Every 15 seconds it checks, in this order:
+#   the supervisor is gone                      exit 0
+#   28620 seconds since this process started    SIGKILL the supervisor
+#   28500 seconds since this process started    SIGTERM the supervisor, once
+#   the liveness file is older than 180 seconds SIGKILL the supervisor (a wedged or blocked main loop)
+# A killed supervisor ends the essential container, so the task stops and nothing is left running idle.
+#
+# Two settings exist only so the image tests can drive time: CHATTICUS_WATCHDOG_CLOCK_FILE (a file holding the current epoch
+# seconds, read instead of the clock) and CHATTICUS_WATCHDOG_CHECK_SECONDS (the pause between checks).
+set -u
+
+supervisor_pid="${1:?usage: chatticus-watchdog SUPERVISOR_PID [LIVENESS_FILE]}"
+liveness_file="${2:-/run/chatticus/supervisor.alive}"
+check_seconds="${CHATTICUS_WATCHDOG_CHECK_SECONDS:-15}"
+terminate_after=28500
+kill_after=28620
+stale_after=180
+
+now() {
+  if [ -n "${CHATTICUS_WATCHDOG_CLOCK_FILE:-}" ]; then
+    cat "${CHATTICUS_WATCHDOG_CLOCK_FILE}"
+  else
+    date +%s
+  fi
+}
+
+modified_at() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null
+}
+
+started_at="$(now)"
+terminated=0
+
+while :; do
+  kill -0 "${supervisor_pid}" 2>/dev/null || exit 0
+  current="$(now)"
+  elapsed=$((current - started_at))
+  if [ "${elapsed}" -ge "${kill_after}" ]; then
+    echo "owner_watchdog_fired action=kill reason=deadline"
+    kill -KILL "${supervisor_pid}" 2>/dev/null
+  elif [ "${elapsed}" -ge "${terminate_after}" ] && [ "${terminated}" -eq 0 ]; then
+    terminated=1
+    echo "owner_watchdog_fired action=term reason=deadline"
+    kill -TERM "${supervisor_pid}" 2>/dev/null
+  fi
+  touched="$(modified_at "${liveness_file}" || true)"
+  if [ -n "${touched}" ]; then
+    silent=$((current - touched))
+  else
+    silent="${elapsed}"
+  fi
+  if [ "${silent}" -gt "${stale_after}" ]; then
+    echo "owner_watchdog_fired action=kill reason=stale"
+    kill -KILL "${supervisor_pid}" 2>/dev/null
+  fi
+  sleep "${check_seconds}"
+done

@@ -1,0 +1,42 @@
+{
+  "id": "chatticus-0a92a8c1-dfb9-45bc-af7b-08f6757e9e1c",
+  "title": "Open the develop-to-main PR as a merge commit with no deploy starting",
+  "description": "## Plan step 7 (blocked by steps 1, 2, 3 and 4)\nPR titled 'Promote develop to main: TypeScript control plane' (conventional subject, no breaking marker), review addressed, required checks green. Body: the area table, the expected v0.44.0 release, and a statement that no staging or production deploy runs. Merge with a MERGE COMMIT (do not squash 691 commits; baseline tag must stay an ancestor).\n## Acceptance (verify within minutes of merge)\n- CI green; semantic-release creates v0.44.0 and a changelog commit.\n- No deploy workflow starts.\n- README claim 'Staging and production run Python' updated at the merge.\n- Rollback: revert the merge commit; delete release and tag by hand if created.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-5380d008-a85a-4fc2-a08c-13ccd85fd7ef",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-1fdb855e-b436-4dbc-abbe-42b6875395af",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-859e8051-5399-4365-b016-7956f96ce19f",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-d62cb64e-75a5-47eb-a5f7-85812cc7177b",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:37:02.972391Z",
+  "updated_at": "2026-10-13T11:38:07.138690Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The merge PR awaits owner decisions before it can proceed without triggering a deploy.",
+  "right_now_updated_at": "2026-10-13T11:38:08.389049Z",
+  "custom": {}
+}

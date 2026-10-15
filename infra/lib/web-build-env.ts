@@ -1,6 +1,5 @@
 import {
   ChatticusCloudEnvironment,
-  WEB_SITE_DOMAINS,
   signupModeForEnvironment,
   webParameterPrefix,
 } from "./environments";
@@ -11,10 +10,21 @@ export const WEB_BUNDLE_DOCKER_IMAGE =
 
 export const CHATTICUS_AWS_REGION = "us-east-1";
 
+export const WEB_DOCKER_BUNDLE_HOME = "/tmp/chatticus-bundle";
+export const WEB_DOCKER_NPM_CACHE = `${WEB_DOCKER_BUNDLE_HOME}/.npm`;
+
+/** Writable HOME and npm cache for uid 1001 in the SAM docker image. */
+export function webDockerBundleHomeSetup(): string {
+  return [
+    `mkdir -p '${WEB_DOCKER_NPM_CACHE}'`,
+    `export HOME='${WEB_DOCKER_BUNDLE_HOME}'`,
+    `export npm_config_cache='${WEB_DOCKER_NPM_CACHE}'`,
+  ].join(" && ");
+}
+
 /** Fetch public Cognito SSM parameters at bundle time (not CloudFormation tokens). */
-export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): string {
+export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment, siteDomain: string): string {
   const webPrefix = webParameterPrefix(environmentName);
-  const siteDomain = WEB_SITE_DOMAINS[environmentName];
   return [
     `export AWS_DEFAULT_REGION='${CHATTICUS_AWS_REGION}'`,
     `export NEXT_PUBLIC_COGNITO_USER_POOL_ID="$(aws ssm get-parameter --region '${CHATTICUS_AWS_REGION}' --name '${webPrefix}/cognito-user-pool-id' --query 'Parameter.Value' --output text)"`,
@@ -35,10 +45,12 @@ export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): 
 
 export function webDockerBundleCommand(
   environmentName: ChatticusCloudEnvironment,
+  siteDomain: string,
 ): string {
   return [
     "cd /asset-input",
-    webBuildEnvExports(environmentName),
+    webDockerBundleHomeSetup(),
+    webBuildEnvExports(environmentName, siteDomain),
     "npm ci",
     "npm run build --workspace=web",
     "cp -r web/out/. /asset-output/",
@@ -47,9 +59,10 @@ export function webDockerBundleCommand(
 
 export function webLocalBundleCommand(
   environmentName: ChatticusCloudEnvironment,
+  siteDomain: string,
 ): string {
   return [
-    webBuildEnvExports(environmentName),
+    webBuildEnvExports(environmentName, siteDomain),
     "npm ci",
     "npm run build --workspace=web",
   ].join(" && ");

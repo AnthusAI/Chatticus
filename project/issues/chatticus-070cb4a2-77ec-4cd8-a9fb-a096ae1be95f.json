@@ -1,0 +1,70 @@
+{
+  "id": "chatticus-070cb4a2-77ec-4cd8-a9fb-a096ae1be95f",
+  "title": "A customer submits the RoleArn without an operator kernel",
+  "description": "## Found on `chatticus-b88c0a`\n\nAfter `create-stack` there is no customer HTTP for `submit_self_setup_cross_account_role`. Operator HTTP is enable/suspend/reinstate only. The only `CrossAccountRoleInspector` is in-memory (Gherkin). The hand run used a labeled `/tmp` kernel script.\n\n## Done when\n\nA pending owner can submit their AWS account id and `ChatticusOrganizationComputerRole` ARN in-product. The live path inspects the role (ExternalId = `tenant_id`, required permissions) and on accept enables the org and writes AWS home. Behavior in Gherkin first. Do not `members seed`.",
+  "type": "story",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "9d53036a-aace-4ebb-9770-948371d84095",
+      "author": "home",
+      "text": "Next after `9c8dbf`. Composer 2.5 planning. Worktree to be named `/tmp/chatticus-070cb4-submit-role` on `feat/070cb4-submit-role-arn`. Implementation not authorized until the plan is reviewed. Gherkin first: pending owner submits AWS account id and `ChatticusOrganizationComputerRole` ARN in-product; live inspect (ExternalId = tenant_id); on accept enable org and write AWS home. Do not `members seed`.\n",
+      "created_at": "2026-09-08T10:37:59.231895Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b48d28f5-0e6f-490d-814a-dbaf073109e7",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-070cb4-submit-role` on `feat/070cb4-submit-role-arn` (HEAD `9065ecb`, not the primary clone; rebase onto `origin/develop` which has the pm authorize note).\n\n**Closed on authorize:**\n1. **One HTTP shape.** Success `200` with `accepted: true`. Inspect/validation failures `422` with the kernel `message`. Auth `403`. Do not use `200` + `accepted: false`.\n2. **One kernel, two inspectors.** `InMemory` in Gherkin; `AwsCrossAccountRoleInspector` in production. Map STS/IAM into the existing snapshot/exception catalog so messages stay one family. Do not invent a second live-only message path.\n3. **Kernel `actor_user_id` is required** (one path). Update existing kernel Gherkin steps. No dual signature.\n4. **Do not edit `infra/customer-role.yml`.** ThinTurn Front Door `sts:AssumeRole` on `ChatticusOrganizationComputerRole` is in scope.\n5. Wiki/runbook is `pm:` on `develop` after merge, not files in the product PR.\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T10:41:20.033767Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c55f44b5-d4ba-4587-ac53-d2e141b30c5b",
+      "author": "home",
+      "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) is up. Composer 2.5 product review in flight; merge after that plus green CI.\n",
+      "created_at": "2026-09-08T10:58:59.554482Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "6ed8c112-badc-4c87-97d3-2ddb5c117382",
+      "author": "home",
+      "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) **request changes**. HTTP/owner/Gherkin shape is right; live inspector is not.\n\n**Must fix (no `customer-role.yml` edit):**\n1. After AssumeRole, do not call `iam:SimulatePrincipalPolicy` — the published template does not grant it. Uncaught `AccessDenied` becomes HTTP 500, not 422. Inspect permissions with APIs the role already has (`GetRole`, `GetRolePolicy` / attached policies) and map `ClientError` into the kernel 422 catalog.\n2. On AssumeRole failure, do not `GetRole` as the Anthus ThinTurn caller. That cannot read a customer role. Use assumed-role credentials after a successful assume, or drop the broken fallback and still 422 with a kernel message that tells them to re-run CFN with `OrganizationId={tenant_id}`.\n",
+      "created_at": "2026-09-08T11:02:06.399429Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "193e1950-0824-4e15-869d-5253beab44e6",
+      "author": "home",
+      "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) still **request changes** after `94c14a9`. SimulatePrincipalPolicy and Anthus GetRole are gone. Remaining: `_granted_permissions_from_role_policies` still calls `iam:GetPolicy` / `iam:GetPolicyVersion` for attached managed policies. The published template is **inline only** and does not grant those actions. Drop the attached-policy loop; `ListRolePolicies` + `GetRolePolicy` is the inspect path.\n",
+      "created_at": "2026-09-08T11:13:47.449706Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e4140964-2e9c-41c5-aaa3-97d4fe87df3f",
+      "author": "home",
+      "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) merged to `develop` (`7a8fb1c`) after inline-inspect re-review. Card stays **in_progress** until I run the live submit on development (not a hypothetical customer): wait for ThinTurn/web deploy, then pending-owner POST of account id + RoleArn — 200 if the org is still pending and the role ExternalId matches, otherwise the live 422 inspect message. No `members seed`.\n",
+      "created_at": "2026-09-08T11:29:49.644722Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "07d9db25-72d1-4264-86c1-a8495f811075",
+      "author": "home",
+      "text": "**Closed.** PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) on `develop`. I ran live HTTP on development after ThinTurn+web deploy: new pending org + existing customer RoleArn → **422** AssumeRole/ExternalId kernel message; org stayed pending; unauthenticated **403**. Happy-path 200 stays in Gherkin; do not retarget the working throwaway role. SPA Google sign-in blocked automation (labeled Cognito id_token deviation, reverted). Next self-setup hole: `chatticus-7622fd`.\n",
+      "created_at": "2026-09-08T11:36:15.410231Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T15:54:05.599297Z",
+  "updated_at": "2026-09-08T11:36:15.424701Z",
+  "closed_at": "2026-09-08T11:36:15.424701Z",
+  "custom": {}
+}

@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-0d265ca5-466b-4559-bae9-e6f2625493c0",
+  "title": "T7 Migrate legacy vendor ledger rows to the monthly turn index; rollup reads the new shape",
+  "description": "Depends on T4. Files: conversation/src/budget/runner.ts, conversation/src/budget/budget-store.ts (vendorLedgerKey, listVendorLedgerRowsForTenant), conversation/src/migration/ (one-shot job), docs/BUDGETS.md. Convert {tenant}#vendor_ledger rows to {tenant}#cost#{yyyy-mm} items with priceBookId legacy, fill dimensions from the turn record where it exists, delete old rows, no dual reader. Acceptance: plan scenario 25 passes; features/daily_budget_rollup.feature still passes.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-13T11:31:35.280677Z",
+  "updated_at": "2026-10-13T11:31:35.280715Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "This task will migrate legacy vendor ledger rows to monthly cost items and update rollups to use the new format.",
+  "right_now_updated_at": "2026-10-13T11:31:36.499842Z",
+  "custom": {}
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-d1e6a641-8ee7-4e63-b8c6-e051087bff9a",
+  "title": "Model spend ceiling counts the current turn's unreconciled gateway observations",
+  "description": "The ceiling reads the cost index, so one long turn can pass the ceiling before its calls are reconciled. Count the current turn's unreconciled gateway observations in the ceiling check. See docs/COST_ACCOUNTING.md 3.12.\n\nFeature: Ceiling includes in-flight turn spend\n  Scenario: A long turn cannot slip past the ceiling\n    Given an organization just under its monthly model spend ceiling\n    And a turn whose gateway calls are not yet reconciled\n    When the unreconciled observations push spend over the ceiling\n    Then the next model call returns 403 model_spend_ceiling_reached",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T10:36:43.561511Z",
+  "updated_at": "2026-10-15T10:36:43.561542Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The ceiling check now includes unreconciled gateway observations from the current turn.",
+  "right_now_updated_at": "2026-10-15T10:36:44.671745Z",
+  "custom": {}
+}

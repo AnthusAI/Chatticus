@@ -1,7 +1,7 @@
 {
   "id": "chatticus-b2de8891-df4e-4558-8660-230e36b16dd9",
   "title": "Waitlist triage, scoring, and the operator queue",
-  "description": "**Phase 2 of 5.** Blocked by the waitlist record shape in the pitch and survey epic. Unblocks paid enablement.\n\nTurns a list of signups into a prioritized queue, and answers the question the whole initiative exists to serve: which of these people are professional services clients.\n\nScoring is deterministic and computed at submission, stored on the record. The AWS answers carry the most weight because they predict whether someone can be onboarded at all \u2014 and one of them is not a score but a filter. A team running on GCP or Azure cannot be a beta customer at any score, and treating that as a low number rather than a different track wastes operator attention on people who will never convert.\n\nWeights to start from, recalibrated after fifty responses against what actually converted:\n\n| Signal | Condition | Points |\n| --- | --- | --- |\n| Cloud | not AWS | **disqualify** |\n| Services intent | yes, we have budget | +4 |\n| AWS maturity | production workloads on AWS | +3 |\n| Organization size | 101 or more people | +3 |\n| AWS spend | $10k or more per month | +3 |\n| Services intent | tell me more | +2 |\n| Organization size | 26 to 100 people | +2 |\n| Cloud authority | me, or our DevOps team | +2 |\n| Seniority | founder, exec, or lead | +2 |\n| Urgency | this week or this month | +2 |\n| BYOK readiness | key already in production | +2 |\n| Effort | free-text answer over 200 characters | +1 |\n| Cycle time | security review required | -1 |\n\nScore 10 or more is services-qualified and gets a person within 48 hours \u2014 a real reply quoting their own words back, not a marketing email.\n\nOperator tooling lives beside the existing members CLI, one module over, with the same ergonomics. There is no dashboard in this epic and should not be one for the first two hundred signups; a CSV export and a weekly digest are worth more.\n\n**Start with:** scoring at submission. The CLI is a view over it.",
+  "description": "**Phase 2 of 5.** Blocked by the waitlist record shape in the pitch and survey epic. Unblocks paid enablement.\n\nTurns a list of signups into a prioritized queue, and answers the question the whole initiative exists to serve: which of these people are professional services clients.\n\nScoring is deterministic and computed at submission, stored on the record. The AWS answers carry the most weight because they predict whether someone can be onboarded at all — and one of them is not a score but a filter. A team running on GCP or Azure cannot be a beta customer at any score, and treating that as a low number rather than a different track wastes operator attention on people who will never convert.\n\nWeights to start from, recalibrated after fifty responses against what actually converted:\n\n| Signal | Condition | Points |\n| --- | --- | --- |\n| Cloud | not AWS | **disqualify** |\n| Services intent | yes, we have budget | +4 |\n| AWS maturity | production workloads on AWS | +3 |\n| Organization size | 101 or more people | +3 |\n| AWS spend | $10k or more per month | +3 |\n| Services intent | tell me more | +2 |\n| Organization size | 26 to 100 people | +2 |\n| Cloud authority | me, or our DevOps team | +2 |\n| Seniority | founder, exec, or lead | +2 |\n| Urgency | this week or this month | +2 |\n| BYOK readiness | key already in production | +2 |\n| Effort | free-text answer over 200 characters | +1 |\n| Cycle time | security review required | -1 |\n\nScore 10 or more is services-qualified and gets a person within 48 hours — a real reply quoting their own words back, not a marketing email.\n\nOperator tooling lives beside the existing members CLI, one module over, with the same ergonomics. There is no dashboard in this epic and should not be one for the first two hundred signups; a CSV export and a weekly digest are worth more.\n\n**Start with:** scoring at submission. The CLI is a view over it.",
   "type": "epic",
   "status": "open",
   "priority": 1,
@@ -16,18 +16,20 @@
     {
       "id": "18012972-9da7-4ce7-8e02-e53f409fc7d2",
       "author": "home",
-      "text": "Boundary decision recorded on chatticus-574e4b (follow-on epic, not started\nyet): this epic's dashboard call is unchanged \u2014 CSV export and a weekly digest\nover a UI, until roughly two hundred signups. What changes is the repository:\nonce the private SaaS's Account model exists, the waitlist store, scoring, and\nthis epic's operator CLI relocate to the private repo (Chattic.us-web),\nalongside Stripe. The open product (being renamed to Chatticus, see\nchatticus-6b0d8b) will carry no waitlist code once that lands.",
+      "text": "Boundary decision recorded on chatticus-574e4b (follow-on epic, not started\nyet): this epic's dashboard call is unchanged — CSV export and a weekly digest\nover a UI, until roughly two hundred signups. What changes is the repository:\nonce the private SaaS's Account model exists, the waitlist store, scoring, and\nthis epic's operator CLI relocate to the private repo (Chattic.us-web),\nalongside Stripe. The open product (being renamed to Chatticus, see\nchatticus-6b0d8b) will carry no waitlist code once that lands.",
       "created_at": "2026-09-04T21:31:39.855337Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "59fe5b1d-9dbe-4d78-8f25-cb513a49273c",
+      "author": "home",
+      "text": "Triage/scoring/CLI stay in this repo until `574e4b`. Dashboard decision unchanged (CSV + weekly digest). After Account exists in Chattic.us-web, this epic relocates with the waitlist store.",
+      "created_at": "2026-09-05T17:59:09.153754Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:20.858149Z",
-  "updated_at": "2026-09-04T21:31:39.855408Z",
+  "updated_at": "2026-09-05T17:59:09.153754Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }

@@ -5,6 +5,8 @@
 
 # ## AWS
 # Account id, region, and `aws login` notes for this desk.
+# Account ids, member-account ids, and billing emails stay in this file
+# only. Never copy them into project/wiki or other committed docs.
 
 # ## API bases
 # aws ssm get-parameter --name /chatticus/development/thin-turn/cloudfront-url

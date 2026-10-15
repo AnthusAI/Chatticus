@@ -1,0 +1,417 @@
+import type { HostComputer } from "@chatticus/host-protocol";
+import type { OverlayEntry, ownerOverlayAppliedRequestSchema, ownerOverlaySealRequestSchema } from "@chatticus/host-protocol/edit-overlay";
+import type { OwnerFileResultRequest } from "@chatticus/host-protocol/live-files";
+import type { z } from "zod";
+import type {
+	OwnerBootstrapRequest,
+	OwnerBootstrapResponse,
+	OwnerCredentialsRequest,
+	OwnerCredentialsResponse,
+	OwnerDispatch,
+	OwnerErrorCode,
+	OwnerPollRequest,
+	OwnerPollResponse,
+	OwnerStopReason,
+	OwnerStopRequest,
+	OwnerStopResponse,
+	OwnerStopVetoReason,
+} from "@chatticus/host-protocol/supervisor";
+import { HostProtocolError } from "../../../computer/host/src/protocol-client.ts";
+import type { SupervisorClock, SupervisorPlane } from "../../../computer/host/src/supervisor-ports.ts";
+
+/** The secret values the fake control plane issues, so a scenario can search the logs for them. */
+export const FAKE_SUPERVISOR_SECRETS = {
+	supervisorToken: "scenario-supervisor-token-value",
+	supervisorAccessKeyId: "scenario-supervisor-key-id",
+	supervisorSecretAccessKey: "scenario-supervisor-secret-value",
+	supervisorSessionToken: "scenario-supervisor-session-value",
+	gatewayToken: "scenario-gateway-token-value",
+	turnAccessKeyId: "scenario-turn-key-id",
+	turnSecretAccessKey: "scenario-turn-secret-value",
+	turnSessionToken: "scenario-turn-session-value",
+} as const;
+
+/** One request the supervisor sent, with the fake time it arrived. */
+export type Recorded<T> = { readonly request: T; readonly atMilliseconds: number };
+
+/** One request the supervisor sent, with the fake time it arrived and its place in the order of every request that reached the control plane. */
+export type Ordered<T> = Recorded<T> & { readonly order: number };
+
+/** What a scenario can ask of a dispatch the fake control plane offers. */
+export type FakeDispatchSpec = {
+	readonly turnId: string;
+	readonly botId?: string;
+	readonly dispatchId?: string;
+	readonly userId?: string;
+	readonly attempt?: number;
+};
+
+/** An HTTP refusal of an owner route as the supervisor's client throws it. */
+export function ownerRouteRefusal(status: number, code: OwnerErrorCode): HostProtocolError {
+	return new HostProtocolError(`refused with status ${status}`, status, code);
+}
+
+/** The answer of a poll that offers nothing and asks again in a second. */
+export function emptyPollAnswer(nextPollMilliseconds: number = 1000): OwnerPollResponse {
+	return { dispatches: [], file_requests: [], drain: false, next_poll_ms: nextPollMilliseconds };
+}
+
+/**
+ * The Front Door as the supervisor sees it, scripted by a scenario. It answers the bootstrap, the poll, the stop request and
+ * the computer routes, records every request with the fake time, and fails or holds them when a scenario says so.
+ */
+export class FakeSupervisorPlane implements SupervisorPlane {
+	readonly bootstraps: Array<Recorded<OwnerBootstrapRequest>> = [];
+	readonly polls: Array<Recorded<OwnerPollRequest>> = [];
+	readonly stopRequests: Array<Recorded<OwnerStopRequest>> = [];
+	readonly fileResults: Array<Recorded<OwnerFileResultRequest>> = [];
+	/** Every credentials request the supervisor sent, answered or not. */
+	readonly renewals: Array<Recorded<OwnerCredentialsRequest>> = [];
+	readonly computerCalls: string[] = [];
+	readonly stoppedReports: Array<{ readonly generation: number | undefined; readonly atMilliseconds: number; readonly order: number }> = [];
+	readonly overlaySeals: Array<Ordered<z.input<typeof ownerOverlaySealRequestSchema>>> = [];
+	readonly overlayAppliedPosts: Array<Ordered<z.input<typeof ownerOverlayAppliedRequestSchema>>> = [];
+	readonly publishOrders: number[] = [];
+	readonly pollFailures: Array<{ readonly sequence: number; readonly error: unknown }> = [];
+
+	bootstrapScript: Array<Error | "ok"> = [];
+	bootstrapRepeat: Error | "ok" = "ok";
+	pollScript: Array<OwnerPollResponse | Error> = [];
+	failEveryPoll: Error | null = null;
+	sequenceToTimeOut: number | null = null;
+	stopScript: OwnerStopResponse[] = [];
+	vetoesByReason = new Map<OwnerStopReason, OwnerStopVetoReason>();
+	pollAfterNextStopRequest: OwnerPollResponse | Error | null = null;
+	fileResultScript: Array<Error | "ok"> = [];
+	/** The answer to each credentials request, taken in turn; a fresh set that ends in an hour once the script is used up. */
+	renewalScript: Array<OwnerCredentialsResponse | Error> = [];
+	/** Every credentials request fails with this error. */
+	renewalsFailWith: Error | null = null;
+	/** The answer to each credentials request for a turn, taken in turn before {@link renewalScript} is consulted. */
+	turnRenewalScript: Array<OwnerCredentialsResponse | Error> = [];
+	/** Every credentials request for a turn fails with this error. */
+	turnRenewalsFailWith: Error | null = null;
+	/** Poll answers held back until the fake time they name; the first poll at or after that time receives the answer. */
+	timedPollAnswers: Array<{ readonly atMilliseconds: number; readonly answer: OwnerPollResponse; deliveredAtMilliseconds: number | null }> = [];
+	/** Milliseconds of fake time every credentials request waits before it is answered. */
+	renewalDelayMilliseconds = 0;
+	/** How long the credentials the bootstrap and every renewal issue last. */
+	credentialLifetimeMilliseconds = 3600_000;
+	/** Called with the fake time of each renewal answer, just before the answer is returned to the supervisor. */
+	onRenewalAnswered: (() => void) | null = null;
+	/** The bearer token the supervisor speaks with right now: empty until the bootstrap, then the issued token, then each renewed token. */
+	bearerToken = "";
+	/** The bearer token each request carried, in the order the requests arrived. */
+	readonly requestTokens: Array<{ readonly route: string; readonly token: string; readonly atMilliseconds: number }> = [];
+	/** Called as each request arrives, after its token is noted, so a scenario can look at the supervisor at that moment. */
+	requestObserver: ((route: string) => void) | null = null;
+	/** Every secret value a renewal issued, so a scenario can search the logs for them. */
+	readonly issuedSecrets: string[] = [];
+	private renewalCount = 0;
+	stoppedReportScript: Array<Error | "ok"> = [];
+	heldRunningReport: { readonly promise: Promise<void>; release: () => void } | null = null;
+	defaultNextPollMilliseconds = 1000;
+	/** The entries the overlay holds; every seal answers with them. */
+	overlayEntries: OverlayEntry[] = [];
+	overlaySealScript: Array<Error | "ok"> = [];
+	/** Every seal fails with this error. */
+	overlaySealFailsWith: Error | null = null;
+	/** The answer to each report of cleared or conflicting entries, taken in turn; `ok` once the script is used up. */
+	overlayAppliedScript: Array<Error | "ok"> = [];
+	/** Every report that clears entries fails with this error; a report of conflicts alone is answered. */
+	overlayClearsFailWith: Error | null = null;
+	/** A dispatch the control plane offers in every poll that has nothing scripted, until the supervisor serves it. */
+	parkedDispatch: OwnerPollResponse | null = null;
+	snapshotUri: string | undefined;
+	snapshotChecksum: string | undefined;
+	snapshotGeneration = 0;
+
+	private readonly clock: SupervisorClock;
+	private stopRequestedSincePoll = false;
+	private requestOrder = 0;
+	private heldRenewal: Promise<void> | null = null;
+
+	constructor(clock: SupervisorClock) {
+		this.clock = clock;
+	}
+
+	/** Hold the report that the computer is running until {@link releaseHeldReport} is called. */
+	holdRunningReport(): void {
+		let release: () => void = () => undefined;
+		const promise = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		this.heldRunningReport = { promise, release };
+	}
+
+	releaseHeldReport(): void {
+		this.heldRunningReport?.release();
+	}
+
+	async bootstrap(request: OwnerBootstrapRequest): Promise<OwnerBootstrapResponse> {
+		this.bootstraps.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		const outcome = this.bootstrapScript.shift() ?? this.bootstrapRepeat;
+		if (outcome !== "ok") throw outcome;
+		const expiresAt = new Date(this.clock.nowMilliseconds() + this.credentialLifetimeMilliseconds).toISOString();
+		this.bearerToken = FAKE_SUPERVISOR_SECRETS.supervisorToken;
+		return {
+			computer_id: "household-computer",
+			supervisor_token: FAKE_SUPERVISOR_SECRETS.supervisorToken,
+			supervisor_token_expires_at: expiresAt,
+			aws_credentials: {
+				access_key_id: FAKE_SUPERVISOR_SECRETS.supervisorAccessKeyId,
+				secret_access_key: FAKE_SUPERVISOR_SECRETS.supervisorSecretAccessKey,
+				session_token: FAKE_SUPERVISOR_SECRETS.supervisorSessionToken,
+				expires_at: expiresAt,
+			},
+		};
+	}
+
+	async poll(request: OwnerPollRequest): Promise<OwnerPollResponse> {
+		this.polls.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("poll");
+		if (this.sequenceToTimeOut === request.sequence) {
+			this.sequenceToTimeOut = null;
+			const error = new DOMException("The operation timed out.", "TimeoutError");
+			this.pollFailures.push({ sequence: request.sequence, error });
+			throw error;
+		}
+		if (this.failEveryPoll !== null) {
+			this.pollFailures.push({ sequence: request.sequence, error: this.failEveryPoll });
+			throw this.failEveryPoll;
+		}
+		const scripted = this.pollScript.shift();
+		if (scripted instanceof Error) {
+			this.pollFailures.push({ sequence: request.sequence, error: scripted });
+			throw scripted;
+		}
+		if (scripted !== undefined) return scripted;
+		const timed = this.timedPollAnswers.find((candidate) => candidate.deliveredAtMilliseconds === null && this.clock.nowMilliseconds() >= candidate.atMilliseconds);
+		if (timed !== undefined) {
+			timed.deliveredAtMilliseconds = this.clock.nowMilliseconds();
+			return timed.answer;
+		}
+		if (this.stopRequestedSincePoll && this.pollAfterNextStopRequest !== null) {
+			const offered = this.pollAfterNextStopRequest;
+			this.pollAfterNextStopRequest = null;
+			this.stopRequestedSincePoll = false;
+			if (offered instanceof Error) {
+				this.pollFailures.push({ sequence: request.sequence, error: offered });
+				throw offered;
+			}
+			return offered;
+		}
+		if (this.parkedDispatch !== null) return this.parkedDispatch;
+		return emptyPollAnswer(this.defaultNextPollMilliseconds);
+	}
+
+	async stopRequest(request: OwnerStopRequest): Promise<OwnerStopResponse> {
+		this.stopRequests.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("stop_request");
+		this.stopRequestedSincePoll = true;
+		const scripted = this.stopScript.shift();
+		if (scripted !== undefined) return scripted;
+		const veto = this.vetoesByReason.get(request.reason);
+		return veto === undefined ? { approved: true } : { approved: false, reason: veto };
+	}
+
+	/**
+	 * Make the next credentials request, and only the next, wait before it is answered.
+	 *
+	 * @returns The function that releases the held request.
+	 */
+	holdNextRenewal(): () => void {
+		let release: () => void = () => undefined;
+		this.heldRenewal = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		return release;
+	}
+
+	async renewCredentials(request: OwnerCredentialsRequest): Promise<OwnerCredentialsResponse> {
+		this.renewals.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("renewal");
+		const held = this.heldRenewal;
+		this.heldRenewal = null;
+		if (held !== null) await held;
+		if (this.renewalDelayMilliseconds > 0) await this.clock.sleep(this.renewalDelayMilliseconds);
+		if (this.renewalsFailWith !== null) throw this.renewalsFailWith;
+		if (request.kind === "turn" && this.turnRenewalsFailWith !== null) throw this.turnRenewalsFailWith;
+		const scripted = request.kind === "turn" ? (this.turnRenewalScript.shift() ?? this.renewalScript.shift()) : this.renewalScript.shift();
+		if (scripted instanceof Error) throw scripted;
+		const answer = scripted ?? this.issueRenewal(request);
+		this.onRenewalAnswered?.();
+		return answer;
+	}
+
+	/** Replace the token the supervisor speaks with, as the real client does. */
+	replaceBearerToken(token: string): void {
+		this.bearerToken = token;
+	}
+
+	private noteRequestToken(route: string): void {
+		this.requestTokens.push({ route, token: this.bearerToken, atMilliseconds: this.clock.nowMilliseconds() });
+		this.requestObserver?.(route);
+	}
+
+	private issueRenewal(request: OwnerCredentialsRequest): OwnerCredentialsResponse {
+		this.renewalCount += 1;
+		const suffix = `-renewal-${this.renewalCount}`;
+		const expiresAt = new Date(this.clock.nowMilliseconds() + this.credentialLifetimeMilliseconds).toISOString();
+		if (request.kind === "supervisor") {
+			const issued = {
+				supervisor_token: `${FAKE_SUPERVISOR_SECRETS.supervisorToken}${suffix}`,
+				access_key_id: `${FAKE_SUPERVISOR_SECRETS.supervisorAccessKeyId}${suffix}`,
+				secret_access_key: `${FAKE_SUPERVISOR_SECRETS.supervisorSecretAccessKey}${suffix}`,
+				session_token: `${FAKE_SUPERVISOR_SECRETS.supervisorSessionToken}${suffix}`,
+			};
+			this.issuedSecrets.push(...Object.values(issued));
+			return {
+				kind: "supervisor",
+				supervisor_token: issued.supervisor_token,
+				supervisor_token_expires_at: expiresAt,
+				aws_credentials: {
+					access_key_id: issued.access_key_id,
+					secret_access_key: issued.secret_access_key,
+					session_token: issued.session_token,
+					expires_at: expiresAt,
+				},
+			};
+		}
+		const issued = {
+			gateway_token: `${FAKE_SUPERVISOR_SECRETS.gatewayToken}${suffix}`,
+			access_key_id: `${FAKE_SUPERVISOR_SECRETS.turnAccessKeyId}${suffix}`,
+			secret_access_key: `${FAKE_SUPERVISOR_SECRETS.turnSecretAccessKey}${suffix}`,
+			session_token: `${FAKE_SUPERVISOR_SECRETS.turnSessionToken}${suffix}`,
+		};
+		this.issuedSecrets.push(...Object.values(issued));
+		return {
+			kind: "turn",
+			dispatch_id: request.dispatch_id,
+			turn_id: request.turn_id,
+			gateway_token: issued.gateway_token,
+			aws_credentials: {
+				access_key_id: issued.access_key_id,
+				secret_access_key: issued.secret_access_key,
+				session_token: issued.session_token,
+				expires_at: expiresAt,
+			},
+			expires_at: expiresAt,
+		};
+	}
+
+	async postFileResult(request: OwnerFileResultRequest): Promise<{ readonly recorded: true }> {
+		this.fileResults.push({ request, atMilliseconds: this.clock.nowMilliseconds() });
+		this.noteRequestToken("file_result");
+		const outcome = this.fileResultScript.shift() ?? "ok";
+		if (outcome !== "ok") throw outcome;
+		return { recorded: true };
+	}
+
+	async getComputer(): Promise<HostComputer> {
+		this.computerCalls.push("get_computer");
+		return {
+			computer_id: "household-computer",
+			tenant_id: "anthus",
+			stopped: false,
+			policy: "per_org",
+			host_start_generation: 1,
+			model_ready: true,
+			workspace_ready: true,
+			browser_ready: false,
+			snapshot_generation: this.snapshotGeneration,
+			disk_dirty: false,
+			hydrate_required: false,
+			...(this.snapshotUri === undefined ? {} : { snapshot_uri: this.snapshotUri }),
+			...(this.snapshotChecksum === undefined ? {} : { snapshot_checksum: this.snapshotChecksum }),
+		};
+	}
+
+	async setComputerStopped(stopped: boolean, startGeneration?: number, _diskMatchesPublished?: boolean): Promise<HostComputer> {
+		if (stopped) {
+			this.stoppedReports.push({ generation: startGeneration, atMilliseconds: this.clock.nowMilliseconds(), order: this.nextOrder() });
+			const outcome = this.stoppedReportScript.shift() ?? "ok";
+			if (outcome !== "ok") throw outcome;
+			this.computerCalls.push(`stopped:true:${startGeneration ?? "none"}`);
+		} else {
+			if (this.heldRunningReport !== null) await this.heldRunningReport.promise;
+			this.computerCalls.push("stopped:false");
+		}
+		return this.getComputer();
+	}
+
+	async recordComputerCapabilityReady(capability: string): Promise<HostComputer> {
+		this.computerCalls.push(`ready:${capability}`);
+		return this.getComputer();
+	}
+
+	async recordComputerCapabilityUnavailable(capability: string): Promise<HostComputer> {
+		this.computerCalls.push(`unavailable:${capability}`);
+		return this.getComputer();
+	}
+
+	async recordComputerHydrated(): Promise<void> {
+		this.computerCalls.push("hydrated");
+	}
+
+	async publishComputerSnapshot(_workerId?: string, checksum?: string, snapshotUri?: string): Promise<void> {
+		this.computerCalls.push("published");
+		this.publishOrders.push(this.nextOrder());
+		this.snapshotGeneration += 1;
+		if (checksum !== undefined) this.snapshotChecksum = checksum;
+		if (snapshotUri !== undefined) this.snapshotUri = snapshotUri;
+	}
+
+	async sealOverlay(request: z.input<typeof ownerOverlaySealRequestSchema>): Promise<{ readonly entries: OverlayEntry[] }> {
+		this.overlaySeals.push({ request, atMilliseconds: this.clock.nowMilliseconds(), order: this.nextOrder() });
+		if (this.overlaySealFailsWith !== null) throw this.overlaySealFailsWith;
+		const outcome = this.overlaySealScript.shift() ?? "ok";
+		if (outcome !== "ok") throw outcome;
+		return { entries: this.overlayEntries };
+	}
+
+	async postOverlayApplied(request: z.input<typeof ownerOverlayAppliedRequestSchema>): Promise<{ readonly remaining: number }> {
+		this.overlayAppliedPosts.push({ request, atMilliseconds: this.clock.nowMilliseconds(), order: this.nextOrder() });
+		const outcome = this.overlayAppliedScript.shift() ?? "ok";
+		if (outcome !== "ok") throw outcome;
+		if (this.overlayClearsFailWith !== null && (request.cleared ?? []).length > 0) throw this.overlayClearsFailWith;
+		const cleared = request.cleared ?? [];
+		this.overlayEntries = this.overlayEntries.filter((entry) => !cleared.some((reference) => reference.path === entry.path && reference.revision === entry.revision));
+		return { remaining: this.overlayEntries.length };
+	}
+
+	private nextOrder(): number {
+		this.requestOrder += 1;
+		return this.requestOrder;
+	}
+}
+
+/**
+ * A poll answer that offers one dispatch carrying the fake per-turn secrets.
+ *
+ * @param spec The turn and, optionally, the dispatch id, bot, member and attempt.
+ * @param clock The clock the lease and expiry are measured from.
+ */
+export function dispatchPollAnswer(spec: FakeDispatchSpec, clock: SupervisorClock): OwnerPollResponse {
+	const now = clock.nowMilliseconds();
+	const dispatch: OwnerDispatch = {
+		dispatch_id: spec.dispatchId ?? `dispatch-${spec.turnId}`,
+		turn_id: spec.turnId,
+		bot_id: spec.botId ?? "bot-1",
+		channel_id: "channel-1",
+		user_id: spec.userId ?? "ryan",
+		action_id: `action-${spec.turnId}`,
+		waiting_since: new Date(now - 2500).toISOString(),
+		lease_expires_at: new Date(now + 30_000).toISOString(),
+		attempt: spec.attempt ?? 1,
+		gateway_token: FAKE_SUPERVISOR_SECRETS.gatewayToken,
+		aws_credentials: {
+			access_key_id: FAKE_SUPERVISOR_SECRETS.turnAccessKeyId,
+			secret_access_key: FAKE_SUPERVISOR_SECRETS.turnSecretAccessKey,
+			session_token: FAKE_SUPERVISOR_SECRETS.turnSessionToken,
+			expires_at: new Date(now + 3600_000).toISOString(),
+		},
+		expires_at: new Date(now + 3600_000).toISOString(),
+	};
+	return { dispatches: [dispatch], file_requests: [], drain: false, next_poll_ms: 1000 };
+}

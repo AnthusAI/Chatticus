@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-cbc0c583-1183-4062-9b11-51d41b5c0f12",
+  "title": "Session directory block",
+  "description": "As a bot, I want to see which sessions I can connect the user to, so that I can hand off without a listing tool.\n\nFeature: Session directory block\n  Scenario: The directory appears in model context\n    Given sessions /ops/deploy and /research/pricing\n    When a model call is assembled\n    Then the context lists path, bot and purpose for each permitted session\n\nOpen: size limit, and when a search tool is needed.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d2699af8-e73c-4099-833e-5556caa7003c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T22:04:16.770564Z",
+  "updated_at": "2026-10-04T22:04:16.770592Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The session directory design is being refined, with size limits and search needs still under review.",
+  "right_now_updated_at": "2026-10-04T22:04:18.507893Z",
+  "custom": {}
+}

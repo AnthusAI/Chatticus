@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-619ba0e5-0d27-45ef-90a2-6c1a863feb5a",
+  "title": "The raise form is offered when raising the ceiling cannot resume work",
+  "description": "Known limit of #374, confirmed live on dev 2026-09-30. computer_work_paused has two causes: ceiling exceeded, and spend meter unavailable (rollup row pending or error). The web app only receives the reason text, so the raise form is shown to owners in both. On dev, where every hosted-org rollup day this month is ce_status=error (tenant tag inactive, 309a7e), seeding a ceiling produced 'monthly AWS spend is unavailable', the owner raised it to 500 through the real form and route (ceiling really changed), and computer work stayed paused. An owner could raise a ceiling repeatedly for no effect.\n\nFix direction: have GET /me carry the cause as a small enum (ceiling_exceeded, meter_unavailable) instead of making the web app infer it from text, show the raise form only for ceiling_exceeded, and for meter_unavailable say that spend data is unavailable and raising the ceiling will not help. Gherkin first (me.feature and the web feature).",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "web"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T21:12:39.075198Z",
+  "updated_at": "2026-09-30T21:12:39.075256Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

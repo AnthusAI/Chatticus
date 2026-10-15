@@ -1,0 +1,55 @@
+{
+  "id": "chatticus-b2ad43b2-4866-4f03-997c-4f07febb84c4",
+  "title": "Non-terminal SSE stream disconnect leaves turn permanently stuck in Working state",
+  "description": "In sse.ts and EnabledWorkspace.tsx, if an SSE connection is dropped by the network or CloudFront before a terminal event arrives, the client only records streamError without attempting reconnect or reconciling the turn, leaving the UI permanently hanging in Working/Responding state.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "c7b4f05d-7be7-4ccc-9618-1227ece80920",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED in code (SSE kill not forced live).\n\n`web/lib/sse.ts`: mid-stream error calls `onError` then `onClose`. `EnabledWorkspace` only `setStreamError(...)` \u2014 it does not set `turnStatus` to failed, clear `turn`, or stop showing \u201cWorking\u2026\u201d. Abort without a terminal event leaves `turnStatus === \"active\"` and `turn` non-null.\n\nFix: on stream error/unexpected close without terminal event, mark reconciling or failed, clear or park the active turn UI, and optionally attempt one resume via Last-Event-ID.",
+      "created_at": "2026-09-14T13:16:57.143791Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    },
+    {
+      "id": "25887c0d-bf37-4845-82a0-ccac5f693da9",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Disconnect parks turn UI.",
+      "created_at": "2026-09-14T13:32:12.072980Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
+  "created_at": "2026-09-13T13:58:29.154394Z",
+  "updated_at": "2026-09-14T13:32:13.053377Z",
+  "closed_at": "2026-09-14T13:32:13.053251Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity",
+    "settings": {}
+  }
+}

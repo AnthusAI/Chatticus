@@ -1,0 +1,420 @@
+import { createProvider, type Provider } from "@earendil-works/pi-ai/models";
+import type { AssistantMessage, Model, TranscriptContext } from "@earendil-works/pi-ai";
+import { createAssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
+
+/**
+ * Token counts a scripted answer reports, as a real provider would: `input` is the uncached input, the cache counters
+ * are reported separately, and `servedBy` names the model the message says answered when it differs from the requested one.
+ */
+export type ScriptedUsage = {
+	readonly input: number;
+	readonly output: number;
+	readonly cacheRead?: number;
+	readonly cacheWrite?: number;
+	readonly servedBy?: string;
+	/** The provider response id the message carries, which a gateway observation of the same call also names. */
+	readonly responseId?: string;
+};
+
+/** The default usage every scripted answer reports unless a step says otherwise. */
+export const DEFAULT_SCRIPTED_USAGE: ScriptedUsage = { input: 10, output: 5 };
+
+/** One tool call of a scripted assistant message. */
+export type ScriptedToolCall = { readonly name: string; readonly args: Record<string, unknown> };
+
+type ScriptedStep =
+	| { readonly kind: "reply"; readonly text: string; readonly usage: ScriptedUsage; readonly thinking?: readonly string[] }
+	| {
+			readonly kind: "toolCall";
+			readonly calls: ReadonlyArray<ScriptedToolCall>;
+			readonly leadingText: string;
+			readonly usage: ScriptedUsage;
+			readonly thinking?: readonly string[];
+	  }
+	| { readonly kind: "providerError"; readonly status: number; readonly code: string | null; readonly message: string | null }
+	| { readonly kind: "streamedError"; readonly message: string }
+	| {
+			readonly kind: "failedWithUsage";
+			readonly status: number;
+			readonly code: string;
+			readonly usage: ScriptedUsage;
+	  }
+	| { readonly kind: "abortedWithUsage"; readonly partialText: string; readonly usage: ScriptedUsage }
+	| { readonly kind: "networkError" };
+
+/** A pause the provider holds before answering its next request, released by the scenario. */
+export type ScriptedHold = { readonly release: () => void; readonly reached: Promise<void> };
+
+const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+
+const providerErrorText = (status: number, code: string | null, message: string | null): string => {
+	if (code === null) return `${status} status code (no body)`;
+	return `OpenAI API error (${status}): ${JSON.stringify({ message: message ?? `scripted ${code}`, type: code, param: null, code })}`;
+};
+
+/**
+ * A pi-ai provider whose answers come from a script, standing in for the model vendor. It streams text in small deltas
+ * like a real provider, reports the token counts the script gives it, and can fail the way the OpenAI SDK fails.
+ */
+export class ScriptedProvider {
+	readonly providerId: string;
+	readonly modelId: string;
+	readonly provider: Provider;
+	readonly requests: string[] = [];
+	private readonly steps: ScriptedStep[] = [];
+	private readonly holds: Array<{ release: () => void; gate: Promise<void>; reached: () => void }> = [];
+	private readonly midStreamHolds: Array<{ afterCharacters: number; release: () => void; gate: Promise<void>; reached: () => void }> = [];
+	private repeatingStep: ScriptedStep | null = null;
+	callCount = 0;
+
+	/**
+	 * @param providerId Provider id the Harness resolves the model through.
+	 * @param modelId Model id the provider serves.
+	 */
+	constructor(providerId = "openai", modelId = "scripted-model") {
+		this.providerId = providerId;
+		this.modelId = modelId;
+		const model = {
+			id: modelId,
+			name: modelId,
+			api: "scripted",
+			provider: providerId,
+			baseUrl: "http://localhost:0",
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128000,
+			maxTokens: 16384,
+		} as Model<string>;
+		this.provider = createProvider({
+			id: providerId,
+			auth: { apiKey: { name: "Scripted", resolve: async () => ({ auth: {} }) } },
+			models: [model],
+			api: {
+				stream: (requestModel, context, options) => this.stream(requestModel, context, options?.signal),
+				streamSimple: (requestModel, context, options) => this.stream(requestModel, context, options?.signal),
+			},
+		});
+	}
+
+	/** Queue a plain text answer. */
+	reply(text: string, usage: ScriptedUsage = DEFAULT_SCRIPTED_USAGE): this {
+		this.steps.push({ kind: "reply", text, usage });
+		return this;
+	}
+
+	/** Queue an assistant message that calls a tool, optionally after some text the model says first. */
+	toolCall(
+		name: string,
+		args: Record<string, unknown>,
+		leadingText = "",
+		usage: ScriptedUsage = DEFAULT_SCRIPTED_USAGE,
+	): this {
+		this.steps.push({ kind: "toolCall", calls: [{ name, args }], leadingText, usage });
+		return this;
+	}
+
+	/** Queue one assistant message that calls several tools at once, the way a model issues parallel tool calls. */
+	toolCalls(calls: ReadonlyArray<ScriptedToolCall>, leadingText = "", usage: ScriptedUsage = DEFAULT_SCRIPTED_USAGE): this {
+		this.steps.push({ kind: "toolCall", calls, leadingText, usage });
+		return this;
+	}
+
+	/**
+	 * Make the most recently queued reply or tool call message stream a reasoning summary first, one `thinking_delta` per
+	 * piece, the way the Responses API streams a reasoning summary.
+	 */
+	thinking(...pieces: string[]): this {
+		const last = this.steps.length - 1;
+		const step = this.steps[last];
+		if (step === undefined || (step.kind !== "reply" && step.kind !== "toolCall")) {
+			throw new Error("thinking() follows a queued reply or tool call.");
+		}
+		this.steps[last] = { ...step, thinking: pieces };
+		return this;
+	}
+
+	/** Whether any answer is queued or every request is scripted to fail. */
+	get isScripted(): boolean {
+		return this.steps.length > 0 || this.repeatingStep !== null;
+	}
+
+	/** Queue a failure the way the OpenAI SDK reports an HTTP error, with or without the provider's error code and message. */
+	providerError(status: number, code: string | null, message: string | null = null): this {
+		this.steps.push({ kind: "providerError", status, code, message });
+		return this;
+	}
+
+	/** Queue a failure the provider reports after it already counted tokens, as it does when it rejects a call late. */
+	providerErrorWithUsage(status: number, code: string, usage: ScriptedUsage): this {
+		this.steps.push({ kind: "failedWithUsage", status, code, usage });
+		return this;
+	}
+
+	/** Queue a response that was cut off after some text, with the usage the provider had counted by then. */
+	abortedWithUsage(partialText: string, usage: ScriptedUsage): this {
+		this.steps.push({ kind: "abortedWithUsage", partialText, usage });
+		return this;
+	}
+
+	/** Queue a transport failure with no HTTP response. */
+	networkError(): this {
+		this.steps.push({ kind: "networkError" });
+		return this;
+	}
+
+	/** Answer every request after the queued ones with the same provider error. */
+	alwaysProviderError(status: number, code: string | null, message: string | null = null): this {
+		this.repeatingStep = { kind: "providerError", status, code, message };
+		return this;
+	}
+
+	/**
+	 * Answer every request after the queued ones with an error the provider streams after an HTTP 200, as the Responses
+	 * API streams an `error` event: pi-ai reports only the bare message, with no status and no error body.
+	 */
+	alwaysStreamedError(message: string): this {
+		this.repeatingStep = { kind: "streamedError", message };
+		return this;
+	}
+
+	/**
+	 * Hold the next request before it answers, until the scenario releases it.
+	 *
+	 * @returns A handle whose `reached` resolves when a request is waiting and whose `release` lets it answer.
+	 */
+	slow(): ScriptedHold {
+		let release!: () => void;
+		let reached!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const reachedPromise = new Promise<void>((resolve) => {
+			reached = resolve;
+		});
+		this.holds.push({ release, gate, reached });
+		return { release, reached: reachedPromise };
+	}
+
+	/**
+	 * Hold the next request in the middle of its streamed text, once at least `afterCharacters` characters have been sent,
+	 * until the scenario releases it.
+	 *
+	 * @returns A handle whose `reached` resolves when the request is waiting and whose `release` lets it finish.
+	 */
+	slowMidStream(afterCharacters: number): ScriptedHold {
+		let release!: () => void;
+		let reached!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const reachedPromise = new Promise<void>((resolve) => {
+			reached = resolve;
+		});
+		this.midStreamHolds.push({ afterCharacters, release, gate, reached });
+		return { release, reached: reachedPromise };
+	}
+
+	private blankMessage(requestModel: Model<string>): AssistantMessage {
+		return {
+			role: "assistant",
+			content: [],
+			api: requestModel.api,
+			provider: requestModel.provider,
+			model: requestModel.id,
+			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: ZERO_COST },
+			stopReason: "stop",
+			timestamp: Date.now(),
+		};
+	}
+
+	private stream(requestModel: Model<string>, context: TranscriptContext, signal: AbortSignal | undefined) {
+		const outer = createAssistantMessageEventStream();
+		this.callCount += 1;
+		this.requests.push(JSON.stringify(context));
+		const hold = this.holds.shift();
+		const midStreamHold = this.midStreamHolds.shift();
+		const step = this.steps.shift() ?? this.repeatingStep;
+		queueMicrotask(async () => {
+			const blank = this.blankMessage(requestModel);
+			try {
+				if (hold !== undefined) {
+					hold.reached();
+					await hold.gate;
+				}
+				if (signal?.aborted) {
+					const aborted = { ...blank, stopReason: "aborted" as const, errorMessage: "Request was aborted" };
+					outer.push({ type: "error", reason: "aborted", error: aborted });
+					outer.end(aborted);
+					return;
+				}
+				if (step === undefined || step === null || step.kind === "networkError") {
+					const failed = {
+						...blank,
+						stopReason: "error" as const,
+						errorMessage: step === undefined || step === null ? "No more scripted responses queued" : "Connection error.",
+					};
+					outer.push({ type: "error", reason: "error", error: failed });
+					outer.end(failed);
+					return;
+				}
+				if (step.kind === "providerError") {
+					const failed = { ...blank, stopReason: "error" as const, errorMessage: providerErrorText(step.status, step.code, step.message) };
+					outer.push({ type: "error", reason: "error", error: failed });
+					outer.end(failed);
+					return;
+				}
+				if (step.kind === "streamedError") {
+					const failed = { ...blank, stopReason: "error" as const, errorMessage: step.message };
+					outer.push({ type: "error", reason: "error", error: failed });
+					outer.end(failed);
+					return;
+				}
+				if (step.kind === "failedWithUsage" || step.kind === "abortedWithUsage") {
+					const counted = {
+						input: step.usage.input,
+						output: step.usage.output,
+						cacheRead: step.usage.cacheRead ?? 0,
+						cacheWrite: step.usage.cacheWrite ?? 0,
+						totalTokens: step.usage.input + step.usage.output + (step.usage.cacheRead ?? 0) + (step.usage.cacheWrite ?? 0),
+						cost: ZERO_COST,
+					};
+					const ended =
+						step.kind === "failedWithUsage"
+							? {
+									...blank,
+									usage: counted,
+									stopReason: "error" as const,
+									errorMessage: providerErrorText(step.status, step.code, null),
+								}
+							: {
+									...blank,
+									content: [{ type: "text" as const, text: step.partialText }],
+									usage: counted,
+									stopReason: "aborted" as const,
+									errorMessage: "Request was aborted",
+								};
+					if (step.usage.responseId !== undefined) Object.assign(ended, { responseId: step.usage.responseId });
+					outer.push({ type: "error", reason: step.kind === "failedWithUsage" ? "error" : "aborted", error: ended });
+					outer.end(ended);
+					return;
+				}
+				const usage = {
+					input: step.usage.input,
+					output: step.usage.output,
+					cacheRead: step.usage.cacheRead ?? 0,
+					cacheWrite: step.usage.cacheWrite ?? 0,
+					totalTokens: step.usage.input + step.usage.output + (step.usage.cacheRead ?? 0) + (step.usage.cacheWrite ?? 0),
+					cost: ZERO_COST,
+				};
+				if (step.usage.servedBy !== undefined) blank.model = step.usage.servedBy;
+				if (step.usage.responseId !== undefined) blank.responseId = step.usage.responseId;
+				outer.push({ type: "start", partial: { ...blank } });
+				const thinkingPieces = step.thinking ?? [];
+				const thinkingBlocks: AssistantMessage["content"] =
+					thinkingPieces.length === 0 ? [] : [{ type: "thinking", thinking: thinkingPieces.join("") }];
+				const thinkingShift = thinkingBlocks.length;
+				if (thinkingShift > 0) {
+					let streamed = "";
+					outer.push({
+						type: "thinking_start",
+						contentIndex: 0,
+						partial: { ...blank, content: [{ type: "thinking", thinking: "" }] },
+					});
+					for (const piece of thinkingPieces) {
+						await pause(DELTA_PAUSE_MILLISECONDS);
+						streamed += piece;
+						outer.push({
+							type: "thinking_delta",
+							contentIndex: 0,
+							delta: piece,
+							partial: { ...blank, content: [{ type: "thinking", thinking: streamed }] },
+						});
+					}
+					outer.push({
+						type: "thinking_end",
+						contentIndex: 0,
+						content: streamed,
+						partial: { ...blank, content: [{ type: "thinking", thinking: streamed }] },
+					});
+				}
+				if (step.kind === "reply") {
+					const partial = { ...blank, content: [...thinkingBlocks, { type: "text" as const, text: "" }] };
+					outer.push({ type: "text_start", contentIndex: thinkingShift, partial: { ...partial } });
+					let held = midStreamHold === undefined;
+					for (const delta of chunksOf(step.text, 12)) {
+						await pause(DELTA_PAUSE_MILLISECONDS);
+						const streamedText = `${(partial.content[thinkingShift] as { text: string }).text}${delta}`;
+						partial.content = [...thinkingBlocks, { type: "text", text: streamedText }];
+						outer.push({ type: "text_delta", contentIndex: thinkingShift, delta, partial: { ...partial } });
+						if (!held && midStreamHold !== undefined && streamedText.length >= midStreamHold.afterCharacters) {
+							held = true;
+							midStreamHold.reached();
+							await midStreamHold.gate;
+						}
+					}
+					outer.push({ type: "text_end", contentIndex: thinkingShift, content: step.text, partial: { ...partial } });
+					const message = { ...blank, content: [...thinkingBlocks, { type: "text" as const, text: step.text }], usage };
+					outer.push({ type: "done", reason: "stop", message });
+					outer.end(message);
+					return;
+				}
+				const toolCalls = step.calls.map((call, index) => ({
+					type: "toolCall" as const,
+					id: step.calls.length === 1 ? `call-${this.callCount}` : `call-${this.callCount}-${index}`,
+					name: call.name,
+					arguments: call.args as never,
+				}));
+				const firstToolIndex = thinkingShift + (step.leadingText === "" ? 0 : 1);
+				const content: AssistantMessage["content"] = [...thinkingBlocks];
+				if (step.leadingText !== "") {
+					const partial = { ...blank, content: [...thinkingBlocks, { type: "text" as const, text: "" }] };
+					outer.push({ type: "text_start", contentIndex: thinkingShift, partial: { ...partial } });
+					for (const delta of chunksOf(step.leadingText, 12)) {
+						await pause(DELTA_PAUSE_MILLISECONDS);
+						const streamedText = `${(partial.content[thinkingShift] as { text: string }).text}${delta}`;
+						partial.content = [...thinkingBlocks, { type: "text", text: streamedText }];
+						outer.push({ type: "text_delta", contentIndex: thinkingShift, delta, partial: { ...partial } });
+					}
+					outer.push({ type: "text_end", contentIndex: thinkingShift, content: step.leadingText, partial: { ...partial } });
+					content.push({ type: "text", text: step.leadingText });
+				}
+				const withCalls = (calls: AssistantMessage["content"]) => ({ ...blank, content: [...content, ...calls] });
+				for (const [index, toolCall] of toolCalls.entries()) {
+					const contentIndex = firstToolIndex + index;
+					const before = toolCalls.slice(0, index);
+					outer.push({ type: "toolcall_start", contentIndex, partial: withCalls([...before, { ...toolCall, arguments: {} }]) });
+					outer.push({
+						type: "toolcall_delta",
+						contentIndex,
+						delta: JSON.stringify(toolCall.arguments),
+						partial: withCalls([...before, { ...toolCall, arguments: {} }]),
+					});
+					outer.push({ type: "toolcall_end", contentIndex, toolCall, partial: withCalls([...before, toolCall]) });
+				}
+				const message = { ...withCalls(toolCalls), usage, stopReason: "toolUse" as const };
+				outer.push({ type: "done", reason: "toolUse", message });
+				outer.end(message);
+			} catch (error) {
+				const failed = {
+					...blank,
+					stopReason: "error" as const,
+					errorMessage: error instanceof Error ? error.message : String(error),
+				};
+				outer.push({ type: "error", reason: "error", error: failed });
+				outer.end(failed);
+			}
+		});
+		return outer;
+	}
+}
+
+const DELTA_PAUSE_MILLISECONDS = 40;
+
+const pause = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function chunksOf(text: string, size: number): string[] {
+	const chunks: string[] = [];
+	for (let index = 0; index < text.length; index += size) chunks.push(text.slice(index, index + size));
+	return chunks.length > 0 ? chunks : [""];
+}

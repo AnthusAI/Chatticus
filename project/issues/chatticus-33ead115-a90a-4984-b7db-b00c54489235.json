@@ -1,0 +1,55 @@
+{
+  "id": "chatticus-33ead115-a90a-4984-b7db-b00c54489235",
+  "title": "TS-40e Remove web voice-line-delivery and update the docs",
+  "description": "Part of the flip (chatticus-6f27c5). Delete web/lib/voice-line-delivery.ts (the per-channel voice line queue; steering makes it redundant; read docs/VOICE.md and web_voice_control, which must keep passing under cucumber-js: update the harness, not the Gherkin) and every import. Update AGENTS.md Quality gates, README What is live today, CONTRIBUTING_AGENT.md, docs/PI_HARNESS.md and docs/TYPESCRIPT_CONTROL_PLANE.md to the post-flip world (no Python, cucumber-js is the only behavior gate, deploys through the ControlPlane workflow).",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-a50b4511-8059-4730-ad90-3765432f0b62",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "3e2965f5-3e4a-475d-b26a-ea95297c77eb",
+      "author": "home",
+      "text": "Docs part done in PR 467 (AGENTS.md gates, README, ARCHITECTURE and others). REMAINING: web/lib/voice-line-delivery.ts removal (the per-channel voice line queue; steering makes it redundant). On hold until the user's iPad voice retest: the web_voice_control feature (61 scenarios) encodes queue and retry behavior (for example 'A failed send keeps the line and retries it with the next line'), so removal means updating the harness and checking each scenario still holds under steering; the Gherkin must not change.",
+      "created_at": "2026-10-07T02:55:04.334554Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    },
+    {
+      "id": "b19d7c0a-3226-485b-b3ee-7549308c2e33",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Verified on origin/develop: the docs half is done (PR 467), and web/lib/voice-line-delivery.ts still exists and is imported by web/components/EnabledWorkspace.tsx and web/test-support/voice-harness.ts, and is named in docs/VOICE.md and docs/TYPESCRIPT_CONTROL_PLANE.md. Still on hold for the iPad voice retest; features/web_voice_control.feature must pass unchanged. Needs an owner go-ahead after the retest.",
+      "created_at": "2026-10-14T03:11:32.050708Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-06T16:01:58.042730Z",
+  "updated_at": "2026-10-14T03:11:32.050737Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Docs are updated; removing the voice queue awaits the iPad retest and unchanged cucumber-js scenarios.",
+  "right_now_updated_at": "2026-10-14T03:11:34.182269Z",
+  "custom": {}
+}

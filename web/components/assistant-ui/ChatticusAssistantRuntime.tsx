@@ -1,0 +1,110 @@
+"use client";
+
+import {
+  AssistantRuntimeProvider,
+  useExternalStoreRuntime,
+  type AppendMessage,
+} from "@assistant-ui/react";
+import { useCallback, useMemo, type ReactNode } from "react";
+
+import type { Message, Turn, TurnEvent } from "@/lib/api";
+import {
+  buildChatticusThreadMessages,
+  convertChatticusThreadMessage,
+  textFromAppendMessageContent,
+  type ChatticusThreadMessage,
+  type FailedTurn,
+} from "@/lib/assistant-ui-bridge";
+import type { RetainedTurnActivity } from "@/lib/committed-activity";
+import type { TurnUiStatus } from "@/lib/workspace-state";
+
+import {
+  ChatticusAssistantThread,
+  RetryFailedTurnContext,
+  type ChatticusAssistantThreadProps,
+} from "./ChatticusAssistantThread";
+
+export type ChatticusAssistantRuntimeProps = {
+  messages: Message[];
+  turn: Turn | null;
+  progress: string;
+  turnStatus: TurnUiStatus;
+  isSendDisabled: boolean;
+  botNameById: ReadonlyMap<string, string>;
+  onSendMessage: (text: string) => Promise<void>;
+  failedTurn?: FailedTurn | null;
+  turnIsSlow?: boolean;
+  turnEvents?: readonly TurnEvent[];
+  retainedActivity?: RetainedTurnActivity | null;
+  onRetryFailedTurn?: (failure: FailedTurn) => Promise<void>;
+  threadProps?: Omit<ChatticusAssistantThreadProps, "className">;
+  className?: string;
+};
+
+function ChatticusAssistantRuntimeInner({
+  messages,
+  turn,
+  progress,
+  turnStatus,
+  isSendDisabled,
+  botNameById,
+  onSendMessage,
+  failedTurn = null,
+  turnIsSlow = false,
+  turnEvents = [],
+  retainedActivity = null,
+  onRetryFailedTurn,
+  threadProps,
+  className,
+}: ChatticusAssistantRuntimeProps) {
+  const threadMessages = useMemo(
+    () =>
+      buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow, turnEvents, retainedActivity),
+    [failedTurn, messages, progress, retainedActivity, turn, turnEvents, turnIsSlow, turnStatus],
+  );
+  const retryFailedTurn = useMemo(
+    () =>
+      failedTurn && onRetryFailedTurn && !isSendDisabled
+        ? () => void onRetryFailedTurn(failedTurn)
+        : null,
+    [failedTurn, isSendDisabled, onRetryFailedTurn],
+  );
+
+  const isRunning = isSendDisabled;
+
+  const convertMessage = useCallback(
+    (message: ChatticusThreadMessage) => convertChatticusThreadMessage(message, botNameById),
+    [botNameById],
+  );
+
+  const onNew = useCallback(
+    async (message: AppendMessage) => {
+      const text = textFromAppendMessageContent(message.content);
+      if (!text.trim()) {
+        return;
+      }
+      await onSendMessage(text.trim());
+    },
+    [onSendMessage],
+  );
+
+  const runtime = useExternalStoreRuntime({
+    messages: threadMessages,
+    convertMessage,
+    isRunning,
+    isSendDisabled,
+    onNew,
+  });
+
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <RetryFailedTurnContext.Provider value={retryFailedTurn}>
+        <ChatticusAssistantThread className={className} {...threadProps} />
+      </RetryFailedTurnContext.Provider>
+    </AssistantRuntimeProvider>
+  );
+}
+
+export function ChatticusAssistantRuntime(props: ChatticusAssistantRuntimeProps): ReactNode {
+  return <ChatticusAssistantRuntimeInner {...props} />;
+}

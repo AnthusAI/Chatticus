@@ -1,0 +1,52 @@
+{
+  "id": "chatticus-09bef06b-4f70-4b47-86ea-63595bee5205",
+  "title": "T8 HTTP cost API: channel, turn, organization rollup, compare, export",
+  "description": "Depends on T4 and T7. Files: new conversation/src/http/routes/costs.ts, conversation/src/http/app.ts, new conversation/src/domain/costs.ts. Routes: GET /orgs/{t}/channels/{c}/cost, /turns/{id}/cost, /costs?group_by=, /costs/export?format=csv|ndjson, /costs/compare. Authorization per the owner's answer to question 4 of the plan. Acceptance: plan scenarios 17, 18, 21, 22, 23 pass; features/cost_api.feature in cucumber-features.txt.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [
+    "cost-accounting"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0838fb29-c629-49c0-b83c-bd847bf0d012",
+      "author": "home",
+      "text": "T8 implemented in PR 541 (ts/cost-http-api): read-only cost API (turn, message, channel, org rollup by bot/channel/member/model/day/month, turn rows, compare, export), zod schemas in host-protocol/src/costs.ts, contract in docs/COST_ACCOUNTING.md 3.10. Decision: every enabled member of the org reads org cost; non-members and other tenants refused; no GSI. Gherkin cost_api.feature and cost_api_gateway_rows.feature (failed first, 4 mutation checks caught), vitest 1225 passed. No IAM change; verify with the IAM simulator and a real call after deploy. Awaiting review and CI.",
+      "created_at": "2026-10-13T16:13:12.772339Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "cost-t8"
+      }
+    },
+    {
+      "id": "ced679c2-d2bb-4fdf-93f7-3f238ab409d9",
+      "author": "home",
+      "text": "Merged (PR 541) and verified LIVE on development 2026-10-13: Front Door role allowed Query/GetItem on the messaging table (IAM simulator), real calls to /orgs/{t}/costs, /costs?group_by=model, /costs/turns and /turns/{id}/cost return correct totals (3 turns, 5 calls, 0.000463 USD, price book openai@2026-10-13+pi-ai-1.0.2, complete=true) and /costs?from=bad returns 400 invalid_query. Incident: the first call returned 500 because three dev index rows written between the T4 and T8 deploys lacked recorded_at (new in T8) and indexRowOf reads it as required; fixed by backfilling recorded_at from updated_at on those three rows (repo rule: migrate data, no dual readers); staging and production have no such rows. Lesson: a reader that requires a new attribute must be deployed together with the writer, or the data migrated, before the first call.",
+      "created_at": "2026-10-13T16:41:07.195845Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:31:38.954210Z",
+  "updated_at": "2026-10-13T16:41:11.266419Z",
+  "closed_at": "2026-10-13T16:41:11.266373Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "cost-auditor"
+  },
+  "right_now_summary": "T8 is merged and live on development after fixing missing timestamps in three index rows.",
+  "right_now_updated_at": "2026-10-13T16:41:12.521516Z",
+  "custom": {}
+}

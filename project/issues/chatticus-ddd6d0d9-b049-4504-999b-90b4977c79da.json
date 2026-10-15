@@ -1,0 +1,34 @@
+{
+  "id": "chatticus-ddd6d0d9-b049-4504-999b-90b4977c79da",
+  "title": "Data migration with migrate-transcripts.ts and the Cognito user re-link",
+  "description": "## Plan steps 8 and 9 (decision D5 first)\nPer environment: migrate-transcripts.ts copy --dry-run, copy, latest-turns, gate close, delta, verify, gate open. Cognito users cannot be exported with passwords: new pool and re-link by Google email. Snapshots stay in S3. First get an owner-authorized read-only item count of legacy staging and production Messaging to decide whether migration is needed at all or those environments can start fresh like development.\n## Acceptance\n- The count is recorded; if migrating, verify reports no missing items and the gate is reopened.\n- After the flip there is one reader (no dual readers).\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-0b3a0d16-717c-417d-a143-239dce50b9b0",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-04364dce-cc7d-4955-a027-3e1e9c03c16e",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:37:22.382009Z",
+  "updated_at": "2026-10-13T11:38:21.266103Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "Nothing has been executed; the team awaits an owner-authorized item count before deciding whether to migrate.",
+  "right_now_updated_at": "2026-10-13T11:38:23.406819Z",
+  "custom": {}
+}

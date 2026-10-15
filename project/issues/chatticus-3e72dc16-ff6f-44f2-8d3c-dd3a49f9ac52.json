@@ -1,0 +1,169 @@
+{
+  "id": "chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52",
+  "title": "Exercise the remaining bot capabilities in a customer account",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** ~~F-computer / customer `RunTask`~~ — **cleared 2026-09-07** (`chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09` closed: lab-user customer `RunTask ≥ 1`).\n- **Unblocks:** an honest pitch page, and any claim about what a customer gets\n- **Open decision (do not pick here):** `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` — dict vs host disk. File actions and relocate wait on that pick. Browser does not.\n\n---\n\n## Why this exists\n\n`chatticus-b88c0a` proved the **backbone substrate** in a customer account, including a computerless `pong`. This card is the rest of the matrix. **Read the agent tool list before any live row.** Unproven and unimplemented are different costs. Terminal already burned a live AWS run to learn what `docs/ARCHITECTURE.md` and `chromium_action_executor.py` already say.\n\n`docs/ARCHITECTURE.md` (`4142832`) calls the snapshot protocol the **design target, not currently wired**. Do not cite the earlier \"shipping design\" wording (`48a2c79`).\n\n## Agent-facing tools (verified in shipping code, 2026-09-07)\n\nLive computerless OpenAI tools (`computerless_worker_tools` in `openai_completion.py`): **task**, **read_workspace**, **browse**, **request_computer_capability**. That is the production tool list. Gherkin fakes also emit **send** / **purchase**; those are not offered to the live model.\n\nHost executor (`ChromiumActionExecutor._SUPPORTED_TOOLS`): **browser_open**, **request_computer_capability**. `request_computer_capability` with gate `workspace` is **not** a file or shell tool — the executor only opens Chromium, and only for the **browser** gate.\n\n| Capability | Agent-facing tool? | What it actually touches | Live customer run? |\n| --- | --- | --- | --- |\n| Terminal / shell | **No.** Image has a shell; no tool exposes it. | Container `/workspace` is never listed or exec'd | **Do not run.** Own card: `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. |\n| Browser | **Yes.** `browser_open` on the host. Computerless `browse` is a different tool: it **authorizes an origin** over HTTP (`POST .../browse/authorize`), it does not launch Chromium. | Real Chromium + `CHATTICUS_LIVE_ROOT` browser-profiles | **Labeled stop `HOST_NOT_RUNNING` (2026-09-07).** Kernel `browser_open` / `about:blank`; customer task PROVISIONING; no `tool.result`. Do not retry until the host-RUNNING card lands. |\n| File actions | **read_workspace** yes. **write_workspace** is a capability sink only — no OpenAI tool, no HTTP write route. Host executor has **no** file tools. | `computer.workspace` dict. Dynamo `put_computer` does **not** persist it. Nothing in the agent loop reads or writes the container's `/workspace`. | **Do not run.** Wait on `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`. |\n| Approvals | **No** agent tool. Humans/kernel: `approve_structured_operation` / immutable binding. | Policy kernel, not the computer host | Not a Fargate sweep. |\n| Spend ceiling | Live model **cannot** call `purchase`. Token spend is recorded on the vendor ledger automatically. | Ledger vs sink ceiling are different | Not a host sweep. |\n| Relocate | **No** agent tool. Host packs (`ComputerHostDisk.pack_live_disk`) tar host `workspace/` + `browser-profiles/`. The Fargate host worker **never calls** publish/hydrate. | In-memory `plane._snapshots` in the kernel; S3 packs in tests/CLI | Downstream of `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`. Cannot test until a host publishes. |\n\n**Two snapshot pictures exist and are not wired together.** Recite `docs/ARCHITECTURE.md` `4142832`: design target; two file layers; do not delete the library; it is unwired, not load-bearing.\n\nThat is why the ACME control-plane workspace map was empty: not a missing bucket on the read path.\n\n## Coverage after `b88c0a` / `82dab7`\n\n| Capability | Customer account | Evidence / gap |\n|---|---|---|\n| Google sign-in | **Proven** | `dev.chattic.us` |\n| Organization record + `tenant_id` | **Proven** | Invisible in UI — `chatticus-9c8dbf` |\n| Cross-account role, ExternalId, AssumeRole | **Proven** | |\n| Org enablement + AWS home | **Proven** | Operator deviation — `chatticus-070cb4` |\n| Bot creation | Kernel only | No UI — `chatticus-7622fd` |\n| **Computerless turn (`cpu`)** | **Proven** | `pong` |\n| Computer start (cross-account RunTask) | **Proven** | `chatticus-82dab7` / #317 |\n| Terminal / shell | **Not implemented** | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |\n| Browser (`browser_open`) | **`HOST_NOT_RUNNING`** | Kernel `browser_open` dispatched; customer Fargate stayed PROVISIONING ~192 s; no `tool.result`. Follow-up: `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32`. |\n| File actions | **Gated** | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |\n| Approvals loop | **Unproven as product UX** | No agent tool |\n| Watch / takeover display | **Unproven** | No agent tool in the live list |\n| Spend ceiling | **Not agent-reachable** | No live `purchase` tool |\n| Relocate / failover | **Gated** | Downstream of host publish, which is downstream of the file-layer pick |\n\n## `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` — insurance, not file-actions\n\nThe customer snapshot bucket is still cheap insurance (customer-visible template, no customers yet). It does **not** unblock file actions, and under the dict branch of `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` it never will. Pack library stores host filesystem trees agents do not write today.\n\n## Sequence\n\n1. ~~F-computer / customer RunTask~~ done.\n2. ~~Terminal~~ **out of this sweep** — `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`.\n3. **Browser** — live row **stopped** `HOST_NOT_RUNNING` (2026-09-07). Kernel `browser_open` / `about:blank`; customer task never reached RUNNING. Not `POST .../browse/authorize`. Do not retry until `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32`.\n4. File actions / relocate — wait on `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`. Do not live-run `ls /workspace` again.\n5. Approvals and spend — kernel/UX work; not computer-host sweeps.\n\nStop and record at the first failure in each **live** row. A labeled stop is a result.\n\n## Record\n\nWiki runbook with placeholders, real ids in `AGENTS.local.md`, every deviation labeled. Elapsed times for live rows do **not** fold into the ~19 min provision figure.\n\n## Done when\n\nEach row is proven, explicitly **out of v1 agent scope** (own card), or has a recorded failure with a decision (template, infrastructure, or product). File/relocate cannot close until `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` is picked.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "c39b7bed-1f46-4c33-914c-0f99088b9bc3",
+      "author": "home",
+      "text": "**Snapshot bucket decision:** customer account, not Anthus. Durable `/workspace` (S3 snapshot protocol, D3 permanent) rests in `CUSTOMER_ACCOUNT_ID`. Anthus `ChatticusSnapshots` is not the customer workplace. File-actions row still waits on F-computer, then on whoever creates that bucket (template vs assumed-role `ChatticusComputers` — F-computer will say). Do not reopen storage discovery.",
+      "created_at": "2026-09-07T16:08:15.749290Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "165d626c-007e-4b33-b460-9fa1f9f4f27f",
+      "author": "home",
+      "text": "F-computer closed as a labeled refuse: customer `ChatticusComputers` does not exist; AssumeRole yes; zero `RunTask` in both accounts.\n\nThis matrix still cannot run. **Blocked-by `chatticus-82dab7`** (Chatticus CreateStack under the assumed role, then one customer `RunTask`). Do not start terminal/browser/files against the same missing stack — that is the same stop, not a new row.\n\nSnapshot bucket decision stands: customer account, inside `ChatticusComputers`, not Anthus `ChatticusSnapshots`.",
+      "created_at": "2026-09-07T16:22:59.959206Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8d57f5ef-6b89-480b-94f5-2e1d938c2e09",
+      "author": "home",
+      "text": "`chatticus-82dab7` closed: customer `ChatticusComputers` exists; customer `RunTask` live on development. This matrix is unblocked.\n\nSequence unchanged: **terminal**, then **browser**, then **file actions** (expect snapshot-bucket / `s3:*` stop — `8a25af`), then approvals, spend ceiling, relocate. Stop at the first failure in each row. Kernel `post_channel_message` for test humans. Do not fold times into ~19 min.",
+      "created_at": "2026-09-07T17:33:46.958559Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "584270a1-e20c-4c28-b945-42675422df24",
+      "author": "home",
+      "text": "Starting the capability matrix on the live customer computer from `82dab7`. Composer 2.5 planning: worktree `/tmp/chatticus-3e72dc-capability-matrix` on `spike/3e72dc-capability-matrix`. Stop at the first failure in each row. Kernel `post_channel_message`. Wiki on `develop` after labeled stops. Do not fold times into ~19 min. File-actions expected to hit missing snapshot bucket (`8a25af`).",
+      "created_at": "2026-09-07T17:34:25.158177Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e92268bb-b5e3-4c53-ba32-24433977050f",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-3e72dc-capability-matrix` on `spike/3e72dc-capability-matrix` (not the primary clone). Sequence, expected file-actions stop, no template edit, kernel messages, Layer A+B RUNNING, Anthus desiredCount 0 — accepted.\n\n**Closed on authorize:**\n1. **ECS Exec is not a terminal pass.** Row 1 is proven only if a shell command completes in the **turn journal**. Otherwise label `NO_TERMINAL_TOOL` and stop that row. Do not call `execute-command` a product result.\n2. **Approvals must cross the account boundary.** Computerless `purchase` does not satisfy the card. Prefer a computer-side consequential action (browser or workspace) that hits `require_approval`. If no such path exists, label `APPROVAL_NO_CROSS_ACCOUNT_PATH` — still record whether require_approval fired. Computerless purchase may be extra evidence, not the row.\n\nUse the lab IAM user (not management root) for customer `DescribeTasks`. Do not fold times into ~19 min. Wiki on `develop` via the manager after labeled stops.",
+      "created_at": "2026-09-07T17:37:13.807259Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2c37dbab-f101-4395-be4b-d9c23d767671",
+      "author": "home",
+      "text": "Matrix run finished; **no row proven.** Rows 1–2: `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` (customer stack gone vs `82dab7` closure). Row 3/6: expected `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET`. Row 4: `APPROVAL_NO_CROSS_ACCOUNT_PATH`. Row 5: `SPEND_LIMIT_NOT_ENFORCED_AT_SINK`. Anthus desiredCount 0.\n\nParked (`open`) until `82dab7` DoD holds under lab-user `DescribeStacks`, then re-run terminal/browser. Worktree kept. Do not fold times into ~19 min.",
+      "created_at": "2026-09-07T17:47:19.786395Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "4ac37fd3-945c-4ce6-a3f3-63a9df79db3e",
+      "author": "home",
+      "text": "Customer stack was never created (`CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED`). Rows 1–2 were the right stop. Stays parked on `82dab7` until CreateStack succeeds without SSM bootstrap.",
+      "created_at": "2026-09-07T17:49:48.834949Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "5b7eb049-4493-46fd-ad31-9b70183e2888",
+      "author": "home",
+      "text": "## File actions: the bucket question is decided (2026-09-07)\n\nThe predicted file-actions failure now has an answer.\n\n**Snapshot packs live in the customer's own AWS account, and the bucket is created in advance by the published CloudFormation template.** Anthus's `ChatticusSnapshots` bucket serves Anthus-managed organizations only. Filed as `chatticus-bb9084`.\n\nChosen over having Chatticus create the bucket under the assumed role because the customer can review a template-declared bucket before running it, and because it keeps `s3:CreateBucket` off the role entirely — a permission that would fail `8a25af`'s *\"why does an agent product need this\"* test.\n\nThe **file actions** row here stays blocked until that lands, and it is now blocked on a scoped piece of work rather than an open question.",
+      "created_at": "2026-09-07T20:10:41.258335Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "de3cac04-8459-4052-86da-5e266b4249c5",
+      "author": "home",
+      "text": "`chatticus-82dab7` **closed**. Customer `RunTask` proven on development (#317). This card is unblocked for **terminal then browser**. Stop at first failure. File-actions / relocate still need `chatticus-bb9084` (customer-run snapshot bucket). Do not fold times into the ~19 min provision figure. Kernel path; live SQS; lab IAM user not root.\n",
+      "created_at": "2026-09-07T20:51:54.457815Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "035240aa-c237-4537-be5b-432d2ce58cb8",
+      "author": "home",
+      "text": "## Two things above are now settled — do not treat them as open (2026-09-07)\n\n**1. The bucket question is decided.** The earlier comment on this card reads *\"whoever creates that bucket (template vs assumed-role `ChatticusComputers` — F-computer will say).\"* F-computer did not decide it; the role file did.\n\n`infra/customer-role.yml` has **zero `s3:` actions**, and CloudFormation creates resources with the caller's permissions, so an `AWS::S3::Bucket` inside a Chatticus-deployed `ChatticusComputers` stack fails access-denied. Since the template has to change either way, the choice was made on merit: **the bucket is declared in the customer-run published template** (`chatticus-bb9084`), where the customer can read it before agreeing, and `s3:CreateBucket` never goes on the Anthus role.\n\n**2. This card is no longer blocked.** `chatticus-82dab7` closed after the **live cross-account `RunTask` passed** on development. A computer starts in the customer account. Terminal and browser rows can proceed now; **file actions** wait on `bb9084`.\n\n## Suggested first probe\n\nThe prompt that produced *\"I can't run shell commands directly in the household workspace\"* failed with `STOP_NO_COMPUTER_TOOL`, which was plausibly downstream of there being no `ChatticusComputers` stack to start. That is now fixed and **nobody has rechecked**.\n\nRe-running it is a cheap, high-value first step. Use a probe that does **not** touch `/workspace` — `echo hello` or `uname -a` — so a genuine escalation bug is not masked by the S3 gap that `bb9084` will fix. If it still refuses with a working computer behind it, that isolates a real escalation defect and deserves its own card; if it works, the symptom closes with no further work.",
+      "created_at": "2026-09-07T20:56:40.252942Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "039444f9-8d6b-45fa-8e5b-d8c61cd91eb4",
+      "author": "home",
+      "text": "## Tool-list read finished (2026-09-07) — verified in shipping code\n\nChecked, not taken on trust:\n\n- `read_workspace` / `write_workspace` → `computer.workspace` dict (`control_plane.py`). Dynamo `put_computer` does not persist that map.\n- Host executor: only `browser_open` and `request_computer_capability`; Chromium only; workspace gate is not files.\n- `ComputerHostDisk.pack_live_disk` packs host `workspace/` + `browser-profiles/`. Fargate `computer_host_worker` never calls it. `publish_snapshot` copies the dict into `plane._snapshots` for in-memory specs.\n- Live OpenAI tools: task, `read_workspace`, `browse` (authorize origin), `request_computer_capability`. No shell, no `write_workspace`, no `purchase`, no relocate.\n\n`ARCHITECTURE.md` already documents the unreachable shell. File-actions is the same class of row as terminal. Only **browser_open** is a real host-tool live test. `bb9084` still names where **host packs** live; it is not what `read_workspace` reads today. Decision recorded on `bb9084`: do not assume the bucket stores the dict.\n",
+      "created_at": "2026-09-07T21:14:25.979943Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "fc056ed2-5718-4f54-95a9-7b4c137bf0d2",
+      "author": "home",
+      "text": "Live row starting: **host `browser_open`** only, against the customer-account computer. Kernel `post_channel_message` + `prepare_computer_tool(browser_open)` + `enqueue_computer_continuation` (labeled deviation). Must not be computerless `browse` / `POST .../browse/authorize`. Stop at first failure. Do not fold time into ~19 min.\n\nNot running: terminal (`chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`), files/relocate (`chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`), approvals, spend.\n\nWorktree for the spike: `/tmp/chatticus-3e72dc-browser-open` on `spike/3e72dc-browser-open`. Wiki on `develop` after the labeled result.",
+      "created_at": "2026-09-07T21:32:39.670886Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "47eb822d-8a09-4b2c-a4a1-45eebe1ebb55",
+      "author": "home",
+      "text": "Live `browser_open` **stopped** at `HOST_NOT_RUNNING` (2026-09-07). First failure; no retry.\n\nKernel deviation: `post_channel_message` + `prepare_computer_tool(browser_open, about:blank)` + `enqueue_computer_continuation`. Not computerless `browse`. Journal `tool.call` `browser_open`; no `tool.result` in ~192 s. Customer Fargate task stayed **PROVISIONING** (container PENDING). Anthus `RunTask` 0. Fake executor `opened` not seen. `82dab7` RunTask proof still stands; a usable host does not.\n\nFollow-up: `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32`. Do not fold elapsed time into ~19 min. Wiki updated with placeholders.",
+      "created_at": "2026-09-07T21:38:58.560688Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1375f2a5-4b81-4d9b-925d-d2b8396a0f7b",
+      "author": "home",
+      "text": "Still parked. 8fe4c7 named cause is HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED (ECR-auth falsified). No further live rows until a host executes a tool.",
+      "created_at": "2026-09-07T22:59:09.921757Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "a850cf20-328a-4579-876a-c6eed59379c8",
+      "author": "home",
+      "text": "Browser host row **PASS** as a labeled kernel deviation (`chatticus-8fe4c7e1`, turn `0c07b8d6-…`, `opened:about:blank`). `HOST_NOT_RUNNING` is lifted for that row only.\n\nThis card stays parked. Do not live-run terminal, files, approvals, spend, or relocate. Terminal is `chatticus-e11c17ed`. Files wait on host-disk steps 2–5 (`chatticus-fccc4e9a`).\n",
+      "created_at": "2026-09-07T23:37:41.886174Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3c6cf9c6-c2f4-4bf6-b4be-9e209c88ec9a",
+      "author": "home",
+      "text": "File-actions Gherkin is on `develop` (#324). Live customer-path acceptance is **blocked**, not failed: named cause `AWS_LOGIN_SESSION_EXPIRED` (operator-only). Development ThinTurn for `1fdb19f` is deployed; published `customer-role.yml` is live (7557 bytes, declares `OrganizationSnapshotBucket`). UpdateStack of the throwaway stacks and the write/publish/read loop were not attempted. Next human step: `aws login`, then lab IAM user `chatticus-b88c0a-operator` (not root) follows the wiki UpdateStack checklist.\n",
+      "created_at": "2026-09-08T04:02:27.739345Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f48d6589-9664-4077-a90e-3f3547d43572",
+      "author": "home",
+      "text": "Desk AWS session is valid again. Resuming live customer-path file-recycle acceptance: lab IAM user UpdateStack of published `customer-role.yml`, then `ChatticusComputers` with `SnapshotBucketName`, then write → publish → read. No product PR unless a hole appears.\n",
+      "created_at": "2026-09-08T08:11:56.834111Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0a11a44b-2da0-496e-95b1-f846a10d49a4",
+      "author": "home",
+      "text": "File-actions live row **PASS (2026-09-08)**, kernel deviation. Lab UpdateStack: `ChatticusCrossAccountRole` and `ChatticusComputers` `UPDATE_COMPLETE`; bucket `chatticus-snapshots-{ORGANIZATION_ID}` exists. Write → publish → stop/start → read; journal `read_workspace` body `persisted-by-agent-live-863f27`. Pack URI is the customer bucket, not Anthus. First attempt `HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY` — operator `:dev` repush, not a product defect on current `develop`.\n\nBrowser and file-actions host rows are both live-PASS. Terminal stays on `chatticus-e11c17ed`. Do not close this matrix card for those remaining rows. Do not fold elapsed time into ~19 min.\n",
+      "created_at": "2026-09-08T09:02:25.661944Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3c52e15d-8ee5-4fe4-a58f-3c19d7c32151",
+      "author": "home",
+      "text": "`5336ff` closed: human-started turns on development now carry the conversation grant. This matrix is not that hole.\n\nStill open here: terminal stays `chatticus-e11c17` (do not live-run). Browser and file-recycle host rows already PASS. Approvals / spend / watch are not computer-host sweeps. Do not fold times into ~19 min.\n",
+      "created_at": "2026-09-08T13:38:48.895033Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "bd91e127-064d-4d64-b51c-f982f8c80f7c",
+      "author": "home",
+      "text": "Closing. Host rows that this card could prove are done. Remaining items are own cards or recorded non-host results — not further live Fargate sweeps.\n\n| Row | Disposition |\n| --- | --- |\n| Terminal | Out of this sweep — `chatticus-e11c17`. Do not live-run to rediscover the missing tool. |\n| Browser | Proven (`chatticus-8fe4c7`, kernel `browser_open` / `about:blank`). |\n| File actions | Proven (`chatticus-863f27`, write → customer-bucket publish → recycle → read). |\n| Relocate / recycle | Proven via the same file-actions stop/start; different-worker relocate was not a separate run. |\n| Approvals | Recorded `APPROVAL_NO_CROSS_ACCOUNT_PATH`. No agent tool. Not a host sweep. |\n| Spend | Recorded `SPEND_LIMIT_NOT_ENFORCED_AT_SINK`. Live model cannot call `purchase`. |\n| Watch / takeover | No agent tool; not a host sweep. |\n\nDo not fold elapsed times into ~19 min. Next product build on this epic is `chatticus-e11c17`.\n",
+      "created_at": "2026-09-08T13:41:53.643402Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T16:01:06.214793Z",
+  "updated_at": "2026-09-08T13:41:53.657767Z",
+  "closed_at": "2026-09-08T13:41:53.657767Z",
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

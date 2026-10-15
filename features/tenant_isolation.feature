@@ -9,9 +9,9 @@ Feature: Tenant isolation
       | worker_id   | garage-mac-1 |
       | tenant_id   | anthus       |
       | cost_class  | local        |
-      | capabilities| computer     |
+      | capabilities| terminal     |
     When tenant "other-household" enqueues a turn:
-      | capabilities | computer |
+      | capabilities | terminal |
     Then the turn is not assigned
 
   Scenario: Two tenants can both have healthy local workers

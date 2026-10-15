@@ -2,12 +2,14 @@ name: Deploy ThinTurn (staging)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
   id-token: write
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -31,6 +33,25 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Deploy staging control-plane
+        working-directory: infra
+        env:
+          CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: ${{ vars.CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD }}
+          CHATTICUS_BUDGETS_NOTIFICATION_EMAIL: ${{ secrets.CHATTICUS_BUDGETS_NOTIFICATION_EMAIL }}
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
+          CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: ${{ vars.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN }}
+        run: sh deploy-chatticus-dedicated-account.sh staging control-plane
+
+      - name: Deploy staging web
+        working-directory: infra
+        env:
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
+        run: sh deploy-chatticus-dedicated-account.sh staging web
+
       - name: Deploy staging thin-turn
         working-directory: infra
-        run: sh deploy-chatticus-thinturn-staging.sh
+        env:
+          CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: ${{ vars.CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD }}
+          CHATTICUS_BUDGETS_NOTIFICATION_EMAIL: ${{ secrets.CHATTICUS_BUDGETS_NOTIFICATION_EMAIL }}
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
+        run: sh deploy-chatticus-dedicated-account.sh staging thin-turn

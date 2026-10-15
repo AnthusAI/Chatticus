@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
 import { setIdTokenSourceForTests } from "./api-auth";
-import { listBots } from "./api";
+import { createBot, listBots, replaceTurnGrant, setMonthlyAwsSpendCeiling } from "./api";
 
 const originalFetch = globalThis.fetch;
 
@@ -25,5 +25,113 @@ describe("org-scoped API calls", () => {
 
     await listBots({ tenantId: "anthus", userId: "ryan" });
     assert.deepEqual(capturedHeaders, { Authorization: "Bearer org-scoped-token" });
+  });
+
+  it("PATCH the monthly ceiling to the organization route with the session token", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    let capturedUrl = "";
+    let capturedInit: RequestInit | undefined;
+    globalThis.fetch = mock.fn(async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({ tenant_id: "acme", monthly_aws_spend_ceiling_usd: "500" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const saved = await setMonthlyAwsSpendCeiling({ tenantId: "acme", userId: "ryan" }, "500");
+    assert.equal(saved.monthly_aws_spend_ceiling_usd, "500");
+    assert.equal(capturedUrl, "/api/orgs/acme/monthly-aws-spend-ceiling");
+    assert.equal(capturedInit?.method, "PATCH");
+    const headers = capturedInit?.headers as Record<string, string>;
+    assert.equal(headers.Authorization, "Bearer org-scoped-token");
+    assert.equal(headers["Content-Type"], "application/json");
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), { monthly_aws_spend_ceiling_usd: "500" });
+  });
+
+  it("surface a refused ceiling change as an HTTP error the form can explain", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    globalThis.fetch = mock.fn(
+      async () => new Response('{"detail":"not an owner"}', { status: 403 }),
+    ) as typeof fetch;
+
+    await assert.rejects(
+      setMonthlyAwsSpendCeiling({ tenantId: "acme", userId: "ryan" }, "500"),
+      /HTTP 403/,
+    );
+  });
+
+  it("send Authorization and Idempotency-Key on createBot", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    let capturedUrl = "";
+    let capturedInit: RequestInit | undefined;
+    globalThis.fetch = mock.fn(async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(
+        JSON.stringify({
+          bot_id: "bot-1",
+          tenant_id: "anthus",
+          user_id: "ryan",
+          name: "Ping",
+          memory: {},
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+
+    const bot = await createBot({ tenantId: "anthus", userId: "ryan" }, "Ping");
+    assert.equal(bot.name, "Ping");
+    assert.equal(capturedUrl, "/api/orgs/anthus/bots");
+    assert.equal(capturedInit?.method, "POST");
+    const headers = capturedInit?.headers as Record<string, string>;
+    assert.equal(headers.Authorization, "Bearer org-scoped-token");
+    assert.equal(headers["Content-Type"], "application/json");
+    assert.match(headers["Idempotency-Key"], /^[0-9a-f-]{36}$/i);
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), { name: "Ping" });
+  });
+
+  it("send Authorization on replaceTurnGrant", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    let capturedUrl = "";
+    let capturedInit: RequestInit | undefined;
+    globalThis.fetch = mock.fn(async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({ turn_id: "turn-1", tools: ["browse"] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    await replaceTurnGrant(
+      { tenantId: "anthus", userId: "ryan" },
+      "turn-1",
+      {
+        tools: ["browse"],
+        origins: ["https://docs.example.com"],
+        recipients: [],
+        file_scopes: ["/workspace"],
+        egress_classes: ["approved_origin_fetch"],
+        ingest_classes: [],
+      },
+    );
+    assert.equal(capturedUrl, "/api/orgs/anthus/turns/turn-1/grant");
+    assert.equal(capturedInit?.method, "PUT");
+    const headers = capturedInit?.headers as Record<string, string>;
+    assert.equal(headers.Authorization, "Bearer org-scoped-token");
+    assert.equal(headers["Content-Type"], "application/json");
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), {
+      tools: ["browse"],
+      origins: ["https://docs.example.com"],
+      recipients: [],
+      file_scopes: ["/workspace"],
+      egress_classes: ["approved_origin_fetch"],
+      ingest_classes: [],
+    });
   });
 });

@@ -93,6 +93,14 @@ describe("SPA viewer-request rewrite", () => {
     assert.equal(request.uri, "/auth/signout-callback/index.html");
   });
 
+  it("rewrites /auth/silent-callback to its Next export index", () => {
+    const request = runViewerRequest(
+      SPA_VIEWER_REQUEST_FUNCTION,
+      viewerRequestEvent("/auth/silent-callback"),
+    );
+    assert.equal(request.uri, "/auth/silent-callback/index.html");
+  });
+
   it("does not rewrite /api paths", () => {
     assert.match(SPA_VIEWER_REQUEST_FUNCTION, /uri\.indexOf\("\/api"\) === 0/);
   });
@@ -126,7 +134,11 @@ describe("SPA viewer-request rewrite", () => {
   });
 
   it("does not rewrite static assets that already have a file extension", () => {
-    for (const uri of ["/favicon.svg", "/_next/static/chunks/123.js"]) {
+    for (const uri of [
+      "/favicon.svg",
+      "/_next/static/chunks/123.js",
+      "/provisioning/customer-role.yml",
+    ]) {
       const request = runViewerRequest(SPA_VIEWER_REQUEST_FUNCTION, viewerRequestEvent(uri));
       assert.equal(request.uri, uri, uri);
     }

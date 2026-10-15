@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-35535d53-8fbf-48e3-a09d-ecf7088fe9dc",
+  "title": "Remove the own-account host task definition and service from the Computers stack",
+  "description": "Own-account computers always start the owner now. The Computers stack still has the old ComputerTask definition, ComputerTaskRole and FargateHost service; lookupComputersHostStart reads the cluster, subnets, security groups and roles from them for the owner wiring, so re-source those from explicit stack outputs first. The customer-account path uses its own stack and keeps the host worker. Computers is deployed by hand; never destroy the stack. Redeploy ControlPlane afterwards.",
+  "type": "task",
+  "status": "closed",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3a9213ce-7872-41b7-8553-b2d8d8040db0",
+      "author": "home",
+      "text": "Triage 2026-10-14 (kept open): Code half is done: PR 518 (commit e86f9bcc) removed the ComputerTask, ComputerTaskRole and FargateHost resources from infra/lib/computer-stack.ts (only ComputerOwnerTask and ComputerOwnerTaskRole remain) and infra/lib/computer-host-start.ts reads the cluster, repository, subnets and security group from explicit ChatticusComputers stack outputs (ComputerClusterName, ComputerRepositoryUri, ComputerSubnetIds, ComputerSecurityGroupId). Not verifiable from the repo: whether ChatticusComputers has been redeployed by hand since, so the live stack may still hold the old host service. README still says the old host task definition and service exist. Close after confirming a Computers deploy, then redeploy ControlPlane.",
+      "created_at": "2026-10-14T03:11:46.717832Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "triage-agent"
+      }
+    },
+    {
+      "id": "f073ded7-58ae-4d71-bbe5-7af69dd4d19a",
+      "author": "home",
+      "text": "Done: PR 518 removed the legacy host task definition, the FargateHost service and their outputs from the Computers stack, and the stack was deployed by hand on 2026-10-12 (its outputs now list only ComputerOwnerTaskDefinitionArn, ComputerOwnerTaskRoleArn, ComputerSecurityGroupId and ComputerSubnetIds, no ComputerServiceName). README line corrected.",
+      "created_at": "2026-10-14T03:12:51.937611Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude-main"
+      }
+    }
+  ],
+  "created_at": "2026-10-09T20:57:22.433303Z",
+  "updated_at": "2026-10-14T03:12:55.485948Z",
+  "closed_at": "2026-10-14T03:12:55.485909Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The old host task and service were removed, and the Computers stack was redeployed without them.",
+  "right_now_updated_at": "2026-10-14T03:12:56.577200Z",
+  "custom": {}
+}

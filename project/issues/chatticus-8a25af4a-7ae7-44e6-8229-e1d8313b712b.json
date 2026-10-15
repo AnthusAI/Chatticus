@@ -1,9 +1,9 @@
 {
   "id": "chatticus-8a25af4a-7ae7-44e6-8229-e1d8313b712b",
   "title": "Publish the cross-account CloudFormation template and scoped IAM policy",
-  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the hand-provisioning task\n- **Unblocks:** the assume-role story, and the pitch page access story\n\n---\nA task because the deliverable is a versioned artifact the customer runs, not behavior in the Chatticus front door.\n\nThe template creates one role in the customer account, trusting the Anthus principal, requiring a per-organization ExternalId, scoped to exactly what provisioning and operating an organization computer needs.\n\n**Never AdministratorAccess.** The people with authority to grant this will read the policy, which is good news only if the policy is defensible. Every permission in it should survive the question \"why does an agent product need this.\"\n\nVersion it in the repository and treat a change to it as a customer-visible change, because it is one \u2014 an existing customer has to re-run it.\n\n**Done when:** the template and policy are in the repository, published at a stable URL, and the hand-provisioning task ran against them unmodified.",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the hand-provisioning task\n- **Unblocks:** the assume-role story, and the pitch page access story\n\n---\nA task because the deliverable is a versioned artifact the customer runs, not behavior in the Chatticus front door.\n\nThe template creates one role in the customer account, trusting the Anthus principal, requiring a per-organization ExternalId, scoped to exactly what provisioning and operating an organization computer needs.\n\n**Never AdministratorAccess.** The people with authority to grant this will read the policy, which is good news only if the policy is defensible. Every permission in it should survive the question \"why does an agent product need this.\"\n\nVersion it in the repository and treat a change to it as a customer-visible change, because it is one — an existing customer has to re-run it.\n\n**Done when:** the template and policy are in the repository, published at a stable URL, and the hand-provisioning task ran against them unmodified.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -11,13 +11,177 @@
   "labels": [
     "phase-1"
   ],
-  "dependencies": [],
-  "comments": [],
+  "dependencies": [
+    {
+      "target": "chatticus-b88c0a1b-df50-4d30-8736-844f7ab1a23e",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "36e6a28d-6435-48a3-b960-caa7c3223714",
+      "author": "home",
+      "text": "Template is already in this repo as `infra/customer-role.yml` (scoped IAM, ExternalId, never AdministratorAccess). Remaining DoD: publish it at a stable customer-facing URL, and `b88c0a` must run against that published artifact unmodified. Do not write a second template.",
+      "created_at": "2026-09-05T17:59:20.826219Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "b33f55bc-c982-4ae3-8687-61d0c659c073",
+      "author": "home",
+      "text": "Composer 2.5 planning. Remaining DoD is a stable public URL for existing infra/customer-role.yml. Worktree /tmp/chatticus-8a25af-publish-template on feat/publish-customer-role-template-8a25af. Do not write a second template.",
+      "created_at": "2026-09-05T19:43:10.235456Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e8ada2cc-ea11-4fea-a467-a4d056a0d9e3",
+      "author": "home",
+      "text": "Plan reviewed and authorized with one hole closed: do not add a second BucketDeployment. DeployWebsite already prunes the site bucket; a second Custom::CDKBucketDeployment would delete the SPA or the yaml. Add infra/customer-role.yml as another Source on the existing DeployWebsite. Canonical path /provisioning/customer-role.yml on each ChatticusWeb* host. No second template. No Gherkin. Do not close until b88c0a runs the published URL. Worktree /tmp/chatticus-8a25af-publish-template on feat/publish-customer-role-template-8a25af.",
+      "created_at": "2026-09-05T19:45:00.090025Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "558aea74-0c1e-4236-a3be-1770e228bc8f",
+      "author": "home",
+      "text": "Product PR feat/publish-customer-role-template-8a25af: customer-role.yml added as second Source on existing DeployWebsite (one BucketDeployment). URL https://hey.chattic.us/provisioning/customer-role.yml (+ dev/staging). SSM /chatticus/{env}/provisioning/customer-role-template-url. Issue stays in_progress until b88c0a runs prod URL unmodified.",
+      "created_at": "2026-09-05T19:46:39.625818Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "27c97dc2-6187-49c7-ac44-2ee964c9f61c",
+      "author": "home",
+      "text": "PR #308 review fix: synth asserts one DeployWebsite with SourceObjectKeys.length=2; Asset2 zip has provisioning/customer-role.yml (not root); stub SPA asset has index.html only. Infra tests green. Still in_progress until b88c0a runs prod URL.",
+      "created_at": "2026-09-05T19:51:30.248616Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "49f5bc69-b145-4f0c-8ef0-7fde9b0502c4",
+      "author": "home",
+      "text": "PR #308 squash-merged to develop (be007ec). Template publishes from the existing DeployWebsite source at /provisioning/customer-role.yml. Stays in_progress until ChatticusWeb deploys and b88c0a runs the published URL unmodified.",
+      "created_at": "2026-09-05T19:58:35.779309Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "85949588-4676-4993-bb0d-3af6d5a575b7",
+      "author": "home",
+      "text": "Development URL is live: https://dev.chattic.us/provisioning/customer-role.yml (HTTP 200, AWSTemplateFormatVersion body). A later web-deploy run failed only because ChatticusWeb was already UPDATE_IN_PROGRESS from the #308 deploy. Production URL waits on main. b88c0a still must run a published URL unmodified.",
+      "created_at": "2026-09-05T20:01:37.197278Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "4a3398e2-7d1a-4147-97ed-d62b5107b33f",
+      "author": "home",
+      "text": "Product URL is live on development. Remaining DoD is still `b88c0a` running that URL unmodified (GET + `--template-body`, not CloudFront as TemplateURL). Docs PR in flight for the README lie; this card stays in_progress.",
+      "created_at": "2026-09-05T20:21:34.831683Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "121bef34-e02b-44ee-8e1b-02015bf70f29",
+      "author": "home",
+      "text": "Docs PR #309: infra/README runbook is GET + `--template-body` (not CloudFront `--template-url`). Card still waits on `b88c0a`.",
+      "created_at": "2026-09-05T20:22:31.511018Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3e6e603d-8dc5-43c5-a110-4b8c4ff5353a",
+      "author": "home",
+      "text": "#309 squash-merged to develop (`7a36e2e`): customer-role runbook is GET + `--template-body`. This card stays in_progress until `b88c0a` runs the published URL unmodified.",
+      "created_at": "2026-09-05T20:32:58.759174Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "6d3f3689-7b34-4e04-ab95-608f2152ad79",
+      "author": "home",
+      "text": "## Closure is gated on `chatticus-b88c0a` (2026-09-07)\n\nThe artifact exists — template published, runbook in `infra/README.md` via #309. What remains is not more publishing.\n\nThis task's own done-condition is *\"the template and policy are in the repository, published at a stable URL, **and the hand-provisioning task ran against them unmodified**.\"* That last clause is `b88c0a`, which is now the next action.\n\nTwo possible outcomes:\n\n- **The hand run uses the template unmodified** → this task closes on the strength of that run.\n- **The run needs edits to the template or policy** → those edits are work on *this* task, and they are customer-visible by the description's own rule (an existing customer has to re-run it).\n\nEither way `b88c0a` produces the evidence. Do not close this on the artifact existing alone; a published template nobody has run against a real account is exactly the thing this project keeps finding to be wrong in practice.",
+      "created_at": "2026-09-07T14:57:21.622781Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "79fee01f-2ef1-4643-83a4-999fc7a1c0ec",
+      "author": "home",
+      "text": "`b88c0a` ran the published development URL unmodified: GET `https://dev.chattic.us/provisioning/customer-role.yml`, `--template-body`, stack **CREATE_COMPLETE**. No template edits. Closing — remaining b88c0a phases (submit, enable, bot) are not this card.",
+      "created_at": "2026-09-07T15:44:10.283843Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "6b45a426-ca61-4520-95a1-f162d6549735",
+      "author": "home",
+      "text": "F-computer (`chatticus-2f2d87`) is probing live customer-account host start against the published template **unmodified**. Any required template change (ChatticusComputers deploy permissions, customer snapshot bucket, Snapshots stack name in the CFN resource filter) is **customer-visible** and comes back to this card — do not silent-edit `customer-role.yml` during the run.",
+      "created_at": "2026-09-07T16:08:15.767087Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "a9138b10-dc5e-4c2d-8d67-72eba28a6767",
+      "author": "home",
+      "text": "F-computer (`chatticus-2f2d87`) ran against the published template **unmodified**. No template edit.\n\nLive: AssumeRole succeeded; missing customer `ChatticusComputers` refused with zero Anthus `RunTask`. The published policy already allows `CreateStack` on `ChatticusComputers*` — ComputerWorker does not call it. That deploy is `chatticus-82dab7`, not a customer-run second template.\n\nA customer stack named `ChatticusSnapshots` would **be** a customer-visible template change (CFN resource filter is `ChatticusComputers*` only). Decision: customer snapshot bucket is created inside `ChatticusComputers`. Stay closed unless `82dab7` proves a policy hole.",
+      "created_at": "2026-09-07T16:22:59.942039Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f2814ca2-bcab-49ae-9976-6d7fcb96913c",
+      "author": "home",
+      "text": "`82dab7` plan review: first customer `ChatticusComputers` **must not** create a snapshot bucket. Published role has no `s3:*`; that CreateStack would fail. Stay closed. Reopen only when file-actions (`3e72dc`) need customer-account packs — then add scoped `s3:*` (customer-visible) and put the bucket inside `ChatticusComputers`.",
+      "created_at": "2026-09-07T16:29:43.468893Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "393a8a5c-5405-495f-b3a6-60d53933fcbf",
+      "author": "home",
+      "text": "`82dab7` closed without a template edit. First customer `ChatticusComputers` has no snapshot bucket. Reopen when `3e72dc` file-actions need scoped `s3:*` and a bucket inside `ChatticusComputers`.",
+      "created_at": "2026-09-07T17:33:46.996490Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "38470315-39fe-4015-9233-fb8aa0fe0ab7",
+      "author": "home",
+      "text": "`82dab7` CreateStack failures are **CDK BootstrapVersion SSM** in the product template, not a missing `ssm:*` on the published role. Stay closed. Do not add SSM to `customer-role.yml` for this. Snapshot-bucket `s3:*` is still the later customer-visible change.",
+      "created_at": "2026-09-07T17:49:48.816287Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "edfae213-7fe7-4df4-b912-04d5147b6ca1",
+      "author": "home",
+      "text": "**Reopened.** `82dab7` live proof after #313 (`fb0d7d5`, ThinTurn [34152080224](https://github.com/AnthusAI/Chatticus/actions/runs/34152080224)): bootstrap SSM is gone. Customer `CreateStack` API **succeeded**. Stack ended **ROLLBACK_FAILED**.\n\n**Named cause:** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED`\n\nPublished `customer-role.yml` allows `ec2:CreateInternetGateway` / `Delete` / `Attach` / `Detach` but **not** `ec2:DescribeInternetGateways`. CFN failed on `VpcIGWD7BA715C`; rollback also failed. Lab IAM user evidence, not journal.\n\nThis is a customer-visible policy hole. Add the missing EC2 describe (and any other CFN actions required by the committed Computers template resource types). Do **not** add `ssm:*` or `s3:*`. Lab must `UpdateStack` `ChatticusCrossAccountRole` from the published URL after ChatticusWeb deploys — GET then `--template-body`.",
+      "created_at": "2026-09-07T18:40:31.456556Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d5193f35-4839-41d5-873b-4aa8b65aa22a",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree /tmp/chatticus-8a25af-igw-describe on feat/customer-role-describe-igw-8a25af. Plan only — do not edit the YAML until authorized.",
+      "created_at": "2026-09-07T18:40:35.947449Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "75b2a4e0-1074-4339-9a33-c94a40ae484a",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with one hole closed. Worktree `/tmp/chatticus-8a25af-igw-describe` on `feat/customer-role-describe-igw-8a25af` verified.\n\nImplement: `DescribeInternetGateways`, `ModifySubnetAttribute`, conditioned ECS `CreateServiceLinkedRole` (`iam:AWSServiceName: ecs.amazonaws.com`); infra tests; no `ssm:*`/`s3:*`; no PLAN.md in the PR.\n\n**Close this card** after the YAML is published and lab `UpdateStack` of `ChatticusCrossAccountRole` is `UPDATE_COMPLETE`. Customer `ChatticusComputers` `CREATE_COMPLETE` / RunTask remains `82dab7`.",
+      "created_at": "2026-09-07T18:43:55.228334Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c570b5b1-8eb1-495c-94e8-343cb0bbc510",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/314 — DescribeInternetGateways + ModifySubnetAttribute + ECS SLR. Composer 2.5 review + CI in flight. Not merging. Close only after published YAML + lab UpdateStack, not Computers CREATE_COMPLETE.",
+      "created_at": "2026-09-07T18:46:19.372645Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d6346718-34ab-4e70-8c60-0457b23f9dcf",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/314 to develop (`17a3e46`). Composer 2.5 APPROVE; CI green.\n\nDo not close. Remaining: ChatticusWeb development deploy of this commit, then lab GET published YAML + `UpdateStack` `ChatticusCrossAccountRole` (`UPDATE_COMPLETE`). Computers `CREATE_COMPLETE` stays `82dab7`.",
+      "created_at": "2026-09-07T18:53:56.163516Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "076a6ea9-ef0e-49ae-b4df-ae538c7c2014",
+      "author": "home",
+      "text": "Closing this reopen. #314 on develop (`17a3e46`). Published YAML at https://dev.chattic.us/provisioning/customer-role.yml (6705 bytes) includes `DescribeInternetGateways`, `ModifySubnetAttribute`, and ECS SLR. Lab `UpdateStack` `ChatticusCrossAccountRole` **UPDATE_COMPLETE**. IAM simulate: IGW describe and ModifySubnetAttribute allowed.\n\nCustomer `ChatticusComputers` is still `ROLLBACK_FAILED` — that is `82dab7` (#315 DeleteStack recovery + live RunTask). Snapshot `s3:*` stays a later reopen before file-actions. Do not add `ssm:*`.",
+      "created_at": "2026-09-07T19:03:13.840809Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-03T13:18:01.852104Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-09-07T19:03:30.652995Z",
+  "closed_at": "2026-09-07T19:03:13.855987Z",
+  "custom": {}
 }

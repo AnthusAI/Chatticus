@@ -1,0 +1,51 @@
+{
+  "id": "chatticus-c649bf0e-b3a2-4bc8-826d-7bb3544e70d5",
+  "title": "Cut the development GitHub environment over to the new account",
+  "description": "Change the development GitHub environment's AWS_DEPLOY_ROLE_ARN secret to the new account's role so pushes to develop deploy there, after the development environment is verified. Reversible by setting the secret back. Then repoint dev.chattic.us, leave legacy development running until confident, then retire it. Needs explicit approval from Ryan at the moment of the switch.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "dc1bafad-820b-4ff7-9f8f-d9f39f113b3c",
+      "author": "home",
+      "text": "Development cutover done: PR 380 merged, development environment AWS_DEPLOY_ROLE_ARN now targets the dedicated development account, and the three development deploy workflows ran green and updated ChatticusThinTurn, ChatticusWeb and ChatticusAuth there. Legacy dev left running pending approval to retire. Ryan still needs to confirm the SNS email subscription in the dev account. Next: staging and production.",
+      "created_at": "2026-10-02T10:34:03.569928Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "id": "f849fbe1-5918-4eec-b1b6-d599c4271fa1",
+      "author": "home",
+      "text": "Development cutover done: PR 380 merged, development environment AWS_DEPLOY_ROLE_ARN now targets the dedicated development account, and the three development deploy workflows ran green and updated ChatticusThinTurn, ChatticusWeb and ChatticusAuth there. Legacy dev left running pending approval to retire. Ryan still needs to confirm the SNS email subscription in the dev account. Next: staging and production.",
+      "created_at": "2026-10-02T10:34:12.864064Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Claude"
+      }
+    }
+  ],
+  "created_at": "2026-09-30T19:57:48.670078Z",
+  "updated_at": "2026-10-02T10:34:12.864091Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "Development now deploys to the new account; legacy remains running while Ryan confirms SNS and retirement.",
+  "right_now_updated_at": "2026-10-02T10:34:14.878403Z",
+  "custom": {}
+}

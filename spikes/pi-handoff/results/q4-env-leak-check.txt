@@ -1,0 +1,2 @@
+bash as shipped            : key=sk-fake-owner-secret aws=fake-aws-secret
+bash with prepare() scrubbing: key= aws=

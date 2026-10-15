@@ -1,0 +1,12 @@
+{
+  "condition": "local-disk",
+  "actimeo": "n/a",
+  "host": "local-control",
+  "runs": 3,
+  "median_seconds": {
+    "git_status": 0.0196,
+    "checkout": 0.0044,
+    "stat_sweep": 0.0226,
+    "pip_install": 0.744
+  }
+}

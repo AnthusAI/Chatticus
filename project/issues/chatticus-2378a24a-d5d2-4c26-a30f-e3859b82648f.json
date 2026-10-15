@@ -1,7 +1,7 @@
 {
   "id": "chatticus-2378a24a-d5d2-4c26-a30f-e3859b82648f",
   "title": "Marketing site: remove 'Project' footer, add product feature pages, link them in",
-  "description": "**Phase: marketing website.**\n\nRemove the 'Project' part of the footer \u2014 it's not appropriate for this site because we're trying to create a product site for a bot-farm SaaS in the spirit of Grok Bot and PostHog.\n\nReplace that with a growing list of pages about features. One of the features will be **AI model flexibility**, including the ability to run your own models yourself on local hardware or something like AWS SageMaker. Another will be features for running background bot tasks that are already asynchronous as **'batch' jobs** against the OpenAI or Anthropic or other AI vendor APIs, saving as much as 50% depending on the vendor. (A detailed brief for the page-writing task will be provided separately and filed with that task.)\n\nOverall, we need an epic for adding product feature pages and for adjusting the site to link to them and to talk about them when appropriate.",
+  "description": "**Phase: marketing website.**\n\nRemove the 'Project' part of the footer — it's not appropriate for this site because we're trying to create a product site for a bot-farm SaaS in the spirit of Grok Bot and PostHog.\n\nReplace that with a growing list of pages about features. One of the features will be **AI model flexibility**, including the ability to run your own models yourself on local hardware or something like AWS SageMaker. Another will be features for running background bot tasks that are already asynchronous as **'batch' jobs** against the OpenAI or Anthropic or other AI vendor APIs, saving as much as 50% depending on the vendor. (A detailed brief for the page-writing task will be provided separately and filed with that task.)\n\nOverall, we need an epic for adding product feature pages and for adjusting the site to link to them and to talk about them when appropriate.",
   "type": "story",
   "status": "open",
   "priority": 1,
@@ -16,25 +16,25 @@
       "author": "home",
       "text": "Parked: da7f95 Phase 3 still owns marketing Footer.tsx. This card also waits on the feature-page writing brief named in the description. Do not start until Footer is free and that brief exists.",
       "created_at": "2026-09-02T20:57:25.041826Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "47779c47-37c1-4587-a14e-f56c7e2872b7",
       "author": "home",
       "text": "Phase 3 borderless Footer collision is over (#203 on develop). Still parked: the feature-page writing brief named in this card has not been filed, and da7f95 remains in_progress on hero copy. Do not start until that brief exists. Chattic.us PR 205 is develop-to-main and waits on a human merge.",
       "created_at": "2026-09-02T21:34:53.623298Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "1d263483-dc00-4f3f-977a-5f86ae872f26",
+      "author": "home",
+      "text": "Chattic.us-web. Footer and feature pages left with the marketing split. Still parked on the feature-page writing brief. Do not start in this repo.",
+      "created_at": "2026-09-05T17:59:09.138281Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T12:00:25.089689Z",
-  "updated_at": "2026-09-02T21:34:53.623391Z",
+  "updated_at": "2026-09-05T17:59:09.138281Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }

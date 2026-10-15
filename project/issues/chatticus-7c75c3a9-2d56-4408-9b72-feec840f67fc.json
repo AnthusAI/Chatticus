@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-7c75c3a9-2d56-4408-9b72-feec840f67fc",
+  "title": "An owner sets the organization's monthly model spend ceiling",
+  "description": "Today the model spend ceiling is a deployment default (USD 25.00 per org per UTC month, CHATTICUS_MONTHLY_MODEL_SPEND_CEILING_USD). Let an owner change it per organization. Needs an organization read in the model gateway, a PATCH route for the ceiling, and a web form in the workspace.\n\nFeature: Owner-settable model spend ceiling\n  Scenario: An owner raises the ceiling\n    Given an organization whose month spend is at the default ceiling\n    When the owner sets a higher monthly model spend ceiling\n    Then the next model call is allowed\n  Scenario: A member cannot set the ceiling\n    When a non-owner member sends the PATCH\n    Then the request is refused",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8c857bd1-7b3b-4852-bdb4-55e960b81f4c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T10:36:35.819701Z",
+  "updated_at": "2026-10-15T10:36:35.819751Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The team is adding owner controls for each organization's monthly model spend ceiling.",
+  "right_now_updated_at": "2026-10-15T10:36:37.468883Z",
+  "custom": {}
+}

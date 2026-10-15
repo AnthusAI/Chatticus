@@ -1,0 +1,254 @@
+{
+  "storageId": "tenant-1#bot-ada#channel-656395ab",
+  "attributedWrite": {
+    "submissionId": 8,
+    "status": "done"
+  },
+  "attributionTurn": {
+    "status": "done",
+    "answer": "Friday at 3pm, according to Bea.",
+    "stream": {
+      "snapshotBytes": 407,
+      "batches": 5,
+      "eventKinds": {
+        "message_start": 3,
+        "message_end": 3,
+        "submission": 2,
+        "run_start": 1,
+        "turn_start": 1,
+        "message_update": 1,
+        "turn_end": 1,
+        "run_end": 1,
+        "usage_changed": 1
+      },
+      "totalBytes": 10077,
+      "batchBytesP50": 1145,
+      "batchBytesMax": 4118,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start,message_end",
+        "message_start",
+        "message_update",
+        "message_end,turn_end,run_end,submission,usage_changed"
+      ]
+    },
+    "commits": {
+      "commits": 7,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 3,
+        "submission": 2,
+        "task": 4,
+        "document.change": 6
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 5966,
+      "totalTransactionBytes": 16133,
+      "maxItemBytes": 335,
+      "preReadsPerCommit": 1.5714285714285714,
+      "commitMillisecondsP50": 75.4,
+      "commitMillisecondsP95": 106.5
+    }
+  },
+  "toolTurn": {
+    "status": "done",
+    "answer": "The command ran (exit 0), but stdout wasn’t returned by the tool, so I can’t display the /srv contents. Want me to retry or run a different command (e.g., ls -la /srv) or use another method?",
+    "stream": {
+      "snapshotBytes": 5005,
+      "batches": 19,
+      "eventKinds": {
+        "message_start": 6,
+        "message_end": 6,
+        "submission": 2,
+        "run_start": 1,
+        "turn_start": 3,
+        "message_update": 4,
+        "usage_changed": 3,
+        "tool_execution_start": 2,
+        "tool_execution_update": 2,
+        "tool_execution_end": 2,
+        "turn_end": 3,
+        "run_end": 1
+      },
+      "totalBytes": 33747,
+      "batchBytesP50": 531,
+      "batchBytesMax": 7194,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_start",
+        "tool_execution_update",
+        "tool_execution_end,message_start,message_end",
+        "turn_end,turn_start",
+        "message_start",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_start"
+      ]
+    },
+    "commits": {
+      "commits": 32,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 6,
+        "submission": 2,
+        "task": 24,
+        "document.change": 25
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 9043,
+      "totalTransactionBytes": 62260,
+      "maxItemBytes": 335,
+      "preReadsPerCommit": 1.46875,
+      "commitMillisecondsP50": 55.4,
+      "commitMillisecondsP95": 109.1
+    }
+  },
+  "gatedTurn": {
+    "status": "done",
+    "answer": "Blocked: rm -rf /srv/build is destructive and wasn’t allowed to run. I can do a safe check (e.g., test -d /srv/build) or list /srv/build if it exists—what would you like?",
+    "stream": {
+      "snapshotBytes": 19718,
+      "batches": 27,
+      "eventKinds": {
+        "message_start": 8,
+        "message_end": 8,
+        "submission": 2,
+        "run_start": 1,
+        "turn_start": 4,
+        "message_update": 8,
+        "usage_changed": 4,
+        "tool_execution_end": 3,
+        "turn_end": 4,
+        "tool_execution_start": 2,
+        "tool_execution_update": 2,
+        "run_end": 1
+      },
+      "totalBytes": 51528,
+      "batchBytesP50": 434,
+      "batchBytesMax": 8165,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_end,message_start,message_end",
+        "turn_end,turn_start",
+        "message_start",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_start",
+        "tool_execution_update",
+        "tool_execution_end,message_start,message_end"
+      ]
+    },
+    "commits": {
+      "commits": 45,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 8,
+        "submission": 2,
+        "task": 33,
+        "document.change": 35
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 10553,
+      "totalTransactionBytes": 90767,
+      "maxItemBytes": 335,
+      "preReadsPerCommit": 1.4666666666666666,
+      "commitMillisecondsP50": 67,
+      "commitMillisecondsP95": 116.1
+    }
+  },
+  "nonOwnerMutation": {
+    "directCommitWhileOwned": "rejected: Commit sequence moved: another owner committed to this storage",
+    "posted": "msg-65c87d37",
+    "admittedAsSteer": [
+      "msg-65c87d37"
+    ]
+  },
+  "mailboxTurn": {
+    "status": "done",
+    "answer": "make build completed with exit code 0. As per Bea, the build server is located in eu-west-1.",
+    "stream": {
+      "snapshotBytes": 42440,
+      "batches": 13,
+      "eventKinds": {
+        "message_start": 5,
+        "message_end": 5,
+        "submission": 5,
+        "run_start": 1,
+        "turn_start": 2,
+        "inbox_update": 2,
+        "message_update": 3,
+        "usage_changed": 2,
+        "tool_execution_start": 1,
+        "tool_execution_update": 1,
+        "tool_execution_end": 1,
+        "turn_end": 2,
+        "run_end": 1
+      },
+      "totalBytes": 35187,
+      "batchBytesP50": 587,
+      "batchBytesMax": 7781,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start",
+        "submission,inbox_update",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_start",
+        "tool_execution_update",
+        "tool_execution_end,message_start,message_end",
+        "message_start,message_end,turn_end,submission,inbox_update,turn_start",
+        "message_start",
+        "message_update",
+        "message_update"
+      ]
+    },
+    "commits": {
+      "commits": 21,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 5,
+        "submission": 5,
+        "task": 14,
+        "document.change": 18
+      },
+      "maxTransactionItems": 10,
+      "maxTransactionBytes": 9847,
+      "totalTransactionBytes": 48521,
+      "maxItemBytes": 336,
+      "preReadsPerCommit": 1.5714285714285714,
+      "commitMillisecondsP50": 68.6,
+      "commitMillisecondsP95": 127.2
+    }
+  },
+  "transcript": [
+    "#7 chatticus.message user: [from Bea] The deploy window moved to Friday 3pm.",
+    "#9 pi.user user: When is the deploy window now, and which teammate told us? One sentence.",
+    "#12 pi.system system: ",
+    "#13 pi.assistant assistant(stop): [thinking] Friday at 3pm, according to Bea.",
+    "#14 pi.user user: Use run_terminal to run `ls /srv`, then report the output.",
+    "#17 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"ls /srv\"})",
+    "#19 pi.tool-result toolResult: ran: ls /srv (exit 0, nonce 6c73202f)",
+    "#21 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"bash -lc 'ls -la /srv'\"})",
+    "#23 pi.tool-result toolResult: ran: bash -lc 'ls -la /srv' (exit 0, nonce 62617368)",
+    "#25 pi.assistant assistant(stop): [thinking] The command ran (exit 0), but stdout wasn’t returned by the tool, so I can’t display the /srv contents. Want me to retry or run a different command (",
+    "#26 pi.user user: Use run_terminal to run exactly `rm -rf /srv/build`. Report what happened.",
+    "#29 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"rm -rf /srv/build\"})",
+    "#31 pi.tool-result toolResult: <harness>\n[error] Tool call blocked: needs approval: rm -rf /srv/build\n</harness>",
+    "#33 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"bash -lc 'test -d /srv/build && echo exists || echo not_exists'\"})",
+    "#35 pi.tool-result toolResult: ran: bash -lc 'test -d /srv/build && echo exists || echo not_exists' (exit 0, nonce 62617368)",
+    "#37 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"bash -lc 'ls -la /srv/build 2>&1 | head -n 5'\"})",
+    "#39 pi.tool-result toolResult: ran: bash -lc 'ls -la /srv/build 2>&1 | head -n 5' (exit 0, nonce 62617368)",
+    "#41 pi.assistant assistant(stop): [thinking] Blocked: rm -rf /srv/build is destructive and wasn’t allowed to run. I can do a safe check (e.g., test -d /srv/build) or list /srv/build if it exists",
+    "#42 pi.user user: Use run_terminal to run `make build`, then summarize for the channel in two sentences.",
+    "#46 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"make build\"})",
+    "#48 pi.tool-result toolResult: ran: make build (exit 0, nonce 6d616b65)",
+    "#49 pi.user user: [from Bea] Also mention that the build server is in eu-west-1.",
+    "#51 pi.assistant assistant(stop): [thinking] make build completed with exit code 0. As per Bea, the build server is located in eu-west-1."
+  ]
+}

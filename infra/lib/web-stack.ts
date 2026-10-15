@@ -18,11 +18,16 @@ import {
   SPA_VIEWER_RESPONSE_FUNCTION,
 } from "./cloudfront-functions";
 import {
+  customerRoleTemplateDeploySource,
+  customerRoleTemplateUrl,
+  provisioningParameterPrefix,
+} from "./customer-role-template";
+import {
   ChatticusCloudEnvironment,
   thinTurnParameterPrefix,
   WEB_CLOUDFRONT_ENABLED,
   webParameterPrefix,
-  WEB_SITE_DOMAINS,
+  WEB_CROSS_ORIGIN_ISOLATION,
 } from "./environments";
 import {
   CHATTICUS_LOG_RETENTION,
@@ -32,6 +37,7 @@ import { webDockerBundleCommand, webDockerBundlingEnvironment, webLocalBundleCom
 
 export interface WebStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
+  siteDomain: string;
   hostedZone: route53.IHostedZone;
   siteCertificate: acm.ICertificate;
   frontDoorFunctionUrl: lambda.IFunctionUrl;
@@ -55,11 +61,10 @@ export class WebStack extends cdk.Stack {
     super(scope, id, props);
 
     const environmentName = props.chatticusEnvironment;
-    const siteDomain = WEB_SITE_DOMAINS[environmentName];
+    const siteDomain = props.siteDomain;
     const webPrefix = webParameterPrefix(environmentName);
     const thinTurnPrefix = thinTurnParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
-    cdk.Tags.of(this).add("chatticus:environment", environmentName);
     if (!retainData) {
       cdk.Aspects.of(this).add(
         new CustomResourceProviderLogRetentionAspect(CHATTICUS_LOG_RETENTION),
@@ -67,6 +72,11 @@ export class WebStack extends cdk.Stack {
     }
 
     const invokeSecret = props.invokeSecret;
+    const invokeKeyVersionId = this.node.tryGetContext("invokeKeyVersionId");
+    const invokeKeyForOrigin =
+      typeof invokeKeyVersionId === "string" && invokeKeyVersionId !== ""
+        ? cdk.SecretValue.secretsManager(invokeSecret.secretArn, { versionId: invokeKeyVersionId })
+        : invokeSecret.secretValue;
     const frontDoorFunctionUrl = props.frontDoorFunctionUrl;
 
     const siteBucket = new s3.Bucket(this, "SiteBucket", {
@@ -91,6 +101,18 @@ export class WebStack extends cdk.Stack {
       comment: "SPA fallback status for S3 paths; never rewrite /api responses.",
     });
 
+    const crossOriginIsolationHeaders = WEB_CROSS_ORIGIN_ISOLATION[environmentName]
+      ? new cloudfront.ResponseHeadersPolicy(this, "CrossOriginIsolationHeaders", {
+          comment: `Chatticus ${environmentName} cross-origin isolation for on-device voice.`,
+          customHeadersBehavior: {
+            customHeaders: [
+              { header: "Cross-Origin-Opener-Policy", value: "same-origin", override: true },
+              { header: "Cross-Origin-Embedder-Policy", value: "require-corp", override: true },
+            ],
+          },
+        })
+      : undefined;
+
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
       enabled: WEB_CLOUDFRONT_ENABLED[environmentName],
       comment: `Chatticus ${environmentName} web UI and same-origin /api front door.`,
@@ -102,6 +124,7 @@ export class WebStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: crossOriginIsolationHeaders,
         functionAssociations: [
           {
             function: spaViewerRequest,
@@ -119,7 +142,7 @@ export class WebStack extends cdk.Stack {
             readTimeout: cdk.Duration.seconds(originReadTimeoutSeconds),
             responseCompletionTimeout: cdk.Duration.seconds(900),
             customHeaders: {
-              "X-Chatticus-Invoke-Key": invokeSecret.secretValue.unsafeUnwrap(),
+              "X-Chatticus-Invoke-Key": invokeKeyForOrigin.unsafeUnwrap(),
             },
           }),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -139,52 +162,55 @@ export class WebStack extends cdk.Stack {
 
     const repoRoot = path.join(__dirname, "../..");
     const webRoot = path.join(repoRoot, "web");
-    const websiteSources = props.websiteDeploySource
-      ? [props.websiteDeploySource]
-      : [
-          s3deploy.Source.asset(repoRoot, {
-            exclude: [
-              "**/node_modules",
-              ".git",
-              "python",
-              "computer",
-              "features",
-              "docs",
-              "project",
-              "spikes",
-              "infra/cdk.out",
-              "infra/dist",
-              "web/.next",
-              "web/out",
-              ".venv",
-            ],
-            bundling: {
-              image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
-              command: ["bash", "-c", webDockerBundleCommand(environmentName)],
-              environment: webDockerBundlingEnvironment(),
-              local: {
-                tryBundle(outputDir: string): boolean {
-                  try {
-                    execSync(
-                      `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName)}`,
-                      {
-                        cwd: repoRoot,
+    const websiteSources = [
+      ...(props.websiteDeploySource
+        ? [props.websiteDeploySource]
+        : [
+            s3deploy.Source.asset(repoRoot, {
+              exclude: [
+                "**/node_modules",
+                ".git",
+                "python",
+                "computer",
+                "features",
+                "docs",
+                "project",
+                "spikes",
+                "infra/cdk.out",
+                "infra/dist",
+                "web/.next",
+                "web/out",
+                ".venv",
+              ],
+              bundling: {
+                image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
+                command: ["bash", "-c", webDockerBundleCommand(environmentName, siteDomain)],
+                environment: webDockerBundlingEnvironment(),
+                local: {
+                  tryBundle(outputDir: string): boolean {
+                    try {
+                      execSync(
+                        `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName, siteDomain)}`,
+                        {
+                          cwd: repoRoot,
+                          stdio: "inherit",
+                          shell: "/bin/bash",
+                        },
+                      );
+                      execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
                         stdio: "inherit",
-                        shell: "/bin/bash",
-                      },
-                    );
-                    execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
-                      stdio: "inherit",
-                    });
-                    return true;
-                  } catch {
-                    return false;
-                  }
+                      });
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  },
                 },
               },
-            },
-          }),
-        ];
+            }),
+          ]),
+      customerRoleTemplateDeploySource(repoRoot),
+    ];
     new s3deploy.BucketDeployment(this, "DeployWebsite", {
       logRetention: CHATTICUS_LOG_RETENTION,
       sources: websiteSources,
@@ -210,6 +236,8 @@ export class WebStack extends cdk.Stack {
 
     const siteUrl = `https://${siteDomain}`;
     const apiBaseUrl = `${siteUrl}/api`;
+    const customerRoleTemplatePublicUrl = customerRoleTemplateUrl(siteDomain);
+    const provisioningPrefix = provisioningParameterPrefix(environmentName);
 
     new ssm.StringParameter(this, "SiteUrlParameter", {
       parameterName: `${webPrefix}/site-url`,
@@ -227,6 +255,12 @@ export class WebStack extends cdk.Stack {
       description:
         `Same-origin API base URL for the ${environmentName} thin-turn front door.`,
     });
+    new ssm.StringParameter(this, "CustomerRoleTemplateUrlParameter", {
+      parameterName: `${provisioningPrefix}/customer-role-template-url`,
+      stringValue: customerRoleTemplatePublicUrl,
+      description:
+        `Public HTTPS URL for the customer cross-account CloudFormation template (${environmentName}).`,
+    });
 
     new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });
     new cdk.CfnOutput(this, "SiteDomain", { value: siteDomain });
@@ -235,6 +269,11 @@ export class WebStack extends cdk.Stack {
     new cdk.CfnOutput(this, "CloudFrontUrl", { value: siteUrl });
     new cdk.CfnOutput(this, "CloudFrontDistributionDomainName", {
       value: distribution.distributionDomainName,
+    });
+    new cdk.CfnOutput(this, "CustomerRoleTemplateUrl", {
+      value: customerRoleTemplatePublicUrl,
+      description:
+        "Stable HTTPS URL for infra/customer-role.yml (customer cross-account IAM setup).",
     });
   }
 }

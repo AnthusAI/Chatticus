@@ -160,12 +160,97 @@ server-sent events are sufficient and a WebSocket is not needed.
 | `turn.waiting` | The turn is blocked on a readiness gate, naming which (for example a computer still booting) | no |
 | `turn.token` | One coalesced chunk | no |
 | `model.request` | A fenced attempt issued a model call | no |
-| `tool.call` | A tool request was committed, keyed by action id | no |
-| `tool.result` | A tool result was committed for that action id | no |
+| `turn.thinking` | One coalesced piece of the model's reasoning summary, when the model streams one | no |
+| `tool.call` | A tool request was committed, keyed by the Pi call id, with sanitized arguments | no |
+| `tool.result` | A tool result was committed for that call id, with a bounded output | no |
+| `computer.starting` | The turn parked for the organization's computer | no |
+| `computer.ready` | An owner claimed the turn after that park | no |
 | `attempt.claimed` | A worker became the fenced owner of the turn | no |
 | `attempt.relinquished` | The previous owner dropped the fence before continuation | no |
 | `turn.completed` | Chunks are joined into one row | yes, one row |
+| `turn.failed` | The turn ended without an answer. `body` is a reason the member can read, for example that the model provider is out of quota | no |
+| `turn.reconciling` | The outcome is uncertain; the client reloads committed state | no |
 | `approval.required` | A proposed action is blocked | the proposal, not the action |
+
+### What the activity events carry
+
+Every event carries `kind`, `seq`, `event_id`, `turn_id` and `channel_id`. The events that describe what a bot is doing
+add the fields below. Fields not listed for a kind are absent. An event stored before a field existed simply lacks it;
+readers treat a missing field as absent.
+
+| Kind | Fields |
+| --- | --- |
+| `tool.call` | `tool` (name), `call_id` (the Pi tool call id), `summary`, `arguments` (object), `arguments_truncated` (boolean) |
+| `tool.result` | `tool`, `call_id`, `ok` (boolean), `summary`, `output` (text), `output_truncated` (boolean), `duration_ms` (number or null) |
+| `turn.thinking` | `text` |
+| `computer.starting`, `computer.ready` | `detail` |
+
+`tool.call.arguments` is a sanitized copy, never the raw arguments:
+
+| Tool | `arguments` | `summary` |
+| --- | --- | --- |
+| `run_terminal` | `command` (first 1000 characters) | `Running: <command, first 80 characters>` |
+| `read_workspace` | `path` | `Reading <path>` |
+| `write_workspace` | `path`, `bytes` (bytes of content), `preview` (first 200 characters) | `Writing <path> (<n> bytes)` |
+| `edit_workspace` | `path`, `old_text` and `new_text` (first 300 characters each) | `Editing <path>` |
+| `browse` | `url` | `Browsing <url>` |
+| anything else | first-level strings cut to 300 characters, numbers and booleans as they are, at most 10 of them, nested values dropped | `Calling <tool>` |
+
+Paths and URLs are cut at 500 characters. `arguments_truncated` is true when anything was cut or dropped.
+
+`tool.result.summary` is `Exit <n>` for `run_terminal` (`ok` is true only for exit 0), `Edited <n> block` for a
+successful `edit_workspace`, `Wrote <n> bytes` for a successful `write_workspace`, `Done` for any other success, and
+`Error: <first 80 characters>` for a failure. `output` is the result text whole up to 3000 characters; a longer one keeps
+its first 1500 and its last 1500 characters joined by `\n...[N characters omitted]...\n` and sets `output_truncated`.
+`duration_ms` is measured by the attempt that saw the call start, so it is null when a call began under an earlier
+attempt. `call_id` links a result to its call, and a call is journaled once however many attempts replay it.
+
+`turn.thinking` is emitted only when the model streams a reasoning summary; nothing is invented when it does not. The
+pieces are coalesced like `turn.token` and the turn carries at most 2000 characters of them in all.
+
+`computer.starting` (`detail`: `Starting your computer`) is written when the turn parks for the computer, just before
+`turn.waiting`. `computer.ready` (`detail`: `Computer ready`) is written by the first attempt that claims the turn after
+that, right after its `attempt.claimed`.
+
+Before any argument or output is placed in an event, every value in the process environment whose name is
+`CHATTICUS_MODEL_GATEWAY_TOKEN`, `CHATTICUS_OWNER_HOST_TOKEN`, `AWS_SECRET_ACCESS_KEY` or `AWS_SESSION_TOKEN`, or contains
+`KEY`, `TOKEN` or `SECRET` (values of at least 8 characters), is replaced with `[redacted]`. Each event stays well under
+20 KB, far below the 400 KB item limit.
+
+### Tool activity in the message list
+
+`GET /orgs/{tenant}/channels/{id}/messages` gives every bot message an optional `activity` array: the tool calls the bot
+made between the prompt and that answer, so the tool cards survive a reload. It is built from the committed Pi session,
+which is permanent, not from the 24 hour events table, and the read-only Front Door builds it with no writes.
+
+An item is the `tool.call` and the `tool.result` of one call in one object: `call_id`, `tool`, `summary`, `arguments`,
+`arguments_truncated`, `ok` (boolean, or null when the session recorded no result), `result_summary` (the result's
+`summary`, or null), `output` (text or null), `output_truncated` and `duration_ms`. Arguments and output come from the
+same functions as the live events (`tool-event-fields.ts`), so the sanitising, the cuts and the secret scrub are the
+same, and an item says what the live events of that call said. `duration_ms` is always null because the session stores
+no timing.
+
+Rules:
+
+- The activity is attached to the bot's final answer of the turn, the message the channel log points at. It covers every
+  call made after the bot's previous answer in its own session up to that answer, in call order, text-before-tool steps
+  and steered messages included. A message with no tool calls has no `activity` field; human messages never have one.
+  A turn that ended without any answer has no listed message of its own, so its calls are listed on the next answer.
+- At most 50 items per message. A longer turn keeps its first 49 and ends with `{tool: "more", call_id: "more",
+  summary: "<N> more tool calls", ok: null, ...}` where N counts the calls left out.
+- At most 3,000,000 characters of activity in one response. When a list would exceed that, the oldest messages give up
+  their activity first and the newest keep it, so the response stays far below the 6 MB Lambda limit however long the
+  history. Activity is computed only for the messages the page returns, and `after` and `seq` behave as before.
+
+### A failed model call fails the turn at once
+
+When the model provider answers with an error that a retry cannot fix (the
+account is out of quota, the key is rejected, the request is invalid), the
+worker ends the turn through the fenced `POST /turns/{id}/failed` with a
+member-facing reason, and the queued job is dropped. Temporary errors (rate
+limiting, an unavailable provider, a network fault, or an error response
+without the provider's error body) leave the turn active; the queue retries
+it once the worker's lease expires. See `features/model_provider_failures.feature`.
 
 ### Waiting is a state, not dead air
 
@@ -229,6 +314,33 @@ would wait a second for; buffer what you are rendering live.
 | `GET /turns/{id}/stream` | Server-sent events for one turn (`Last-Event-ID`) |
 | `POST /turns/{id}/chunks` | Worker appends coalesced output |
 | `POST /approvals/{id}` | Human decides a blocked action |
+
+### Computer files (read-only, from the published snapshot)
+
+Under `/orgs/{tenant_id}/computer/files`, user-authenticated and checked like the
+other organization routes: an enabled member of that organization, no other tenant.
+The Front Door reads the computer's published snapshot (the manifest, the index it
+names, and one ranged read of a file's gzip member) and writes nothing. Every
+response carries `X-Content-Type-Options: nosniff`. Errors are
+`{ "error": code, "message": text }`. Paths are API paths that must normalise under
+`/workspace` (at most 1024 characters, no NUL, no `..`); `/workspace/src/a.c` is the
+index entry `workspace/src/a.c`.
+
+| Request | Answer |
+| --- | --- |
+| `GET .../computer/files?path=/workspace[/dir]` | `200 { source: "snapshot", as_of, path, truncated, entries: [{ name, path, kind, size, mode, sha256, link_target }] }`. `as_of` is the manifest's `published_at`. Directories first, then by name, at most 2000 entries (`truncated: true` beyond). `kind` is `file`, `directory` or `symlink`; `size` and `sha256` are set for files only, `link_target` for symlinks only, `mode` is octal permission bits like `"644"` |
+| `GET .../computer/files/stat?path=` | `200 { source, as_of, entry }`; a symlink is shown as itself |
+| `GET .../computer/files/content?path=&offset=0&length=262144` | `200 { source, as_of, path, size, sha256, encoding: "utf8"\|"base64", binary, offset, length, content, truncated, masked }` with `ETag: "<sha256>"`. `sha256` is of the whole file; `length` is the bytes returned (a text read never ends mid-character, so continue from `offset + length`). `length` over 262144 is `413 range_too_large`. Binary (a NUL byte or invalid UTF-8 in the first 8 KiB) is base64. A secret-looking file (`.env`, `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `credentials`, `.netrc`, `.npmrc`, `*.p12`, `*.pfx`, anything under `.ssh/` or `.aws/`) is `masked: true` with `content: ""`; it is listed normally |
+
+Errors: `400 invalid_path` / `invalid_range`; `404 no_snapshot` (the computer has never
+published), `404 not_found`; `409 snapshot_not_indexed` (a snapshot made before
+indexes existed); `413 range_too_large`; `422 not_a_file` (content of a directory),
+`422 not_a_directory`, `422 too_many_symlinks`; `500 corrupt_snapshot` (the stored
+bytes do not match the indexed SHA-256; no content is returned and an error line
+`snapshot_member_corrupt` is logged); `503 snapshot_store_unavailable` (no snapshot
+bucket configured). A symlink is followed on a content read only inside the index,
+at most 8 hops, only to targets under `workspace/`. Authentication refusals keep
+the shape of the other organization routes (`403` with `detail`).
 
 ## Decided: worker bearer credentials
 

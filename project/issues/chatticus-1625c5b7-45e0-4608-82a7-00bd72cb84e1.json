@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-1625c5b7-45e0-4608-82a7-00bd72cb84e1",
+  "title": "Local development deploy must fail closed without integration-test role ARN and installation name",
+  "description": "Drift risk: a development control-plane deploy run from a shell without CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN and CHATTICUS_INSTALLATION_NAME set would remove the integration-test SSM parameter and the installation tag. The local deploy script should fail closed when either is unset, or resolve them itself.",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-14T23:11:53.937422Z",
+  "updated_at": "2026-10-14T23:11:53.937450Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The local deploy script must stop unless the integration-test role ARN and installation name are set or resolved.",
+  "right_now_updated_at": "2026-10-14T23:11:55.754446Z",
+  "custom": {}
+}

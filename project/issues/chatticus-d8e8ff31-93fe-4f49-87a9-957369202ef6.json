@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-d8e8ff31-93fe-4f49-87a9-957369202ef6",
+  "title": "Production as a separate reviewed deploy, keeping legacy stacks for 14 days",
+  "description": "## Plan step 9 (only after staging is proven; relates to chatticus-89a222)\nSame stack order as staging, then migration, then DNS and CloudFront cutover with the marketing intake decision already implemented. Manual dispatch with the environment reviewer approving. Run acceptance. Keep legacy Python stacks and old Messaging items untouched for the 14-day window, then purge-legacy-items.ts. Do not purge early: after the purge there is no rollback.\n## Acceptance\n- Acceptance passes on production; waitlist and contact still work; 14 days elapse before the purge.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-04364dce-cc7d-4955-a027-3e1e9c03c16e",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-1fa85b75-16eb-46e8-b285-7b18b4920e27",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-ddd6d0d9-b049-4504-999b-90b4977c79da",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-13T11:37:17.667034Z",
+  "updated_at": "2026-10-13T11:38:18.364073Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The production deploy plan awaits manual approval and acceptance before the 14-day legacy retention window begins.",
+  "right_now_updated_at": "2026-10-13T11:38:19.632417Z",
+  "custom": {}
+}

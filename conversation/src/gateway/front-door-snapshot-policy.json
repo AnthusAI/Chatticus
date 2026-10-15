@@ -1,0 +1,22 @@
+{
+	"statements": [
+		{
+			"Sid": "ReadComputerSnapshots",
+			"Effect": "Allow",
+			"Action": ["s3:GetObject"],
+			"Resource": ["{{snapshotBucketArn}}/tenants/*/computers/*/*"]
+		},
+		{
+			"Sid": "WriteComputerEditOverlay",
+			"Effect": "Allow",
+			"Action": ["s3:PutObject", "s3:DeleteObject"],
+			"Resource": ["{{snapshotBucketArn}}/tenants/*/computers/*/overlay/*"]
+		},
+		{
+			"Sid": "ListComputerSnapshots",
+			"Effect": "Allow",
+			"Action": ["s3:ListBucket"],
+			"Resource": ["{{snapshotBucketArn}}"]
+		}
+	]
+}

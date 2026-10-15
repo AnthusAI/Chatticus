@@ -21,7 +21,7 @@ function ShellHeader() {
 }
 
 export function MembershipShell() {
-  const { authLoading, meLoading, branch, activeOrg, error } = useMembership();
+  const { authLoading, meLoading, branch, activeOrg, error, me, session, signOut, reloadMe } = useMembership();
   const signupMode = readSignupModeFromEnv();
 
   if (authLoading || (branch !== "signed-out" && meLoading)) {
@@ -42,6 +42,18 @@ export function MembershipShell() {
     );
   }
 
+  if (branch === "enabled" && activeOrg) {
+    return (
+      <EnabledWorkspace
+        activeOrg={activeOrg}
+        organizations={me?.organizations ?? []}
+        sessionEmail={session?.email ?? null}
+        onSignOut={signOut}
+        onReloadMembership={reloadMe}
+      />
+    );
+  }
+
   return (
     <main className="mx-auto grid max-w-2xl gap-3 bg-surface px-5 pb-10">
       <ShellHeader />
@@ -58,9 +70,8 @@ export function MembershipShell() {
       {branch === "no-org" && signupMode === "invitation_only" ? (
         <NoOrganizationPanel />
       ) : null}
-      {branch === "pending" ? <WelcomeOrganizationPanel /> : null}
-      {branch === "enabled" && activeOrg ? (
-        <EnabledWorkspace activeOrg={activeOrg} />
+      {branch === "pending" ? (
+        <WelcomeOrganizationPanel organizations={me?.organizations ?? []} />
       ) : null}
     </main>
   );

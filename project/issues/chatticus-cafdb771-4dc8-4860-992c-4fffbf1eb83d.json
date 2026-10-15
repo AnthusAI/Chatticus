@@ -1,0 +1,55 @@
+{
+  "id": "chatticus-cafdb771-4dc8-4860-992c-4fffbf1eb83d",
+  "title": "Conversation view lacks auto-scrolling during streaming turn and message arrival",
+  "description": "The conversation scroll container in EnabledWorkspace.tsx does not anchor or scroll to the bottom when new streaming tokens arrive or when long conversations load, forcing users to manually scroll to read streaming responses.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "360a3820-3bd9-436f-a1d2-450b2e8fe812",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED live + code.\n\nLive: after long AcceptLoopBot history + new messages, newest content stayed clipped above the fold; manual scroll required.\n\nCode: message list is a plain overflow container with no `scrollIntoView` / stick-to-bottom on new messages or stream tokens.\n\nFix: auto-scroll when user is near bottom; optional \u201cjump to latest\u201d when they have scrolled up.",
+      "created_at": "2026-09-14T13:17:00.855111Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    },
+    {
+      "id": "24919e4e-b9de-47f5-b07b-db99b4fcc5db",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Stick-to-bottom transcript scroll.",
+      "created_at": "2026-09-14T13:32:15.607599Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
+  "created_at": "2026-09-13T13:58:29.256770Z",
+  "updated_at": "2026-09-14T13:32:16.617335Z",
+  "closed_at": "2026-09-14T13:32:16.617198Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity",
+    "settings": {}
+  }
+}

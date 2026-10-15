@@ -1,0 +1,43 @@
+{
+  "id": "chatticus-18fe1457-f858-4673-abbe-e5865fdefc3a",
+  "title": "Update the cost page when per-session/bot/message cost views ship",
+  "description": "Follow-up. When the web cost views ship, move the corresponding 'Coming soon' items on the cost page to live descriptions, citing what shipped. Blocked by chatticus-f65e89 (T9 Web: channel cost chip, per-message cost markers, organization Costs page) under cost epic chatticus-8c857b.\n## Acceptance\n- Page reflects exactly the shipped views; nothing beyond them.\nRepo: AnthusAI/Chattic.us-web (private). Branch marketing/durability-and-cost; PR not yet opened. Owner reviews and merges; agents never merge.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4582a4f5-f451-4f46-b5da-c0bbe17fec38",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-f65e89d2-66e0-42ff-be5d-bf85614f3f18",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "749405e3-73c4-4f63-93a8-5fab54071715",
+      "author": "home",
+      "text": "The per-session, bot and message cost views have shipped on development (Costs tab, header chip, message markers, org month summary with bot/conversation/model breakdowns, CSV export; PR 542, chatticus-f65e89). Development only; the populated view with real data is not yet verified (see the follow-up verification ticket under chatticus-8c857b). The website cost page should be revised now.",
+      "created_at": "2026-10-13T18:30:15.675468Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-agent"
+      }
+    }
+  ],
+  "created_at": "2026-10-13T11:38:53.676186Z",
+  "updated_at": "2026-10-13T18:30:15.675490Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "board-agent"
+  },
+  "right_now_summary": "The cost page now needs updates to match the shipped cost views.",
+  "right_now_updated_at": "2026-10-13T18:30:17.191957Z",
+  "custom": {}
+}
