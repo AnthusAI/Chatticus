@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "triage-agent"
       }
+    },
+    {
+      "id": "50b920c5-b309-43c4-8a6a-5e2eeff7aa05",
+      "author": "home",
+      "text": "Decision: yes, add a per-organization monthly model spend ceiling, separate from monthlyAwsSpendCeilingUsd. The dollar value is pending from the owner. The gateway needs an organization store or rollup reader (cost records are now projected into a ledger) and a refusal when the organization is over the ceiling.",
+      "created_at": "2026-10-15T01:46:24.221161Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-11T17:37:36.754465Z",
-  "updated_at": "2026-10-14T03:11:53.907508Z",
+  "updated_at": "2026-10-15T01:46:24.221196Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The cost data is ready, but an organization-level model spend ceiling still needs a product decision.",
-  "right_now_updated_at": "2026-10-14T03:11:55.498868Z",
+  "right_now_summary": "A monthly model spend ceiling was approved, but its amount and gateway data source still need decisions.",
+  "right_now_updated_at": "2026-10-15T01:46:25.198152Z",
   "custom": {}
 }

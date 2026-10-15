@@ -3,7 +3,7 @@
   "title": "TS-61 Relinquish the attempt lease when an infrastructure error escapes the executor",
   "description": "From TS-60: when an error escapes the TurnExecutor Lambda the turn waits for the 60 s attempt lease (ATTEMPT_LEASE_SECONDS) to expire and for the probe armed at claim to recover it and enqueue a new run (about 56 s observed); SQS is not the delay (TurnRuns visibility is 1800 s and lease renewal keeps it there). On an escaping infrastructure error (not a conditional-check rejection, not a deliberate park) the executor could relinquish its lease or shorten the message visibility so recovery starts immediately. Design choice: decide whether the benefit (about 50 s faster recovery after a rare infra error) is worth the added path; TS-60 already keeps the common transient conflict from escaping. Needs a cucumber scenario and mutation checks if taken.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "triage-agent"
       }
+    },
+    {
+      "id": "525df8a2-fc5c-4748-bed1-c114bc884c11",
+      "author": "home",
+      "text": "Closing as not needed (YAGNI). The gain is about 50 s faster recovery after a rare infrastructure error, which does not justify an added lease-relinquish path. TS-60 already keeps the common transient conflict from escaping. Decision taken on the owner's instruction.",
+      "created_at": "2026-10-15T01:46:20.147493Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-07T03:28:41.700066Z",
-  "updated_at": "2026-10-14T03:11:39.773426Z",
-  "closed_at": null,
+  "updated_at": "2026-10-15T01:46:36.084607Z",
+  "closed_at": "2026-10-15T01:46:36.084564Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is deciding whether to release leases sooner after rare infrastructure errors.",
-  "right_now_updated_at": "2026-10-14T03:11:40.871153Z",
+  "right_now_summary": "The team decided not to add lease relinquishing because rare failures do not justify the extra path.",
+  "right_now_updated_at": "2026-10-15T01:46:38.438585Z",
   "custom": {}
 }

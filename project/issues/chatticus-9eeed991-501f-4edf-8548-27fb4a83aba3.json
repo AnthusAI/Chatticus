@@ -10,16 +10,29 @@
   "parent": null,
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d9ce1094-e883-4ac3-a26d-7660d5f732f5",
+      "author": "home",
+      "text": "Progress 2026-10-14: baseline tag v0.43.1 pushed (chatticus-859e80); main branch protection applied and environments staging and production protected with reviewer endymion and branch policy main only (chatticus-5380d0). Staging and production AWS bootstrap is held until the owner says go.",
+      "created_at": "2026-10-15T01:46:27.407676Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:36:20.339096Z",
-  "updated_at": "2026-10-13T11:36:20.339139Z",
+  "updated_at": "2026-10-15T01:46:27.407721Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "Promotion awaits owner decisions; no merge, release, or deployment has begun.",
-  "right_now_updated_at": "2026-10-13T15:29:41.004214Z",
+  "right_now_summary": "The team awaits owner decisions before merging TypeScript into main or starting deployments.",
+  "right_now_updated_at": "2026-10-15T01:46:35.738561Z",
   "custom": {}
 }
