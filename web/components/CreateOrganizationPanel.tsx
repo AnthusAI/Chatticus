@@ -15,8 +15,8 @@ export function CreateOrganizationPanel() {
   return (
     <AuthCard title="Create your organization">
       <p className={authStatusClassName}>
-        Name the organization you want to use on Chatticus. An operator enables it
-        before the workspace unlocks.
+        Name the organization you want to use on Chatticus. Its workspace opens as
+        soon as you create it.
       </p>
       <form
         className="grid gap-2"

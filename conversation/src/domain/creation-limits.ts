@@ -24,14 +24,22 @@ export function validateOrganizationName(name: string): string {
 }
 
 /**
- * Create a pending organization on the product path: record the creation
- * attempt against the rate limit, validate the name, refuse a second owned
- * organization, then create. Operators lift the cap with adminCreateOrganization.
+ * Create an organization on the product path: record the creation attempt against the rate limit, validate the
+ * name, refuse a second owned organization, create it and enable it at once. An organization created here is
+ * Anthus-managed: its AWS home is the deployment account, so its bots and its computer run where the deployment
+ * runs and nothing asks for an AWS account. Operators lift the cap, and create an organization that waits to be
+ * enabled, with adminCreateOrganization.
  */
 export async function createOrganizationUnderCaps(
 	owner: Identity,
 	name: string,
-	deps: { store: MessagingStore; clock: Clock; ids: IdSource; rateLimit: number },
+	deps: {
+		store: MessagingStore;
+		clock: Clock;
+		ids: IdSource;
+		rateLimit: number;
+		deploymentAwsAccountId: string;
+	},
 ): Promise<Organization> {
 	const attempts = await deps.store.incrementOrganizationCreationAttempts(
 		owner.userId,
@@ -49,5 +57,9 @@ export async function createOrganizationUnderCaps(
 	if (organizations.some((organization) => organization.ownerUserId === owner.userId)) {
 		throw new OrganizationOwnerCapError(`User ${JSON.stringify(owner.userId)} already owns an organization.`);
 	}
-	return kernel.createOrganization(owner, strippedName, deps);
+	const pending = await kernel.createOrganization(owner, strippedName, deps);
+	return kernel.enableOrganization(pending.tenantId, {
+		store: deps.store,
+		callerAwsAccountId: async () => deps.deploymentAwsAccountId,
+	});
 }

@@ -16,9 +16,9 @@ export interface CreateOrganizationResponseBody {
 }
 
 /**
- * POST /organizations: create a pending organization for the signed-in person
+ * POST /organizations: create an enabled, Anthus-managed organization for the signed-in person
  * on a deployment with open signup, under the owner cap, the name limit and
- * the creation rate limit.
+ * the creation rate limit. The organization is homed in the deployment account.
  */
 export async function createOrganizationHandler(
 	c: Context,
@@ -29,10 +29,14 @@ export async function createOrganizationHandler(
 		verifier: IdTokenVerifier | null;
 		signupMode: SignupMode;
 		organizationCreationRateLimit: number;
+		deploymentAwsAccountId: string | undefined;
 	},
 ): Promise<Response> {
 	if (deps.signupMode !== "open") {
 		return c.json({ detail: "organization creation is not enabled on this deployment" }, 403);
+	}
+	if (deps.deploymentAwsAccountId === undefined) {
+		return c.json({ detail: "The deployment AWS account id is not configured for POST /organizations." }, 503);
 	}
 	if (deps.verifier === null) {
 		return c.json({ detail: "Cognito verifier is not configured for POST /organizations." }, 503);
@@ -64,6 +68,7 @@ export async function createOrganizationHandler(
 		clock: deps.clock,
 		ids: deps.ids,
 		rateLimit: deps.organizationCreationRateLimit,
+		deploymentAwsAccountId: deps.deploymentAwsAccountId,
 	});
 	const body: CreateOrganizationResponseBody = {
 		tenant_id: organization.tenantId,

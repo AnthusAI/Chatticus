@@ -36,6 +36,22 @@ describe("webBuildEnvExports", () => {
   });
 });
 
+describe("web build signup mode", () => {
+  it("builds the SPA with the signup mode of its environment", () => {
+    const expected = { development: "open", staging: "invitation_only", production: "invitation_only" } as const;
+    for (const [environmentName, siteDomain] of [
+      ["development", "develop.chattic.us"],
+      ["staging", "staging.chattic.us"],
+      ["production", "hey.chattic.us"],
+    ] as const) {
+      assert.match(
+        webBuildEnvExports(environmentName, siteDomain),
+        new RegExp(`NEXT_PUBLIC_CHATTICUS_SIGNUP_MODE='${expected[environmentName]}'`),
+      );
+    }
+  });
+});
+
 describe("web bundle commands", () => {
   it("uses preinstalled aws cli in the docker image without apt-get", () => {
     const command = webDockerBundleCommand("development", "dev.chattic.us");

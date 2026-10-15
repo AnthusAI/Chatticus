@@ -9,8 +9,8 @@ Feature: Cap organization creation on open signup
   Scenario: A new person creates their first organization
     When POST /organizations is called with a valid id token for "sam@example.com" and name "Acme Labs"
     Then POST /organizations responds with status 201
-    And POST /organizations body includes tenant_id and status "pending"
-    And organization "Acme Labs" has status "pending"
+    And POST /organizations body includes tenant_id and status "enabled"
+    And organization "Acme Labs" has status "enabled"
     And "sam@example.com" is an owner member of "Acme Labs"
 
   Scenario: A second owned organization for the same person is refused
@@ -19,7 +19,7 @@ Feature: Cap organization creation on open signup
     Then POST /organizations responds with status 409
     When GET /me is called with a valid id token for "sam@example.com"
     Then GET /me responds with status 200
-    And GET /me organizations include one with status "pending"
+    And GET /me organizations include one with status "enabled"
 
   Scenario: An overlong organization name is refused
     When POST /organizations is called with a valid id token for "sam@example.com" and an overlong organization name
@@ -37,7 +37,7 @@ Feature: Cap organization creation on open signup
     Then POST /organizations responds with status 429
     When GET /me is called with a valid id token for "sam@example.com"
     Then GET /me responds with status 200
-    And GET /me organizations include one with status "pending"
+    And GET /me organizations include one with status "enabled"
 
   Scenario: An operator can create a second owned organization when lifting the cap
     Given an empty organization records store

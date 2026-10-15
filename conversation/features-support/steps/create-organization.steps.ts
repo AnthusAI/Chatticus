@@ -58,6 +58,79 @@ Given(
 	},
 );
 
+function organizationNamed(world: ChatticusWorld, name: string) {
+	const organization = world.orgsByName?.get(name);
+	assert.ok(organization, `No organization named ${JSON.stringify(name)} in this scenario.`);
+	return organization;
+}
+
+async function identityOf(world: ChatticusWorld, email: string) {
+	return kernel.signIn(email, { store: world.messagingStore(), clock: world.clock, ids: world.ids });
+}
+
+When(
+	"{string} creates bot {string} in organization {string} via the HTTP front door",
+	async function (this: ChatticusWorld, email: string, botName: string, organizationName: string) {
+		assert.ok(this.api);
+		this.createBotResponse = await recordResponse(
+			await this.api.post(`/orgs/${organizationNamed(this, organizationName).tenantId}/bots`, {
+				headers: await bearerFor(this, email),
+				body: { name: botName },
+			}),
+		);
+		this.createdBotIdsByName = this.createdBotIdsByName ?? new Map();
+		if (this.createBotResponse.status === 200) {
+			this.createdBotIdsByName.set(botName, this.createBotResponse.json.bot_id);
+		}
+	},
+);
+
+When(
+	"{string} opens a direct channel with bot {string} in organization {string} via the HTTP front door",
+	async function (this: ChatticusWorld, email: string, botName: string, organizationName: string) {
+		assert.ok(this.api);
+		const botId = this.createdBotIdsByName?.get(botName);
+		assert.ok(botId, `Bot ${JSON.stringify(botName)} was not created in this scenario.`);
+		const response = await recordResponse(
+			await this.api.post(`/orgs/${organizationNamed(this, organizationName).tenantId}/channels`, {
+				headers: await bearerFor(this, email),
+				body: { user_id: (await identityOf(this, email)).userId, bot_ids: [botId], kind: "direct", name: null },
+			}),
+		);
+		assert.equal(response.status, 200, response.text);
+		this.createdChannelId = response.json.channel_id;
+	},
+);
+
+When(
+	"{string} sends {string} to bot {string} in organization {string} via the HTTP front door",
+	async function (this: ChatticusWorld, email: string, body: string, botName: string, organizationName: string) {
+		assert.ok(this.api);
+		const botId = this.createdBotIdsByName?.get(botName);
+		assert.ok(botId && this.createdChannelId, "The bot and its channel were not created in this scenario.");
+		this.postMessageResponse = await recordResponse(
+			await this.api.post(
+				`/orgs/${organizationNamed(this, organizationName).tenantId}/channels/${this.createdChannelId}/messages`,
+				{
+					headers: await bearerFor(this, email),
+					body: {
+						author_kind: "human",
+						author_id: (await identityOf(this, email)).userId,
+						body,
+						addressed_to_bot_id: botId,
+					},
+				},
+			),
+		);
+	},
+);
+
+Then("the message post responds with status {int} and starts a turn", function (this: ChatticusWorld, status: number) {
+	assert.ok(this.postMessageResponse, "No message was posted in this scenario.");
+	assert.equal(this.postMessageResponse.status, status, this.postMessageResponse.text);
+	assert.equal(typeof this.postMessageResponse.json.turn_id, "string", this.postMessageResponse.text);
+});
+
 Then("POST \\/organizations responds with status {int}", function (this: ChatticusWorld, status: number) {
 	const response = createOrganizationResponse(this);
 	assert.equal(response.status, status, response.text);

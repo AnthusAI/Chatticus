@@ -288,6 +288,7 @@ export function createApp(deps: AppDeps): Hono {
 			verifier,
 			signupMode: deps.signupMode ?? "invitation_only",
 			organizationCreationRateLimit: deps.organizationCreationRateLimit ?? ORGANIZATION_CREATION_RATE_LIMIT,
+			deploymentAwsAccountId: deps.deploymentAwsAccountId,
 		}),
 	);
 

@@ -217,9 +217,14 @@ export function thinTurnExportName(
   return `Chatticus-${environment}-thin-turn-${suffix}`;
 }
 
-/** Anthus deployments allow product signup; customer deployments use invitation_only. */
+/**
+ * Whether a signed-in person may create an organization. Open signup lets any
+ * Google account create an organization that spends platform money, so only
+ * development is open. Staging and production are invitation_only until the
+ * owner opts in to public signup by changing this function and deploying.
+ */
 export function signupModeForEnvironment(
-  _environment: ChatticusCloudEnvironment,
+  environment: ChatticusCloudEnvironment,
 ): "open" | "invitation_only" {
-  return "open";
+  return environment === "development" ? "open" : "invitation_only";
 }
