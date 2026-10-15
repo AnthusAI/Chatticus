@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-d252a5c7-5d68-4381-ba1c-dff8f612aa22",
+  "title": "Website deploy-local.sh should allow the expected alias-attach diff on a certificate deploy",
+  "description": "In the website repo, deploy-local.sh requires --allow-infra-changes on a certificate deploy even though the alias-attach diff is expected. Allow that expected diff without the flag; still fail on other infra changes.\n\nFeature: Website local deploy\n  Scenario: Certificate deploy\n    Given the diff contains only the alias attach\n    When deploy-local.sh runs without --allow-infra-changes\n    Then it proceeds",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:31.348534Z",
+  "updated_at": "2026-10-15T17:21:31.348574Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "deploy-local.sh still requires the flag for the expected alias-attach diff during certificate deploys.",
+  "right_now_updated_at": "2026-10-15T17:21:33.016010Z",
+  "custom": {}
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-f5aeeccf-a259-4e5d-940f-90e77ac4d92f",
+  "title": "Repoint AWS_DEPLOY_ROLE_ARN for production and verify the deploy-role workflows",
+  "description": "Repoint the AWS_DEPLOY_ROLE_ARN secrets and variables for production to the production account role. verify-account-deploy-role exists only on main now: check it can be dispatched and that the staging environment accepts main.\n\nFeature: Deploy role verification\n  Scenario: Dispatch\n    Given the variables are repointed\n    When verify-account-deploy-role is dispatched on main for staging and production\n    Then both environments assume their roles",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:20.438381Z",
+  "updated_at": "2026-10-15T17:21:20.438418Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "Production deploy-role settings need repointing, then main's workflow must test staging and production.",
+  "right_now_updated_at": "2026-10-15T17:21:22.338483Z",
+  "custom": {}
+}

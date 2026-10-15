@@ -3,7 +3,7 @@
   "title": "Open the develop-to-main PR as a merge commit with no deploy starting",
   "description": "## Plan step 7 (blocked by steps 1, 2, 3 and 4)\nPR titled 'Promote develop to main: TypeScript control plane' (conventional subject, no breaking marker), review addressed, required checks green. Body: the area table, the expected v0.44.0 release, and a statement that no staging or production deploy runs. Merge with a MERGE COMMIT (do not squash 691 commits; baseline tag must stay an ancestor).\n## Acceptance (verify within minutes of merge)\n- CI green; semantic-release creates v0.44.0 and a changelog commit.\n- No deploy workflow starts.\n- README claim 'Staging and production run Python' updated at the merge.\n- Rollback: revert the merge commit; delete release and tag by hand if created.\nSource: docs/PROMOTE_TO_MAIN.md (PR 534, branch ts/promote-to-main-plan). Nothing has been executed; owner decisions are in the 'Decisions needed from the owner' ticket.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -27,16 +27,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "de7e7ea2-9be1-4e7b-945a-70dd6e830289",
+      "author": "home",
+      "text": "Done 2026-10-15: develop was merged into main (PRs 566 sync, 567 and 570 release). PR 568 pinned the conventional-changelog conventionalcommits preset to 9.3.1 so release notes generate. Release v0.44.0 is published (release commit 4bc44d8b). PR 572 syncs main back into develop.",
+      "created_at": "2026-10-15T17:19:50.325372Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:37:02.972391Z",
-  "updated_at": "2026-10-13T11:38:07.138690Z",
-  "closed_at": null,
+  "updated_at": "2026-10-15T17:20:27.156674Z",
+  "closed_at": "2026-10-15T17:20:27.155969Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "The merge PR awaits owner decisions before it can proceed without triggering a deploy.",
-  "right_now_updated_at": "2026-10-13T11:38:08.389049Z",
+  "right_now_summary": "The develop-to-main merge is complete, v0.44.0 is published, and no deployment was started.",
+  "right_now_updated_at": "2026-10-15T17:20:29.859931Z",
   "custom": {}
 }

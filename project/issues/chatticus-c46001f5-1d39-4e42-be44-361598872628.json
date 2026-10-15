@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-c46001f5-1d39-4e42-be44-361598872628",
+  "title": "Release job cannot push to protected main: choose a release path",
+  "description": "The Actions release job fails with GH006 pushing to protected main, and GitHub does not allow the Actions app as a bypass actor here. v0.44.0 was released by running semantic-release locally as the owner. Options: owner PAT or GitHub App token in the release workflow with a repository ruleset; or document the manual local release: npx semantic-release --no-ci from a fresh clone with the owner's admin gh token.\n\nFeature: Releases from main\n  Scenario: A release is cut\n    Given main is protected\n    When a release is run by the chosen path\n    Then the tag, changelog commit and release are published",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-15T17:21:16.067745Z",
+  "updated_at": "2026-10-15T17:21:16.067776Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "The team must choose between automated App-token releases and documented owner-run local releases.",
+  "right_now_updated_at": "2026-10-15T17:21:17.307534Z",
+  "custom": {}
+}
