@@ -3,9 +3,10 @@
 #
 # The build workflows push only the immutable sha-<commit> tag. The owner task definition of the environment runs the
 # moving tag, so moving it is the moment a new image reaches every computer start. It moves only when the server side of
-# the same commit is verified: the latest ControlPlane and ThinTurn deploys of that environment for that commit both
-# succeeded (the staging and production deploys are manual dispatches, so the rule is "a dispatch of each ran on this
-# commit and succeeded"). The previous digest is printed with the command that puts it back.
+# the same content is verified: the newest ControlPlane and ThinTurn deploys of that environment on the commit, or on a
+# commit that differs from it only in CHANGELOG.md, package.json and package-lock.json (the release job's commit, which
+# is [skip ci] and so is neither deployed nor built), both succeeded. The image used is sha-<commit> when it exists, else
+# the image of such an equivalent deployed commit. The previous digest is printed with the command that puts it back.
 #
 # usage: sh promote-computer-image.sh <development|staging|production> <full 40 character commit sha>
 # needs: gh (GH_TOKEN, GH_REPO), aws (that environment's session or its OIDC deploy role)
@@ -28,16 +29,52 @@ if ! printf '%s' "${COMMIT}" | grep -Eq '^[0-9a-f]{40}$'; then
 fi
 
 REGION="${AWS_REGION:-us-east-1}"
-SHA_TAG="sha-${COMMIT}"
 SERVER_SIDE_WORKFLOWS="deploy-controlplane-${ENVIRONMENT}.yml deploy-thinturn-${ENVIRONMENT}.yml"
 
+RELEASE_ONLY_FILES="CHANGELOG.md package.json package-lock.json"
+
+commit_is_equivalent() {
+  CANDIDATE="$1"
+  if [ "${CANDIDATE}" = "${COMMIT}" ]; then
+    return 0
+  fi
+  if ! COMPARISON="$(gh api "repos/${GH_REPO}/compare/${CANDIDATE}...${COMMIT}" --jq '.status, (.files[].filename)' 2>/dev/null)"; then
+    return 1
+  fi
+  RELATION="$(printf '%s\n' "${COMPARISON}" | sed -n 1p)"
+  case "${RELATION}" in
+    ahead|behind|identical) ;;
+    *) return 1 ;;
+  esac
+  for CHANGED in $(printf '%s\n' "${COMPARISON}" | sed 1d); do
+    case " ${RELEASE_ONLY_FILES} " in
+      *" ${CHANGED} "*) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
+}
+
+DEPLOYED_COMMITS=""
 for WORKFLOW in ${SERVER_SIDE_WORKFLOWS}; do
-  CONCLUSION="$(gh run list --workflow "${WORKFLOW}" --commit "${COMMIT}" --limit 1 --json conclusion --jq '.[0].conclusion // "none"')"
+  CONCLUSION="none"
+  DEPLOYED=""
+  RUNS="$(gh run list --workflow "${WORKFLOW}" --limit 50 --json headSha,conclusion --jq '.[] | "\(.headSha) \(.conclusion)"')"
+  while read -r RUN_SHA RUN_CONCLUSION; do
+    if [ -n "${RUN_SHA}" ] && commit_is_equivalent "${RUN_SHA}"; then
+      CONCLUSION="${RUN_CONCLUSION}"
+      DEPLOYED="${RUN_SHA}"
+      break
+    fi
+  done <<RUN_LIST_END
+${RUNS}
+RUN_LIST_END
   if [ "${CONCLUSION}" != "success" ]; then
-    echo "Refusing to move the ${TAG} tag: the latest ${WORKFLOW} run for ${COMMIT} concluded '${CONCLUSION}', not 'success'." >&2
-    echo "The image tag flips only after the server side of the same commit is deployed and verified." >&2
+    echo "Refusing to move the ${TAG} tag: the latest ${WORKFLOW} run for ${COMMIT} (or a commit that differs only in ${RELEASE_ONLY_FILES}) concluded '${CONCLUSION}', not 'success'." >&2
+    echo "The image tag flips only after the server side of the same content is deployed and verified." >&2
     exit 1
   fi
+  DEPLOYED_COMMITS="${DEPLOYED_COMMITS} ${DEPLOYED}"
 done
 
 REPO="$(aws cloudformation describe-stacks \
@@ -47,10 +84,18 @@ REPO="$(aws cloudformation describe-stacks \
   --output text)"
 REPO_NAME="${REPO#*/}"
 
-if ! NEW_DIGEST="$(aws ecr describe-images --region "${REGION}" \
-  --repository-name "${REPO_NAME}" --image-ids "imageTag=${SHA_TAG}" \
-  --query 'imageDetails[0].imageDigest' --output text)"; then
-  echo "Refusing to move the ${TAG} tag: ${REPO_NAME} has no image tagged ${SHA_TAG}. Build it first." >&2
+NEW_DIGEST=""
+for IMAGE_COMMIT in ${COMMIT} ${DEPLOYED_COMMITS}; do
+  if NEW_DIGEST="$(aws ecr describe-images --region "${REGION}" \
+    --repository-name "${REPO_NAME}" --image-ids "imageTag=sha-${IMAGE_COMMIT}" \
+    --query 'imageDetails[0].imageDigest' --output text 2>/dev/null)"; then
+    SHA_TAG="sha-${IMAGE_COMMIT}"
+    break
+  fi
+  NEW_DIGEST=""
+done
+if [ -z "${NEW_DIGEST}" ]; then
+  echo "Refusing to move the ${TAG} tag: ${REPO_NAME} has no image tagged sha-${COMMIT} or for a commit that differs only in ${RELEASE_ONLY_FILES}. Build it first." >&2
   exit 1
 fi
 

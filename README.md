@@ -77,7 +77,23 @@ not push to `main` while it was briefly protected (GH006). That protection
 was applied in error and has been removed: by decision of the owner
 (2026-10-15), `main` has no branch protection and the `staging` and
 `production` environments have no required reviewers; they keep only a
-deployment branch policy that allows `main` only.
+deployment branch policy that allows `main` only. **v0.45.0** has since been
+released, and the Actions release job now pushes its own `chore(release)`
+commit to `main`.
+
+**Production runs the current release.** The production environment in the
+production AWS account is deployed with the v0.44.0 code (computers, snapshots,
+control plane, thin-turn and web stacks updated; auth had no diff), first by the
+local script and then by CI: the production and staging deploy workflows
+(`workflow_dispatch`) run green from GitHub Actions through OIDC, and
+`verify-account-deploy-role` passes for both. The computer image is promoted for
+staging and production (`build-computer-image-release.yml` builds once on push to
+`main`; `infra/promote-computer-image.sh <env> <commit>` and the dispatch-only
+`promote-computer-image-staging.yml` and `-production.yml` retag it), so computers
+can start in both. **Limit:** no live computer turn has been tested in production
+or staging (Kanbus chatticus-61dea9). The promote rule requires the deploy runs to
+have succeeded for the exact commit, which the release commit defeats
+(chatticus-6b45d3).
 
 ### Staging and the marketing site moved into the production AWS account
 
@@ -87,10 +103,10 @@ account as `Staging`-suffixed stacks (`AccountDeployStaging`, `SnapshotsStaging`
 `ThinTurnStaging`, `ControlPlaneStaging`, `AuthStaging`, `WebStaging`), and
 `staging.chattic.us` serves 200. Production keeps its existing stack names. The
 old staging account's stacks are deleted; empty leftovers remain and the account
-is not yet closed. **Limits:** staging computers are not available (no promoted
-computer image), the staging integration test principal is not wired (staging
-acceptance fails with 403 on bearer exchange), and the staging deny policy is
-not yet on the production deploy role.
+is not yet closed. **Limits:** the staging integration test principal is not wired
+(staging acceptance fails with 403 on bearer exchange; chatticus-99cae9), and the
+staging deny policy is not yet on the production deploy role. Staging computers
+can start now that the computer image is promoted.
 
 The **marketing site** (`chattic.us` and `www`) is now served from the production
 AWS account by the `ChatticusMarketing` stack in the private website repo, with
@@ -108,9 +124,9 @@ control plane is the TypeScript service in `conversation/`, built on Pi-durable
 (see [Pi harness](docs/PI_HARNESS.md) and
 [TypeScript control plane](docs/TYPESCRIPT_CONTROL_PLANE.md)). The **development**
 environment runs it, and the computer path is proven live there. **`main` now carries the TypeScript
-control plane (v0.44.0) and staging runs it in the production account;
-production has not been cut over**, so do not assume production behaves like
-development. Existing transcripts need the migration runbook (the design's
+control plane (v0.44.0) and staging and production both run it in the production
+account; production has no acceptance run and no tested live computer turn**, so
+do not assume production behaves like development. Existing transcripts need the migration runbook (the design's
 cutover and rollback sections) before production moves.
 The Gherkin features run under cucumber-js with TypeScript steps. The sections
 below that predate this change describe the Python-era stack on the environments
@@ -285,11 +301,12 @@ Tasks, Computer, Settings, or Plugins destinations remain deferred.
 | Environment | ThinTurn API (enforcement) | Cognito Auth (sign-out) | Web bundle |
 | --- | --- | --- | --- |
 | development (`develop.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — product `/chat` at `/` (CF enabled; marketing moved to `AnthusAI/Chattic.us-web`, chatticus-3926bc) |
-| staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
-| production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
+| staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Live — web CloudFront enabled, serves 200 |
+| production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Live — web CloudFront enabled, serves 200 |
 
-Staging and production thin-turn stacks may lag `develop`; their web front doors
-stay dark until explicitly re-enabled and re-proven.
+Staging and production thin-turn stacks may lag `develop`. Both web
+CloudFront distributions are enabled; custom auth domains `auth.chattic.us` and
+`auth-staging.chattic.us` work.
 
 Every org route requires a Cognito `id_token` or worker bearer on all three
 environments; only `/health` and `POST …/workers/register` (invoke-key gated)
@@ -310,8 +327,8 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   published at
   `https://develop.chattic.us/provisioning/customer-role.yml` (SSM:
   `/chatticus/development/provisioning/customer-role-template-url`). Runbook:
-  [infra/README.md](infra/README.md). Staging and production hostnames stay
-  CF-dark; do not treat their template URLs as a customer onboarding path yet.
+  [infra/README.md](infra/README.md). Staging and production hostnames are
+  live; do not treat their template URLs as a customer onboarding path yet.
 - **Throwaway-account hand run** (`chatticus-b88c0a`): published template
   unmodified; F-safe `pong` completed on development. Timed runbook:
   [wiki](project/wiki/runbooks/throwaway-account-provisioning.md)
@@ -409,8 +426,8 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 | --- | --- | --- |
 | [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; served from the production AWS account with its own intake (SES sandbox) |
 | [develop.chattic.us](https://develop.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
-| [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
-| [staging.chattic.us](https://staging.chattic.us) | Staging (production AWS account) | Serves 200; computers not available |
+| [hey.chattic.us](https://hey.chattic.us) | Production product | Deployed with the current release, computers startable; web CloudFront enabled, serves 200; no live computer turn tested |
+| [staging.chattic.us](https://staging.chattic.us) | Staging (production AWS account) | Serves 200; computers startable, no live computer turn tested |
 
 ### Live acceptance gate
 
@@ -427,8 +444,8 @@ remains the fallback when CI cannot be used.
 
 ### Cloud stacks (do not destroy)
 
-`ChatticusDns`, `ChatticusAuth`, `ChatticusWeb*` (development CF enabled; staging/
-production CF disabled), `ChatticusThinTurn*`, `ChatticusSnapshots*`, `ChatticusComputers*`
+`ChatticusDns`, `ChatticusAuth`, `ChatticusWeb*` (CF enabled in development, staging, and
+production), `ChatticusThinTurn*`, `ChatticusSnapshots*`, `ChatticusComputers*`
 (unsuffixed in development's account and in the production account, where production
 is already live under those names; staging, which shares the production account, has
 the `Staging` copies), `ChatticusBudgets` (one per account). Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
@@ -632,8 +649,8 @@ That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `CloudFrontUrl` output on stack `ChatticusWeb` (or `ChatticusThinTurn`
 before the web stack exists). When AWS lookup fails, pass `--base-url` or
 set the env var (see gitignored `AGENTS.local.md`). SQS queue checks
-need that same AWS identity. Staging and production web CloudFront is
-disabled; use thin-turn stack outputs or `AGENTS.local.md` when you mean
+need that same AWS identity. Staging and production web CloudFront are
+enabled; use thin-turn stack outputs or `AGENTS.local.md` when you mean
 those environments. It does not scale Fargate. Do not run this from
 GitHub Actions.
 
@@ -662,7 +679,7 @@ npx cdk deploy ChatticusThinTurnProduction
 
 **ChatticusThinTurn** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront (web CF
-disabled on staging and production). Do not merge `develop` to `main` as
+enabled on staging and production). Do not merge `develop` to `main` as
 parking. Do not destroy the snapshot, computer, or budgets stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).

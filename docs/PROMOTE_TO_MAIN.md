@@ -148,8 +148,9 @@ and Cognito custom domains are globally unique, and legacy still holds
 Google OAuth secrets, per-environment ECR image with a real tag instead of the
 hand-pushed `:dev`, the owner-computer path's development-only gate, and the
 integration-test-principal decision for staging (chatticus-80b17c). Live staging
-and production today are the **legacy** account's Python thin-turn, auth, and web
-stacks, with web CloudFront dark by design (README "Deployed across environments").
+and production are now the TypeScript stacks in the production AWS account: both
+are deployed, and production CloudFront is enabled (README "Deployed across
+environments"). The legacy account's Python stacks no longer serve them.
 
 Repo settings found with `gh api` (read-only): `main` has **no branch protection**
 (HTTP 404) and no rulesets, and the `staging` and `production` GitHub environments have no required
@@ -158,8 +159,8 @@ the owner's decision (2026-10-15), not a gap.
 
 ## 6. What changes for users
 
-- **Product users:** there is no public production product. `hey.chattic.us` and
-  `staging.chattic.us` web CloudFront are dark; the thin-turn API requires a Cognito
+- **Product users:** `hey.chattic.us` and `staging.chattic.us` web CloudFront are
+  enabled and serve 200; the thin-turn API requires a Cognito
   token and returns 403 without one. I found no evidence of production end users.
   Treat the legacy staging and production Messaging tables as possibly holding
   household or test conversations until an owner-run count says otherwise (decision D5).

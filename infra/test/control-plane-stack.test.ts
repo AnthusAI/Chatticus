@@ -84,7 +84,7 @@ describe("ControlPlaneStack", () => {
   it("retains data outside development and destroys it in development", () => {
     const tableDeletion = (template: Template): string =>
       Object.values(template.findResources("AWS::DynamoDB::Table"))[0].DeletionPolicy;
-    assert.equal(tableDeletion(development), "Delete");
+    assert.equal(tableDeletion(development), "Retain");
     for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS.filter((name) => name !== "development")) {
       const template = synthControlPlane(environmentName);
       assert.equal(tableDeletion(template), "Retain");
@@ -93,7 +93,35 @@ describe("ControlPlaneStack", () => {
     }
   });
 
-  it("blocks public access, enforces SSL and never expires session objects", () => {
+  it("protects the Conversations table with point in time recovery and deletion protection in every environment", () => {
+    for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+      const template = synthControlPlane(environmentName);
+      const tables = Object.values(template.findResources("AWS::DynamoDB::Table"));
+      assert.equal(tables.length, 1, `${environmentName} defines exactly one table`);
+      assert.equal(tables[0].DeletionPolicy, "Retain", `${environmentName} retains the table`);
+      assert.equal(tables[0].UpdateReplacePolicy, "Retain", `${environmentName} retains on replacement`);
+      template.hasResourceProperties("AWS::DynamoDB::Table", {
+        DeletionProtectionEnabled: true,
+        PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true },
+      });
+    }
+  });
+
+  it("versions the session bucket in every environment and expires only noncurrent versions", () => {
+    for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+      const template = synthControlPlane(environmentName);
+      template.hasResourceProperties("AWS::S3::Bucket", {
+        VersioningConfiguration: { Status: "Enabled" },
+        LifecycleConfiguration: {
+          Rules: [
+            Match.objectLike({ NoncurrentVersionExpiration: { NoncurrentDays: 30 }, Status: "Enabled" }),
+          ],
+        },
+      });
+    }
+  });
+
+  it("blocks public access, enforces SSL and never expires current session objects", () => {
     development.hasResourceProperties("AWS::S3::Bucket", {
       PublicAccessBlockConfiguration: {
         BlockPublicAcls: true,
@@ -113,8 +141,10 @@ describe("ControlPlaneStack", () => {
       },
     });
     const bucket = Object.values(development.findResources("AWS::S3::Bucket"))[0];
-    assert.equal(bucket.Properties.LifecycleConfiguration, undefined);
-    assert.equal(bucket.Properties.VersioningConfiguration, undefined);
+    for (const rule of bucket.Properties.LifecycleConfiguration.Rules) {
+      assert.equal(rule.ExpirationInDays, undefined);
+      assert.equal(rule.ExpirationDate, undefined);
+    }
   });
 
   it("creates three queues, each with a dead-letter queue", () => {

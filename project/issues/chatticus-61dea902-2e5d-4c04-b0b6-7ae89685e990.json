@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-61dea902-2e5d-4c04-b0b6-7ae89685e990",
+  "title": "Live computer turn test in production and staging",
+  "description": "Computer images are promoted for staging and production, but no turn has yet escalated to the computer in either environment.\n\nStaging is blocked by chatticus-99cae9 (integration principal). Production has no integration principal by repo rule, so it needs a real signed-in test by the owner.\n\nFeature: Live computer turn\n  Scenario: A turn escalates to the computer\n    Given the environment has the promoted computer image\n    When a signed-in user sends a message whose turn first needs the computer\n    Then the computer starts from the environment image and the turn completes",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-99cae955-4825-4d3a-8bfb-5f3116efc60b",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-15T18:51:00.532800Z",
+  "updated_at": "2026-10-15T18:51:15.822986Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": "Staging is blocked, and production still needs a real signed-in test of the computer turn.",
+  "right_now_updated_at": "2026-10-15T18:51:17.424734Z",
+  "custom": {}
+}

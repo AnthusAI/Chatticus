@@ -372,7 +372,7 @@ describe("computer image tag rule: an environment tag moves only after the serve
       promoteScript,
       /SERVER_SIDE_WORKFLOWS="deploy-controlplane-\$\{ENVIRONMENT\}\.yml deploy-thinturn-\$\{ENVIRONMENT\}\.yml"/,
     );
-    assert.match(promoteScript, /gh run list --workflow "\$\{WORKFLOW\}" --commit "\$\{COMMIT\}"/);
+    assert.match(promoteScript, /gh run list --workflow "\$\{WORKFLOW\}" --limit 50 --json headSha,conclusion/);
     assert.ok(promoteScript.indexOf("gh run list") < promoteScript.indexOf("ecr put-image"));
     assert.ok(promoteScript.indexOf("imageTag=${TAG}") < promoteScript.indexOf("ecr put-image"));
   });

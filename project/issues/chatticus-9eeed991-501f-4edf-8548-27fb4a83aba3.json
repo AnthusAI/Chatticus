@@ -56,7 +56,7 @@
     "model": "claude-sonnet-5-5",
     "name": "board-agent"
   },
-  "right_now_summary": "TypeScript is on main in v0.44.0; staging acceptance and production cutover still need work.",
-  "right_now_updated_at": "2026-10-15T17:27:07.780959Z",
+  "right_now_summary": "TypeScript is on main and v0.44.0 is released; staging acceptance and production migration still need work.",
+  "right_now_updated_at": "2026-10-15T19:31:11.737272Z",
   "custom": {}
 }

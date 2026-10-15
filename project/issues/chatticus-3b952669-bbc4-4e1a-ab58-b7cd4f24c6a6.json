@@ -1,25 +1,38 @@
 {
   "id": "chatticus-3b952669-bbc4-4e1a-ab58-b7cd4f24c6a6",
-  "title": "Appeal SES production access (owner action)",
-  "description": "SES production access was DENIED, so SES is in sandbox and confirmation emails reach only verified recipients (leads are still recorded). Owner must file an appeal.\n\nFeature: Marketing intake email\n  Scenario: Confirmation email\n    Given SES production access is granted\n    When a visitor submits the waitlist form\n    Then the confirmation email is delivered to an unverified recipient",
+  "title": "SES production access (deferred; sandbox for now)",
+  "description": "SES production access was DENIED, so SES is in sandbox and confirmation emails reach only verified recipients (leads are still recorded). Deferred by owner decision on 2026-10-15: no appeal or re-filing until there has been real activity and approved test users, and no further AWS requests without asking the owner. See the comments.\n\nFeature: Marketing intake email\n  Scenario: Confirmation email\n    Given SES production access is granted\n    When a visitor submits the waitlist form\n    Then the confirmation email is delivered to an unverified recipient",
   "type": "story",
-  "status": "open",
-  "priority": 2,
-  "assignee": "rap@endymion.com",
+  "status": "backlog",
+  "priority": 4,
+  "assignee": "",
   "creator": null,
   "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "00cfc15c-e602-4393-8746-0657569b7a51",
+      "author": "home",
+      "text": "Owner decision 2026-10-15: leave SES in the sandbox for now. The first production-access request was filed by the agent without explicit owner approval and was DENIED. It is not to be appealed or re-filed until there has been real activity and approved test users. No further requests to AWS without asking the owner first. While in sandbox, test users can verify their own addresses in SES. This ticket is deferred to backlog, unassigned, and is not owner action required.",
+      "created_at": "2026-10-15T19:30:51.070670Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-15T17:21:42.271371Z",
-  "updated_at": "2026-10-15T17:21:42.271410Z",
+  "updated_at": "2026-10-15T19:31:07.446932Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "sonnet-bookkeeper"
   },
-  "right_now_summary": "SES access was denied, so the owner must appeal before emails can reach unverified recipients.",
-  "right_now_updated_at": "2026-10-15T17:21:44.177956Z",
+  "right_now_summary": "SES remains in the sandbox; confirmation emails go only to verified recipients while access is deferred.",
+  "right_now_updated_at": "2026-10-15T19:31:09.237712Z",
   "custom": {}
 }
