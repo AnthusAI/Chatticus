@@ -3,7 +3,7 @@
   "title": "Model gateway: per-call organization ceiling check",
   "description": "PR 502 added the allow-list, size cap, output clamp, forbidden tools and estimated spend on interruption. Not done: refusing a call when the organization is over its ceiling. The only ceiling is monthlyAwsSpendCeilingUsd (meters AWS spend); the gateway has no organization store or rollup reader. Decide whether model spend gets its own ceiling.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -34,17 +34,29 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "e46ce505-4c15-41e3-8984-bd5ee5468b44",
+      "author": "home",
+      "text": "Done in PR 562 (merged, commit 570ea561): the model gateway enforces a monthly model spend ceiling per organization, default USD 25.00 per org per UTC month, overridable with CHATTICUS_MONTHLY_MODEL_SPEND_CEILING_USD. Over the ceiling returns 403 model_spend_ceiling_reached (no retry); if spend cannot be read it fails closed with 503 model_spend_unavailable. No IAM change. Accuracy is limited to the cost index freshness (docs/COST_ACCOUNTING.md 3.12).",
+      "created_at": "2026-10-15T10:36:16.197058Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-11T17:37:36.754465Z",
-  "updated_at": "2026-10-15T01:46:24.221196Z",
-  "closed_at": null,
+  "updated_at": "2026-10-15T10:36:24.885441Z",
+  "closed_at": "2026-10-15T10:36:24.885399Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "A monthly model spend ceiling was approved, but its amount and gateway data source still need decisions.",
-  "right_now_updated_at": "2026-10-15T01:46:25.198152Z",
+  "right_now_summary": "The gateway now enforces a monthly per-organization model spend ceiling of USD 25 by default.",
+  "right_now_updated_at": "2026-10-15T10:36:26.797559Z",
   "custom": {}
 }

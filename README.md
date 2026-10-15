@@ -70,7 +70,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-14.** Git **`develop`** is ahead of **`main`**.
+**Last updated: 2026-10-15.** Git **`develop`** is ahead of **`main`**.
 
 ### The control plane is TypeScript on `develop`
 
@@ -120,14 +120,31 @@ Pi; they keep the HTTP host protocol and the host worker. See
 **limits**: staging and production do not run this path; the container
 credentials endpoint cannot be blocked on Fargate (mitigated by an empty task
 role, not blocked); credentials and the gateway token last one hour with no
-refresh; the gateway has a model allow-list and request limits but no per-call
-organization spend ceiling; `browse` has no executor on the owner path; and the old
+refresh; the gateway has a model allow-list, request limits and a monthly
+model spend ceiling per organization (see below); `browse` has no executor on the owner path; and the old
 own-account Fargate host task definition and service were removed from the
 Computers stack (PR 518, deployed 2026-10-12).
 
 The development environment is **[develop.chattic.us](https://develop.chattic.us)**
 in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
 deployment; older proofs below that name it ran there.
+
+### Model spend ceiling and clean-exit disk state (development only)
+
+On **development only**, the model gateway refuses a call once an organization
+has spent its monthly model budget: USD 25.00 per organization per UTC month by
+default, overridable with `CHATTICUS_MONTHLY_MODEL_SPEND_CEILING_USD` (PR 562,
+Kanbus chatticus-f34796). Over the ceiling the gateway returns 403
+`model_spend_ceiling_reached` and the caller does not retry. If spend cannot be
+read it fails closed with 503 `model_spend_unavailable`. It is separate from the
+AWS spend ceiling, needs no IAM change, and is only as fresh as the cost index
+(see [Cost accounting](docs/COST_ACCOUNTING.md) section 3.12). The ceiling is not
+yet settable per organization, not shown on the Costs tab, and does not count the
+current turn's unreconciled calls. Also on development, a clean owner exit with
+unchanged content now clears `disk_dirty`: the supervisor reports
+`disk_matches_published` on its stopped report and the Front Door clears the flag
+in the same write (PR 561, Kanbus chatticus-0ccf0b), so the next start no longer
+re-hydrates an identical snapshot. Staging and production do not run this path.
 
 ### Live file view and edit on development (Phase 3, 2026-10-13)
 
