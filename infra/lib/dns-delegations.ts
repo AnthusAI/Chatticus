@@ -32,19 +32,19 @@ export const DELEGATIONS: readonly Delegation[] = [
   {
     name: "staging.chattic.us",
     nameServers: [
-      "ns-1504.awsdns-60.org",
-      "ns-1770.awsdns-29.co.uk",
-      "ns-851.awsdns-42.net",
-      "ns-478.awsdns-59.com",
+      "ns-140.awsdns-17.com",
+      "ns-1188.awsdns-20.org",
+      "ns-667.awsdns-19.net",
+      "ns-1950.awsdns-51.co.uk",
     ],
   },
   {
     name: "auth-staging.chattic.us",
     nameServers: [
-      "ns-1926.awsdns-48.co.uk",
-      "ns-475.awsdns-59.com",
-      "ns-1227.awsdns-25.org",
-      "ns-777.awsdns-33.net",
+      "ns-1711.awsdns-21.co.uk",
+      "ns-686.awsdns-21.net",
+      "ns-1516.awsdns-61.org",
+      "ns-64.awsdns-08.com",
     ],
   },
   {
