@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
-import { MISMATCHED_EXTERNAL_ID, configureCustomerRole } from "../customer-self-setup.ts";
+import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
 import { runMembershipUiHarness } from "../membership-ui-harness.ts";
 import type { ChatticusWorld } from "../world.ts";
+
+const kernel = new OrganizationsKernelImpl();
 
 When("the web SPA submits organization name {string}", async function (this: ChatticusWorld, name: string) {
 	assert.ok(this.webApiBase, "web API base is not wired for this scenario");
@@ -51,39 +53,23 @@ Then("the web SPA does not show the create organization form", function (this: C
 	assert.notEqual(webState(this).view, "create-organization", JSON.stringify(webState(this)));
 });
 
-Then("the web SPA shows the cross-account self-setup form", function (this: ChatticusWorld) {
-	assert.ok(visibleText(this).includes("Submit AWS account and RoleArn"), JSON.stringify(webState(this)));
-});
+Given(
+	"the operator created a pending organization {string} for {string}",
+	async function (this: ChatticusWorld, name: string, email: string) {
+		const store = this.messagingStore();
+		const owner = await kernel.signIn(email, { store, clock: this.clock, ids: this.ids });
+		const organization = await kernel.adminCreateOrganization(owner, name, { store, clock: this.clock, ids: this.ids });
+		assert.equal(organization.status, "pending");
+		this.orgsByName?.set(name, organization);
+	},
+);
 
-When("the web SPA submits cross-account self-setup via HTTP", async function (this: ChatticusWorld) {
-	assert.ok(this.webApiBase, "web API base is not wired for this scenario");
-	const payload: Record<string, string> = { api_base: this.webApiBase };
-	if (this.webIdToken) {
-		payload.id_token = this.webIdToken;
+Then("the web SPA does not ask for an AWS account", function (this: ChatticusWorld) {
+	const text = visibleText(this).toLowerCase();
+	for (const fragment of ["aws", "rolearn", "cloudformation", "cross-account"]) {
+		assert.ok(!text.includes(fragment), JSON.stringify(webState(this)));
 	}
-	await runMembershipUiHarness(this, "submit-cross-account-self-setup", payload);
 });
-
-function createdTenantId(world: ChatticusWorld): string {
-	const organizations = webState(world).me?.organizations ?? [];
-	assert.ok(organizations.length > 0, JSON.stringify(webState(world)));
-	return organizations[0].tenant_id;
-}
-
-When(
-	"the in-memory role inspector trusts the created organization ExternalId with full permissions",
-	function (this: ChatticusWorld) {
-		configureCustomerRole(this, { trustedExternalId: createdTenantId(this) });
-	},
-);
-
-When(
-	"the in-memory role inspector trusts a mismatched ExternalId for the created organization",
-	function (this: ChatticusWorld) {
-		createdTenantId(this);
-		configureCustomerRole(this, { trustedExternalId: MISMATCHED_EXTERNAL_ID });
-	},
-);
 
 Then("the web SPA does not show a queue position", function (this: ChatticusWorld) {
 	const text = visibleText(this).toLowerCase();
@@ -97,10 +83,4 @@ Then("the web SPA does not promise email notification", function (this: Chatticu
 	for (const fragment of ["we will email", "we'll email", "email you when", "notify you by email"]) {
 		assert.ok(!text.includes(fragment), JSON.stringify(webState(this)));
 	}
-});
-
-Then("the web SPA shows a cross-account self-setup error naming the ExternalId mismatch", function (this: ChatticusWorld) {
-	const text = visibleText(this).toLowerCase();
-	assert.ok(text.replaceAll(" ", "").includes("externalid"), JSON.stringify(webState(this)));
-	assert.ok(text.includes("cloudformation"), JSON.stringify(webState(this)));
 });

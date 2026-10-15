@@ -13,51 +13,33 @@ Feature: Organization signup and welcome in the web SPA
     Then the web SPA shows the create organization form
     And the web SPA does not show the invitation-only panel
 
-  Scenario: Creating an organization shows the welcome screen
+  Scenario: Creating an organization opens the workspace without asking for an AWS account
     Given a Cognito-verified HTTP front door with open signup wired to the web SPA
     And the web SPA has a signed-in session for "sam@example.com"
     When the web SPA submits organization name "Acme Labs"
-    Then the web SPA shows the welcome screen
-    And the web SPA shows organization "Acme Labs" with status "pending" and tenant_id present
-    And the web SPA does not show a queue position
-    And the web SPA does not promise email notification
+    Then the web SPA shows the enabled workspace
+    And the web SPA shows organization "Acme Labs" with status "enabled" and tenant_id present
+    And the web SPA does not ask for an AWS account
+    And the web SPA does not show the welcome screen
 
-  Scenario: A pending member sees organization name status and tenant id on the welcome screen
+  Scenario: A member refreshing after creating the organization still sees the enabled workspace
     Given a Cognito-verified HTTP front door with open signup wired to the web SPA
     And the web SPA has a signed-in session for "sam@example.com"
     When the web SPA submits organization name "Acme Labs"
-    And the web SPA refreshes membership from GET /me
-    Then the web SPA shows the welcome screen
-    And the web SPA shows organization "Acme Labs" with status "pending" and tenant_id present
-
-  Scenario: A pending owner sees the cross-account self-setup form on the welcome screen
-    Given a Cognito-verified HTTP front door with open signup wired to the web SPA
-    And the customer self-setup HTTP front door is wired with an in-memory role inspector
-    And the web SPA has a signed-in session for "sam@example.com"
-    When the web SPA submits organization name "Acme Labs"
-    Then the web SPA shows the welcome screen
-    And the web SPA shows the cross-account self-setup form
-
-  Scenario: A pending owner submits RoleArn and reaches the enabled workspace
-    Given a Cognito-verified HTTP front door with open signup wired to the web SPA
-    And the customer self-setup HTTP front door is wired with an in-memory role inspector
-    And the web SPA has a signed-in session for "sam@example.com"
-    When the web SPA submits organization name "Acme Labs"
-    And the in-memory role inspector trusts the created organization ExternalId with full permissions
-    And the web SPA submits cross-account self-setup via HTTP
     And the web SPA refreshes membership from GET /me
     Then the web SPA shows the enabled workspace
     And the web SPA shows organization "Acme Labs" with status "enabled" and tenant_id present
 
-  Scenario: A failed self-setup submission shows the kernel message on the welcome screen
+  Scenario: An organization an operator has not yet enabled shows the welcome screen without an AWS form
     Given a Cognito-verified HTTP front door with open signup wired to the web SPA
-    And the customer self-setup HTTP front door is wired with an in-memory role inspector
     And the web SPA has a signed-in session for "sam@example.com"
-    When the web SPA submits organization name "Acme Labs"
-    And the in-memory role inspector trusts a mismatched ExternalId for the created organization
-    And the web SPA submits cross-account self-setup via HTTP
+    And the operator created a pending organization "Acme Labs" for "sam@example.com"
+    When the web SPA refreshes membership from GET /me
     Then the web SPA shows the welcome screen
-    And the web SPA shows a cross-account self-setup error naming the ExternalId mismatch
+    And the web SPA shows organization "Acme Labs" with status "pending" and tenant_id present
+    And the web SPA does not ask for an AWS account
+    And the web SPA does not show a queue position
+    And the web SPA does not promise email notification
 
   Scenario: Invitation-only deployment shows invite messaging without a create form
     Given the web SPA membership module with signup mode "invitation_only"

@@ -64,7 +64,7 @@ ceiling are resolved server side, per request, from DynamoDB.
 One human is one account. Their data is organization-partitioned, which
 the existing keys already express.
 
-## Enablement and the waitlist
+## Enablement and hosting
 
 Whether a signed-in person may **create** an organization is a **deployment
 switch**, not a global product law. Each deployment sets
@@ -72,33 +72,42 @@ switch**, not a global product law. Each deployment sets
 
 | Deployment | Signup mode | Product behavior |
 | --- | --- | --- |
-| Anthus (`development`, `staging`, `production`) | `open` | Google sign-in is the waitlist form; `POST /organizations` creates a pending org |
+| Anthus (`development`, `staging`, `production`) | `open` | `POST /organizations` creates an enabled, Anthus-managed org |
 | Customer deployment | `invitation_only` | Sign-in only; creation is refused until an invitation exists |
 
 The web SPA reads the matching build-time flag
 `NEXT_PUBLIC_CHATTICUS_SIGNUP_MODE`. The HTTP front door enforces the server
 value even when the web flag is wrong.
 
-On an open-signup deployment, anyone may sign in and create an organization.
-Creating one lands it `pending`. The owner runs the published cross-account
-CloudFormation template in their AWS account, then submits the AWS account id
-and RoleArn at `POST /orgs/{tenant_id}/self-setup/cross-account-role`. A live
-inspector validates ExternalId and required permissions; acceptance enables the
-organization and records AWS home. Operator `enable` (and the members CLI
-`enable`, and `reinstate`) is the other way in: an organization enabled with no
-AWS home and no chosen setup path becomes Anthus-managed, so its AWS home is set
-to the deployment account and its setup path to `anthus-managed`, the same values
-`seed` records. An organization that already chose a setup path is never changed.
-Enabling is per **organization**, not per person: the owner then invites their
-own people, and invited members of an enabled organization never see the pending
-welcome screen.
+On an open-signup deployment, anyone may sign in and create one organization.
+Creating it enables it at once and homes it in the deployment account as
+Anthus-managed (`aws_setup_path` `anthus-managed`, `aws_account_id` the
+deployment account): its bots and its computer run where the deployment runs,
+and nothing asks for an AWS account. The first screen after creation is the
+workspace.
+
+Connecting a customer-owned AWS account is a separate, optional path and never
+a precondition for using Chatticus. It is not in the product onboarding. The
+API remains: the owner of a `pending` organization runs the published
+cross-account CloudFormation template, then submits the AWS account id and
+RoleArn at `POST /orgs/{tenant_id}/self-setup/cross-account-role`; a live
+inspector validates ExternalId and required permissions, and acceptance enables
+the organization with that AWS home. A `pending` organization is one an operator
+created with the members CLI without enabling it. Operator `enable` (and the
+members CLI `enable`, and `reinstate`) on an organization with no AWS home and
+no chosen setup path makes it Anthus-managed the same way creation does. An
+organization that already chose a setup path is never changed. Enabling is per
+**organization**, not per person: the owner then invites their own people.
 
 The alternative was enabling individuals, which makes Chatticus the
 gatekeeper for every employee of every customer forever, and builds the
 organization boundary twice because billing needs it anyway.
 
-Enabling an organization approves one organization computer's worth of
-recurring spend. That is the cost gate, and it is why the waitlist exists.
+An enabled organization can run one organization computer, which is recurring
+spend in the deployment account. On an open-signup deployment the gates on that
+spend are the one-organization-per-person cap, the creation rate limit and the
+monthly AWS spend ceiling an operator or owner sets; an operator can suspend an
+organization. A deployment that wants a waitlist again runs `invitation_only`.
 
 A waitlisted principal costs one DynamoDB read per request. Routing is
 **default deny**: a route serves an enabled member unless it is

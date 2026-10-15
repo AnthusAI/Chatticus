@@ -42,7 +42,7 @@ Feature: Create a named bot from the enabled workspace
   Scenario: A pending member does not see the create bot form
     Given a Cognito-verified HTTP front door with open signup wired to the web SPA
     And the web SPA has a signed-in session for "sam@example.com"
-    When the web SPA submits organization name "Acme Labs"
-    And the web SPA renders the membership shell
+    And the operator created a pending organization "Acme Labs" for "sam@example.com"
+    When the web SPA refreshes membership from GET /me
     Then the web SPA shows the welcome screen
     And the web SPA does not show the create bot form
