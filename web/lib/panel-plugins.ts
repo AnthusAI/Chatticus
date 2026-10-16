@@ -4,6 +4,8 @@
  * workspace; plugins from other products are registered the same way when the external loader lands.
  */
 
+import { WORKSPACE_COLUMN_WIDTH_CSS_VARIABLES } from "./workspace-column-widths";
+
 /** How much of the workspace the panel takes. */
 export type PanelSize = "split" | "full";
 
@@ -50,8 +52,25 @@ export function panelSizeForPlugin(pluginId: CorePanelPluginId, requestedSize: P
   return plugin?.supportedSizes.includes(requestedSize) ? requestedSize : "split";
 }
 
-/** The workspace shell's layout class for the panel's state. */
-export function workspaceShellLayoutClassName(panel: { collapsed: boolean; size: PanelSize }): string {
-  if (panel.collapsed) return "workspace-shell workspace-shell--panel-collapsed";
-  return panel.size === "full" ? "workspace-shell workspace-shell--panel-full" : "workspace-shell";
+/** The workspace shell's layout class for the panel's state and which columns carry a user-chosen width. */
+export function workspaceShellLayoutClassName(panel: {
+  collapsed: boolean;
+  size: PanelSize;
+  rosterResized?: boolean;
+  panelResized?: boolean;
+}): string {
+  const classNames = ["workspace-shell"];
+  if (panel.collapsed) classNames.push("workspace-shell--panel-collapsed");
+  else if (panel.size === "full") classNames.push("workspace-shell--panel-full");
+  if (panel.rosterResized) classNames.push("workspace-shell--roster-resized");
+  if (panel.panelResized) classNames.push("workspace-shell--panel-resized");
+  return classNames.join(" ");
+}
+
+/** The CSS variables that carry the user-chosen roster and panel widths into the shell's grid. */
+export function workspaceColumnWidthStyle(widths: { rosterWidthPixels: number | null; panelWidthPixels: number | null }): Record<string, string> {
+  const style: Record<string, string> = {};
+  if (widths.rosterWidthPixels !== null) style[WORKSPACE_COLUMN_WIDTH_CSS_VARIABLES.roster] = `${widths.rosterWidthPixels}px`;
+  if (widths.panelWidthPixels !== null) style[WORKSPACE_COLUMN_WIDTH_CSS_VARIABLES.panel] = `${widths.panelWidthPixels}px`;
+  return style;
 }

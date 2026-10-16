@@ -23,6 +23,8 @@ import { TurnGrantPanel } from "./TurnGrantPanel";
 import { ComputerFilesPanel } from "./workspace/ComputerFilesPanel";
 import { ChannelCostChip, MessageCostContext, type MessageCostContextValue } from "./workspace/CostMarkers";
 import { CostsPanel } from "./workspace/CostsPanel";
+import { WorkspaceColumnResizeHandle, useResizableWorkspaceColumnWidth } from "./workspace/WorkspaceColumnResizeHandle";
+import { useWorkspaceViewportHeight } from "./useWorkspaceViewportHeight";
 import { PanelPluginTabs, PanelSizeSwitch, panelPluginPanelDomId, panelPluginTabDomId, type PanelHostPlacement } from "./workspace/PanelPluginTabs";
 import { useVoiceControl, type VoiceControl } from "./useVoiceControl";
 import {
@@ -88,7 +90,7 @@ import {
 import { createVoiceLineDelivery } from "../lib/voice-line-delivery";
 import type { RetainedTurnActivity } from "../lib/committed-activity";
 import { reduceTurnActivity } from "../lib/turn-activity";
-import { panelSizeForPlugin, workspaceShellLayoutClassName, CORE_PANEL_PLUGINS, type CorePanelPluginId, type PanelSize } from "../lib/panel-plugins";
+import { panelSizeForPlugin, workspaceColumnWidthStyle, workspaceShellLayoutClassName, CORE_PANEL_PLUGINS, type CorePanelPluginId, type PanelSize } from "../lib/panel-plugins";
 import { touchedFilesFromActivity } from "../lib/touched-files";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
@@ -172,6 +174,11 @@ export function EnabledWorkspace({
   const [rosterOpen, setRosterOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  useWorkspaceViewportHeight();
+  const [rosterWidthPixels, setRosterWidthPixels] = useResizableWorkspaceColumnWidth("roster");
+  const [panelWidthPixels, setPanelWidthPixels] = useResizableWorkspaceColumnWidth("panel");
+  const rosterColumnRef = useRef<HTMLDivElement>(null);
+  const panelColumnRef = useRef<HTMLDivElement>(null);
   const [inspectorTab, setInspectorTab] = useState<CorePanelPluginId>("context");
   const [panelSize, setPanelSize] = useState<PanelSize>("split");
   const [filesTabVisited, setFilesTabVisited] = useState(false);
@@ -976,8 +983,20 @@ export function EnabledWorkspace({
   const panelFillsWorkspace = !inspectorCollapsed && panelSize === "full";
 
   return (
-    <main id="main-content" className={`${workspaceShellLayoutClassName({ collapsed: inspectorCollapsed, size: panelSize })} h-[100dvh] min-h-0 bg-surface text-surface-foreground`}>
-      <div className="workspace-roster hidden min-h-0 md:block">{rosterPane}</div>
+    <main
+      id="main-content"
+      className={`${workspaceShellLayoutClassName({ collapsed: inspectorCollapsed, size: panelSize, rosterResized: rosterWidthPixels !== null, panelResized: panelWidthPixels !== null })} min-h-0 bg-surface text-surface-foreground`}
+      style={workspaceColumnWidthStyle({ rosterWidthPixels, panelWidthPixels })}
+    >
+      <div ref={rosterColumnRef} className="workspace-roster hidden min-h-0 md:block">
+        {rosterPane}
+        <WorkspaceColumnResizeHandle
+          column="roster"
+          label="Resize sidebar"
+          measureRenderedColumnWidthPixels={() => rosterColumnRef.current?.getBoundingClientRect().width ?? 0}
+          onWidthChange={setRosterWidthPixels}
+        />
+      </div>
       <section className="flex min-h-0 min-w-0 flex-col bg-surface" aria-label="Conversation">
         <header className="flex min-h-16 items-center gap-2 px-3 py-2 sm:px-5">
           <Button variant="ghost" size="icon" className={panelFillsWorkspace ? "md:hidden xl:inline-flex" : "md:hidden"} aria-label={ICON_ONLY_CONTROL_NAMES.openRoster} onClick={() => setRosterOpen(true)}><Menu size={19} aria-hidden="true" /></Button>
@@ -1069,7 +1088,17 @@ export function EnabledWorkspace({
           </MessageCostContext.Provider>
         )}
       </section>
-      {!inspectorCollapsed ? <div className="workspace-panel hidden min-h-0 xl:block">{renderPanelHost("docked")}</div> : null}
+      {!inspectorCollapsed ? (
+        <div ref={panelColumnRef} className="workspace-panel hidden min-h-0 xl:block">
+          <WorkspaceColumnResizeHandle
+            column="panel"
+            label="Resize panel"
+            measureRenderedColumnWidthPixels={() => panelColumnRef.current?.getBoundingClientRect().width ?? 0}
+            onWidthChange={setPanelWidthPixels}
+          />
+          {renderPanelHost("docked")}
+        </div>
+      ) : null}
 
       <div className="md:hidden">
         <Sheet open={rosterOpen} onOpenChange={setRosterOpen} title={ROSTER_SHEET_TITLE} side="left">

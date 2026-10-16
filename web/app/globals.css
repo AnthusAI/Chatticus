@@ -12,22 +12,29 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
+  height: 100dvh;
+  height: var(--workspace-viewport-height, 100dvh);
   overflow: hidden;
+}
+
+.workspace-roster,
+.workspace-panel {
+  position: relative;
 }
 
 @media (min-width: 768px) {
   .workspace-shell {
-    grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr);
+    grid-template-columns: var(--workspace-roster-column) minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1280px) {
   .workspace-shell {
-    grid-template-columns: minmax(16rem, 19rem) minmax(26rem, 1fr) minmax(24rem, 1.15fr);
+    grid-template-columns: var(--workspace-roster-column) minmax(26rem, 1fr) var(--workspace-panel-column);
   }
 
   .workspace-shell--panel-collapsed {
-    grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr);
+    grid-template-columns: var(--workspace-roster-column) minmax(0, 1fr);
   }
 
   .workspace-shell--panel-full {
@@ -37,6 +44,51 @@
   .workspace-shell--panel-full .workspace-roster {
     display: none;
   }
+
+  .workspace-shell--panel-full .workspace-column-resize-handle--panel {
+    display: none;
+  }
+}
+
+/* A user-chosen width is the column's maximum, so the conversation keeps its minimum when the window narrows. */
+.workspace-shell {
+  --workspace-roster-column: minmax(16rem, 19rem);
+  --workspace-panel-column: minmax(24rem, 1.15fr);
+}
+
+.workspace-shell--roster-resized {
+  --workspace-roster-column: minmax(13rem, var(--workspace-roster-width));
+}
+
+.workspace-shell--panel-resized {
+  --workspace-panel-column: minmax(20rem, var(--workspace-panel-width));
+}
+
+.workspace-column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 0.5rem;
+  border-radius: 9999px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.workspace-column-resize-handle--roster {
+  right: -0.5rem;
+}
+
+.workspace-column-resize-handle--panel {
+  left: -0.5rem;
+}
+
+.workspace-column-resize-handle:hover,
+.workspace-column-resize-handle:focus-visible,
+.workspace-column-resize-handle[data-dragging="true"] {
+  background: var(--surface-2);
 }
 
 @layer components {
