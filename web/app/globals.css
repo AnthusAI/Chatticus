@@ -31,7 +31,7 @@
   }
 
   .workspace-shell--panel-full {
-    grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
+    grid-template-columns: minmax(22rem, 26rem) minmax(0, 1fr);
   }
 
   .workspace-shell--panel-full .workspace-roster {

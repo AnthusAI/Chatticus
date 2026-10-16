@@ -156,8 +156,9 @@ describe("FileViewer", () => {
 
 describe("PanelPluginTabs", () => {
   it("is a tablist with the selected tab focusable", () => {
-    const html = renderToStaticMarkup(createElement(tabs.PanelPluginTabs, { selected: "files", onSelect: noop }));
+    const html = renderToStaticMarkup(createElement(tabs.PanelPluginTabs, { placement: "docked", selected: "files", onSelect: noop }));
     assert.match(html, /role="tablist"/);
+    assert.match(html, /id="panel-plugin-docked-tab-files"[^>]*aria-controls="panel-plugin-docked-panel-files"/);
     assert.match(html, /role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"[^>]*>Files/);
     assert.match(html, /aria-selected="false"[^>]*tabindex="-1"[^>]*>Context/);
   });
