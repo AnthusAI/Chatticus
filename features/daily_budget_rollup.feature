@@ -97,6 +97,55 @@ Feature: Daily budget rollup
     Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has null aws_cost_usd
     And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "pending"
 
+  Scenario: A customer account that could not be read earlier in the month is read again
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account cannot be read
+    When the daily budget rollup runs for 2026-08-30
+    And its own account can be read again
+    And its own account spent 4.00 USD on 2026-08-30
+    And the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-30 has aws_cost_usd 4.00
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-30 has ce_status "ok"
+
+  Scenario: A customer account day that was still loading is read again
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account has no data for 2026-08-30
+    When the daily budget rollup runs for 2026-08-30
+    And its own account spent 4.00 USD on 2026-08-30
+    And the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-30 has ce_status "ok"
+
+  Scenario: A day from the previous month is not read again
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account cannot be read
+    When the daily budget rollup runs for 2026-07-31
+    And its own account can be read again
+    And the daily budget rollup runs for 2026-08-01
+    Then the budget rollup for tenant "acme" environment "development" on 2026-07-31 has ce_status "error"
+
+  Scenario: A platform-hosted day that could not be read is not rewritten as measured
+    Given the runtime records of the computer of tenant "anthus" are unreadable
+    When the daily budget rollup runs for 2026-08-30
+    And the runtime records of the computer of tenant "anthus" are readable again
+    And the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-30 has ce_status "error"
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
+
+  Scenario: An organization whose spend could not be read is reported on the budgets topic
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account cannot be read
+    When the daily budget rollup runs for 2026-08-31
+    Then exactly 1 unreadable spend alert was published
+    And the unreadable spend alert names tenant "acme" on 2026-08-31
+    And the unreadable spend alert does not name tenant "anthus"
+    And no budget threshold alert was published
+
+  Scenario: A customer account day that is still loading is not reported as unreadable
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account has no data for 2026-08-31
+    When the daily budget rollup runs for 2026-08-31
+    Then no unreadable spend alert was published
+
   Scenario: One unreadable customer account does not stop other organizations
     Given the computer of tenant "anthus" ran for 2 hours on 2026-08-31
     And organization "Acme" with tenant "acme" runs in its own AWS account

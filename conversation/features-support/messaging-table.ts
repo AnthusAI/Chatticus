@@ -167,6 +167,15 @@ export class ScenarioMessagingTable {
 		);
 	}
 
+	async deleteUnreadableComputerRuntimeSegment(tenantId: string): Promise<void> {
+		await this.client.send(
+			new DeleteItemCommand({
+				TableName: this.tableName,
+				Key: { pk: { S: `${tenantId}#computer_runtime` }, sk: { S: "generation#0000000001" } },
+			}),
+		);
+	}
+
 	async deleteVendorLedgerRow(tenantId: string, turnId: string): Promise<void> {
 		const key = vendorLedgerKey(tenantId, turnId);
 		await this.client.send(

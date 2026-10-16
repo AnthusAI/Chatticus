@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Given, Then } from "@cucumber/cucumber";
+import { Given, Then, When } from "@cucumber/cucumber";
 import { addDays, utcDayOf } from "../../src/budget/calendar.ts";
 import { Decimal } from "../../src/budget/decimal.ts";
 import { setMonthlyAwsSpendCeiling } from "../../src/domain/organization-spend.ts";
@@ -58,6 +58,13 @@ Given(
 	"the runtime records of the computer of tenant {string} are unreadable",
 	async function (this: ChatticusWorld, tenantId: string) {
 		await this.messagingTable.putUnreadableComputerRuntimeSegment(tenantId);
+	},
+);
+
+When(
+	"the runtime records of the computer of tenant {string} are readable again",
+	async function (this: ChatticusWorld, tenantId: string) {
+		await this.messagingTable.deleteUnreadableComputerRuntimeSegment(tenantId);
 	},
 );
 

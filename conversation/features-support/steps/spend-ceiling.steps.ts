@@ -14,6 +14,7 @@ import {
 	DEFAULT_CEILING_USD,
 	MEMBER_EMAIL,
 	OWNER_EMAIL,
+	moveOrganizationIntoItsOwnAwsAccount,
 	provisionEnabledOrganizationWithCeiling,
 	recordMeterToday,
 	spendScenario,
@@ -71,6 +72,14 @@ function meOrganization(world: ChatticusWorld): Record<string, any> {
 Given("an enabled organization with a monthly spend ceiling", async function (this: ChatticusWorld) {
 	await provisionEnabledOrganizationWithCeiling(this);
 });
+
+Given(
+	"an enabled organization in its own AWS account with a monthly spend ceiling",
+	async function (this: ChatticusWorld) {
+		await provisionEnabledOrganizationWithCeiling(this);
+		await moveOrganizationIntoItsOwnAwsAccount(this);
+	},
+);
 
 Given(
 	"an enabled organization whose month-to-date spend has passed its ceiling",

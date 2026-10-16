@@ -61,6 +61,14 @@ export interface Organization {
 	readonly awsExternalId: string | null;
 }
 
+/**
+ * Whether an organization runs in its own AWS account, reached through its cross-account role, rather than being hosted
+ * in the deployment account.
+ */
+export function organizationRunsInItsOwnAwsAccount(organization: { readonly awsCrossAccountRole: string | null }): boolean {
+	return organization.awsCrossAccountRole !== null && organization.awsCrossAccountRole !== "";
+}
+
 /** The slice of the Python-owned vendor ledger item the rollup reads. */
 export interface VendorLedgerRow {
 	readonly tenantId: string;

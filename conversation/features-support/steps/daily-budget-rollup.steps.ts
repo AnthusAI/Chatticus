@@ -77,6 +77,10 @@ Given("its own account has no data for {word}", function (this: ChatticusWorld, 
 	this.accountSpend.setDayPending(customerAccountId(this), day);
 });
 
+When("its own account can be read again", function (this: ChatticusWorld) {
+	this.accountSpend.restoreAccount(customerAccountId(this));
+});
+
 async function clearVendorSpendForDay(world: ChatticusWorld, tenantId: string, day: string): Promise<void> {
 	for (const row of await world.store.listVendorLedgerRowsForTenant(tenantId)) {
 		if (dayWrittenIn(row.recordedAt) === day) {
@@ -310,6 +314,34 @@ Then("exactly {int} budget threshold alerts were published", function (this: Cha
 
 Then("no budget threshold alert was published", function (this: ChatticusWorld) {
 	assert.equal(this.budgetAlerts.published.length, 0);
+});
+
+Then("exactly {int} unreadable spend alert was published", function (this: ChatticusWorld, count: number) {
+	assert.equal(this.budgetAlerts.unreadableSpendPublished.length, count);
+});
+
+Then("no unreadable spend alert was published", function (this: ChatticusWorld) {
+	assert.equal(this.budgetAlerts.unreadableSpendPublished.length, 0);
+});
+
+function lastUnreadableSpendAlertDays(world: ChatticusWorld): ReadonlyArray<{ tenant_id: string; rollup_date: string }> {
+	const payload = world.budgetAlerts.unreadableSpendPublished.at(-1);
+	assert.ok(payload !== undefined, "no unreadable spend alert was published");
+	assert.equal(payload.source, ROLLUP_ALERT_SOURCE);
+	return payload.unreadable_days;
+}
+
+Then(
+	"the unreadable spend alert names tenant {string} on {word}",
+	function (this: ChatticusWorld, tenantId: string, day: string) {
+		const days = lastUnreadableSpendAlertDays(this);
+		assert.ok(days.some((entry) => entry.tenant_id === tenantId && entry.rollup_date === day), JSON.stringify(days));
+	},
+);
+
+Then("the unreadable spend alert does not name tenant {string}", function (this: ChatticusWorld, tenantId: string) {
+	const days = lastUnreadableSpendAlertDays(this);
+	assert.ok(!days.some((entry) => entry.tenant_id === tenantId), JSON.stringify(days));
 });
 
 Then("the budget threshold alert has threshold_percent {int}", function (this: ChatticusWorld, percent: number) {

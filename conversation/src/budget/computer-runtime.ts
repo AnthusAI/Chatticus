@@ -11,6 +11,12 @@ import type { ComputerRuntimeSegment } from "./models.ts";
  */
 export const COMPUTER_TASK_USD_PER_HOUR = Decimal.parse("0.009875");
 
+/**
+ * The most the organization computer task can cost in one UTC day: running the whole day. A day whose runtime could not be
+ * read is counted at this figure, because the computer cannot have cost more.
+ */
+export const MOST_A_HOSTED_COMPUTER_COSTS_IN_ONE_DAY_USD = COMPUTER_TASK_USD_PER_HOUR.multiplyByInteger(24);
+
 /** Fargate bills a task for at least one minute. */
 export const MINIMUM_BILLED_SECONDS = 60;
 
