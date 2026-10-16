@@ -299,6 +299,11 @@ Then("message {int} shows the cost marker {string}", async function (this: Chatt
 	assert.ok(element.text.includes(text), `Message ${seq} shows "${element.text}", not "${text}".`);
 });
 
+Then("message {int} does not show the cost marker {string}", async function (this: ChatticusWorld, seq: number, text: string) {
+	const element = messageElement(await processOf(this).state(), seq);
+	assert.ok(!element.text.includes(text), `Message ${seq} shows "${element.text}".`);
+});
+
 Then("message {int} shows no cost marker", async function (this: ChatticusWorld, seq: number) {
 	const element = messageElement(await processOf(this).state(), seq);
 	assert.equal(element.text, "", `Message ${seq} shows "${element.text}".`);
