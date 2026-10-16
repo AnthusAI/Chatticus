@@ -36,7 +36,7 @@ const ChatticusUserMessage: FC = () => {
       className="flex justify-end px-1"
       data-role="user"
     >
-      <div className="max-w-[86%] rounded-3xl rounded-br-lg bg-surface-high px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
+      <div className="max-w-[86%] rounded-3xl rounded-br-lg bg-surface-raised px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
         <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
         {createdAt ? (
           <time className="mt-1 block font-mono text-[0.58rem] text-surface-foreground/40">
@@ -58,7 +58,7 @@ const ChatticusFailedReply: FC<{ authorBotName?: string }> = ({ authorBotName })
     <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant" data-failed="true">
       <article
         role="status"
-        className="w-full max-w-3xl rounded-2xl bg-clay/10 px-4 py-3 text-sm leading-6"
+        className="w-full max-w-3xl rounded-2xl bg-surface-raised px-4 py-3 text-sm leading-6"
       >
         {authorBotName ? <p className="mb-1 text-xs font-bold">{authorBotName}</p> : null}
         <p className="flex items-start gap-2 text-clay">

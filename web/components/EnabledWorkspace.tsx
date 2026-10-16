@@ -968,16 +968,22 @@ export function EnabledWorkspace({
     </aside>
   );
 
+  const panelFillsWorkspace = !inspectorCollapsed && panelSize === "full";
+  const desktopPanelHost = !inspectorCollapsed && !inspectorOpen
+    ? <div className="workspace-panel hidden min-h-0 xl:block">{inspectorPane}</div>
+    : null;
+
   return (
     <main id="main-content" className={`${workspaceShellLayoutClassName({ collapsed: inspectorCollapsed, size: panelSize })} h-[100dvh] min-h-0 bg-surface text-surface-foreground`}>
       <div className="workspace-roster hidden min-h-0 md:block">{rosterPane}</div>
+      {panelFillsWorkspace ? desktopPanelHost : null}
       <section className="flex min-h-0 min-w-0 flex-col bg-surface" aria-label="Conversation">
         <header className="flex min-h-16 items-center gap-2 px-3 py-2 sm:px-5">
-          <Button variant="ghost" size="icon" className="md:hidden" aria-label={ICON_ONLY_CONTROL_NAMES.openRoster} onClick={() => setRosterOpen(true)}><Menu size={19} aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon" className={panelFillsWorkspace ? "md:hidden xl:inline-flex" : "md:hidden"} aria-label={ICON_ONLY_CONTROL_NAMES.openRoster} onClick={() => setRosterOpen(true)}><Menu size={19} aria-hidden="true" /></Button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-extrabold">{selectedItem?.label ?? "Conversations"}</h1>
             {selectedItem ? <p className="truncate font-mono text-[0.62rem] text-surface-foreground/45">{selectedItem.kind === "channel" ? `${selectedItem.bots.length} bot channel` : "Direct conversation"}</p> : null}
-            {visibleTurnState ? <p className="mt-0.5 inline-flex rounded-full bg-surface-high px-2 py-0.5 font-mono text-[0.62rem] text-surface-foreground/70" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
+            {visibleTurnState ? <p className="mt-0.5 inline-flex rounded-full bg-surface-raised px-2 py-0.5 font-mono text-[0.62rem] text-surface-foreground/70" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
           </div>
           <ChannelCostChip
             phase={costsSnapshot.channel}
@@ -1062,7 +1068,7 @@ export function EnabledWorkspace({
           </MessageCostContext.Provider>
         )}
       </section>
-      {!inspectorCollapsed ? <div className="workspace-panel hidden min-h-0 xl:block">{inspectorPane}</div> : null}
+      {!panelFillsWorkspace ? desktopPanelHost : null}
 
       <div className="md:hidden">
         <Sheet open={rosterOpen} onOpenChange={setRosterOpen} title={ROSTER_SHEET_TITLE} side="left">

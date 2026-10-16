@@ -38,7 +38,7 @@ export const PanelPluginTabs: FC<{
             aria-controls={panelPluginPanelDomId(plugin.id)}
             tabIndex={isSelected ? 0 : -1}
             onClick={() => onSelect(plugin.id)}
-            className={`min-h-10 rounded-full px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt ${
+            className={`min-h-11 rounded-full px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt ${
               isSelected ? "bg-surface" : "hover:bg-surface/60"
             }`}
           >
@@ -55,15 +55,15 @@ export const PanelSizeSwitch: FC<{
   size: "split" | "full";
   onChange: (size: "split" | "full") => void;
 }> = ({ size, onChange }) => (
-  <div role="group" aria-label="Panel size" className="flex shrink-0 gap-0.5 rounded-full bg-surface-high p-0.5">
+  <div role="group" aria-label="Panel size" className="flex shrink-0 gap-0.5 rounded-full p-0.5">
     {(["split", "full"] as const).map((option) => (
       <button
         key={option}
         type="button"
         aria-pressed={size === option}
         onClick={() => onChange(option)}
-        className={`min-h-9 rounded-full px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt ${
-          size === option ? "bg-surface" : ""
+        className={`min-h-11 rounded-full px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt ${
+          size === option ? "bg-surface" : "hover:bg-surface/60"
         }`}
       >
         {option === "split" ? "Split" : "Full"}

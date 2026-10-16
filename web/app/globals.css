@@ -37,10 +37,6 @@
   .workspace-shell--panel-full .workspace-roster {
     display: none;
   }
-
-  .workspace-shell--panel-full .workspace-panel {
-    order: -1;
-  }
 }
 
 @layer components {

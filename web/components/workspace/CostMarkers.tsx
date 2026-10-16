@@ -26,7 +26,7 @@ export const ChannelCostChip: FC<{
       onClick={onOpen}
       data-testid="channel-cost-chip"
       aria-label={`Conversation cost ${figure.text}${figure.incompleteLabel ? `, ${figure.incompleteLabel}` : ""}, ${usage}. Open the Costs tab`}
-      className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full bg-surface-raised px-3 font-mono text-[0.68rem] hover:bg-surface-high ${FOCUS}`}
+      className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-surface-raised px-3 font-mono text-[0.68rem] hover:bg-surface-high ${FOCUS}`}
     >
       <CircleDollarSign size={14} aria-hidden="true" />
       <span className="font-semibold">{figure.text}</span>
