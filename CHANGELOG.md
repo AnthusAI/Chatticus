@@ -1,3 +1,13 @@
+## [0.48.0](https://github.com/AnthusAI/Chatticus/compare/v0.47.0...v0.48.0) (2026-10-16)
+
+### Features
+
+* **web:** flat workspace with a panel plugin host and per-reply usage (chatticus-29602c) ([#587](https://github.com/AnthusAI/Chatticus/issues/587)) ([70679de](https://github.com/AnthusAI/Chatticus/commit/70679dea3bad932293860bc12b17f0ae3350297a))
+
+### Bug Fixes
+
+* an unreadable spend day no longer pauses a hosted organization's computer for the month (chatticus-9ac621) ([#588](https://github.com/AnthusAI/Chatticus/issues/588)) ([b96ae20](https://github.com/AnthusAI/Chatticus/commit/b96ae20404cc4ad2e667b96a125ee33b5313ec45))
+
 ## [0.47.0](https://github.com/AnthusAI/Chatticus/compare/v0.46.0...v0.47.0) (2026-10-16)
 
 ### Features
