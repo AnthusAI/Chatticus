@@ -3,17 +3,32 @@
   "title": "Flat workspace shell with a panel plugin host and per-reply usage",
   "description": "The inspector becomes a panel plugin host with Context, Files and Costs plugins and a Split / Full size switch; full size docks the conversation beside the panel. Agent replies read as full-width turns, user messages as bubbles, the run state as a pill. Each reply's cost marker shows the model and its tokens; the conversation header shows turns, tokens and cache share beside the session cost.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "1cbb19d7-3367-4c5d-9448-b4bcec14b000",
+      "author": "unknown",
+      "text": "Landed on develop in #587 (70679de). Panel plugin host with Context, Files and Costs; Split and Full sizes (Full docks the conversation on the left); full-width agent turns; per-reply model and token usage; session turns, tokens and cache share in the header. Follow-up noted in review: below 1280px the hidden docked panel stays mounted while the sheet is open, so Files and Costs can fetch twice (pre-existing).",
+      "created_at": "2026-10-16T14:04:53.777035Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude",
+        "name": "Claude (project thread for Ryan)",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-10-16T13:14:45.584656Z",
-  "updated_at": "2026-10-16T13:15:28.353758Z",
-  "closed_at": null,
+  "updated_at": "2026-10-16T14:05:06.648790Z",
+  "closed_at": "2026-10-16T14:05:06.648517Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
