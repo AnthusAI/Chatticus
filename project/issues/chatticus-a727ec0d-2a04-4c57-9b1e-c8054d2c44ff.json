@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript control plane is live in development; promotion and final voice cleanup remain.",
-  "right_now_updated_at": "2026-10-15T10:36:28.707534Z",
+  "right_now_summary": "The TypeScript control plane is deployed in development; staging, production, and final voice cleanup remain.",
+  "right_now_updated_at": "2026-10-16T10:44:10.854595Z",
   "custom": {}
 }

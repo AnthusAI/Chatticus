@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "triage-agent"
       }
+    },
+    {
+      "id": "314a4ff8-c48d-42eb-87a1-01f130e2e6f4",
+      "author": "home",
+      "text": "Investigation 2026-10-16. Owner-only (OpenAI dashboard, account owner): usage limits, billing alerts and auto-recharge are set in the OpenAI dashboard; agents cannot set them. Do this first: enable auto-recharge and a billing/usage email alert there. Code-side already present: the model gateway enforces a monthly model spend ceiling (default 25.00 USD, env CHATTICUS_MONTHLY_MODEL_SPEND_CEILING_USD, conversation/src/ledger/model-spend.ts) from the cost index. That protects our budget but does not tell us the OpenAI balance is low; our ledger knows spend, not the vendor credit balance. Key parameters (SSM, names only): /chatticus/development/thin-turn/openai-api-key (modified 2026-10-01, development account); /chatticus/staging/thin-turn/openai-api-key (modified 2026-10-15) and /chatticus/production/thin-turn/openai-api-key (modified 2026-10-11), both visible in the production-profile account. Whether the three hold distinct keys cannot be determined without reading values, which was not done; owner to confirm in the OpenAI dashboard (API keys list, last-used) that each environment has its own key or project. PROPOSAL (not implemented), smallest design: a scheduled Lambda (EventBridge daily, existing rollup pattern) reads the month-to-date and trailing-24h priced model spend per environment via DynamoModelSpendReader/readCostRows, publishes custom CloudWatch metrics ModelSpendUsd24h and ModelSpendMonthToDateUsd, and a CloudWatch alarm on each (thresholds from CDK props, e.g. 24h > 10 USD, month > 80 percent of the model ceiling) notifies the existing SNS alert topic used by the AWS spend alarm. Add a second alarm on the gateway provider_failed log metric filter for insufficient_quota (HTTP 429) so a drained account pages immediately instead of waiting for the daily check. Gherkin first in features/, then CDK in infra/. Caveat: this alerts on our spend rate and on the failure itself, not on remaining OpenAI credit.",
+      "created_at": "2026-10-16T10:44:05.299232Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-12T10:49:56.690575Z",
-  "updated_at": "2026-10-14T03:11:50.511736Z",
+  "updated_at": "2026-10-16T10:44:05.299601Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "No alert or billing check exists yet, so bots can still fail when OpenAI credits run out.",
-  "right_now_updated_at": "2026-10-14T03:11:51.691084Z",
+  "right_now_summary": "The owner must enable OpenAI billing alerts and auto-recharge; balance monitoring is not built.",
+  "right_now_updated_at": "2026-10-16T10:44:08.356381Z",
   "custom": {}
 }
