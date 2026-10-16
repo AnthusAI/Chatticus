@@ -1,3 +1,10 @@
+## [0.47.0](https://github.com/AnthusAI/Chatticus/compare/v0.46.0...v0.47.0) (2026-10-16)
+
+### Features
+
+* CloudWatch alarms and an alarm topic for every environment's control plane ([#583](https://github.com/AnthusAI/Chatticus/issues/583)) ([c6b858a](https://github.com/AnthusAI/Chatticus/commit/c6b858a41924cc429207aec11f56226741ad1162))
+* platform-hosted organizations are metered from recorded computer runtime (chatticus-26f253, chatticus-9ac621) ([#586](https://github.com/AnthusAI/Chatticus/issues/586)) ([155d0a4](https://github.com/AnthusAI/Chatticus/commit/155d0a45a7f12d4c262e298a8759f24fae0bc543))
+
 ## [0.46.0](https://github.com/AnthusAI/Chatticus/compare/v0.45.0...v0.46.0) (2026-10-15)
 
 ### Features
