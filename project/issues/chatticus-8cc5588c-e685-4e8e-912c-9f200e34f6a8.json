@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-8cc5588c-e685-4e8e-912c-9f200e34f6a8",
+  "title": "Kanbus board panel plugin",
+  "description": "Show the Kanbus board for the project the agent is working in, integrated like the kbsc console, and later the DynamoDB-backed cloud Kanbus.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T13:14:56.094332Z",
+  "updated_at": "2026-10-16T13:14:56.094664Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Claude (project thread for Ryan)",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

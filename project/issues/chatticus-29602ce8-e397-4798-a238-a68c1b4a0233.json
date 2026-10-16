@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-29602ce8-e397-4798-a238-a68c1b4a0233",
+  "title": "Flat workspace shell with a panel plugin host and per-reply usage",
+  "description": "The inspector becomes a panel plugin host with Context, Files and Costs plugins and a Split / Full size switch; full size docks the conversation beside the panel. Agent replies read as full-width turns, user messages as bubbles, the run state as a pill. Each reply's cost marker shows the model and its tokens; the conversation header shows turns, tokens and cache share beside the session cost.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T13:14:45.584656Z",
+  "updated_at": "2026-10-16T13:15:28.353758Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Claude (project thread for Ryan)",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

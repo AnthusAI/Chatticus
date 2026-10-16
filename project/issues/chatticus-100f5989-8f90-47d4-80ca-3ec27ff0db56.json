@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-100f5989-8f90-47d4-80ca-3ec27ff0db56",
+  "title": "Record first-token latency and turn duration for usage metrics",
+  "description": "The cost records have tokens and dollars but no timing. Record time to first token and wall-clock turn duration so replies and the session view can show latency.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T13:15:12.036679Z",
+  "updated_at": "2026-10-16T13:15:12.036938Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Claude (project thread for Ryan)",
+    "settings": {}
+  },
+  "agent_assignment": null
+}
