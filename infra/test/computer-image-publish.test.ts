@@ -3,10 +3,8 @@ import * as cdk from "aws-cdk-lib";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
-import {
-  AccountGitHubDeployStack,
-  COMPUTER_IMAGE_PUSH_ACTIONS,
-} from "../lib/account-github-deploy-stack";
+import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
+import { COMPUTER_IMAGE_PUSH_ACTIONS } from "../lib/deploy-role-policy";
 import { computerRepositoryNamePrefix, ComputerStack } from "../lib/computer-stack";
 
 const ENV = { account: "222222222222", region: "us-east-1" };
@@ -27,9 +25,9 @@ function synthAccountDeploy(githubEnvironment: "development" | "staging" | "prod
 
 function allowStatements(template: Template): Statement[] {
   const policies = template.findResources("AWS::IAM::Policy");
-  return Object.values(policies).flatMap(
-    (policy) => (policy.Properties as { PolicyDocument: { Statement: Statement[] } }).PolicyDocument.Statement,
-  );
+  return Object.values(policies)
+    .flatMap((policy) => (policy.Properties as { PolicyDocument: { Statement: Statement[] } }).PolicyDocument.Statement)
+    .filter((statement) => statement.Effect === "Allow");
 }
 
 function actionsOf(statement: Statement): string[] {
@@ -69,22 +67,20 @@ describe("AccountGitHubDeployStack computer image publishing", () => {
     }
   });
 
-  it("reads only the ChatticusComputers stack outputs", () => {
-    const describe = statements.find((statement) => statement.Sid === "ComputerStackOutputs");
-    assert.ok(describe);
-    assert.deepEqual(actionsOf(describe), ["cloudformation:DescribeStacks"]);
-    assert.match(resourceArn(describe), /:cloudformation:us-east-1:222222222222:stack\/ChatticusComputers\/\*/);
+  it("reads the Computers stack outputs of its own environment, never another environment's", () => {
+    const read = statements.find((statement) => statement.Sid === "ReadEnvironmentStacks");
+    assert.ok(read);
+    assert.ok(actionsOf(read).includes("cloudformation:DescribeStacks"));
+    assert.match(resourceArn(read), /:cloudformation:us-east-1:222222222222:stack\/ChatticusComputers\/\*/);
+    assert.doesNotMatch(resourceArn(read), /ChatticusComputersStaging/);
   });
 
-  it("grants no image publishing in the staging or production accounts", () => {
-    for (const environment of ["staging", "production"] as const) {
-      const other = allowStatements(synthAccountDeploy(environment));
-      assert.equal(
-        other.some((statement) => actionsOf(statement).some((action) => action.startsWith("ecr:"))),
-        false,
-        environment,
-      );
-    }
+  it("publishes to the staging repository from staging and the production repository from production", () => {
+    const staging = allowStatements(synthAccountDeploy("staging")).find((statement) => statement.Sid === "ComputerImagePush");
+    const production = allowStatements(synthAccountDeploy("production")).find((statement) => statement.Sid === "ComputerImagePush");
+    assert.ok(staging && production);
+    assert.match(resourceArn(staging), /repository\/chatticuscomputersstaging-computerimage\*/);
+    assert.match(resourceArn(production), /repository\/chatticuscomputers-computerimage\*/);
   });
 
   it("creates no IAM user (access keys are guarded repository-wide by no-iam-access-keys)", () => {

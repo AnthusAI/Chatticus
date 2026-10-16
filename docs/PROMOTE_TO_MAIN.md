@@ -430,10 +430,12 @@ removes an export that the deployed `ChatticusComputers` still imports. Deploy `
 
 ### What the shared account does not isolate
 
-- The two deploy roles are `AdministratorAccess` with explicit denies on the other environment's stacks, SSM parameter
-  paths and `chatticus:environment`-tagged resources. CDK deploys go through the one set of bootstrap roles
-  (`cdk-*-deploy-role`, `cdk-*-cfn-exec-role`), which both environments share, so a deploy role that is compromised can still
-  reach the other environment through them. Closing that needs a separate bootstrap qualifier per environment. This is
+- The two deploy roles are least privilege (`infra/lib/deploy-role-policy.ts`): they assume the CDK bootstrap roles and
+  make only the read, parameter and ECR calls the workflows need, with explicit denies on the other environment's stacks,
+  SSM parameter paths and `chatticus:environment`-tagged resources, and on IAM users, access keys, Organizations and
+  Account actions. CDK deploys go through the one set of bootstrap roles (`cdk-*-deploy-role`, `cdk-*-cfn-exec-role`),
+  which both environments share, and the CloudFormation execution role is `AdministratorAccess`, so a deploy role that is
+  compromised can still reach the other environment and change anything CloudFormation can through them. Closing that needs a separate bootstrap qualifier per environment. This is
   decision D10 below.
 - ECS, VPC and CloudFront account quotas are shared; the two computers stacks each create a VPC.
 
