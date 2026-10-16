@@ -58,3 +58,26 @@ export function readBudgetsConfig(
 
   return { monthlyLimitUsd, notificationEmails: [notificationEmail] };
 }
+
+/**
+ * The address that receives CloudWatch alarm notifications.
+ *
+ * It is the same budgetsNotificationEmail CDK context the budgets stack
+ * reads, fed by CHATTICUS_BUDGETS_NOTIFICATION_EMAIL through
+ * budgets-deploy-context.sh. Returns undefined when the context is absent so
+ * default ``cdk synth`` carries no address; the topic is still created and
+ * the owner can subscribe it by hand.
+ */
+export function readAlarmNotificationEmail(scope: cdk.App | cdk.Stack): string | undefined {
+  const emailRaw = scope.node.tryGetContext("budgetsNotificationEmail");
+  if (!contextProvided(emailRaw)) {
+    return undefined;
+  }
+  const notificationEmail = String(emailRaw).trim();
+  if (!notificationEmail.includes("@")) {
+    throw new Error(
+      `budgetsNotificationEmail must be an email address, got: ${notificationEmail}`,
+    );
+  }
+  return notificationEmail;
+}

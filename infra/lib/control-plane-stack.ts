@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -6,10 +7,19 @@ import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as sns from "aws-cdk-lib/aws-sns";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
 import { Construct } from "constructs";
+import {
+  ALARM_PERIOD,
+  ChatticusAlarmTopic,
+  FRONT_DOOR_5XX_THRESHOLD,
+  TURN_QUEUE_OLDEST_MESSAGE_SECONDS,
+  createChatticusAlarm,
+} from "./alarms";
+import { readAlarmNotificationEmail } from "./budgets-config";
 import {
   ChatticusCloudEnvironment,
   integrationTestParameterPrefix,
@@ -107,6 +117,8 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly turnRunsQueue: sqs.Queue;
   readonly turnProbesQueue: sqs.Queue;
   readonly computerStartJobsQueue: sqs.Queue;
+  /** The topic every alarm of this environment notifies. */
+  readonly alarmTopic: sns.Topic;
   readonly frontDoorFunction: lambdaNodejs.NodejsFunction;
   readonly frontDoorFunctionUrl: lambda.FunctionUrl;
   readonly turnExecutorFunction: lambdaNodejs.NodejsFunction;
@@ -478,6 +490,21 @@ export class ControlPlaneStack extends cdk.Stack {
       throw new Error("The broker fault switch is set but the owner credential broker is not wired in this stack.");
     }
 
+    const alarmTopic = new ChatticusAlarmTopic(this, "AlarmNotifications", {
+      environmentName,
+      notificationEmail: readAlarmNotificationEmail(this),
+    }).topic;
+    this.alarmTopic = alarmTopic;
+    this.addAlarms(environmentName, alarmTopic, messagingTable, conversationsTable, [
+      ["FrontDoor", "frontdoor", frontDoorFunction],
+      ["TurnExecutor", "turnexecutor", turnExecutorFunction],
+      ["TurnProbe", "turnprobe", turnProbeFunction],
+      ["ComputerStarter", "computerstarter", computerStarterFunction],
+      ...(this.ownerCredentialBrokerFunction
+        ? ([["OwnerCredentialBroker", "ownercredentialbroker", this.ownerCredentialBrokerFunction]] as const)
+        : []),
+    ]);
+
     new cdk.CfnOutput(this, "ControlPlaneFunctionUrl", {
       value: this.frontDoorFunctionUrl.url,
     });
@@ -487,5 +514,124 @@ export class ControlPlaneStack extends cdk.Stack {
     new cdk.CfnOutput(this, "PiSessionsBucketName", {
       value: piSessionsBucket.bucketName,
     });
+  }
+
+  private addAlarms(
+    environmentName: ChatticusCloudEnvironment,
+    topic: sns.ITopic,
+    messagingTable: dynamodb.ITable,
+    conversationsTable: dynamodb.ITable,
+    functions: ReadonlyArray<readonly [string, string, lambdaNodejs.NodejsFunction]>,
+  ): void {
+    const sum = { period: ALARM_PERIOD, statistic: "Sum" };
+    const maximum = { period: ALARM_PERIOD, statistic: "Maximum" };
+
+    for (const [functionId, suffix, target] of functions) {
+      createChatticusAlarm(this, `${functionId}ErrorsAlarm`, {
+        environmentName,
+        nameSuffix: `${suffix}-errors`,
+        metric: target.metricErrors(sum),
+        threshold: 0,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+        summary: `The ${functionId} Lambda of the ${environmentName} control plane raised errors in the last five minutes.`,
+        lookAt: `the CloudWatch log group of the ${functionId} function for stack traces, and the Errors graph of the function.`,
+        topic,
+      });
+    }
+
+    const frontDoorFunction = functions[0][2];
+    createChatticusAlarm(this, "FrontDoor5xxAlarm", {
+      environmentName,
+      nameSuffix: "frontdoor-5xx",
+      metric: new cloudwatch.Metric({
+        namespace: "AWS/Lambda",
+        metricName: "Url5xxCount",
+        dimensionsMap: { FunctionName: frontDoorFunction.functionName },
+        ...sum,
+      }),
+      threshold: FRONT_DOOR_5XX_THRESHOLD,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      summary: `The ${environmentName} front door answered users with server errors (HTTP 5xx).`,
+      lookAt: "the FrontDoor function logs for the failing request, and whether OpenAI or DynamoDB is degraded.",
+      topic,
+    });
+
+    const throttleMetrics: Record<string, cloudwatch.IMetric> = {};
+    functions.forEach(([, , target], position) => {
+      throttleMetrics[`throttles${position}`] = target.metricThrottles(sum);
+    });
+    createChatticusAlarm(this, "LambdaThrottlesAlarm", {
+      environmentName,
+      nameSuffix: "lambda-throttles",
+      metric: new cloudwatch.MathExpression({
+        expression: Object.keys(throttleMetrics).join(" + "),
+        usingMetrics: throttleMetrics,
+        period: ALARM_PERIOD,
+        label: "Control plane Lambda throttles",
+      }),
+      threshold: 0,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      summary: `A ${environmentName} control plane Lambda was throttled in the last five minutes.`,
+      lookAt: "the Throttles graph per function, and the account concurrency limit in Service Quotas.",
+      topic,
+    });
+
+    const queues: ReadonlyArray<readonly [string, string, sqs.Queue]> = [
+      ["TurnRuns", "turnruns", this.turnRunsQueue],
+      ["TurnProbes", "turnprobes", this.turnProbesQueue],
+      ["ComputerStartJobs", "computerstartjobs", this.computerStartJobsQueue],
+    ];
+    for (const [queueId, suffix, queue] of queues) {
+      const deadLetterQueue = queue.deadLetterQueue?.queue;
+      if (deadLetterQueue === undefined) {
+        throw new Error(`The ${queueId} queue has no dead-letter queue to alarm on.`);
+      }
+      createChatticusAlarm(this, `${queueId}DeadLetterAlarm`, {
+        environmentName,
+        nameSuffix: `${suffix}-dead-letter`,
+        metric: deadLetterQueue.metricApproximateNumberOfMessagesVisible(maximum),
+        threshold: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        summary: `A ${queueId} job in ${environmentName} failed five times and landed in its dead-letter queue.`,
+        lookAt: `the ${queueId} dead-letter queue messages in SQS, and the consumer Lambda logs for the failure; redrive after fixing.`,
+        topic,
+      });
+    }
+
+    createChatticusAlarm(this, "TurnRunsOldestMessageAlarm", {
+      environmentName,
+      nameSuffix: "turnruns-oldest-message-age",
+      metric: this.turnRunsQueue.metricApproximateAgeOfOldestMessage(maximum),
+      threshold: TURN_QUEUE_OLDEST_MESSAGE_SECONDS,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      summary: `A ${environmentName} turn job has waited more than fifteen minutes; turns are backing up.`,
+      lookAt: "the TurnExecutor function concurrency and errors, and the TurnRuns queue depth in SQS.",
+      topic,
+    });
+
+    const tables: ReadonlyArray<readonly [string, string, dynamodb.ITable]> = [
+      ["Conversations", "conversations", conversationsTable],
+      ["Messaging", "messaging", messagingTable],
+    ];
+    for (const [tableId, suffix, table] of tables) {
+      createChatticusAlarm(this, `${tableId}TableThrottlesAlarm`, {
+        environmentName,
+        nameSuffix: `${suffix}-table-throttles`,
+        metric: new cloudwatch.MathExpression({
+          expression: "reads + writes",
+          usingMetrics: {
+            reads: table.metric("ReadThrottleEvents", sum),
+            writes: table.metric("WriteThrottleEvents", sum),
+          },
+          period: ALARM_PERIOD,
+          label: `${tableId} table throttled requests`,
+        }),
+        threshold: 0,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+        summary: `The ${environmentName} ${tableId} DynamoDB table throttled requests in the last five minutes.`,
+        lookAt: `the ${tableId} table metrics for throttled reads and writes, and for a hot partition key.`,
+        topic,
+      });
+    }
   }
 }
