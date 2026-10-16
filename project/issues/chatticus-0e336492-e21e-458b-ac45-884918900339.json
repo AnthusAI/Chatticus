@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-0e336492-e21e-458b-ac45-884918900339",
+  "title": "Kanbus integration: project consoles and internal bot boards",
+  "description": "As a Chatticus user, I want to see the work my persistent Pi Durable teammate is managing and distinguish project work from its own ongoing to-do lists.\n\nRyan requested this repository-local planning record on 2026-10-16. This is future work in the TypeScript/Pi/Pi Durable Chatticus product, not Cyclotron. Filing this initiative does not implement an integration or establish that any cloud Kanbus backend is available.\n\nMilestone 1: a file-based Kanbus console displaying the actual project board in the agent's persistent computer filesystem. Reuse the real shared Kanbus UI dependency, @kanbus/ui (Kanbus packages/ui), including Board, IssueCard and TaskDetailPanel as appropriate. Keep shared board components DRY and themeable; do not fork or re-create a Kanbus board in Chatticus.\n\nMilestone 2: internal bot boards/to-do lists independent of a particular project board, powered by DynamoDB using the requested cloud Kanbus/Virtuus storage direction: canonical files/text on S3, with DynamoDB as card-catalog indexes. A DynamoDB index is not a second canonical issue body. This direction requires design and verification; existing Kanbus cloud runtime and Virtuus documentation do not prove this Chatticus integration exists.\n\nCompletion: both milestone epics have behavior specifications and verified user-visible outcomes, a shared themeable board presentation, explicit local/cloud authority, and reviewed answers for agent issue tools, visibility, board/account scope and access isolation. No implementation completion is claimed by filing these issues.\n\nOverlap: chatticus-8cc558 already owns the Kanbus workspace panel integration under chatticus-daa715. Retain that task and narrow/link it rather than duplicate it. Coordinate the host boundary with chatticus-854642; its proposed web-component packaging is not a decision made here. chatticus-e4f5ab may supply preview capability, not an assumed required transport.\n\nHistorical context: chatticus-5f2ea7 and docs/TASKS.md record the prior thin DynamoDB Task decision and explicitly defer Kanbus. This initiative proposes later integration; do not rewrite historical decisions or equate existing Task items with Kanbus boards. Decide whether and how they relate before any migration.\n\nOpen design/acceptance questions: Which agent read/create/update/comment/status tools and approvals apply to each board kind? How does a user discover, refresh and inspect a board, and what edits may a user make? What identifies the selected project root, bot board, organization/tenant and AWS/account ownership? Who can read or change each board, and how are unauthorized cross-board/account access, guessed identifiers and stale context rejected? What consistency and recovery evidence is required for concurrent changes and stale indexes? Answer these through outside-in specifications before implementation.\n\nAuthorization is documentation and Kanbus filing only. No product code, executable features, deployments, IAM, secrets, infrastructure or migrations are authorized by this request. Leave future product work open in Discovery.",
+  "type": "initiative",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:18.682210Z",
+  "updated_at": "2026-10-16T20:43:18.682460Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The team is defining board access, storage, consistency, and shared UI before building the integration.",
+  "right_now_updated_at": "2026-10-16T20:43:56.980181Z",
+  "custom": {}
+}

@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-09bdd506-8e64-4a90-b725-df724c97d831",
+  "title": "Project issue changes remain visible and survive computer recovery",
+  "description": "As a user, I want to see the project issue changes my agent records so I can verify progress across turns.\n\nProposed acceptance behavior for future implementation; not executable proof or a delivery claim.\n\n```gherkin\nFeature: Durable project board progress\n  Scenario: Observe an authorized issue change\n    Given my agent and I are using the same authorized project board\n    When the agent records an issue change through the approved Kanbus mutation path\n    And I refresh the board through the supported refresh behavior\n    Then I see the recorded issue state in that project board\n  Scenario: Resume after the computer filesystem is restored\n    Given a project issue change has been durably preserved with the computer filesystem\n    When the computer is recovered and I reopen that project board\n    Then I see the preserved issue state\n    And the view does not substitute an internal bot board\n```\n\nDesign/acceptance questions before implementation: Which read/update/create/comment/status tools are exposed to Pi Durable and with what approvals? What is the refresh and concurrent edit contract? How is persistence acknowledged and an unpreserved write presented? Does the user get editing controls? Do not choose an endpoint or transport here.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e1019848-ae02-463e-b6bd-217ae52ad6cc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:36.311583Z",
+  "updated_at": "2026-10-16T20:43:36.311623Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The issue defines future board persistence behavior while tool access, refresh, and recovery details remain unresolved.",
+  "right_now_updated_at": "2026-10-16T20:43:37.990927Z",
+  "custom": {}
+}

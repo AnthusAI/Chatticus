@@ -1,7 +1,7 @@
 {
   "id": "chatticus-8cc5588c-e685-4e8e-912c-9f200e34f6a8",
   "title": "Kanbus board panel plugin",
-  "description": "Show the Kanbus board for the project the agent is working in, integrated like the kbsc console, and later the DynamoDB-backed cloud Kanbus.",
+  "description": "Show the Kanbus board for the project the Chatticus Pi Durable agent is working in, integrated into the workspace panel like the Kanbus console.\n\nThis existing task is retained as the workspace integration task rather than duplicated. The requested planning hierarchy is initiative chatticus-0e3364, file-based project-console milestone chatticus-e10198, and future DynamoDB-powered internal-board milestone chatticus-c5f14c.\n\nMilestone 1 uses the selected project's canonical Kanbus files in the persistent computer filesystem and the actual shared @kanbus/ui dependency. Board/card/detail components remain DRY and themeable; do not copy the board implementation into Chatticus. Coordinate host packaging with chatticus-854642; this task does not fix its web-component/transport design.\n\nMilestone 2 is separate internal bot boards/to-do lists, with proposed canonical files/text on S3 and DynamoDB card-catalog indexes using the cloud Kanbus/Virtuus direction. Do not treat a project board as an internal board or claim that this backend is already integrated.\n\nBefore implementation, resolve agent read/update tools, user visibility and edit permissions, board selection, tenant/account/project scope and isolation through the linked behavior stories. Existing thin Task items are not proof of Kanbus integration. This update records intent only; no implementation, deployment, IAM, secrets or migration is authorized. Original parent chatticus-daa715 remains for workspace redesign coordination.",
   "type": "task",
   "status": "open",
   "priority": 2,
@@ -10,18 +10,32 @@
   "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "18bddde9-572f-4c4e-b275-b184b3e01739",
+      "author": "home",
+      "text": "2026-10-16: Ryan requested documentation only. Existing panel task retained; integration initiative chatticus-0e3364 now separates file-based project boards (chatticus-e10198) from future DynamoDB-powered internal bot boards (chatticus-c5f14c). Behavior stories record acceptance and unresolved design questions; all future product work remains open.",
+      "created_at": "2026-10-16T20:44:14.624446Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "Kanbus integration documentation",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
+    }
+  ],
   "created_at": "2026-10-16T13:14:56.094332Z",
-  "updated_at": "2026-10-16T13:14:56.094664Z",
+  "updated_at": "2026-10-16T20:44:14.624474Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "claude-code",
     "model": "claude",
-    "name": "Claude (project thread for Ryan)",
-    "settings": {}
+    "name": "Claude (project thread for Ryan)"
   },
-  "agent_assignment": null
+  "right_now_summary": "The task records the board integration plan and open design questions; no implementation is authorized.",
+  "right_now_updated_at": "2026-10-16T20:44:16.198529Z",
+  "custom": {}
 }

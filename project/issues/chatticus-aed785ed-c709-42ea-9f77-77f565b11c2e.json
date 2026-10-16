@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-aed785ed-c709-42ea-9f77-77f565b11c2e",
+  "title": "Internal board reads and writes respect canonical S3 records and catalog freshness",
+  "description": "As a user, I want durable internal work to have a clear saved state so I can trust what the bot and board report.\n\nProposed acceptance behavior for future implementation; not executable proof or a delivery claim.\n\n```gherkin\nFeature: Durable cloud internal board records\n  Scenario: Reopen a confirmed saved item\n    Given an internal board change has been confirmed durably saved\n    When an authorized user reopens that item in a later session\n    Then the canonical saved issue content is available\n  Scenario: Catalog results lag a saved change\n    Given an internal board change is saved but its catalog entry is not yet current\n    When the board reports the result of that change\n    Then it does not present conflicting index content as canonical issue text\n    And it presents the saved or pending state according to the reviewed consistency contract\n  Scenario: A save cannot be confirmed\n    Given a board update cannot be confirmed durably saved\n    When the bot reports the update outcome\n    Then it does not report the issue update as successfully saved\n```\n\nDesign/acceptance questions before implementation: Specify acknowledged durability, revision/conflict behavior, catalog lag, retries, reconciliation and rebuild acceptance tests. Requested storage: canonical files/text on S3 and DynamoDB card-catalog indexes. Validate the Kanbus/Virtuus backend before integration; do not presume an existing adapter, schema, transaction scheme or deployed service.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-c5f14c7f-bcfb-44b3-9b54-462aabde066a",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:49.411579Z",
+  "updated_at": "2026-10-16T20:43:49.411615Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The team is defining durability and consistency rules before integrating S3 and DynamoDB.",
+  "right_now_updated_at": "2026-10-16T20:43:51.158468Z",
+  "custom": {}
+}

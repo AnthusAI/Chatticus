@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-e1019848-ae02-463e-b6bd-217ae52ad6cc",
+  "title": "Milestone 1: file-based project Kanbus console on the persistent computer",
+  "description": "Outcome: a Chatticus user can visually inspect the project Kanbus board their Pi Durable agent is working on, backed by the same canonical project files in the persistent computer filesystem.\n\nLocal authority is explicit: the selected project's Kanbus files are the board source. Computer snapshots may preserve the filesystem, but an S3 snapshot is not the Milestone 2 cloud board backend and DynamoDB must not become an independent issue-body store for this milestone.\n\nUse the actual @kanbus/ui shared dependency. Share board/card/detail behavior with Kanbus and preserve Chatticus light/dark theming without copied components. Verify dependency distribution/version and React compatibility before implementation; the inspected Kanbus package declares React 18 peers while Chatticus uses React 19. Packaging, host adapter and preview transport remain design choices.\n\nDefinition of Done: behavior-driven stories demonstrate correct project selection, user-visible issue updates, persistence and honest unavailable/stale states; reviewed scope/isolation decisions are tested; theme and dependency compatibility are verified. Existing chatticus-8cc558 remains the workspace integration task; chatticus-854642 owns the general external-product panel contract. No new duplicate implementation task.\n\nQuestions to resolve: how project roots map to boards, which computer access is necessary, read/update tool surface and approvals, refresh/freshness presentation, user edit scope, and authorized tenant/account/project visibility. No new endpoint, CLI shell-out, socket or iframe is prescribed here.",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-0e336492-e21e-458b-ac45-884918900339",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:24.251879Z",
+  "updated_at": "2026-10-16T20:43:24.251928Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The team is defining board access, persistence, refresh behavior, and shared theme support.",
+  "right_now_updated_at": "2026-10-16T20:43:44.569315Z",
+  "custom": {}
+}
