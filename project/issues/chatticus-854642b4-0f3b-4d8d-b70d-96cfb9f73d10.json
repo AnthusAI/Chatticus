@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-854642b4-0f3b-4d8d-b70d-96cfb9f73d10",
+  "title": "Load panel plugins from other products as web components",
+  "description": "A manifest plus an ESM entry that defines a custom element, given a live chatticus host property, sized card / split / full. Candidate standard: the Korporus web component approach. Consumers: Kanbus, Papyrus, Cyclotron, Apricity, Auritus.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T13:14:51.012492Z",
+  "updated_at": "2026-10-16T13:14:51.012739Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Claude (project thread for Ryan)",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

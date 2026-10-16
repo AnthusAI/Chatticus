@@ -11,6 +11,7 @@ export class FakeAccountSpendReader implements AccountSpendReader {
 
 	setTotal(accountId: string, rollupDate: string, amount: Decimal): void {
 		this.totals.set(`${accountId}|${rollupDate}`, amount);
+		this.pendingDays.delete(`${accountId}|${rollupDate}`);
 	}
 
 	setDayPending(accountId: string, rollupDate: string): void {
@@ -19,6 +20,10 @@ export class FakeAccountSpendReader implements AccountSpendReader {
 
 	failAccount(accountId: string): void {
 		this.unreadableAccounts.add(accountId);
+	}
+
+	restoreAccount(accountId: string): void {
+		this.unreadableAccounts.delete(accountId);
 	}
 
 	dailyTotal(request: { organization: Organization; rollupDate: string }): Promise<AccountDayResult> {

@@ -247,6 +247,16 @@ Feature: Members see what their organization's bots cost in the web workspace
     And the cost API was asked for the cost of the channel "Planning"
 
   @web
+  Scenario: The conversation header shows the session's turns and tokens beside its cost
+    Given the cost view for "ryan@example.com" in "Anthus Labs" with these turns this month
+      | turn | bot | channel  | model        | calls  | prompt | reply |
+      | t1   | Pi  | Planning | gpt-5.4-mini | 0.0002 | 1      | 2     |
+      | t2   | Pi  | Planning | gpt-5.4-mini | 0.0004 | 3      | 4     |
+    When the member opens the "Planning" conversation
+    Then the conversation cost chip shows "$0.0006"
+    And the conversation cost chip shows "2 turns · 4,800 tokens · 38% cached"
+
+  @web
   Scenario: The chip of a conversation with an unpriced call is not a total
     Given the cost view for "ryan@example.com" in "Anthus Labs" with these turns this month
       | turn | bot | channel  | model        | calls                      | prompt | reply |
@@ -266,6 +276,17 @@ Feature: Members see what their organization's bots cost in the web workspace
     And message 2 shows the cost marker "Took $0.0002"
     And message 3 shows the cost marker "Triggered $0.0004"
     And message 4 shows the cost marker "Took $0.0004"
+
+  @web
+  Scenario: A reply shows the model and the tokens behind it, and its prompt does not repeat them
+    Given the cost view for "ryan@example.com" in "Anthus Labs" with these turns this month
+      | turn | bot | channel  | model        | calls          | prompt | reply |
+      | t1   | Pi  | Planning | gpt-5.4-mini | 0.0002, 0.0001 | 1      | 2     |
+    When the member opens the "Planning" conversation
+    Then message 2 shows the cost marker "Took $0.0003"
+    And message 2 shows the cost marker "gpt-5.4-mini · 4,200 in · 600 out · 38% cached"
+    And message 1 shows the cost marker "Triggered $0.0003"
+    And message 1 does not show the cost marker "in ·"
 
   @web
   Scenario: A message with no recorded cost shows no marker

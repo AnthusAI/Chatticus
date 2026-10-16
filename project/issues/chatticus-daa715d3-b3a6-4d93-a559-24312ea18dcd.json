@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
+  "title": "Workspace redesign for dogfooding",
+  "description": "Outcome: the web workspace is usable enough for the team to dogfood Chatticus daily. Flat brand style (regions marked by flat surface colors, no borders or outlines), light first with dark mode, a right panel that hosts plugins and scales from a split view up to a full-screen code editor, and response and session usage (cost, tokens, cache, latency) visible where people read the conversation. Design notes: competitor review and panel plugin contract in the project's ui-design folder.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T13:14:24.843596Z",
+  "updated_at": "2026-10-16T13:14:24.843879Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Claude (project thread for Ryan)",
+    "settings": {}
+  },
+  "agent_assignment": null
+}
