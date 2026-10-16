@@ -1,7 +1,8 @@
 import { addDays, firstDayOfMonth, utcDayOf } from "../budget/calendar.ts";
 import type { BudgetStore } from "../budget/budget-store.ts";
+import { MOST_A_HOSTED_COMPUTER_COSTS_IN_ONE_DAY_USD } from "../budget/computer-runtime.ts";
 import { Decimal } from "../budget/decimal.ts";
-import { CE_STATUS_ERROR, CE_STATUS_OK, CE_STATUS_PENDING } from "../budget/models.ts";
+import { CE_STATUS_OK, organizationRunsInItsOwnAwsAccount } from "../budget/models.ts";
 import {
 	NotOrganizationOwnerError,
 	OrganizationNotFoundError,
@@ -21,17 +22,23 @@ export {
 /** The rollup rows month-to-date spend is summed from, written by the TypeScript budget rollup. */
 export type BudgetRollupReader = Pick<BudgetStore, "getBudgetRollupRow">;
 
-/** Rollup statuses that make the month-to-date meter unknown. */
-export const MTD_UNKNOWN_CE_STATUSES: ReadonlySet<string> = new Set([CE_STATUS_PENDING, CE_STATUS_ERROR]);
-
 export const SPEND_CEILING_EXCEEDED_REASON = "monthly AWS spend ceiling exceeded";
 export const SPEND_CEILING_METER_UNAVAILABLE_REASON = "monthly AWS spend cannot be read right now";
 
-/** Month-to-date combined spend and whether the meter is incomplete. */
+/**
+ * Month-to-date combined spend as the meter reads it. `monthToDateUsd` is what was measured. For an organization hosted in
+ * the deployment account, days that could not be read are counted separately at the most they could have cost, in
+ * `mostUnreadDaysCouldCostUsd`. For an organization in its own AWS account no such bound exists, so a day that could not
+ * be read makes `meterUnknown` true.
+ */
 export interface OrganizationSpendMeter {
 	monthToDateUsd: Decimal;
+	mostUnreadDaysCouldCostUsd: Decimal;
 	meterUnknown: boolean;
 }
+
+/** What the meter needs to know about an organization: who it is and where its AWS spend is. */
+export type MeteredOrganization = Pick<Organization, "tenantId" | "awsCrossAccountRole">;
 
 /** Whether new computer work is refused for spend reasons, and why. */
 export interface ComputerWorkPause {
@@ -48,39 +55,39 @@ export interface SpendPauseDependencies {
 }
 
 /**
- * Sum ok rollup rows from month start through `asOf`.
+ * Sum the rollup rows from month start through `asOf`.
  *
- * Days with no rollup row count as zero. Any day with a pending or error
- * ce_status marks the meter unknown for fail-closed enforcement.
- * Ported from python/src/chatticus/organization_spend.py lines 28-60.
+ * Days with no rollup row count as zero. A day whose row was not read (pending, error, or an ok row without a figure)
+ * counts, for an organization hosted in the deployment account, as its model spend plus the most its computer can cost
+ * in a day; for an organization in its own AWS account it marks the meter unknown for fail-closed enforcement.
  */
 export async function monthToDateCombinedSpendUsd(
 	rollups: BudgetRollupReader,
-	tenantId: string,
+	organization: MeteredOrganization,
 	environment: string,
 	asOf: string,
 ): Promise<OrganizationSpendMeter> {
-	let total = Decimal.zero();
+	const unreadDaysAreBounded = !organizationRunsInItsOwnAwsAccount(organization);
+	let monthToDateUsd = Decimal.zero();
+	let mostUnreadDaysCouldCostUsd = Decimal.zero();
 	let meterUnknown = false;
 	let current = firstDayOfMonth(asOf);
 	while (current <= asOf) {
-		const row = await rollups.getBudgetRollupRow(tenantId, environment, current);
+		const row = await rollups.getBudgetRollupRow(organization.tenantId, environment, current);
 		if (row !== null) {
-			if (MTD_UNKNOWN_CE_STATUSES.has(row.ceStatus)) {
-				meterUnknown = true;
-			} else if (row.ceStatus === CE_STATUS_OK) {
-				if (row.combinedReportUsd === null) {
-					meterUnknown = true;
-				} else {
-					total = total.add(row.combinedReportUsd);
-				}
+			if (row.ceStatus === CE_STATUS_OK && row.combinedReportUsd !== null) {
+				monthToDateUsd = monthToDateUsd.add(row.combinedReportUsd);
+			} else if (unreadDaysAreBounded) {
+				mostUnreadDaysCouldCostUsd = mostUnreadDaysCouldCostUsd
+					.add(row.vendorCostUsd)
+					.add(MOST_A_HOSTED_COMPUTER_COSTS_IN_ONE_DAY_USD);
 			} else {
 				meterUnknown = true;
 			}
 		}
 		current = addDays(current, 1);
 	}
-	return { monthToDateUsd: total, meterUnknown };
+	return { monthToDateUsd, mostUnreadDaysCouldCostUsd, meterUnknown };
 }
 
 /**
@@ -97,12 +104,15 @@ export async function organizationComputerWorkPaused(
 	if (ceiling === null) {
 		return { paused: false, reason: null };
 	}
-	const meter = await monthToDateCombinedSpendUsd(rollups, organization.tenantId, environment, asOf);
+	const meter = await monthToDateCombinedSpendUsd(rollups, organization, environment, asOf);
 	if (meter.meterUnknown) {
 		return { paused: true, reason: SPEND_CEILING_METER_UNAVAILABLE_REASON };
 	}
 	if (meter.monthToDateUsd.compare(ceiling) >= 0) {
 		return { paused: true, reason: SPEND_CEILING_EXCEEDED_REASON };
+	}
+	if (meter.monthToDateUsd.add(meter.mostUnreadDaysCouldCostUsd).compare(ceiling) >= 0) {
+		return { paused: true, reason: SPEND_CEILING_METER_UNAVAILABLE_REASON };
 	}
 	return { paused: false, reason: null };
 }

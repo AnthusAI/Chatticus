@@ -1,6 +1,6 @@
-import type { BudgetAlertsPublisher } from "./budget-alerts.ts";
+import type { BudgetAlertsPublisher, UnreadableSpendDay } from "./budget-alerts.ts";
 import type { BudgetStore } from "./budget-store.ts";
-import { dayWrittenIn, firstDayOfMonth, pythonIsoUtc } from "./calendar.ts";
+import { addDays, dayWrittenIn, firstDayOfMonth, pythonIsoUtc } from "./calendar.ts";
 import type { HostedComputerSpendReader } from "./computer-runtime.ts";
 import { AccountSpendUnreadableError, type AccountSpendReader } from "./cost-explorer.ts";
 import { Decimal } from "./decimal.ts";
@@ -13,6 +13,7 @@ import {
 	DEFAULT_THRESHOLD_BANDS,
 	type Organization,
 	type VendorLedgerRow,
+	organizationRunsInItsOwnAwsAccount,
 } from "./models.ts";
 
 const GATEWAY_SOURCE = "gateway";
@@ -38,32 +39,87 @@ export interface DailyRollupRequest {
  * reconciled first, so a call the vendor answered and the session never committed is in the day's dollars and a call the
  * session did record is not counted a second time. Calls the price book could not price are counted on the row
  * (`unpriced_calls`) and logged, never skipped without trace.
+ *
+ * An organization in its own AWS account also has every earlier day of the month that was pending or could not be read
+ * rolled up again, so one failed read of its account does not hold its meter unknown for the rest of the month. Every
+ * organization-day the run could not read is published as one alert, so an unreadable meter is never silent.
  */
 export async function runDailyRollup(request: DailyRollupRequest): Promise<void> {
-	const { store, environment, rollupDate } = request;
 	const updatedAt = pythonIsoUtc(request.now);
-	for (const organization of await store.listEnabledOrganizations()) {
+	const unreadableDays: UnreadableSpendDay[] = [];
+	for (const organization of await request.store.listEnabledOrganizations()) {
 		await request.reconciler?.reconcileTenant(organization.tenantId);
-		const { total: vendorCostUsd, unpricedCalls } = await vendorDailyTotal(store, organization.tenantId, rollupDate);
-		if (unpricedCalls > 0) {
-			console.warn(`vendor_cost_unpriced_calls tenant_id=${organization.tenantId} rollup_date=${rollupDate} unpriced_calls=${unpricedCalls}`);
+		for (const rollupDate of await daysToRollUp(organization, request)) {
+			const ceStatus = await rollUpOrganizationDay(organization, rollupDate, request, updatedAt);
+			if (ceStatus === CE_STATUS_ERROR) {
+				unreadableDays.push({ tenantId: organization.tenantId, rollupDate });
+			}
 		}
-		const [awsCostUsd, ceStatus] = await awsSpendFor(organization, request, rollupDate);
-		const existing = await store.getBudgetRollupRow(organization.tenantId, environment, rollupDate);
-		await store.putBudgetRollupRow({
-			tenantId: organization.tenantId,
-			environment,
-			rollupDate,
-			awsCostUsd,
-			vendorCostUsd,
-			unpricedCalls,
-			combinedReportUsd: awsCostUsd === null ? null : awsCostUsd.add(vendorCostUsd),
-			ceStatus,
-			alertEvents: existing?.alertEvents ?? [],
-			updatedAt,
-		});
 	}
 	await maybePublishVendorThreshold(request);
+	await publishUnreadableSpend(request, unreadableDays);
+}
+
+/**
+ * The days to roll up for one organization: the rollup day, preceded, for an organization in its own AWS account, by
+ * each earlier day of the same month whose row is pending or could not be read. A hosted organization's earlier day is
+ * not read again: runtime that was never recorded would read as a measured zero.
+ */
+async function daysToRollUp(organization: Organization, request: DailyRollupRequest): Promise<string[]> {
+	if (!organizationRunsInItsOwnAwsAccount(organization)) {
+		return [request.rollupDate];
+	}
+	const days: string[] = [];
+	for (let day = firstDayOfMonth(request.rollupDate); day < request.rollupDate; day = addDays(day, 1)) {
+		const row = await request.store.getBudgetRollupRow(organization.tenantId, request.environment, day);
+		if (row !== null && (row.ceStatus === CE_STATUS_PENDING || row.ceStatus === CE_STATUS_ERROR)) {
+			days.push(day);
+		}
+	}
+	days.push(request.rollupDate);
+	return days;
+}
+
+async function rollUpOrganizationDay(
+	organization: Organization,
+	rollupDate: string,
+	request: DailyRollupRequest,
+	updatedAt: string,
+): Promise<string> {
+	const { store, environment } = request;
+	const { total: vendorCostUsd, unpricedCalls } = await vendorDailyTotal(store, organization.tenantId, rollupDate);
+	if (unpricedCalls > 0) {
+		console.warn(`vendor_cost_unpriced_calls tenant_id=${organization.tenantId} rollup_date=${rollupDate} unpriced_calls=${unpricedCalls}`);
+	}
+	const [awsCostUsd, ceStatus] = await awsSpendFor(organization, request, rollupDate);
+	const existing = await store.getBudgetRollupRow(organization.tenantId, environment, rollupDate);
+	await store.putBudgetRollupRow({
+		tenantId: organization.tenantId,
+		environment,
+		rollupDate,
+		awsCostUsd,
+		vendorCostUsd,
+		unpricedCalls,
+		combinedReportUsd: awsCostUsd === null ? null : awsCostUsd.add(vendorCostUsd),
+		ceStatus,
+		alertEvents: existing?.alertEvents ?? [],
+		updatedAt,
+	});
+	return ceStatus;
+}
+
+async function publishUnreadableSpend(request: DailyRollupRequest, unreadableDays: readonly UnreadableSpendDay[]): Promise<void> {
+	if (unreadableDays.length === 0) {
+		return;
+	}
+	for (const day of unreadableDays) {
+		console.warn(`spend_unreadable tenant_id=${day.tenantId} rollup_date=${day.rollupDate}`);
+	}
+	await request.alerts?.publishUnreadableSpend({
+		environment: request.environment,
+		rollupDate: request.rollupDate,
+		unreadableDays,
+	});
 }
 
 /**
@@ -80,7 +136,7 @@ async function awsSpendFor(
 	request: DailyRollupRequest,
 	rollupDate: string,
 ): Promise<[Decimal | null, string]> {
-	if (organization.awsCrossAccountRole !== null && organization.awsCrossAccountRole !== "") {
+	if (organizationRunsInItsOwnAwsAccount(organization)) {
 		return customerAccountSpend(organization, request.accountSpend, rollupDate);
 	}
 	try {

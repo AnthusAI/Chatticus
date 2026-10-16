@@ -21,6 +21,10 @@ export class FakeAccountSpendReader implements AccountSpendReader {
 		this.unreadableAccounts.add(accountId);
 	}
 
+	restoreAccount(accountId: string): void {
+		this.unreadableAccounts.delete(accountId);
+	}
+
 	dailyTotal(request: { organization: Organization; rollupDate: string }): Promise<AccountDayResult> {
 		const accountId = request.organization.awsAccountId ?? "";
 		const key = `${accountId}|${request.rollupDate}`;

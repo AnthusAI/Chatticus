@@ -47,7 +47,7 @@ Feature: Organization spend ceiling in the workspace
     And the organization status is still enabled
 
   Scenario: The workplace shows meter unavailable pause
-    Given an enabled organization with a monthly spend ceiling
+    Given an enabled organization in its own AWS account with a monthly spend ceiling
     And month-to-date spend rollup for today is pending
     And the organization has a channel with a readable message
     When a member opens the workspace

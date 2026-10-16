@@ -366,9 +366,20 @@ rollup therefore prices what the control plane already recorded.
   `conversation/src/budget/computer-runtime.ts`; change it when the rates or
   the task size in `infra/lib/computer-stack.ts` change.
 - A day the computer never ran is a measured zero with `ce_status=ok`. Runtime
-  records that cannot be read write `ce_status=error` with no figure, which makes
-  the meter unavailable and pauses computer work for an organization with a
-  ceiling. The meter never reads an unmeasured organization as zero.
+  records that cannot be read write `ce_status=error` with no figure. The meter
+  never reads an unmeasured organization as zero: it counts such a day at the
+  day's model spend plus the most the computer can cost in a day (24 hours at
+  the rate above, `MOST_A_HOSTED_COMPUTER_COSTS_IN_ONE_DAY_USD`), and pauses
+  computer work as "cannot be read" only when that count reaches the ceiling.
+  An unread hosted day is not read again on later runs, because runtime that was
+  never recorded would read as a measured zero.
+- An organization in its own AWS account has no such bound. A day its account
+  could not be read, or whose data is still loading, makes the meter unknown and
+  pauses computer work for an organization with a ceiling. Each rollup run reads
+  every such earlier day of the month again, so one failed read does not hold
+  the pause for the rest of the month.
+- Every organization-day a run could not read is logged as `spend_unreadable`
+  and published as one `spend_unreadable` message on the budgets topic.
 
 This is an approximation of the organization's computer, and it says so:
 

@@ -63,6 +63,23 @@ export async function provisionEnabledOrganizationWithCeiling(world: ChatticusWo
 	};
 }
 
+const CUSTOMER_AWS_ACCOUNT_ID = "111122223333";
+
+/** Record the scenario's organization as running in its own AWS account, reached through its cross-account role. */
+export async function moveOrganizationIntoItsOwnAwsAccount(world: ChatticusWorld): Promise<void> {
+	const { tenantId } = spendScenario(world);
+	await kernel.provisionOrganizationAws(
+		tenantId,
+		{
+			accountId: CUSTOMER_AWS_ACCOUNT_ID,
+			crossAccountRole: `arn:aws:iam::${CUSTOMER_AWS_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole`,
+			externalId: tenantId,
+			setupPath: "customer-owned",
+		},
+		{ store: world.messagingStore() },
+	);
+}
+
 /** Run the real daily rollup for one day, pricing the computer runtime the table holds. */
 export async function rollUpDay(world: ChatticusWorld, rollupDate: string): Promise<void> {
 	await runDailyRollup({

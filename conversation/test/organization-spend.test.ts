@@ -50,18 +50,36 @@ function organizationWithCeiling(ceiling: string | null): Organization {
 	};
 }
 
+const hostedOrganization = { tenantId: "t", awsCrossAccountRole: null };
+const customerAccountOrganization = { tenantId: "t", awsCrossAccountRole: "arn:aws:iam::111122223333:role/ChatticusOrganizationComputerRole" };
+const unreadRows = [row("2026-08-02", "pending", null), row("2026-08-02", "error", null), row("2026-08-02", "weird", "1"), row("2026-08-02", "ok", null)];
+
+function customerAccountOrganizationWithCeiling(ceiling: string): Organization {
+	return { ...organizationWithCeiling(ceiling), awsCrossAccountRole: customerAccountOrganization.awsCrossAccountRole };
+}
+
 describe("month-to-date spend", () => {
 	it("sums ok rows from the first of the month and ignores earlier months", async () => {
 		const reader = readerOf([row("2026-07-31", "ok", "900"), row("2026-08-01", "ok", "10.50"), row("2026-08-03", "ok", "4")]);
-		const meter = await monthToDateCombinedSpendUsd(reader, "t", "development", "2026-08-31");
+		const meter = await monthToDateCombinedSpendUsd(reader, hostedOrganization, "development", "2026-08-31");
 		expect(meter.monthToDateUsd.toString()).toBe("14.50");
+		expect(meter.mostUnreadDaysCouldCostUsd.equals(Decimal.zero())).toBe(true);
 		expect(meter.meterUnknown).toBe(false);
 	});
 
-	it("marks the meter unknown for pending, error, unrecognised and combined-less rows", async () => {
-		for (const unknown of [row("2026-08-02", "pending", null), row("2026-08-02", "error", null), row("2026-08-02", "weird", "1"), row("2026-08-02", "ok", null)]) {
-			const meter = await monthToDateCombinedSpendUsd(readerOf([unknown]), "t", "development", "2026-08-31");
+	it("marks the meter unknown for an unread day of an organization in its own AWS account", async () => {
+		for (const unread of unreadRows) {
+			const meter = await monthToDateCombinedSpendUsd(readerOf([unread]), customerAccountOrganization, "development", "2026-08-31");
 			expect(meter.meterUnknown).toBe(true);
+		}
+	});
+
+	it("counts an unread day of a hosted organization at its model spend plus a whole day of computer", async () => {
+		for (const unread of unreadRows) {
+			const meter = await monthToDateCombinedSpendUsd(readerOf([{ ...unread, vendorCostUsd: Decimal.parse("1.00") }]), hostedOrganization, "development", "2026-08-31");
+			expect(meter.meterUnknown).toBe(false);
+			expect(meter.monthToDateUsd.equals(Decimal.zero())).toBe(true);
+			expect(meter.mostUnreadDaysCouldCostUsd.equals(Decimal.parse("1.237"))).toBe(true);
 		}
 	});
 });
@@ -79,9 +97,24 @@ describe("computer work pause", () => {
 		expect(below).toEqual({ paused: false, reason: null });
 	});
 
-	it("pauses with the meter reason when the meter is unknown", async () => {
-		const pause = await organizationComputerWorkPaused(organizationWithCeiling("250"), readerOf([row("2026-08-02", "pending", null)]), "development", "2026-08-31");
+	it("pauses with the meter reason when an organization in its own AWS account has an unread day", async () => {
+		const pause = await organizationComputerWorkPaused(customerAccountOrganizationWithCeiling("250"), readerOf([row("2026-08-02", "pending", null)]), "development", "2026-08-31");
 		expect(pause).toEqual({ paused: true, reason: SPEND_CEILING_METER_UNAVAILABLE_REASON });
+	});
+
+	it("does not pause a hosted organization whose unread days could not reach the ceiling", async () => {
+		const pause = await organizationComputerWorkPaused(organizationWithCeiling("50"), readerOf([row("2026-08-02", "error", null), row("2026-08-03", "ok", "1.00")]), "development", "2026-08-31");
+		expect(pause).toEqual({ paused: false, reason: null });
+	});
+
+	it("pauses a hosted organization with the meter reason once its unread days could reach the ceiling", async () => {
+		const pause = await organizationComputerWorkPaused(organizationWithCeiling("1.10"), readerOf([row("2026-08-02", "error", null), row("2026-08-03", "ok", "1.00")]), "development", "2026-08-31");
+		expect(pause).toEqual({ paused: true, reason: SPEND_CEILING_METER_UNAVAILABLE_REASON });
+	});
+
+	it("says the ceiling was exceeded when measured spend alone reaches it", async () => {
+		const pause = await organizationComputerWorkPaused(organizationWithCeiling("1.00"), readerOf([row("2026-08-02", "error", null), row("2026-08-03", "ok", "1.00")]), "development", "2026-08-31");
+		expect(pause).toEqual({ paused: true, reason: SPEND_CEILING_EXCEEDED_REASON });
 	});
 });
 

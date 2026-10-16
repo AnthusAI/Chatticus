@@ -12,9 +12,23 @@ export interface ThresholdCrossing {
 	readonly unpricedCalls: number;
 }
 
-/** Publish rollup threshold alerts to the budgets SNS topic. */
+/** One organization-day the rollup could not read. */
+export interface UnreadableSpendDay {
+	readonly tenantId: string;
+	readonly rollupDate: string;
+}
+
+/** The organization-days one rollup run could not read. */
+export interface UnreadableSpendReport {
+	readonly environment: string;
+	readonly rollupDate: string;
+	readonly unreadableDays: readonly UnreadableSpendDay[];
+}
+
+/** Publish rollup alerts to the budgets SNS topic. */
 export interface BudgetAlertsPublisher {
 	publishThresholdCrossing(crossing: ThresholdCrossing): Promise<void>;
+	publishUnreadableSpend(report: UnreadableSpendReport): Promise<void>;
 }
 
 export interface ThresholdAlertPayload {
@@ -41,6 +55,24 @@ export function thresholdAlertPayload(crossing: ThresholdCrossing): ThresholdAle
 	};
 }
 
+export interface UnreadableSpendAlertPayload {
+	readonly source: string;
+	readonly kind: string;
+	readonly environment: string;
+	readonly rollup_date: string;
+	readonly unreadable_days: ReadonlyArray<{ readonly tenant_id: string; readonly rollup_date: string }>;
+}
+
+export function unreadableSpendAlertPayload(report: UnreadableSpendReport): UnreadableSpendAlertPayload {
+	return {
+		source: ROLLUP_ALERT_SOURCE,
+		kind: "spend_unreadable",
+		environment: report.environment,
+		rollup_date: report.rollupDate,
+		unreadable_days: report.unreadableDays.map((day) => ({ tenant_id: day.tenantId, rollup_date: day.rollupDate })),
+	};
+}
+
 /** Publish rollup alerts through SNS. */
 export class SnsBudgetAlertsPublisher implements BudgetAlertsPublisher {
 	private readonly topicArn: string;
@@ -59,6 +91,16 @@ export class SnsBudgetAlertsPublisher implements BudgetAlertsPublisher {
 				Subject:
 					`Chatticus vendor spend reached ${crossing.thresholdPercent}% ` +
 					`of monthly limit (${crossing.environment})`,
+			}),
+		);
+	}
+
+	async publishUnreadableSpend(report: UnreadableSpendReport): Promise<void> {
+		await this.client.send(
+			new PublishCommand({
+				TopicArn: this.topicArn,
+				Message: JSON.stringify(unreadableSpendAlertPayload(report)),
+				Subject: `Chatticus spend could not be read for ${report.unreadableDays.length} organization-days (${report.environment})`,
 			}),
 		);
 	}
