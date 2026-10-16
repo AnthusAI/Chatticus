@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
+import { deployRoleStatements } from "./deploy-role-policy";
 
 /** GitHub repository slug for OIDC trust (not an AWS account id). */
 const GITHUB_REPOSITORY = "AnthusAI/Chatticus";
@@ -92,9 +93,9 @@ export function createGithubDeployRole(
       },
     }),
   });
-  role.addManagedPolicy(
-    iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"),
-  );
+  for (const statement of deployRoleStatements(cdk.Stack.of(scope), githubEnvironment)) {
+    role.addToPolicy(statement);
+  }
   return role;
 }
 

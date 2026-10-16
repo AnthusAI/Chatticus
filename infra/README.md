@@ -184,9 +184,15 @@ commands, and legacy-key cleanup.
 
 Each role trusts only its GitHub environment name, audience
 `sts.amazonaws.com`, and an explicit list of `job_workflow_ref` patterns
-(`push` on the environment branch and `workflow_dispatch`). Each has `AdministratorAccess` for
-CDK deploy of its named stacks and read-only lookups of `ChatticusComputers`
-outputs used by ThinTurn deploy scripts.
+(`push` on the environment branch and `workflow_dispatch`). No role has `AdministratorAccess`. Each
+is defined by `deployRoleStatements` in `lib/deploy-role-policy.ts`: `sts:AssumeRole` on the four CDK bootstrap roles
+(deploy, file-publishing, image-publishing, lookup; never the CloudFormation execution role), read-only
+CloudFormation calls on its own environment's stacks and `CDKToolkit`, `ssm:GetParameter` under
+`/chatticus/<environment>/` and the bootstrap version parameter, `secretsmanager:ListSecretVersionIds` on secrets
+tagged with its environment, and the ECR push actions on its own environment's computer repository. Explicit denies
+cover IAM users, access keys and login profiles, `organizations:*` and `account:*`, plus the peer environment's
+stacks, parameters and tagged resources where two environments share an account.
+`test/deploy-role-least-privilege.test.ts` fails when a workflow or script calls an AWS API the role lacks.
 
 After merging a change that adds or updates trusted workflow paths, redeploy
 `ChatticusGitHubDeploy` once (`sh deploy-chatticus-github-deploy.sh`) before
