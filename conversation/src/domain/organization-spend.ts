@@ -25,7 +25,7 @@ export type BudgetRollupReader = Pick<BudgetStore, "getBudgetRollupRow">;
 export const MTD_UNKNOWN_CE_STATUSES: ReadonlySet<string> = new Set([CE_STATUS_PENDING, CE_STATUS_ERROR]);
 
 export const SPEND_CEILING_EXCEEDED_REASON = "monthly AWS spend ceiling exceeded";
-export const SPEND_CEILING_METER_UNAVAILABLE_REASON = "monthly AWS spend is unavailable until Cost Explorer catches up";
+export const SPEND_CEILING_METER_UNAVAILABLE_REASON = "monthly AWS spend cannot be read right now";
 
 /** Month-to-date combined spend and whether the meter is incomplete. */
 export interface OrganizationSpendMeter {

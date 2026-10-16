@@ -24,7 +24,9 @@ import type {
 	Organization,
 	OrganizationStatus,
 } from "../domain/organizations.ts";
+import { computerRuntimeSegmentItem, computerRuntimeKey, queryComputerRuntimeSegments } from "../budget/budget-store.ts";
 import { Decimal } from "../budget/decimal.ts";
+import type { ComputerRuntimeSegment } from "../budget/models.ts";
 import { DuplicateBotNameError } from "../http/errors.ts";
 import * as botCodec from "./codecs/bot.ts";
 import type { Bot } from "./codecs/bot.ts";
@@ -725,6 +727,39 @@ export class DynamoMessagingStore implements MessagingStore {
 				":credentialsExpireAt": { N: String(Math.floor(bootstrap.credentialsExpireAt.getTime() / 1000)) },
 			},
 		});
+	}
+
+	async openComputerRuntimeSegment(tenantId: string, run: { ownerGeneration: number; ownerId: string; startedAt: Date }): Promise<void> {
+		await this.client.send(
+			new PutItemCommand({
+				TableName: this.tableName,
+				Item: computerRuntimeSegmentItem(
+					{ tenantId, ownerGeneration: run.ownerGeneration, startedAt: run.startedAt, lastSeenAt: run.startedAt },
+					run.ownerId,
+				),
+			}),
+		);
+	}
+
+	async extendComputerRuntimeSegment(tenantId: string, ownerGeneration: number, seenAt: Date): Promise<void> {
+		const key = computerRuntimeKey(tenantId, ownerGeneration);
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+					UpdateExpression: "SET last_seen_at = :seen",
+					ConditionExpression: "attribute_exists(pk) AND last_seen_at < :seen",
+					ExpressionAttributeValues: { ":seen": { S: seenAt.toISOString() } },
+				}),
+			);
+		} catch (error) {
+			if (!(error instanceof ConditionalCheckFailedException)) throw error;
+		}
+	}
+
+	listComputerRuntimeSegments(tenantId: string): Promise<ComputerRuntimeSegment[]> {
+		return queryComputerRuntimeSegments(this.client, this.tableName, tenantId);
 	}
 
 	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date; paceMilliseconds: number }): Promise<boolean> {

@@ -131,6 +131,42 @@ export class ScenarioMessagingTable {
 		await this.client.send(new PutItemCommand({ TableName: this.tableName, Item: item }));
 	}
 
+	async putComputerRuntimeSegment(segment: {
+		tenantId: string;
+		ownerGeneration: number;
+		startedAt: Date;
+		lastSeenAt: Date;
+	}): Promise<void> {
+		await this.client.send(
+			new PutItemCommand({
+				TableName: this.tableName,
+				Item: {
+					pk: { S: `${segment.tenantId}#computer_runtime` },
+					sk: { S: `generation#${String(segment.ownerGeneration).padStart(10, "0")}` },
+					tenant_id: { S: segment.tenantId },
+					owner_generation: { N: String(segment.ownerGeneration) },
+					owner_id: { S: `owner-${segment.ownerGeneration}` },
+					started_at: { S: segment.startedAt.toISOString() },
+					last_seen_at: { S: segment.lastSeenAt.toISOString() },
+				},
+			}),
+		);
+	}
+
+	async putUnreadableComputerRuntimeSegment(tenantId: string): Promise<void> {
+		await this.client.send(
+			new PutItemCommand({
+				TableName: this.tableName,
+				Item: {
+					pk: { S: `${tenantId}#computer_runtime` },
+					sk: { S: "generation#0000000001" },
+					tenant_id: { S: tenantId },
+					owner_generation: { N: "1" },
+				},
+			}),
+		);
+	}
+
 	async deleteVendorLedgerRow(tenantId: string, turnId: string): Promise<void> {
 		const key = vendorLedgerKey(tenantId, turnId);
 		await this.client.send(

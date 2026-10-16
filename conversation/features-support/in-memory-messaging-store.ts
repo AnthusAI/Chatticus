@@ -1,3 +1,4 @@
+import type { ComputerRuntimeSegment } from "../src/budget/models.ts";
 import type { Identity, Invitation, Membership, Organization, OrganizationStatus } from "../src/domain/organizations.ts";
 import type { Channel, ChannelMessageRecord } from "../src/domain/channels.ts";
 import type { Bot } from "../src/store/codecs/bot.ts";
@@ -24,6 +25,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 	private readonly messages = new Map<string, ChannelMessageRecord[]>();
 	private readonly computers = new Map<string, Computer>();
 	private readonly workers = new Map<string, Worker>();
+	private readonly computerRuntimeSegments = new Map<string, ComputerRuntimeSegment>();
 	private readonly tasks = new Map<string, Task>();
 	private readonly liveFileOperations = new Map<string, LiveFileOperation>();
 	private readonly fileAudits = new Map<string, FileAuditRecord>();
@@ -389,6 +391,26 @@ export class InMemoryMessagingStore implements MessagingStore {
 		};
 		this.computers.set(tenantId, consumed);
 		return structuredClone(consumed);
+	}
+
+	async openComputerRuntimeSegment(tenantId: string, run: { ownerGeneration: number; ownerId: string; startedAt: Date }): Promise<void> {
+		this.computerRuntimeSegments.set(`${tenantId}\u0000${run.ownerGeneration}`, {
+			tenantId,
+			ownerGeneration: run.ownerGeneration,
+			startedAt: run.startedAt,
+			lastSeenAt: run.startedAt,
+		});
+	}
+
+	async extendComputerRuntimeSegment(tenantId: string, ownerGeneration: number, seenAt: Date): Promise<void> {
+		const key = `${tenantId}\u0000${ownerGeneration}`;
+		const segment = this.computerRuntimeSegments.get(key);
+		if (segment === undefined || segment.lastSeenAt.getTime() >= seenAt.getTime()) return;
+		this.computerRuntimeSegments.set(key, { ...segment, lastSeenAt: seenAt });
+	}
+
+	async listComputerRuntimeSegments(tenantId: string): Promise<ComputerRuntimeSegment[]> {
+		return [...this.computerRuntimeSegments.values()].filter((segment) => segment.tenantId === tenantId);
 	}
 
 	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date; paceMilliseconds: number }): Promise<boolean> {

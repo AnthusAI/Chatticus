@@ -5,9 +5,8 @@ import { setMonthlyAwsSpendCeiling } from "../../src/domain/organization-spend.t
 import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
 import { DEFAULT_FRONT_DOOR_ENVIRONMENT } from "../front-door.ts";
 import { runMembershipUiHarness } from "../membership-ui-harness.ts";
-import { ORGANIZATION_NAME, rollUpToday } from "../spend-ceiling.ts";
+import { ORGANIZATION_NAME, spendToday } from "../spend-ceiling.ts";
 import type { ChatticusWorld } from "../world.ts";
-import { utcDayOf } from "../../src/budget/calendar.ts";
 
 const kernel = new OrganizationsKernelImpl();
 const SPEND_CEILING_FORM_TITLE = "Raise the monthly AWS spend ceiling";
@@ -44,13 +43,7 @@ Given(
 		await setMonthlyAwsSpendCeiling(organization.tenantId, this.currentIdentity.userId, Decimal.parse(String(ceiling)), {
 			store: this.messagingStore(),
 		});
-		this.costExplorer.setDailyCost(
-			this.budgetEnvironment,
-			organization.tenantId,
-			utcDayOf(this.clock.now()),
-			Decimal.parse(String(ceiling + SPEND_ABOVE_CEILING_MARGIN_USD)),
-		);
-		await rollUpToday(this);
+		await spendToday(this, String(ceiling + SPEND_ABOVE_CEILING_MARGIN_USD), organization.tenantId);
 	},
 );
 

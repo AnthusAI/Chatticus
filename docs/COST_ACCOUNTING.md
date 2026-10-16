@@ -118,7 +118,7 @@ cacheRead 0.02, cacheWrite 0.25). Chatticus ignores the cache and tier fields.
 | Sub-agent | not applicable yet; would be missed (F4) | none | none |
 | Voice line | yes, `voice:{uuid}` row, tenant only | none | none |
 | Organization per day | yes, `vendor_cost_usd` in the daily rollup | none (feeds `computer_work_paused` on `/me`) | paused notice only |
-| Organization AWS spend | Cost Explorer read by the rollup | ceiling field on `/me` | `SpendCeilingForm`, `ComputerPausedNotice` |
+| Organization AWS spend | Customer account: Cost Explorer through its role. Platform-hosted: recorded owner runtime priced at the Fargate ARM64 rate (docs/BUDGETS.md) | ceiling field on `/me` | `SpendCeilingForm`, `ComputerPausedNotice` |
 
 Routes: `grep` of `conversation/src/http` finds no route returning tokens or model dollars. `web/` greps for `vendor`, `ledger`, `cost_usd`, `input_tokens` find nothing in
 product code; "spend" appears only for the AWS ceiling (`web/lib/spend-ceiling.ts`, `web/components/SpendCeilingForm.tsx`).

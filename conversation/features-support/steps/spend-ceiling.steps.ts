@@ -6,7 +6,7 @@ import {
 	SPEND_CEILING_METER_UNAVAILABLE_REASON,
 } from "../../src/domain/organization-spend.ts";
 import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
-import { utcDayOf } from "../../src/budget/calendar.ts";
+import { CE_STATUS_ERROR, CE_STATUS_PENDING } from "../../src/budget/models.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
 import { bearerFor } from "../front-door.ts";
 import {
@@ -15,7 +15,7 @@ import {
 	MEMBER_EMAIL,
 	OWNER_EMAIL,
 	provisionEnabledOrganizationWithCeiling,
-	rollUpToday,
+	recordMeterToday,
 	spendScenario,
 	spendToday,
 	storedOrganization,
@@ -81,13 +81,11 @@ Given(
 );
 
 Given("month-to-date spend rollup for today is pending", async function (this: ChatticusWorld) {
-	this.costExplorer.setDayPending(this.budgetEnvironment, utcDayOf(this.clock.now()));
-	await rollUpToday(this);
+	await recordMeterToday(this, { awsCostUsd: null, ceStatus: CE_STATUS_PENDING });
 });
 
 Given("month-to-date spend rollup for today could not be read", async function (this: ChatticusWorld) {
-	this.costExplorer.setTenantTagActive(false);
-	await rollUpToday(this);
+	await recordMeterToday(this, { awsCostUsd: null, ceStatus: CE_STATUS_ERROR });
 });
 
 Given("the organization has a channel with a readable message", async function (this: ChatticusWorld) {

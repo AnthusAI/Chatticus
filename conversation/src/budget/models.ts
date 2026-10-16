@@ -42,6 +42,17 @@ export interface BudgetThresholdState {
 	readonly updatedAt: string;
 }
 
+/**
+ * One run of an organization's computer owner, as the control plane recorded it: when the owner exchanged its bootstrap
+ * token and the last accepted poll it made. The seconds between them are what the computer was known to be up.
+ */
+export interface ComputerRuntimeSegment {
+	readonly tenantId: string;
+	readonly ownerGeneration: number;
+	readonly startedAt: Date;
+	readonly lastSeenAt: Date;
+}
+
 /** The slice of the Python-owned organization item the budget jobs read. */
 export interface Organization {
 	readonly tenantId: string;

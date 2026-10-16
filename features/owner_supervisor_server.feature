@@ -64,6 +64,17 @@ Feature: The control plane serves the long-lived computer owner: bootstrap, poll
     And the owner presents its bootstrap token on the bootstrap route
     Then the answer is 200
 
+  Scenario: The control plane keeps a record of how long the owner ran, for the spend meter
+    Given a bootstrapped owner of the household computer
+    Then the control plane records that the owner of generation 1 ran for 0 seconds
+    When the clock moves 600 seconds
+    And the owner polls in state "idle" with sequence 9
+    Then the control plane records that the owner of generation 1 ran for 600 seconds
+    When the clock moves 5 seconds
+    And the owner polls in state "serving" with sequence 8
+    Then the answer is 409 with the code "stale_poll"
+    And the control plane records that the owner of generation 1 ran for 600 seconds
+
   Scenario: The poll is the heartbeat
     Given a bootstrapped owner of the household computer
     When the clock moves 20 seconds

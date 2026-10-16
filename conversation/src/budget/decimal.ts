@@ -56,6 +56,23 @@ export class Decimal {
 		return new Decimal(this.units, this.scale + exponent);
 	}
 
+	/** Divide by a positive integer and round half to even at `scale` fraction digits. */
+	divideByInteger(divisor: number, scale: number): Decimal {
+		if (!Number.isInteger(divisor) || divisor <= 0) {
+			throw new Error(`Cannot divide a decimal by ${divisor}.`);
+		}
+		const negative = this.units < 0n;
+		const magnitude = negative ? -this.units : this.units;
+		const numerator = scale >= this.scale ? magnitude * powerOfTen(scale - this.scale) : magnitude;
+		const denominator = BigInt(divisor) * (scale >= this.scale ? 1n : powerOfTen(this.scale - scale));
+		let quotient = numerator / denominator;
+		const doubledRemainder = (numerator % denominator) * 2n;
+		if (doubledRemainder > denominator || (doubledRemainder === denominator && quotient % 2n === 1n)) {
+			quotient += 1n;
+		}
+		return new Decimal(negative ? -quotient : quotient, scale);
+	}
+
 	/** Round half to even at `scale` fraction digits, like Python `quantize`. */
 	quantize(scale: number): Decimal {
 		if (scale >= this.scale) {

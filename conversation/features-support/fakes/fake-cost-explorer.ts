@@ -1,51 +1,7 @@
-import type {
-	AccountDayResult,
-	AccountSpendReader,
-	CostExplorerDayResult,
-	CostExplorerReader,
-} from "../../src/budget/cost-explorer.ts";
+import type { AccountDayResult, AccountSpendReader } from "../../src/budget/cost-explorer.ts";
 import { AccountSpendUnreadableError } from "../../src/budget/cost-explorer.ts";
 import { Decimal } from "../../src/budget/decimal.ts";
 import type { Organization } from "../../src/budget/models.ts";
-
-/** In-memory Cost Explorer for the cucumber world. */
-export class FakeCostExplorerReader implements CostExplorerReader {
-	private readonly pendingDays = new Set<string>();
-	private readonly costs = new Map<string, Decimal>();
-	private tenantTagActive = true;
-
-	setTenantTagActive(active: boolean): void {
-		this.tenantTagActive = active;
-	}
-
-	setDayPending(environment: string, rollupDate: string): void {
-		this.pendingDays.add(`${environment}|${rollupDate}`);
-	}
-
-	setDailyCost(environment: string, tenantId: string, rollupDate: string, amount: Decimal): void {
-		this.pendingDays.delete(`${environment}|${rollupDate}`);
-		this.costs.set(`${environment}|${tenantId}|${rollupDate}`, amount);
-	}
-
-	markDayAvailable(environment: string, rollupDate: string): void {
-		this.pendingDays.delete(`${environment}|${rollupDate}`);
-	}
-
-	dailyCostsByTenant(request: { environment: string; rollupDate: string }): Promise<CostExplorerDayResult> {
-		const { environment, rollupDate } = request;
-		if (this.pendingDays.has(`${environment}|${rollupDate}`)) {
-			return Promise.resolve({ pending: true, costsByTenant: new Map(), tenantTagActive: true });
-		}
-		const costsByTenant = new Map<string, Decimal>();
-		for (const [key, amount] of this.costs) {
-			const [costEnvironment, tenantId, day] = key.split("|");
-			if (costEnvironment === environment && day === rollupDate && tenantId !== undefined) {
-				costsByTenant.set(tenantId, amount);
-			}
-		}
-		return Promise.resolve({ pending: false, costsByTenant, tenantTagActive: this.tenantTagActive });
-	}
-}
 
 /** In-memory customer-account spend for the cucumber world. */
 export class FakeAccountSpendReader implements AccountSpendReader {

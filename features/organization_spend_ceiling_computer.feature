@@ -69,6 +69,67 @@ Feature: Organization spend ceiling for computer work
     Then the request is refused with a spend meter unavailable reason
     And no computer is started
 
+  Scenario: A platform-hosted organization is paused once its computer's spend reaches the ceiling
+    Given an enabled organization with a monthly spend ceiling of "0.0395" USD
+    And its computer ran for 4 hours yesterday
+    And the daily rollup has run for yesterday
+    And the organization computer is stopped
+    And a human task grants:
+      | field          | value                              |
+      | tools          | browse, read_workspace             |
+      | origins        | https://docs.example.com           |
+      | recipients     |                                    |
+      | file_scopes    | /workspace/research                |
+      | egress_classes | approved_origin_fetch, file_transfer |
+    When a member asks a bot for work that needs the computer
+    Then the request is refused with a spend ceiling reason
+    And no computer is started
+
+  Scenario: A platform-hosted organization is not paused before its computer's spend reaches the ceiling
+    Given an enabled organization with a monthly spend ceiling of "0.0395" USD
+    And its computer ran for 3 hours yesterday
+    And the daily rollup has run for yesterday
+    And the organization computer is stopped
+    And a human task grants:
+      | field          | value                              |
+      | tools          | browse, read_workspace             |
+      | origins        | https://docs.example.com           |
+      | recipients     |                                    |
+      | file_scopes    | /workspace/research                |
+      | egress_classes | approved_origin_fetch, file_transfer |
+    When a member asks a bot for work that needs the computer
+    Then computer work is accepted again
+
+  Scenario: A platform-hosted organization whose computer never ran is not paused
+    Given an enabled organization with a monthly spend ceiling of "0.0395" USD
+    And the daily rollup has run for yesterday
+    And the organization computer is stopped
+    And a human task grants:
+      | field          | value                              |
+      | tools          | browse, read_workspace             |
+      | origins        | https://docs.example.com           |
+      | recipients     |                                    |
+      | file_scopes    | /workspace/research                |
+      | egress_classes | approved_origin_fetch, file_transfer |
+    When a member asks a bot for work that needs the computer
+    Then computer work is accepted again
+
+  Scenario: A platform-hosted organization whose runtime cannot be read is paused as unmeasured
+    Given an enabled organization with a monthly spend ceiling of "0.0395" USD
+    And its computer runtime records are unreadable
+    And the daily rollup has run for yesterday
+    And the organization computer is stopped
+    And a human task grants:
+      | field          | value                              |
+      | tools          | browse, read_workspace             |
+      | origins        | https://docs.example.com           |
+      | recipients     |                                    |
+      | file_scopes    | /workspace/research                |
+      | egress_classes | approved_origin_fetch, file_transfer |
+    When a member asks a bot for work that needs the computer
+    Then the request is refused with a spend meter unavailable reason
+    And no computer is started
+
   Scenario: A computer continuation is refused at host start while paused
     Given an enabled organization with a monthly spend ceiling
     And a queued computer continuation for workspace file read
