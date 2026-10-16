@@ -4,12 +4,8 @@ import { STSClient } from "@aws-sdk/client-sts";
 import { SnsBudgetAlertsPublisher } from "./budget-alerts.ts";
 import { DynamoBudgetStore } from "./budget-store.ts";
 import { addDays, utcDayOf } from "./calendar.ts";
-import {
-	AwsAccountSpendReader,
-	AwsCostExplorerReader,
-	costExplorerApiForCredentials,
-	hostedCostExplorerApi,
-} from "./cost-explorer.ts";
+import { RecordedRuntimeComputerSpendReader } from "./computer-runtime.ts";
+import { AwsAccountSpendReader, costExplorerApiForCredentials } from "./cost-explorer.ts";
 import { Decimal } from "./decimal.ts";
 import { DynamoObservationReconciler } from "../ledger/reconcile.ts";
 import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
@@ -33,10 +29,11 @@ export async function handler(): Promise<void> {
 	const rollupDate = addDays(utcDayOf(now), -1);
 	console.log(`daily_rollup_start environment=${environment} rollup_date=${rollupDate}`);
 	const dynamo = new DynamoDBClient({});
+	const store = new DynamoBudgetStore(dynamo, tableName);
 	await runDailyRollup({
-		store: new DynamoBudgetStore(dynamo, tableName),
+		store,
 		reconciler: new DynamoObservationReconciler({ client: dynamo, tableName, prices: defaultVendorPriceBook(), now: () => new Date() }),
-		costExplorer: new AwsCostExplorerReader(hostedCostExplorerApi()),
+		hostedComputerSpend: new RecordedRuntimeComputerSpendReader(store),
 		accountSpend: new AwsAccountSpendReader(new STSClient({}), costExplorerApiForCredentials),
 		alerts: topicArn === "" ? null : new SnsBudgetAlertsPublisher(topicArn, new SNSClient({})),
 		environment,

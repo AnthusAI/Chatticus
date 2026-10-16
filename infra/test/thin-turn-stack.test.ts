@@ -11,7 +11,7 @@ describe("ThinTurnStack daily budget rollup", () => {
     budgetsMonthlyLimitUsd: 120,
   });
 
-  it("creates a scheduled daily rollup Lambda with Cost Explorer access", () => {
+  it("creates a scheduled daily rollup Lambda", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       Runtime: "nodejs22.x",
       Handler: "index.handler",
@@ -23,16 +23,16 @@ describe("ThinTurnStack daily budget rollup", () => {
         }),
       },
     });
-    template.hasResourceProperties("AWS::IAM::Policy", {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: Match.arrayWith(["ce:GetCostAndUsage", "ce:ListCostAllocationTags"]),
-            Effect: "Allow",
-          }),
-        ]),
-      },
-    });
+  });
+
+  it("gives the rollup no Cost Explorer access of its own, only through a customer role it assumes", () => {
+    const policies = template.findResources("AWS::IAM::Policy");
+    const rollupStatements = Object.values(policies)
+      .filter((policy) => JSON.stringify(policy.Properties.Roles).includes("DailyBudgetRollupServiceRole"))
+      .flatMap((policy) => policy.Properties.PolicyDocument.Statement as Array<{ Action: string | string[] }>);
+    const actions = rollupStatements.flatMap((statement) => (Array.isArray(statement.Action) ? statement.Action : [statement.Action]));
+    assert.deepEqual(actions.filter((action) => action.startsWith("ce:")), []);
+    assert.ok(actions.includes("sts:AssumeRole"));
   });
 
   it("lets the rollup assume a customer organization role to read its spend", () => {

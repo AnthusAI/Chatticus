@@ -14,6 +14,7 @@ import {
 	type BudgetAlertEvent,
 	type BudgetRollupRow,
 	type BudgetThresholdState,
+	type ComputerRuntimeSegment,
 	ORGANIZATION_STATUS_ENABLED,
 	type Organization,
 	type VendorLedgerRow,
@@ -29,6 +30,8 @@ type Item = Record<string, AttributeValue>;
 export interface BudgetStore {
 	listEnabledOrganizations(): Promise<Organization[]>;
 	listVendorLedgerRowsForTenant(tenantId: string): Promise<VendorLedgerRow[]>;
+	/** Every recorded run of the organization's computer owner; rejects when a record cannot be read. */
+	listComputerRuntimeSegments(tenantId: string): Promise<ComputerRuntimeSegment[]>;
 	getBudgetRollupRow(tenantId: string, environment: string, rollupDate: string): Promise<BudgetRollupRow | null>;
 	putBudgetRollupRow(row: BudgetRollupRow): Promise<void>;
 	getAccountBudgetRollupRow(environment: string, rollupDate: string): Promise<BudgetRollupRow | null>;
@@ -39,6 +42,65 @@ export interface BudgetStore {
 
 export function vendorLedgerKey(tenantId: string, turnId: string): { pk: string; sk: string } {
 	return { pk: `${tenantId}#vendor_ledger`, sk: `turn#${turnId}` };
+}
+
+export function computerRuntimeKey(tenantId: string, ownerGeneration: number): { pk: string; sk: string } {
+	return { pk: `${tenantId}#computer_runtime`, sk: `generation#${String(ownerGeneration).padStart(10, "0")}` };
+}
+
+/** The item for one owner run, written when the owner starts and moved forward by each accepted poll. */
+export function computerRuntimeSegmentItem(segment: ComputerRuntimeSegment, ownerId: string): Item {
+	return {
+		...keyOf(computerRuntimeKey(segment.tenantId, segment.ownerGeneration)),
+		tenant_id: { S: segment.tenantId },
+		owner_generation: { N: String(segment.ownerGeneration) },
+		owner_id: { S: ownerId },
+		started_at: { S: segment.startedAt.toISOString() },
+		last_seen_at: { S: segment.lastSeenAt.toISOString() },
+	};
+}
+
+function requireInstant(item: Item, name: string): Date {
+	const moment = new Date(requireString(item, name));
+	if (Number.isNaN(moment.getTime())) {
+		throw new Error(`Item attribute ${name} is not a date-time.`);
+	}
+	return moment;
+}
+
+export function computerRuntimeSegmentFromItem(item: Item): ComputerRuntimeSegment {
+	return {
+		tenantId: requireString(item, "tenant_id"),
+		ownerGeneration: Number(requireNumber(item, "owner_generation")),
+		startedAt: requireInstant(item, "started_at"),
+		lastSeenAt: requireInstant(item, "last_seen_at"),
+	};
+}
+
+/** Read every owner run of one organization's computer from the table. */
+export async function queryComputerRuntimeSegments(
+	client: DynamoDBClient,
+	tableName: string,
+	tenantId: string,
+): Promise<ComputerRuntimeSegment[]> {
+	const segments: ComputerRuntimeSegment[] = [];
+	let startKey: QueryCommandInput["ExclusiveStartKey"];
+	do {
+		const response = await client.send(
+			new QueryCommand({
+				TableName: tableName,
+				KeyConditionExpression: "pk = :pk",
+				ExpressionAttributeValues: { ":pk": { S: `${tenantId}#computer_runtime` } },
+				ConsistentRead: true,
+				ExclusiveStartKey: startKey,
+			}),
+		);
+		for (const item of response.Items ?? []) {
+			segments.push(computerRuntimeSegmentFromItem(item));
+		}
+		startKey = response.LastEvaluatedKey;
+	} while (startKey !== undefined);
+	return segments;
 }
 
 export function organizationKey(tenantId: string): { pk: string; sk: string } {
@@ -212,6 +274,10 @@ export class DynamoBudgetStore implements BudgetStore {
 			startKey = response.LastEvaluatedKey;
 		} while (startKey !== undefined);
 		return rows;
+	}
+
+	listComputerRuntimeSegments(tenantId: string): Promise<ComputerRuntimeSegment[]> {
+		return queryComputerRuntimeSegments(this.client, this.tableName, tenantId);
 	}
 
 	async getBudgetRollupRow(

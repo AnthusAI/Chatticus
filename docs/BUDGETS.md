@@ -199,11 +199,10 @@ new stack cannot ship untagged. The installation name is optional; deploying
 without it warns and **removes** the tag from an already-tagged stack, so keep
 the variable set for every deploy path, including local scripts.
 
-The tenant tag pays for itself: a computer is organization-wide, so tagging
-the summoned Fargate task with its `tenant_id` makes per-organization cost a
-Cost Explorer query rather than something we build. Only tenant-tagged spend
-(computers) is attributed to an organization. Shared infrastructure is
-reported as overhead, not apportioned by guesswork.
+The tenant tag on a computer task is for reporting in a management account.
+The spend ceiling does not depend on it: see "Platform-hosted organizations:
+priced from recorded runtime". Shared infrastructure is reported as overhead,
+not apportioned by guesswork.
 
 ### Activating the tags (person-step)
 
@@ -218,8 +217,8 @@ runbook rather than in someone's memory.
    and `chatticus:environment` at minimum, and `chatticus:application`,
    `chatticus:installation` and `chatticus:component` for reporting. In an AWS
    Organization only the management account can do this.
-3. Until `chatticus:tenant` is active the rollup reads a hosted organization
-   as `ce_status=error`, which pauses computer work for one with a ceiling.
+3. The rollup no longer reads these tags for any organization, so activation
+   is optional and serves reporting only.
 
 `ChatticusSnapshots` and `ChatticusComputers` are deliberately not
 per-environment, so they carry `chatticus:environment=shared`.
@@ -345,14 +344,48 @@ zero. `error` and `pending` both make the meter unavailable, and an
 organization with a ceiling and an unavailable meter has new computer work
 refused. Days Cost Explorer has not populated stay `pending`.
 
-Organizations Anthus hosts in its own account are read by the
-`chatticus:tenant` tag, which Cost Explorer only reports once that tag is an
-**active cost allocation tag**. The rollup asks Cost Explorer whether it is
-active. If it is not, the day is written as `ce_status=error` with no figure,
-never as zero, because an absent tenant would otherwise be indistinguishable
-from an organization that spent nothing. When the tag is active, an absent
-tenant is a genuine zero. The rollup role needs `ce:ListCostAllocationTags`
-for the check, and a failed lookup also counts as not active.
+## Platform-hosted organizations: priced from recorded runtime
+
+An organization hosted in the deployment account (setup path `anthus-managed`,
+the default) has no account of its own to read, and Cost Explorer cannot split
+the deployment account's bill by organization: that would need `chatticus:tenant`
+as an active cost allocation tag, and only the AWS Organizations management
+account can activate one, so a member-account deployment can never read it. The
+rollup therefore prices what the control plane already recorded.
+
+- The owner supervisor routes write one durable item per owner run, under
+  `{tenant}#computer_runtime`, sort key `generation#{owner generation}`. The
+  bootstrap exchange opens it (`started_at`), and every accepted poll moves
+  `last_seen_at` forward. The item outlives the owner and the computer's owner
+  fields.
+- The daily rollup sums, for the rollup day, the seconds of each run that fall
+  inside that UTC day, at 0.009875 USD per hour (0.25 vCPU at 0.03238 plus 0.5 GB
+  at 0.00356, the Fargate Linux/ARM64 on-demand rates for us-east-1, taken from
+  the AWS Price List API on 2026-09-11). A run is billed for at least 60 seconds,
+  as Fargate bills. The constant is `COMPUTER_TASK_USD_PER_HOUR` in
+  `conversation/src/budget/computer-runtime.ts`; change it when the rates or
+  the task size in `infra/lib/computer-stack.ts` change.
+- A day the computer never ran is a measured zero with `ce_status=ok`. Runtime
+  records that cannot be read write `ce_status=error` with no figure, which makes
+  the meter unavailable and pauses computer work for an organization with a
+  ceiling. The meter never reads an unmeasured organization as zero.
+
+This is an approximation of the organization's computer, and it says so:
+
+- Snapshot storage (S3), the shared stack costs and data transfer are not in it.
+  Snapshot size is not recorded; at 0.023 USD per GB-month it is cents for a
+  workspace of a few GB.
+- The seconds between the task starting and the bootstrap, and between the last
+  accepted poll and the task ending, are not counted, except through the
+  one-minute minimum. An owner that is killed leaves its last poll as its end.
+- The meter reads days that have a rollup row. The rollup runs at 06:00 UTC for
+  the previous day, so today's usage reaches the ceiling decision the next
+  morning.
+- At the current task size an owner can run at most about 7.35 USD in a 31-day
+  month, so a ceiling above that never trips on this meter alone.
+
+Customer-account organizations are not touched by this meter; they keep the
+whole-account read above.
 
 ## Per-organization attribution
 

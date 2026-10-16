@@ -118,12 +118,6 @@ export class ThinTurnStack extends cdk.Stack {
       table.grantReadWriteData(rollupFunction);
       rollupFunction.addToRolePolicy(
         new iam.PolicyStatement({
-          actions: ["ce:GetCostAndUsage", "ce:GetTags", "ce:ListCostAllocationTags"],
-          resources: ["*"],
-        }),
-      );
-      rollupFunction.addToRolePolicy(
-        new iam.PolicyStatement({
           actions: ["sts:AssumeRole"],
           resources: ["arn:aws:iam::*:role/ChatticusOrganizationComputerRole"],
         }),

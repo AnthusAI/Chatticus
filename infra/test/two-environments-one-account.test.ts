@@ -265,8 +265,21 @@ describe("IAM is scoped per environment in the shared account", () => {
       );
       const allowed = statements.filter((statement) => statement.Effect === "Allow");
       const denied = statements.filter((statement) => statement.Effect === "Deny");
-      assert.equal(allowed.length, 0, "the deploy roles of the shared account hold no inline allow of their own");
+      assert.deepEqual(allowed.map((statement) => statement.Sid).sort(), [
+        "AssumeCdkBootstrapRoles",
+        "ComputerImagePush",
+        "EcrLoginToken",
+        "ReadEnvironmentParameters",
+        "ReadEnvironmentStacks",
+        "ReadInvokeKeySecretVersions",
+      ]);
+      const allowedText = JSON.stringify(allowed);
+      for (const peerStackId of stackIdsOfEnvironment(peer)) {
+        assert.equal(allowedText.includes(`:stack/${peerStackId}/`), false, `${environment} role allows ${peerStackId}`);
+      }
+      assert.equal(allowedText.includes(`/chatticus/${peer}/`), false);
       assert.deepEqual(denied.map((statement) => statement.Sid).sort(), [
+        "DenyIdentityAndAccountAdministration",
         "DenyPeerEnvironmentParameters",
         "DenyPeerEnvironmentStacks",
         "DenyPeerEnvironmentTaggedResources",

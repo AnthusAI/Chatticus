@@ -60,17 +60,29 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "87fab135-302b-4788-a6bd-a1f2b4403ea8",
+      "author": "home",
+      "text": "2026-10-16 production data change, approved by the owner: the owner's only production organization had no monthly AWS spend ceiling (null). Set to 50.00 USD per month. There is no CLI command for this (conversation/bin/members.ts has no ceiling subcommand); the supported path is the owner-session HTTP PATCH /orgs/{tenant_id}/monthly-aws-spend-ceiling, which an agent cannot call without an owner session credential. Applied instead through the same domain function the route uses (setMonthlyAwsSpendCeiling, owner check satisfied against the stored owner membership) from a throwaway script against the production Messaging table; no raw DynamoDB write. Read back: status enabled, aws_setup_path present, ceiling stored as Decimal string 50, which the route and organizationComputerWorkPaused read as Decimal. Follow-up worth considering: a members.ts set-spend-ceiling subcommand so operators need no throwaway script. Note: bugs chatticus-26f253 (daily rollup not deployed) and chatticus-9ac621 (meter cannot see customer spend, reports zero as ok) remain open, so this ceiling is set but cannot yet trip on real spend.",
+      "created_at": "2026-10-16T10:44:10.881455Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-08T22:25:27.517356Z",
-  "updated_at": "2026-09-30T21:35:12.668475Z",
+  "updated_at": "2026-10-16T10:44:10.881495Z",
   "closed_at": "2026-09-30T21:35:12.668423Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "The production ceiling is set to $50, but metering bugs still prevent it from limiting real spend.",
+  "right_now_updated_at": "2026-10-16T10:44:13.211288Z",
   "custom": {}
 }
