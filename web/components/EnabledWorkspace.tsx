@@ -23,7 +23,7 @@ import { TurnGrantPanel } from "./TurnGrantPanel";
 import { ComputerFilesPanel } from "./workspace/ComputerFilesPanel";
 import { ChannelCostChip, MessageCostContext, type MessageCostContextValue } from "./workspace/CostMarkers";
 import { CostsPanel } from "./workspace/CostsPanel";
-import { InspectorTabs, inspectorPanelDomId, inspectorTabDomId } from "./workspace/InspectorTabs";
+import { PanelPluginTabs, PanelSizeSwitch, panelPluginPanelDomId, panelPluginTabDomId } from "./workspace/PanelPluginTabs";
 import { useVoiceControl, type VoiceControl } from "./useVoiceControl";
 import {
   createBot,
@@ -88,7 +88,7 @@ import {
 import { createVoiceLineDelivery } from "../lib/voice-line-delivery";
 import type { RetainedTurnActivity } from "../lib/committed-activity";
 import { reduceTurnActivity } from "../lib/turn-activity";
-import type { InspectorTabId } from "../lib/inspector-tabs";
+import { panelSizeForPlugin, workspaceShellLayoutClassName, CORE_PANEL_PLUGINS, type CorePanelPluginId, type PanelSize } from "../lib/panel-plugins";
 import { touchedFilesFromActivity } from "../lib/touched-files";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
@@ -168,7 +168,8 @@ export function EnabledWorkspace({
   const [rosterOpen, setRosterOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<InspectorTabId>("context");
+  const [inspectorTab, setInspectorTab] = useState<CorePanelPluginId>("context");
+  const [panelSize, setPanelSize] = useState<PanelSize>("split");
   const [filesTabVisited, setFilesTabVisited] = useState(false);
   const [costsTabVisited, setCostsTabVisited] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -869,24 +870,29 @@ export function EnabledWorkspace({
   );
 
   const inspectorPane = (
-    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-4" aria-label={INSPECTOR_SHEET_TITLE}>
-      <div className="flex items-center justify-between py-2">
-        <h2 className="text-sm font-extrabold">Context</h2>
-        <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.closeInspector} onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); }}><X size={18} aria-hidden="true" /></Button>
+    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-3" aria-label={INSPECTOR_SHEET_TITLE}>
+      <div className="flex items-center gap-2 pb-3">
+        <h2 className="sr-only">{CORE_PANEL_PLUGINS.find((plugin) => plugin.id === inspectorTab)?.label}</h2>
+        <PanelPluginTabs
+          selected={inspectorTab}
+          onSelect={(tab) => {
+            if (tab === "files") setFilesTabVisited(true);
+            if (tab === "costs") setCostsTabVisited(true);
+            setInspectorTab(tab);
+            setPanelSize((currentSize) => panelSizeForPlugin(tab, currentSize));
+          }}
+        />
+        <span className="flex-1" />
+        <div className="hidden xl:block">
+          <PanelSizeSwitch size={panelSize} onChange={(size) => setPanelSize(panelSizeForPlugin(inspectorTab, size))} />
+        </div>
+        <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.closeInspector} onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); setPanelSize("split"); }}><X size={18} aria-hidden="true" /></Button>
       </div>
-      <InspectorTabs
-        selected={inspectorTab}
-        onSelect={(tab) => {
-          if (tab === "files") setFilesTabVisited(true);
-          if (tab === "costs") setCostsTabVisited(true);
-          setInspectorTab(tab);
-        }}
-      />
       {filesTabVisited ? (
         <div
           role="tabpanel"
-          id={inspectorPanelDomId("files")}
-          aria-labelledby={inspectorTabDomId("files")}
+          id={panelPluginPanelDomId("files")}
+          aria-labelledby={panelPluginTabDomId("files")}
           hidden={inspectorTab !== "files"}
           className="min-h-0 flex-1 overflow-y-auto pb-4"
         >
@@ -902,8 +908,8 @@ export function EnabledWorkspace({
       {costsTabVisited ? (
         <div
           role="tabpanel"
-          id={inspectorPanelDomId("costs")}
-          aria-labelledby={inspectorTabDomId("costs")}
+          id={panelPluginPanelDomId("costs")}
+          aria-labelledby={panelPluginTabDomId("costs")}
           hidden={inspectorTab !== "costs"}
           className="min-h-0 flex-1 overflow-y-auto pb-4"
         >
@@ -913,8 +919,8 @@ export function EnabledWorkspace({
       {inspectorTab !== "context" ? null : (
       <div
         role="tabpanel"
-        id={inspectorPanelDomId("context")}
-        aria-labelledby={inspectorTabDomId("context")}
+        id={panelPluginPanelDomId("context")}
+        aria-labelledby={panelPluginTabDomId("context")}
         className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4"
       >
         <section className="rounded-2xl bg-surface p-4">
@@ -963,7 +969,7 @@ export function EnabledWorkspace({
   );
 
   return (
-    <main id="main-content" className={`workspace-shell h-[100dvh] min-h-0 bg-surface text-surface-foreground ${inspectorCollapsed ? "workspace-shell--collapsed" : ""}`}>
+    <main id="main-content" className={`${workspaceShellLayoutClassName({ collapsed: inspectorCollapsed, size: panelSize })} h-[100dvh] min-h-0 bg-surface text-surface-foreground`}>
       <div className="workspace-roster hidden min-h-0 md:block">{rosterPane}</div>
       <section className="flex min-h-0 min-w-0 flex-col bg-surface" aria-label="Conversation">
         <header className="flex min-h-16 items-center gap-2 px-3 py-2 sm:px-5">
@@ -971,7 +977,7 @@ export function EnabledWorkspace({
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-extrabold">{selectedItem?.label ?? "Conversations"}</h1>
             {selectedItem ? <p className="truncate font-mono text-[0.62rem] text-surface-foreground/45">{selectedItem.kind === "channel" ? `${selectedItem.bots.length} bot channel` : "Direct conversation"}</p> : null}
-            {visibleTurnState ? <p className="font-mono text-[0.62rem] text-surface-foreground/55" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
+            {visibleTurnState ? <p className="mt-0.5 inline-flex rounded-full bg-surface-high px-2 py-0.5 font-mono text-[0.62rem] text-surface-foreground/70" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
           </div>
           <ChannelCostChip
             phase={costsSnapshot.channel}
@@ -1056,7 +1062,7 @@ export function EnabledWorkspace({
           </MessageCostContext.Provider>
         )}
       </section>
-      {!inspectorCollapsed ? <div className="workspace-inspector hidden min-h-0 xl:block">{inspectorPane}</div> : null}
+      {!inspectorCollapsed ? <div className="workspace-panel hidden min-h-0 xl:block">{inspectorPane}</div> : null}
 
       <div className="md:hidden">
         <Sheet open={rosterOpen} onOpenChange={setRosterOpen} title={ROSTER_SHEET_TITLE} side="left">

@@ -7,18 +7,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { buildListingView, describeFilesError, FilesApiError } from "./computer-files";
 import { emptyListing, textFileRange, touchingCards, workspaceListing } from "./computer-files-fixtures";
 import { startEditSession } from "./computer-files-edit";
-import { INSPECTOR_TABS, nextInspectorTab } from "./inspector-tabs";
+import { CORE_PANEL_PLUGINS, nextPanelPlugin, panelSizeForPlugin, workspaceShellLayoutClassName } from "./panel-plugins";
 import { collectTouchedFiles } from "./touched-files";
 
 (globalThis as { React?: typeof React }).React = React;
 type View = typeof import("../components/workspace/ComputerFilesView");
-type Tabs = typeof import("../components/workspace/InspectorTabs");
+type Tabs = typeof import("../components/workspace/PanelPluginTabs");
 let view: View;
 let tabs: Tabs;
 
 before(async () => {
   view = await import("../components/workspace/ComputerFilesView");
-  tabs = await import("../components/workspace/InspectorTabs");
+  tabs = await import("../components/workspace/PanelPluginTabs");
 });
 
 const noop = () => undefined;
@@ -154,22 +154,40 @@ describe("FileViewer", () => {
   });
 });
 
-describe("InspectorTabs", () => {
+describe("PanelPluginTabs", () => {
   it("is a tablist with the selected tab focusable", () => {
-    const html = renderToStaticMarkup(createElement(tabs.InspectorTabs, { selected: "files", onSelect: noop }));
+    const html = renderToStaticMarkup(createElement(tabs.PanelPluginTabs, { selected: "files", onSelect: noop }));
     assert.match(html, /role="tablist"/);
     assert.match(html, /role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"[^>]*>Files/);
     assert.match(html, /aria-selected="false"[^>]*tabindex="-1"[^>]*>Context/);
   });
 
   it("moves between tabs with arrow, Home and End keys", () => {
-    assert.equal(nextInspectorTab("context", "ArrowRight"), "files");
-    assert.equal(nextInspectorTab("files", "ArrowRight"), "costs");
-    assert.equal(nextInspectorTab("costs", "ArrowRight"), "context");
-    assert.equal(nextInspectorTab("context", "ArrowLeft"), "costs");
-    assert.equal(nextInspectorTab("files", "Home"), INSPECTOR_TABS[0].id);
-    assert.equal(nextInspectorTab("context", "End"), "costs");
-    assert.equal(nextInspectorTab("context", "a"), null);
+    assert.equal(nextPanelPlugin("context", "ArrowRight"), "files");
+    assert.equal(nextPanelPlugin("files", "ArrowRight"), "costs");
+    assert.equal(nextPanelPlugin("costs", "ArrowRight"), "context");
+    assert.equal(nextPanelPlugin("context", "ArrowLeft"), "costs");
+    assert.equal(nextPanelPlugin("files", "Home"), CORE_PANEL_PLUGINS[0].id);
+    assert.equal(nextPanelPlugin("context", "End"), "costs");
+    assert.equal(nextPanelPlugin("context", "a"), null);
+  });
+
+  it("opens a plugin at the requested size when the plugin supports it", () => {
+    assert.equal(panelSizeForPlugin("files", "full"), "full");
+    assert.equal(panelSizeForPlugin("costs", "split"), "split");
+  });
+
+  it("names the shell layout for a collapsed, split and full panel", () => {
+    assert.equal(workspaceShellLayoutClassName({ collapsed: true, size: "full" }), "workspace-shell workspace-shell--panel-collapsed");
+    assert.equal(workspaceShellLayoutClassName({ collapsed: false, size: "split" }), "workspace-shell");
+    assert.equal(workspaceShellLayoutClassName({ collapsed: false, size: "full" }), "workspace-shell workspace-shell--panel-full");
+  });
+
+  it("switches the panel between split and full", () => {
+    const html = renderToStaticMarkup(createElement(tabs.PanelSizeSwitch, { size: "full", onChange: noop }));
+    assert.match(html, /role="group" aria-label="Panel size"/);
+    assert.match(html, /aria-pressed="true"[^>]*>Full/);
+    assert.match(html, /aria-pressed="false"[^>]*>Split/);
   });
 });
 

@@ -337,7 +337,60 @@ export type MessageCostMarker = {
   verb: "Triggered" | "Took";
   figure: CostFigure;
   turnIds: string[];
+  usage: TokenUsage;
 };
+
+/** The tokens behind a figure: what the model read, what it wrote, how much of the reading came from cache, and which models. */
+export type TokenUsage = {
+  contextTokens: number;
+  outputTokens: number;
+  cachedShare: number | null;
+  models: string[];
+};
+
+type TokenSource = Pick<CostTotals, "input_tokens" | "cache_read_tokens" | "cache_write_tokens" | "output_tokens" | "by_model">;
+
+/**
+ * The token usage of one or more totals. The context is every token the model read (uncached input, cache reads and
+ * cache writes), the same base the cost API uses for its cached input ratio.
+ */
+export function tokenUsageOf(totals: readonly TokenSource[]): TokenUsage {
+  let uncachedInputTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheWriteTokens = 0;
+  let outputTokens = 0;
+  const models: string[] = [];
+  for (const entry of totals) {
+    uncachedInputTokens += entry.input_tokens;
+    cacheReadTokens += entry.cache_read_tokens;
+    cacheWriteTokens += entry.cache_write_tokens;
+    outputTokens += entry.output_tokens;
+    for (const model of entry.by_model) if (!models.includes(model.model)) models.push(model.model);
+  }
+  const contextTokens = uncachedInputTokens + cacheReadTokens + cacheWriteTokens;
+  return { contextTokens, outputTokens, cachedShare: contextTokens > 0 ? cacheReadTokens / contextTokens : null, models };
+}
+
+/** `2,100 in · 300 out · 38% cached`; the cache share is left out when nothing was read. */
+export function tokenUsageText(usage: TokenUsage): string {
+  const parts = [`${formatTokens(usage.contextTokens)} in`, `${formatTokens(usage.outputTokens)} out`];
+  if (usage.cachedShare !== null) parts.push(`${Math.round(usage.cachedShare * 100)}% cached`);
+  return parts.join(" · ");
+}
+
+/** The usage line under a reply: the models it ran on and its tokens. Empty for a marker on the prompting message. */
+export function markerUsageText(marker: MessageCostMarker): string {
+  if (marker.side !== "produced") return "";
+  return [...marker.usage.models, tokenUsageText(marker.usage)].join(" · ");
+}
+
+/** The session line of the conversation header: `2 turns · 4,800 tokens · 38% cached`. */
+export function sessionUsageText(totals: CostTotals): string {
+  const usage = tokenUsageOf([totals]);
+  const parts = [pluralize(totals.turns, "turn"), `${formatTokens(usage.contextTokens + usage.outputTokens)} tokens`];
+  if (usage.cachedShare !== null) parts.push(`${Math.round(usage.cachedShare * 100)}% cached`);
+  return parts.join(" · ");
+}
 
 type MarkerBucket = { rows: CostRow[]; turnIds: string[] };
 
@@ -378,6 +431,7 @@ export function buildMessageMarkers(rows: readonly CostRow[]): Map<number, Messa
       verb: side === "triggered" ? "Triggered" : "Took",
       figure: figureOfRows(bucket.rows),
       turnIds: bucket.turnIds,
+      usage: tokenUsageOf(bucket.rows.map((row) => row.totals)),
     };
     markers.set(seq, [...(markers.get(seq) ?? []), marker]);
   }
