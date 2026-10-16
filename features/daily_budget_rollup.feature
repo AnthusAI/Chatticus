@@ -10,21 +10,21 @@ Feature: Daily budget rollup
     And organization "Other House" with tenant "other-org" is enabled
 
   Scenario: Daily rollup writes org environment and day attribution
-    Given Cost Explorer reports 5.00 USD for tenant "anthus" on 2026-08-31
+    Given the computer of tenant "anthus" ran for 2 hours on 2026-08-31
     And vendor spend for tenant "anthus" on 2026-08-31 totals 0.00004 USD
     When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 5.00
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0.01975
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 0.00004
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has combined_report_usd 5.00004
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has combined_report_usd 0.01979
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
 
   Scenario: Combined spend is a report not a third meter
-    Given Cost Explorer reports 1.00 USD for tenant "anthus" on 2026-08-31
+    Given the computer of tenant "anthus" ran for 1 hour on 2026-08-31
     And vendor spend for tenant "anthus" on 2026-08-31 totals 2.00 USD
     When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 1.00
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0.009875
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 2.00
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has combined_report_usd 3.00
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has combined_report_usd 2.009875
 
   Scenario: Vendor threshold crossing publishes once to the budgets topic
     Given vendor spend for tenant "anthus" on 2026-08-01 totals 10.00 USD
@@ -51,31 +51,16 @@ Feature: Daily budget rollup
     When a PascalCase AWS Budgets alert arrives for budget "chatticus-monthly-aws" on 2026-08-31
     Then the account budget rollup for 2026-08-31 records an aws_budget_alert
 
-  Scenario: Cost Explorer lag leaves AWS pending without treating it as zero
-    Given Cost Explorer has no data for 2026-08-31
-    And vendor spend for tenant "anthus" on 2026-08-31 totals 0.00004 USD
-    When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has null aws_cost_usd
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "pending"
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has null combined_report_usd
-    And no budget threshold alert was published
-
-  Scenario: Cost Explorer quiet day is zero attributed not pending
-    Given Cost Explorer returns zero attributed AWS spend on 2026-08-31
-    When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0.00
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
-
   Scenario: AWS-billed ledger rows do not double-count vendor dollars
-    Given Cost Explorer reports 3.00 USD for tenant "anthus" on 2026-08-31
+    Given the computer of tenant "anthus" ran for 3 hours on 2026-08-31
     And vendor spend for tenant "anthus" on 2026-08-31 includes 1.00 USD billed_via vendor
     And vendor spend for tenant "anthus" on 2026-08-31 includes aws-billed tokens with null dollars
     When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 3.00
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0.029625
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 1.00
 
   Scenario: Re-run updates the same rollup row without duplicating
-    Given Cost Explorer reports 5.00 USD for tenant "anthus" on 2026-08-31
+    Given the computer of tenant "anthus" ran for 1 hour on 2026-08-31
     And vendor spend for tenant "anthus" on 2026-08-31 totals 1.00 USD
     When the daily budget rollup runs for 2026-08-31
     And vendor spend for tenant "anthus" on 2026-08-31 totals 2.00 USD
@@ -83,11 +68,11 @@ Feature: Daily budget rollup
     Then there is 1 budget rollup row for tenant "anthus" environment "development" on 2026-08-31
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 2.00
 
-  Scenario: Cross-tenant Cost Explorer data does not leak
-    Given Cost Explorer reports 7.00 USD for tenant "anthus" on 2026-08-31
+  Scenario: One organization's computer runtime does not leak into another's rollup
+    Given the computer of tenant "anthus" ran for 2 hours on 2026-08-31
     When the daily budget rollup runs for 2026-08-31
     Then the budget rollup for tenant "other-org" environment "development" on 2026-08-31 has aws_cost_usd 0.00
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 7.00
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0.01975
 
   Scenario: A customer-account organization's spend is read from its own account
     Given organization "Acme" with tenant "acme" runs in its own AWS account
@@ -113,32 +98,16 @@ Feature: Daily budget rollup
     And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "pending"
 
   Scenario: One unreadable customer account does not stop other organizations
-    Given Cost Explorer reports 5.00 USD for tenant "anthus" on 2026-08-31
+    Given the computer of tenant "anthus" ran for 2 hours on 2026-08-31
     And organization "Acme" with tenant "acme" runs in its own AWS account
     And its own account cannot be read
     When the daily budget rollup runs for 2026-08-31
     Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "error"
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 5.00
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0.01975
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
 
-  Scenario: A hosted organization is unreadable while the tenant cost tag is not active
-    Given the tenant cost tag is not active in Cost Explorer
-    And Cost Explorer reports 5.00 USD for tenant "anthus" on 2026-08-31
-    When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has null aws_cost_usd
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "error"
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has null combined_report_usd
-
-  Scenario: A customer-account organization does not depend on the tenant cost tag
-    Given the tenant cost tag is not active in Cost Explorer
-    And organization "Acme" with tenant "acme" runs in its own AWS account
-    And its own account spent 12.50 USD on 2026-08-31
-    When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has aws_cost_usd 12.50
-    And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "ok"
-
   Scenario: Model calls the price book could not price are counted on the rollup instead of vanishing
-    Given Cost Explorer reports 1.00 USD for tenant "anthus" on 2026-08-31
+    Given the computer of tenant "anthus" ran for 1 hour on 2026-08-31
     And vendor spend for tenant "anthus" on 2026-08-31 includes 1.00 USD billed_via vendor
     And vendor spend for tenant "anthus" on 2026-08-31 includes a turn with 2 unpriced calls and no dollars
     When the daily budget rollup runs for 2026-08-31
@@ -165,10 +134,3 @@ Feature: Daily budget rollup
     And the gateway observed response "resp_seen" for turn "turn-seen" of tenant "anthus" at 2026-08-31T01:00:00+00:00 with 1000000 input and 1000000 output tokens
     When the daily budget rollup runs for 2026-08-31
     Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has vendor_cost_usd 0.45
-
-  Scenario: An active tenant cost tag with no spend for a hosted organization reads as zero
-    Given Cost Explorer returns zero attributed AWS spend on 2026-08-31
-    When the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
-

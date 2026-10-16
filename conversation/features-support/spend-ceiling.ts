@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { utcDayOf } from "../src/budget/calendar.ts";
 import { Decimal } from "../src/budget/decimal.ts";
+import { RecordedRuntimeComputerSpendReader } from "../src/budget/computer-runtime.ts";
+import { CE_STATUS_OK } from "../src/budget/models.ts";
 import { runDailyRollup } from "../src/budget/runner.ts";
 import { setMonthlyAwsSpendCeiling } from "../src/domain/organization-spend.ts";
 import { OrganizationsKernelImpl, type Organization } from "../src/domain/organizations.ts";
@@ -61,28 +63,43 @@ export async function provisionEnabledOrganizationWithCeiling(world: ChatticusWo
 	};
 }
 
-/** Run the real daily rollup for today so the organization's rows reflect what the fake Cost Explorer reports. */
-export async function rollUpToday(world: ChatticusWorld): Promise<void> {
+/** Run the real daily rollup for one day, pricing the computer runtime the table holds. */
+export async function rollUpDay(world: ChatticusWorld, rollupDate: string): Promise<void> {
 	await runDailyRollup({
 		store: world.store,
-		costExplorer: world.costExplorer,
+		hostedComputerSpend: new RecordedRuntimeComputerSpendReader(world.store),
 		accountSpend: null,
 		alerts: null,
 		reconciler: null,
 		environment: world.budgetEnvironment,
-		rollupDate: utcDayOf(world.clock.now()),
+		rollupDate,
 		monthlyLimitUsd: world.monthlyLimitUsd,
 		now: world.clock.now(),
 	});
 }
 
-/** Cost Explorer reports `amountUsd` for the organization today and the rollup records it. */
-export async function spendToday(world: ChatticusWorld, amountUsd: string): Promise<void> {
-	world.costExplorer.setDailyCost(
-		world.budgetEnvironment,
-		spendScenario(world).tenantId,
-		utcDayOf(world.clock.now()),
-		Decimal.parse(amountUsd),
-	);
-	await rollUpToday(world);
+/** Write the rollup row the organization has for today, as the daily rollup would after reading the given figure. */
+export async function recordMeterToday(
+	world: ChatticusWorld,
+	meter: { awsCostUsd: string | null; ceStatus: string },
+	tenantId: string = spendScenario(world).tenantId,
+): Promise<void> {
+	const awsCostUsd = meter.awsCostUsd === null ? null : Decimal.parse(meter.awsCostUsd);
+	await world.store.putBudgetRollupRow({
+		tenantId,
+		environment: world.budgetEnvironment,
+		rollupDate: utcDayOf(world.clock.now()),
+		awsCostUsd,
+		vendorCostUsd: Decimal.zero(),
+		unpricedCalls: 0,
+		combinedReportUsd: awsCostUsd,
+		ceStatus: meter.ceStatus,
+		alertEvents: [],
+		updatedAt: world.clock.now().toISOString(),
+	});
+}
+
+/** The organization's meter reads `amountUsd` for today. */
+export async function spendToday(world: ChatticusWorld, amountUsd: string, tenantId?: string): Promise<void> {
+	await recordMeterToday(world, { awsCostUsd: amountUsd, ceStatus: CE_STATUS_OK }, tenantId);
 }

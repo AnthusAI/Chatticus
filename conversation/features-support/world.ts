@@ -18,7 +18,7 @@ import type { TurnDependencies } from "../src/domain/turns.ts";
 import { FaultPlan } from "../src/turn/fault-plan.ts";
 import { ScriptedUserUnderstanding } from "./fakes/scripted-understanding.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
-import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
+import { FakeAccountSpendReader } from "./fakes/fake-cost-explorer.ts";
 import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
 import { TransientStoreFaults } from "./transient-store-faults.ts";
@@ -54,7 +54,6 @@ export class ChatticusWorld extends World {
 	readonly now = new Date("2026-08-31T06:00:00Z");
 	budgetEnvironment = "development";
 	monthlyLimitUsd = Decimal.parse("100");
-	readonly costExplorer = new FakeCostExplorerReader();
 	readonly accountSpend = new FakeAccountSpendReader();
 	readonly budgetAlerts = new FakeBudgetAlertsPublisher();
 	customerOrganization: BudgetOrganization | null = null;

@@ -1,12 +1,8 @@
 import type { BudgetAlertsPublisher } from "./budget-alerts.ts";
 import type { BudgetStore } from "./budget-store.ts";
 import { dayWrittenIn, firstDayOfMonth, pythonIsoUtc } from "./calendar.ts";
-import {
-	AccountSpendUnreadableError,
-	type AccountSpendReader,
-	type CostExplorerDayResult,
-	type CostExplorerReader,
-} from "./cost-explorer.ts";
+import type { HostedComputerSpendReader } from "./computer-runtime.ts";
+import { AccountSpendUnreadableError, type AccountSpendReader } from "./cost-explorer.ts";
 import { Decimal } from "./decimal.ts";
 import type { ObservationReconciler } from "../ledger/reconcile.ts";
 import {
@@ -23,7 +19,9 @@ const GATEWAY_SOURCE = "gateway";
 
 export interface DailyRollupRequest {
 	readonly store: BudgetStore;
-	readonly costExplorer: CostExplorerReader;
+	/** Prices the computer runtime the control plane recorded for organizations hosted in the deployment account. */
+	readonly hostedComputerSpend: HostedComputerSpendReader;
+	/** Reads an organization in its own AWS account through that account; null makes such an organization unreadable. */
 	readonly accountSpend: AccountSpendReader | null;
 	readonly alerts: BudgetAlertsPublisher | null;
 	/** Reconciles each organization's gateway observations against its session records before its spend is summed; null skips it. */
@@ -43,7 +41,6 @@ export interface DailyRollupRequest {
  */
 export async function runDailyRollup(request: DailyRollupRequest): Promise<void> {
 	const { store, environment, rollupDate } = request;
-	const ceResult = await request.costExplorer.dailyCostsByTenant({ environment, rollupDate });
 	const updatedAt = pythonIsoUtc(request.now);
 	for (const organization of await store.listEnabledOrganizations()) {
 		await request.reconciler?.reconcileTenant(organization.tenantId);
@@ -51,7 +48,7 @@ export async function runDailyRollup(request: DailyRollupRequest): Promise<void>
 		if (unpricedCalls > 0) {
 			console.warn(`vendor_cost_unpriced_calls tenant_id=${organization.tenantId} rollup_date=${rollupDate} unpriced_calls=${unpricedCalls}`);
 		}
-		const [awsCostUsd, ceStatus] = await awsSpendFor(organization, ceResult, request.accountSpend, rollupDate);
+		const [awsCostUsd, ceStatus] = await awsSpendFor(organization, request, rollupDate);
 		const existing = await store.getBudgetRollupRow(organization.tenantId, environment, rollupDate);
 		await store.putBudgetRollupRow({
 			tenantId: organization.tenantId,
@@ -72,47 +69,50 @@ export async function runDailyRollup(request: DailyRollupRequest): Promise<void>
 /**
  * Return one organization's AWS dollars and the meter status for the day.
  *
- * An organization in its own AWS account is read through that account. A
- * hosted organization is read by its tenant tag, which Cost Explorer only
- * reports once the tag is an active cost allocation tag. A read that fails, or
- * a tag that is not active, is `error`, never zero: an unreadable meter must
- * not look like an organization that spent nothing.
+ * An organization in its own AWS account is read through that account. An organization hosted in the deployment
+ * account is priced from the computer runtime the control plane recorded for it, which is an approximation of its
+ * computer alone: snapshot storage and the shared stack costs are not in it. A read that fails is `error`, never zero:
+ * an unreadable meter must not look like an organization that spent nothing. A day the computer never ran is a
+ * measured zero.
  */
 async function awsSpendFor(
 	organization: Organization,
-	ceResult: CostExplorerDayResult,
-	accountSpend: AccountSpendReader | null,
+	request: DailyRollupRequest,
 	rollupDate: string,
 ): Promise<[Decimal | null, string]> {
 	if (organization.awsCrossAccountRole !== null && organization.awsCrossAccountRole !== "") {
-		if (accountSpend === null) {
-			return [null, CE_STATUS_ERROR];
-		}
-		try {
-			const day = await accountSpend.dailyTotal({ organization, rollupDate });
-			if (day.pending || day.totalUsd === null) {
-				return [null, CE_STATUS_PENDING];
-			}
-			return [day.totalUsd, CE_STATUS_OK];
-		} catch (error) {
-			if (error instanceof AccountSpendUnreadableError) {
-				console.warn(`account_spend_unreadable tenant_id=${organization.tenantId} reason=${error.message}`);
-				return [null, CE_STATUS_ERROR];
-			}
-			throw error;
-		}
+		return customerAccountSpend(organization, request.accountSpend, rollupDate);
 	}
-	if (ceResult.pending) {
-		return [null, CE_STATUS_PENDING];
-	}
-	if (!ceResult.tenantTagActive) {
-		console.warn(
-			`tenant_cost_tag_inactive tenant_id=${organization.tenantId} ` +
-				"reason=chatticus:tenant is not an active cost allocation tag",
-		);
+	try {
+		const spend = await request.hostedComputerSpend.dailyTotal({ tenantId: organization.tenantId, rollupDate });
+		return [spend, CE_STATUS_OK];
+	} catch (error) {
+		console.warn(`computer_runtime_unreadable tenant_id=${organization.tenantId} reason=${String(error)}`);
 		return [null, CE_STATUS_ERROR];
 	}
-	return [ceResult.costsByTenant.get(organization.tenantId) ?? Decimal.zero(), CE_STATUS_OK];
+}
+
+async function customerAccountSpend(
+	organization: Organization,
+	accountSpend: AccountSpendReader | null,
+	rollupDate: string,
+): Promise<[Decimal | null, string]> {
+	if (accountSpend === null) {
+		return [null, CE_STATUS_ERROR];
+	}
+	try {
+		const day = await accountSpend.dailyTotal({ organization, rollupDate });
+		if (day.pending || day.totalUsd === null) {
+			return [null, CE_STATUS_PENDING];
+		}
+		return [day.totalUsd, CE_STATUS_OK];
+	} catch (error) {
+		if (error instanceof AccountSpendUnreadableError) {
+			console.warn(`account_spend_unreadable tenant_id=${organization.tenantId} reason=${error.message}`);
+			return [null, CE_STATUS_ERROR];
+		}
+		throw error;
+	}
 }
 
 type VendorSpend = { readonly total: Decimal; readonly unpricedCalls: number };

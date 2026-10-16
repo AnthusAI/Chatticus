@@ -165,6 +165,7 @@ export async function exchangeOwnerBootstrap(
 	if (consumed === null) {
 		return refuse("bootstrap_already_used", "bootstrap credential was already used or its generation has moved on");
 	}
+	await deps.store.openComputerRuntimeSegment(tenantId, { ownerGeneration: claims.startGeneration, ownerId: claims.ownerId, startedAt: now });
 	const { pollSequence: _sequence, pollState: _state, pollPaceMilliseconds: _pace, ...fresh } = worker!;
 	await deps.store.putWorker({ ...fresh, lastHeartbeatAt: now });
 	log("owner_bootstrap_ok", { generation: claims.startGeneration, protocol_version: request.protocol_version });
@@ -264,6 +265,7 @@ export async function pollOwner(deps: OwnerSupervisorDependencies, identity: Own
 	if (!(await deps.store.recordOwnerPoll(identity.tenantId, identity.ownerId, { sequence: request.sequence, state: request.state, at: now, paceMilliseconds: pace }))) {
 		throw new OwnerRefusal("stale_poll", "a newer poll of this owner was already recorded");
 	}
+	await deps.store.extendComputerRuntimeSegment(identity.tenantId, identity.startGeneration, now);
 	if ((request.memory_used_percent ?? 0) >= 85) log("owner_memory_high", { memory_used_percent: request.memory_used_percent });
 	let computer = await requireLiveComputer(deps.store, identity);
 	const presence = presenceChange(computer, request, now);

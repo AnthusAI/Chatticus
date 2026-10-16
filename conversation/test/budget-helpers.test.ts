@@ -3,8 +3,6 @@ import { addDays, dayWrittenIn, firstDayOfMonth, pythonIsoUtc, utcDayOf } from "
 import { budgetRollupItem, budgetRollupFromItem, budgetThresholdStateKey } from "../src/budget/budget-store.ts";
 import {
 	AccountSpendUnreadableError,
-	AwsCostExplorerReader,
-	type CostExplorerApi,
 	accountDayFromResponse,
 } from "../src/budget/cost-explorer.ts";
 import { Decimal } from "../src/budget/decimal.ts";
@@ -15,6 +13,15 @@ describe("Decimal", () => {
 		expect(Decimal.parse("5.00").add(Decimal.parse("0.00004")).toString()).toBe("5.00004");
 		expect(Decimal.parse("1.00").toString()).toBe("1.00");
 		expect(Decimal.zero().add(Decimal.parse("45.00")).toString()).toBe("45.00");
+	});
+
+	it("divides by an integer and rounds half to even at the requested scale", () => {
+		expect(Decimal.parse("0.009875").multiplyByInteger(60).divideByInteger(3600, 8).toString()).toBe("0.00016458");
+		expect(Decimal.parse("1").divideByInteger(8, 2).toString()).toBe("0.12");
+		expect(Decimal.parse("3").divideByInteger(8, 2).toString()).toBe("0.38");
+		expect(Decimal.parse("-1").divideByInteger(8, 2).toString()).toBe("-0.12");
+		expect(Decimal.parse("1.2345").divideByInteger(1, 2).toString()).toBe("1.23");
+		expect(() => Decimal.parse("1").divideByInteger(0, 2)).toThrow();
 	});
 
 	it("compares by value regardless of scale", () => {
@@ -71,74 +78,6 @@ describe("highestBandCrossed", () => {
 
 	it("returns null below the first band", () => {
 		expect(highestBandCrossed(Decimal.parse("49.99999999"), Decimal.parse("100"), bands)).toBeNull();
-	});
-});
-
-function costExplorerApi(overrides: Partial<CostExplorerApi> & { calls?: unknown[] }): CostExplorerApi {
-	return {
-		getCostAndUsage: (input) => {
-			overrides.calls?.push(input);
-			return Promise.resolve({ ResultsByTime: [{ Groups: [] }], $metadata: {} });
-		},
-		listCostAllocationTags: () =>
-			Promise.resolve({ CostAllocationTags: [{ TagKey: "chatticus:tenant", Type: "UserDefined", Status: "Active" }], $metadata: {} }),
-		...overrides,
-	};
-}
-
-describe("AwsCostExplorerReader", () => {
-	const request = { environment: "development", rollupDate: "2026-08-31" };
-
-	it("uses an exclusive end date", async () => {
-		const calls: unknown[] = [];
-		await new AwsCostExplorerReader(costExplorerApi({ calls })).dailyCostsByTenant(request);
-		expect(calls[0]).toMatchObject({ TimePeriod: { Start: "2026-08-31", End: "2026-09-01" } });
-	});
-
-	it("treats empty results as pending", async () => {
-		const api = costExplorerApi({ getCostAndUsage: () => Promise.resolve({ ResultsByTime: [], $metadata: {} }) });
-		const result = await new AwsCostExplorerReader(api).dailyCostsByTenant(request);
-		expect(result.pending).toBe(true);
-		expect(result.costsByTenant.size).toBe(0);
-	});
-
-	it("treats empty groups as zero, not pending", async () => {
-		const result = await new AwsCostExplorerReader(costExplorerApi({})).dailyCostsByTenant(request);
-		expect(result.pending).toBe(false);
-		expect(result.costsByTenant.size).toBe(0);
-		expect(result.tenantTagActive).toBe(true);
-	});
-
-	it("reads tenant costs from the tag groups", async () => {
-		const api = costExplorerApi({
-			getCostAndUsage: () =>
-				Promise.resolve({
-					ResultsByTime: [
-						{
-							Groups: [
-								{ Keys: ["chatticus:tenant$anthus"], Metrics: { UnblendedCost: { Amount: "5.25" } } },
-								{ Keys: ["chatticus:tenant$"], Metrics: { UnblendedCost: { Amount: "1.00" } } },
-								{ Keys: ["other:tag$x"], Metrics: { UnblendedCost: { Amount: "9.00" } } },
-							],
-						},
-					],
-					$metadata: {},
-				}),
-		});
-		const result = await new AwsCostExplorerReader(api).dailyCostsByTenant(request);
-		expect(result.costsByTenant.get("anthus")?.toString()).toBe("5.25");
-		expect(result.costsByTenant.get("")?.toString()).toBe("1.00");
-		expect(result.costsByTenant.has("x")).toBe(false);
-	});
-
-	it("reads the tenant tag as inactive when Cost Explorer does not list it", async () => {
-		const api = costExplorerApi({ listCostAllocationTags: () => Promise.resolve({ CostAllocationTags: [], $metadata: {} }) });
-		expect((await new AwsCostExplorerReader(api).dailyCostsByTenant(request)).tenantTagActive).toBe(false);
-	});
-
-	it("reads the tenant tag as inactive when the lookup fails", async () => {
-		const api = costExplorerApi({ listCostAllocationTags: () => Promise.reject(new Error("AccessDeniedException")) });
-		expect((await new AwsCostExplorerReader(api).dailyCostsByTenant(request)).tenantTagActive).toBe(false);
 	});
 });
 

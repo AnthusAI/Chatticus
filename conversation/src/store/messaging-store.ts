@@ -1,3 +1,4 @@
+import type { ComputerRuntimeSegment } from "../budget/models.ts";
 import type { Bot } from "./codecs/bot.ts";
 import type { Task } from "./codecs/task.ts";
 import type { Worker } from "./codecs/worker.ts";
@@ -145,6 +146,18 @@ export interface MessagingStore {
 	 * @returns The computer after the change, or null when the generation moved or its bootstrap token was already used.
 	 */
 	consumeOwnerBootstrap(tenantId: string, bootstrap: OwnerBootstrapRecord): Promise<Computer | null>;
+	/**
+	 * Start the durable record of one owner run, which the daily spend meter prices: when the owner exchanged its bootstrap
+	 * token. The record outlives the owner and the computer's owner fields.
+	 */
+	openComputerRuntimeSegment(tenantId: string, run: { ownerGeneration: number; ownerId: string; startedAt: Date }): Promise<void>;
+	/**
+	 * Move the end of an owner run forward to the moment of an accepted poll. An earlier moment than the one recorded, or a
+	 * run that was never opened, changes nothing.
+	 */
+	extendComputerRuntimeSegment(tenantId: string, ownerGeneration: number, seenAt: Date): Promise<void>;
+	/** Every recorded owner run of the organization's computer. */
+	listComputerRuntimeSegments(tenantId: string): Promise<ComputerRuntimeSegment[]>;
 	/**
 	 * Record one poll of an owner on its worker item: the heartbeat, the sequence, the state and the pace the owner is told,
 	 * only while the stored sequence is not newer than `sequence`. An equal sequence is a retry and proceeds.

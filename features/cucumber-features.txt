@@ -6,6 +6,7 @@ features/computer_snapshot_restore_safety.feature
 features/computer_snapshot_index.feature
 features/computer_file_overlay.feature
 features/daily_budget_rollup.feature
+features/platform_hosted_spend_meter.feature
 features/org_path_routing.feature
 features/pi_session_ownership.feature
 features/channel_mailbox_and_log.feature

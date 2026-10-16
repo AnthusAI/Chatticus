@@ -11,6 +11,7 @@ import {
 	type BudgetRollupRow,
 	ROLLUP_ALERT_SOURCE,
 } from "../../src/budget/models.ts";
+import { RecordedRuntimeComputerSpendReader } from "../../src/budget/computer-runtime.ts";
 import { runDailyRollup } from "../../src/budget/runner.ts";
 import { reconcilerOf } from "../cost-reconciliation-support.ts";
 import { DEPLOYMENT_AWS_ACCOUNT_ID } from "../messaging-table.ts";
@@ -74,25 +75,6 @@ Given("its own account cannot be read", function (this: ChatticusWorld) {
 
 Given("its own account has no data for {word}", function (this: ChatticusWorld, day: string) {
 	this.accountSpend.setDayPending(customerAccountId(this), day);
-});
-
-Given(
-	"Cost Explorer reports {word} USD for tenant {string} on {word}",
-	function (this: ChatticusWorld, amount: string, tenantId: string, day: string) {
-		this.costExplorer.setDailyCost(this.budgetEnvironment, tenantId, day, Decimal.parse(amount));
-	},
-);
-
-Given("the tenant cost tag is not active in Cost Explorer", function (this: ChatticusWorld) {
-	this.costExplorer.setTenantTagActive(false);
-});
-
-Given("Cost Explorer has no data for {word}", function (this: ChatticusWorld, day: string) {
-	this.costExplorer.setDayPending(this.budgetEnvironment, day);
-});
-
-Given("Cost Explorer returns zero attributed AWS spend on {word}", function (this: ChatticusWorld, day: string) {
-	this.costExplorer.markDayAvailable(this.budgetEnvironment, day);
 });
 
 async function clearVendorSpendForDay(world: ChatticusWorld, tenantId: string, day: string): Promise<void> {
@@ -185,7 +167,7 @@ Given(
 async function runRollup(world: ChatticusWorld, day: string): Promise<void> {
 	await runDailyRollup({
 		store: world.store,
-		costExplorer: world.costExplorer,
+		hostedComputerSpend: new RecordedRuntimeComputerSpendReader(world.store),
 		accountSpend: world.accountSpend,
 		alerts: world.budgetAlerts,
 		reconciler: reconcilerOf(world),
