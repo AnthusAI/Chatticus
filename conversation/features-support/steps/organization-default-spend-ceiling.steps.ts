@@ -6,10 +6,35 @@ import {
 	giveOrganizationsWithoutSpendCeilingTheDefaultCeiling,
 	type OrganizationSpendCeilingMigration,
 } from "../../src/migration/organization-spend-ceiling.ts";
+import type { MessagingStore } from "../../src/store/messaging-store.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 const kernel = new OrganizationsKernelImpl();
 const spendCeilingMigrationsByWorld = new WeakMap<ChatticusWorld, OrganizationSpendCeilingMigration[]>();
+const ownerChangeDuringMigrationByWorld = new WeakMap<ChatticusWorld, { tenantId: string; ceilingUsd: string }>();
+
+function storeWhereTheOwnerSetsACeilingMidMigration(world: ChatticusWorld): MessagingStore {
+	const store = world.messagingStore();
+	const ownerChange = ownerChangeDuringMigrationByWorld.get(world);
+	if (ownerChange === undefined) {
+		return store;
+	}
+	return new Proxy(store, {
+		get(target, property, receiver) {
+			if (property !== "setMonthlyAwsSpendCeilingWhenUnset") {
+				return Reflect.get(target, property, receiver);
+			}
+			return async (tenantId: string, monthlyAwsSpendCeilingUsd: Decimal) => {
+				if (tenantId === ownerChange.tenantId) {
+					const current = await target.getOrganization(tenantId);
+					assert.ok(current);
+					await target.putOrganization({ ...current, monthlyAwsSpendCeilingUsd: Decimal.parse(ownerChange.ceilingUsd) });
+				}
+				return target.setMonthlyAwsSpendCeilingWhenUnset(tenantId, monthlyAwsSpendCeilingUsd);
+			};
+		},
+	});
+}
 
 function organizationNamed(world: ChatticusWorld, name: string) {
 	const organization = world.orgsByName?.get(name);
@@ -27,7 +52,7 @@ async function runSpendCeilingMigration(world: ChatticusWorld, execute: boolean,
 	spendCeilingMigrationsByWorld.set(
 		world,
 		await giveOrganizationsWithoutSpendCeilingTheDefaultCeiling(
-			{ store: world.messagingStore() },
+			{ store: storeWhereTheOwnerSetsACeilingMidMigration(world) },
 			{ execute, ...(tenantId === undefined ? {} : { tenantId }) },
 		),
 	);
@@ -67,6 +92,13 @@ Given(
 			status: "enabled",
 			monthlyAwsSpendCeilingUsd: Decimal.parse(ceilingUsd),
 		});
+	},
+);
+
+Given(
+	"the owner of {string} sets a monthly spend ceiling of {word} after the migration reads it",
+	function (this: ChatticusWorld, name: string, ceilingUsd: string) {
+		ownerChangeDuringMigrationByWorld.set(this, { tenantId: organizationNamed(this, name).tenantId, ceilingUsd });
 	},
 );
 

@@ -1,3 +1,4 @@
+import type { Decimal } from "../budget/decimal.ts";
 import type { ComputerRuntimeSegment } from "../budget/models.ts";
 import type { Bot } from "./codecs/bot.ts";
 import type { Task } from "./codecs/task.ts";
@@ -14,6 +15,11 @@ export interface MessagingStore {
 	putIdentity(identity: Identity): Promise<void>;
 	getOrganization(tenantId: string): Promise<Organization | null>;
 	putOrganization(organization: Organization): Promise<void>;
+	/**
+	 * Give an existing organization a monthly AWS spend ceiling only while it holds none, leaving every other field as
+	 * stored. Returns whether the ceiling was written; false when the organization is missing or already has a ceiling.
+	 */
+	setMonthlyAwsSpendCeilingWhenUnset(tenantId: string, monthlyAwsSpendCeilingUsd: Decimal): Promise<boolean>;
 	getMembership(tenantId: string, userId: string): Promise<Membership | null>;
 	putMembership(membership: Membership): Promise<void>;
 	listMemberships(tenantId: string): Promise<Membership[]>;

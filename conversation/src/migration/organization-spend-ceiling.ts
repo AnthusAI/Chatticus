@@ -27,7 +27,8 @@ const EVERY_ORGANIZATION_STATUS: readonly OrganizationStatus[] = ["pending", "en
 /**
  * Give every organization that has no monthly AWS spend ceiling the default ceiling new organizations start with. This
  * is the rule organization creation applies; the pass applies it once to organizations created before the rule existed.
- * A ceiling an owner already set is never changed, and running the pass twice changes nothing the second time.
+ * Only the ceiling is written, and only while the stored organization still holds none, so a ceiling an owner sets, or any
+ * other change made while the pass runs, is never overwritten. Running the pass twice changes nothing the second time.
  *
  * @param deps The organization records store.
  * @param options Whether to write, and an optional organization.
@@ -41,7 +42,13 @@ export async function giveOrganizationsWithoutSpendCeilingTheDefaultCeiling(
 	const migrations: OrganizationSpendCeilingMigration[] = [];
 	for (const organization of candidates) {
 		if (options.execute) {
-			await deps.store.putOrganization({ ...organization, monthlyAwsSpendCeilingUsd: DEFAULT_MONTHLY_AWS_SPEND_CEILING_USD });
+			const ceilingWasWritten = await deps.store.setMonthlyAwsSpendCeilingWhenUnset(
+				organization.tenantId,
+				DEFAULT_MONTHLY_AWS_SPEND_CEILING_USD,
+			);
+			if (!ceilingWasWritten) {
+				continue;
+			}
 		}
 		migrations.push({
 			tenantId: organization.tenantId,

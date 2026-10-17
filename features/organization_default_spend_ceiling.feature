@@ -9,8 +9,11 @@ Feature: Every organization starts with a fifty dollar monthly spend ceiling
   can raise it at any time. Organizations created before this rule hold no
   ceiling at all, so nothing pauses their computer work however much it costs.
   migrate-organization-spend-ceiling gives each of them the 50.00 ceiling,
-  once. It is a dry run unless --execute is given, and it never changes a
-  ceiling an owner already set.
+  once. It is a dry run unless --execute is given. It writes only the
+  ceiling, and only while the organization still holds none, so it never
+  changes a ceiling an owner set, even one set while it runs. Giving an
+  organization a ceiling can pause its computer work at once if its month
+  already cost more, so run the dry run first.
 
   Scenario: An organization created in the app starts with the fifty dollar ceiling
     Given an empty organization records store
@@ -70,6 +73,16 @@ Feature: Every organization starts with a fifty dollar monthly spend ceiling
     When the organization spend ceiling migration runs for real
     Then the spend ceiling migration does not mention organization "Big Spender"
     And organization "Big Spender" has a monthly spend ceiling of 500.00
+
+  Scenario: A ceiling the owner sets while the migration runs is kept
+    Given an empty organization records store
+    And "ryan@example.com" has signed in
+    And that user has created organization "Anthus Labs"
+    And organization "Anthus Labs" is enabled with no monthly spend ceiling
+    And the owner of "Anthus Labs" sets a monthly spend ceiling of 500.00 after the migration reads it
+    When the organization spend ceiling migration runs for real
+    Then the spend ceiling migration does not mention organization "Anthus Labs"
+    And organization "Anthus Labs" has a monthly spend ceiling of 500.00
 
   Scenario: The migration can be limited to one organization
     Given an empty organization records store

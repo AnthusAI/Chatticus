@@ -139,6 +139,26 @@ export class DynamoMessagingStore implements MessagingStore {
 		);
 	}
 
+	async setMonthlyAwsSpendCeilingWhenUnset(tenantId: string, monthlyAwsSpendCeilingUsd: Decimal): Promise<boolean> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: organizationPartition(tenantId) }, sk: { S: "meta" } },
+					UpdateExpression: "SET monthly_aws_spend_ceiling_usd = :ceiling",
+					ConditionExpression: "attribute_exists(pk) AND attribute_not_exists(monthly_aws_spend_ceiling_usd)",
+					ExpressionAttributeValues: { ":ceiling": { N: monthlyAwsSpendCeilingUsd.toString() } },
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
 	async getMembership(tenantId: string, userId: string): Promise<Membership | null> {
 		const item = await this.get(organizationPartition(tenantId), `member#${userId}`);
 		return item === null ? null : this.membershipFromItem(item);

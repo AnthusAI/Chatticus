@@ -353,7 +353,10 @@ Organizations created before this rule hold no ceiling; give them the default
 once with
 `node conversation/bin/migrate-organization-spend-ceiling.ts --environment ENV`
 (a dry run; add `--execute` to write, `--tenant T` to limit it to one
-organization). It never changes a ceiling an owner already set.
+organization). It writes only the ceiling, and only while the organization
+still holds none, so it never changes a ceiling an owner set. An enabled
+organization whose month already cost 50.00 or more is paused the moment it
+gets the ceiling, so read the month-to-date rollup before running `--execute`.
 
 ## Platform-hosted organizations: priced from recorded runtime
 
