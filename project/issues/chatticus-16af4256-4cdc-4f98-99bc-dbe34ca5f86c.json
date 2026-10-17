@@ -1,0 +1,29 @@
+{
+  "id": "chatticus-16af4256-4cdc-4f98-99bc-dbe34ca5f86c",
+  "title": "The customer cross-account role can escalate to admin and trusts the whole Anthus account",
+  "description": "infra/customer-role.yml:164-182 allows iam:CreateRole, iam:AttachRolePolicy, iam:PutRolePolicy and iam:PassRole on roles named ChatticusComputers* with no permissions boundary and no allow-list of attachable policies, next to ecs:RunTask and ecs:RegisterTaskDefinition on *. Whoever assumes the role can create an admin role and run a task as it. The trust (lines 39-48) is the Anthus account root with the organization id as ExternalId, and control-plane-stack.ts:318-323 and 397-401 grant sts:AssumeRole on arn:aws:iam::*:role/ChatticusOrganizationComputerRole in any account. infra/test/customer-role-template.test.ts:31-58 checks the action list only.\n\nFix: ship a ChatticusComputersBoundary managed policy in the template and require it with an iam:PermissionsBoundary condition on CreateRole/PutRolePolicy/AttachRolePolicy; allow-list iam:PolicyARN; scope ECS actions by cluster and task-definition family as infra/lib/computer-host-start.ts:412-432 does; trust the exact FrontDoor and ComputerStarter role ARNs instead of :root; generate a random per-organization ExternalId at provisioning and store it on the organization record; resolve the target account only from that record. Tests in infra/test and Gherkin for the ExternalId behavior.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-140ca224-2364-449d-814e-44719c19d249",
+  "labels": [
+    "review-2026-10-17"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-17T14:44:50.167323Z",
+  "updated_at": "2026-10-17T14:44:50.169049Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Chatticus review thread",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

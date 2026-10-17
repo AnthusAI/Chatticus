@@ -1,0 +1,29 @@
+{
+  "id": "chatticus-3a93587a-2065-439b-a3ee-1de30a3080c4",
+  "title": "Turn stream reconnect doubles the reply, reopens after unmount and replays from zero; tokens in localStorage with no CSP",
+  "description": "Three bugs in the web turn stream. (1) web/lib/sse.ts:67-75 calls both onError and onClose on a failure, and components/EnabledWorkspace.tsx:482-502 schedules a retry from each without closing the previous stream, so one network blip opens two streams for the same turn and the typed reply doubles. (2) The close function returned by openTurnStream (sse.ts:78-82) also fires onClose, so the unmount cleanup at EnabledWorkspace.tsx:312 schedules a reconnect that opens an authorized fetch after sign-out or an organization switch. (3) EnabledWorkspace.tsx:374-399 derives Last-Event-ID from whether a progress string exists and appends replayed events without a seq check, so a turn still booting the computer reconnects from zero and duplicates events. Also: web/lib/auth.ts:236 keeps id, access and refresh tokens in localStorage and the only CloudFront response-headers policy (infra/lib/web-stack.ts:105-113) sets COOP/COEP, no Content-Security-Policy.\n\nFix: one terminal callback per stream, a retry scheduler held in a ref, close before reopen, bump the stream generation before a deliberate close and never fire onClose for it, always resume from the stored sequence and dedupe by seq; move the token store to sessionStorage; add a CSP response-headers policy sized for Cognito, the voice WASM and future Monaco workers (worker-src blob:). Cover the stream behavior with a Gherkin scenario through the web harness where possible; the CSP with an infra test.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-140ca224-2364-449d-814e-44719c19d249",
+  "labels": [
+    "review-2026-10-17"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-17T14:46:07.798343Z",
+  "updated_at": "2026-10-17T14:46:07.799491Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Chatticus review thread",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

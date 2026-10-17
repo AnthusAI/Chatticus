@@ -1,0 +1,29 @@
+{
+  "id": "chatticus-0ee2a293-9bb0-45eb-badf-fd5ddf03f3e8",
+  "title": "The deployed-environment acceptance smoke test is never run by any workflow",
+  "description": "conversation/bin/acceptance.ts is a real nine-check black-box smoke test (src/acceptance/smoke-test.ts:17-27: session exchange, bot, channel, post, steer, SSE turn.completed, reload order, persistence), gated only by --environment and CHATTICUS_<ENV>_BASE_URL. No deploy workflow and not ci.yml calls it, so nothing automated proves CloudFront, the Lambda front door, SQS and Cognito are wired after a deploy.\n\nFix: add a post-deploy job to deploy-thinturn-development.yml (and the control-plane development deploy) that runs npx tsx bin/acceptance.ts --environment development under the integration-test principal, and a job on the staging deploys that gates promotion. Extend infra/test/deploy-workflows.test.ts to assert the job exists. Staging's integration test principal is not wired yet (chatticus-99cae9), so the staging job may need to be allowed to skip with a clear message until that lands.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-140ca224-2364-449d-814e-44719c19d249",
+  "labels": [
+    "review-2026-10-17"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-17T14:46:33.214762Z",
+  "updated_at": "2026-10-17T14:46:33.217614Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Chatticus review thread",
+    "settings": {}
+  },
+  "agent_assignment": null
+}
