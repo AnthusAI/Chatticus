@@ -1,0 +1,173 @@
+name: Review screenshots
+
+on:
+  pull_request:
+    paths:
+      - "web/**"
+      - "host-protocol/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/review-screenshots.yml"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: review-screenshots-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  GALLERY_BRANCH: review-screenshots
+  NEXT_PUBLIC_COGNITO_USER_POOL_ID: us-east-1_ReviewShots
+  NEXT_PUBLIC_COGNITO_CLIENT_ID: review-screenshots
+  NEXT_PUBLIC_COGNITO_AUTH_DOMAIN: auth.review-screenshots.invalid
+  NEXT_PUBLIC_COGNITO_REDIRECT_URI: http://127.0.0.1/auth/callback
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1
+  NEXT_PUBLIC_CHATTICUS_SIGNUP_MODE: invitation_only
+
+jobs:
+  screenshots:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+
+      - name: Check out the base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            head/package-lock.json
+            base/package-lock.json
+
+      - name: Build the pull request's web app
+        working-directory: head
+        run: |
+          npm ci
+          npm run build --workspace=web
+
+      - name: Build the base branch's web app
+        id: base-build
+        continue-on-error: true
+        working-directory: base
+        run: |
+          npm ci
+          npm run build --workspace=web
+
+      - name: Install Chromium for Playwright
+        working-directory: head/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Take the pull request's screenshots
+        working-directory: head/web
+        run: npx tsx test-support/review-screenshots/capture-review-screenshots.ts --site out --output "$RUNNER_TEMP/shots/head"
+
+      - name: Take the base branch's screenshots
+        if: steps.base-build.outcome == 'success'
+        continue-on-error: true
+        working-directory: head/web
+        run: npx tsx test-support/review-screenshots/capture-review-screenshots.ts --site ../../base/web/out --output "$RUNNER_TEMP/shots/base"
+
+      - name: Compare with the base branch
+        working-directory: head/web
+        run: |
+          mkdir -p "$RUNNER_TEMP/shots/base"
+          npx tsx test-support/review-screenshots/compare-review-screenshots.ts \
+            --base "$RUNNER_TEMP/shots/base" \
+            --head "$RUNNER_TEMP/shots/head" \
+            --output "$RUNNER_TEMP/shots/report.json"
+
+      - name: Keep the screenshots as a run artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-screenshots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
+
+      - name: Publish the screenshots to the gallery branch
+        id: publish
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          short_sha="${HEAD_SHA:0:7}"
+          gallery_path="pr-${PULL_REQUEST_NUMBER}/${short_sha}"
+          remote_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          gallery_directory="$RUNNER_TEMP/gallery"
+          if git ls-remote --exit-code --heads "$remote_url" "$GALLERY_BRANCH" >/dev/null; then
+            git clone --depth 1 --branch "$GALLERY_BRANCH" --single-branch "$remote_url" "$gallery_directory"
+          else
+            git init --initial-branch "$GALLERY_BRANCH" "$gallery_directory"
+            git -C "$gallery_directory" remote add origin "$remote_url"
+            printf '# Review screenshots\n\nScreenshots posted on pull requests by the Review screenshots workflow. Nothing here is product code.\n' > "$gallery_directory/README.md"
+          fi
+          cd "$gallery_directory"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf "pr-${PULL_REQUEST_NUMBER}"
+          mkdir -p "$gallery_path/head" "$gallery_path/base"
+          cp "$RUNNER_TEMP"/shots/head/*.png "$gallery_path/head/" 2>/dev/null || true
+          cp "$RUNNER_TEMP"/shots/base/*.png "$gallery_path/base/" 2>/dev/null || true
+          git add -A
+          git commit --quiet -m "Screenshots for pull request ${PULL_REQUEST_NUMBER} at ${short_sha}"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GALLERY_BRANCH}"; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            git pull --rebase origin "$GALLERY_BRANCH"
+          done
+          echo "image_base_url=https://github.com/${GITHUB_REPOSITORY}/raw/${GALLERY_BRANCH}/${gallery_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Write the gallery comment
+        working-directory: head/web
+        env:
+          IMAGE_BASE_URL: ${{ steps.publish.outputs.image_base_url }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          npx tsx test-support/review-screenshots/write-review-screenshot-comment.ts \
+            --report "$RUNNER_TEMP/shots/report.json" \
+            --output "$RUNNER_TEMP/shots/comment.md" \
+            --head-image-base-url "$IMAGE_BASE_URL/head" \
+            --base-image-base-url "$IMAGE_BASE_URL/base" \
+            --base-branch "$BASE_BRANCH" \
+            --head-sha "$HEAD_SHA" \
+            --run-url "$RUN_URL"
+
+      - name: Post or update the gallery comment
+        uses: actions/github-script@v7
+        env:
+          COMMENT_PATH: ${{ runner.temp }}/shots/comment.md
+        with:
+          script: |
+            const fs = require("node:fs");
+            const body = fs.readFileSync(process.env.COMMENT_PATH, "utf8");
+            const marker = "<!-- review-screenshots -->";
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number, body });
+            }
