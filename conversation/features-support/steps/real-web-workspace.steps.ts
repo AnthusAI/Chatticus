@@ -426,3 +426,64 @@ Then("the working reply says {string}", function (this: ChatticusWorld, text: st
 	assert.equal(last.role, "assistant", JSON.stringify(last));
 	assert.equal(last.text, text, JSON.stringify(last));
 });
+
+Given("the real workspace is mounted in a browser", function (this: ChatticusWorld) {
+	scenarioOf(this);
+});
+
+When("the available workspace height recovers after {string}", { timeout: 60_000 }, async function (this: ChatticusWorld, event: string) {
+	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "viewport", event })]);
+});
+
+Then("the workspace fills the recovered viewport without document overflow", function (this: ChatticusWorld) {
+	const result = scenarioOf(this).result;
+	assert.equal(result.viewportHeight, 900);
+	assert.equal(result.height, result.viewportHeight);
+	assert.equal(result.documentHeight, result.viewportHeight);
+});
+
+When("the member drags, reloads, keyboard-resizes and resets the {string}", { timeout: 60_000 }, async function (this: ChatticusWorld, column: string) {
+	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "columns", column })]);
+});
+
+Then("the rendered column keeps the chosen width", function (this: ChatticusWorld) {
+	const result = scenarioOf(this).result;
+	assert.ok(Math.abs(result.draggedWidth - result.defaultWidth - 80) < 1, JSON.stringify(result));
+	assert.equal(result.restoredWidth, result.draggedWidth);
+});
+
+
+Then("the rendered column follows its keyboard directions and width limits", function (this: ChatticusWorld) {
+	const result = scenarioOf(this).result;
+	assert.equal(result.widerWidth, result.restoredWidth + 16);
+	assert.equal(result.narrowerWidth, result.restoredWidth);
+	assert.equal(result.minimumWidth, result.column === "sidebar" ? 208 : 320);
+	assert.equal(result.maximumWidth, result.column === "sidebar" ? 480 : 1040);
+	assert.equal(result.belowMinimumWidth, result.minimumWidth);
+	assert.equal(result.aboveMaximumWidth, result.maximumWidth);
+});
+
+
+Then("the rendered column returns to its default width", function (this: ChatticusWorld) {
+	const result = scenarioOf(this).result;
+	assert.equal(result.resetWidth, result.defaultWidth);
+	assert.equal(result.resetReloadWidth, result.defaultWidth);
+	assert.equal(result.storedWidth, null);
+});
+
+When("the member saves both columns at their widest and narrows the window", { timeout: 60_000 }, async function (this: ChatticusWorld) {
+	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "clamping" })]);
+});
+
+Then("the conversation retains its minimum width without horizontal overflow", function (this: ChatticusWorld) {
+	const { saved, narrow } = scenarioOf(this).result;
+	assert.deepEqual(saved, { sidebar: 480, panel: 1040 });
+	assert.ok(narrow.conversation >= 416, JSON.stringify(narrow));
+	assert.ok(narrow.sidebar >= 208 && narrow.sidebar < saved.sidebar, JSON.stringify(narrow));
+	assert.ok(narrow.panel >= 320 && narrow.panel < saved.panel, JSON.stringify(narrow));
+	assert.equal(narrow.documentWidth, narrow.viewportWidth);
+});
+
+Then("both columns return to their saved widths when the window widens", function (this: ChatticusWorld) {
+	assert.deepEqual(scenarioOf(this).result.restored, scenarioOf(this).result.saved);
+});
