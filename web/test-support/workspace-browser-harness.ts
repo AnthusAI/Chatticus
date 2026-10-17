@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -47,8 +46,13 @@ async function main(): Promise<void> {
   assert.ok(address && typeof address !== "string");
   const browser = spawn(chromeExecutable, [
     "--headless=new", "--disable-extensions", "--disable-background-networking", "--no-sandbox", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+    ...(process.platform === "linux" ? ["--disable-dev-shm-usage"] : []),
     "--remote-debugging-port=0", `--user-data-dir=${profileDirectory}`, "about:blank",
-  ], { stdio: "ignore" });
+  ], { detached: true, stdio: ["ignore", "ignore", "pipe"] });
+  let browserStderr = "";
+  let browserSpawnError: Error | undefined;
+  browser.stderr.on("data", (chunk) => { browserStderr = (browserStderr + String(chunk)).slice(-8_000); });
+  browser.on("error", (error) => { browserSpawnError = error; });
   let socket: WebSocket | undefined;
   let nextCommandId = 0;
   let pageLoadCount = 0;
@@ -56,7 +60,14 @@ async function main(): Promise<void> {
   async function command(method: string, params: Record<string, unknown> = {}): Promise<any> {
     const id = ++nextCommandId;
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
+      const timeout = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`Chrome command timed out: ${method}`));
+      }, 10_000);
+      pending.set(id, {
+        resolve: (result) => { clearTimeout(timeout); resolve(result); },
+        reject: (error) => { clearTimeout(timeout); reject(error); },
+      });
       socket!.send(JSON.stringify({ id, method, params }));
     });
   }
@@ -66,7 +77,8 @@ async function main(): Promise<void> {
     return response.result.value;
   }
   async function until(expression: string): Promise<void> {
-    for (let attempt = 0; attempt < 100; attempt++) {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
       if (await evaluate(expression)) return;
       await delay(30);
     }
@@ -103,13 +115,28 @@ async function main(): Promise<void> {
   }
   try {
     const portFile = join(profileDirectory, "DevToolsActivePort");
-    for (let attempt = 0; !existsSync(portFile) && attempt < 100; attempt++) await delay(50);
-    const [debuggingPort] = (await readFile(portFile, "utf8")).split("\n");
-    const targets = await (await fetch(`http://127.0.0.1:${debuggingPort}/json/list`)).json() as Array<{ type: string; webSocketDebuggerUrl: string }>;
+    const startupDeadline = Date.now() + 25_000;
+    let debuggingPort: string | undefined;
+    while (Date.now() < startupDeadline) {
+      if (browserSpawnError) throw new Error(`Cannot start Chrome executable ${chromeExecutable}: ${browserSpawnError.message}`);
+      if (browser.exitCode !== null || browser.signalCode !== null) {
+        throw new Error(`Chrome exited before becoming ready: code=${browser.exitCode}, signal=${browser.signalCode}`);
+      }
+      try {
+        const [port] = (await readFile(portFile, "utf8")).split("\n");
+        if (/^\d+$/.test(port)) { debuggingPort = port; break; }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      await delay(50);
+    }
+    assert.ok(debuggingPort, "Chrome did not publish DevToolsActivePort within 25 seconds");
+    const targets = await (await fetch(`http://127.0.0.1:${debuggingPort}/json/list`, { signal: AbortSignal.timeout(10_000) })).json() as Array<{ type: string; webSocketDebuggerUrl: string }>;
     socket = new WebSocket(targets.find((target) => target.type === "page")!.webSocketDebuggerUrl);
     await new Promise<void>((resolve, reject) => {
-      socket!.addEventListener("open", () => resolve(), { once: true });
-      socket!.addEventListener("error", () => reject(new Error("Cannot connect to headless Chrome")), { once: true });
+      const timeout = setTimeout(() => reject(new Error("Chrome debugging connection timed out")), 10_000);
+      socket!.addEventListener("open", () => { clearTimeout(timeout); resolve(); }, { once: true });
+      socket!.addEventListener("error", () => { clearTimeout(timeout); reject(new Error("Cannot connect to headless Chrome")); }, { once: true });
     });
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(String(event.data));
@@ -186,12 +213,26 @@ async function main(): Promise<void> {
       output = { saved, narrow, restored: { sidebar: await width("sidebar"), panel: await width("panel") } };
     } else throw new Error(`Unknown browser action ${input.action}`);
     process.stdout.write(JSON.stringify(output));
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\nChrome stderr: ${browserStderr || "(empty)"}`);
   } finally {
     socket?.close();
-    const closed = new Promise<void>((resolve) => browser.once("exit", () => resolve()));
-    browser.kill("SIGTERM");
+    const signalBrowserGroup = (signal: NodeJS.Signals) => {
+      if (!browser.pid) return;
+      try {
+        process.kill(-browser.pid, signal);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+      }
+    };
+    const closed = browser.exitCode !== null || browser.signalCode !== null || !browser.pid
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => browser.once("exit", () => resolve()));
+    signalBrowserGroup("SIGTERM");
     await Promise.race([closed, delay(2000)]);
-    if (browser.exitCode === null) browser.kill("SIGKILL");
+    signalBrowserGroup("SIGKILL");
+    browser.stderr.destroy();
+    server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(profileDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
