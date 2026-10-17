@@ -70,30 +70,35 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-15.** `develop` was merged into `main`; release
-**v0.44.0** is published (release commit `4bc44d8b`). It was cut by running
-semantic-release locally as the owner, because the Actions release job could
-not push to `main` while it was briefly protected (GH006). That protection
-was applied in error and has been removed: by decision of the owner
-(2026-10-15), `main` has no branch protection and the `staging` and
-`production` environments have no required reviewers; they keep only a
-deployment branch policy that allows `main` only. **v0.45.0** has since been
-released, and the Actions release job now pushes its own `chore(release)`
-commit to `main`.
+**Last updated: 2026-10-17.** The iPad workspace-height recovery and resizable
+roster/panel columns from [PR #590](https://github.com/AnthusAI/Chatticus/pull/590),
+with browser regression coverage in
+[PR #592](https://github.com/AnthusAI/Chatticus/pull/592), reached `main` through
+[PR #591](https://github.com/AnthusAI/Chatticus/pull/591)
+(merge `614142b8`). [Release v0.48.1](https://github.com/AnthusAI/Chatticus/releases/tag/v0.48.1)
+is published; its later metadata commit `d72fc478` changes only the changelog
+and package version files. Both the
+[staging web deployment](https://github.com/AnthusAI/Chatticus/actions/runs/39013877238)
+and [production web deployment](https://github.com/AnthusAI/Chatticus/actions/runs/39014147132)
+succeeded for that exact commit through the established manual workflows,
+including their control-plane and web steps.
 
-**Production runs the current release.** The production environment in the
-production AWS account is deployed with the v0.44.0 code (computers, snapshots,
-control plane, thin-turn and web stacks updated; auth had no diff), first by the
-local script and then by CI: the production and staging deploy workflows
-(`workflow_dispatch`) run green from GitHub Actions through OIDC, and
-`verify-account-deploy-role` passes for both. The computer image is promoted for
-staging and production (`build-computer-image-release.yml` builds once on push to
-`main`; `infra/promote-computer-image.sh <env> <commit>` and the dispatch-only
-`promote-computer-image-staging.yml` and `-production.yml` retag it), so computers
-can start in both. **Limit:** no live computer turn has been tested in production
-or staging (Kanbus chatticus-61dea9). The promote rule requires the deploy runs to
-have succeeded for the exact commit, which the release commit defeats
-(chatticus-6b45d3).
+At `staging.chattic.us` and `hey.chattic.us`, `/chat` and `/api/health` return
+200, health reports the expected environment, and all 12 referenced assets
+return 200. Served assets contain the viewport-height recovery, persisted
+roster/panel widths, and resize-handle code. Actual Chrome workspace Gherkin
+passes locally (26 scenarios, 95 steps), and the exact promotion CI passes
+all 1,823 scenarios and 36,690 steps. **Limits:** physical iPad testing and an
+authenticated live-user layout check have not been performed; served-asset
+checks establish delivery of the fix, not those device checks. No computer
+image tag was promoted for this web release. This web release did not verify
+a live computer turn in staging or production (follow-up chatticus-61dea9).
+
+By decision of the owner (2026-10-15), `main` has no branch protection and
+staging/production have no required reviewers; their deployment branch
+policies allow only `main`. A merge to `main` does not deploy either
+environment: both use `workflow_dispatch`, and production follows staging
+verification. Actions semantic-release owns version publication on `main`.
 
 ### Staging and the marketing site moved into the production AWS account
 

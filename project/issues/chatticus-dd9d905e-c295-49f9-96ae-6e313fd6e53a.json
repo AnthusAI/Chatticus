@@ -1,9 +1,9 @@
 {
   "id": "chatticus-dd9d905e-c295-49f9-96ae-6e313fd6e53a",
   "title": "Promote PR 590 iPad layout and resizable panels to main",
-  "description": "Ryan authorized promotion of the iPad full-height workspace and resizable sidebar/panel fix from PR #590 to main. Before promotion, verify current remote main/develop scope and exact promotion checks. Preserve concurrent work. Use the normal release workflow; follow production deployment receipts and verify health and relevant UI where feasible. Physical iPad testing remains unperformed unless actually verified. Do not change permissions or promote computer images. Application source: develop 87a7de982b99a73e635fb24db8cb46a3110c8077; only additional source commit since previous application promotion is PR #590 plus Kanbus planning records. This card tracks release work, not an additional implementation.",
+  "description": "Promote the iPad full-height workspace and resizable roster/panel fix from PR #590, together with the required browser regression coverage from PR #592, through the normal develop-to-main release workflow. Verify exact source scope, green review and CI, then deploy and verify the staging and production web release. Preserve concurrent work; physical iPad testing is a separate verification limitation. Do not change permissions or promote computer image tags.",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -40,20 +40,43 @@
           "reasoning_effort": "medium"
         }
       }
+    },
+    {
+      "id": "2a62a6ed-0423-416a-851c-c82dcea3d4dc",
+      "author": "home",
+      "text": "Release completion verified on 2026-10-17. This supersedes the earlier coverage/review blocker and pending-deployment comments.\n\n- Application fix: PR #590, develop commit 87a7de982b99a73e635fb24db8cb46a3110c8077.\n- Required browser regression coverage: PR #592, reviewed final coverage commit f54840dee6d20fbb324936b5e16a11094637a2e8, squash-merged to develop as 2c21fb1f1de3b5880b52b1a158fb220e426cf641. Local actual Chrome workspace Gherkin passed 26 scenarios / 95 steps; all five pure-helper tests passed. The new regression scenarios failed against pre-#590 application source 315e8f76 as expected.\n- Main promotion: https://github.com/AnthusAI/Chatticus/pull/591 merged 2026-10-17T07:30:10Z, source 2c21fb1f1de3b5880b52b1a158fb220e426cf641, base 36ab05927c4ee4d3b7ed15e2cb8d785c1822a00a, merge 614142b8d2cfee474eeb22a700c3ff0f4c894d98. Independent review approved the exact source/base; the normal merge preserved release metadata and matched the tested prospective merge tree.\n- Exact promotion CI: https://github.com/AnthusAI/Chatticus/actions/runs/39012478290 attempt 2 succeeded in conversation, web, and infra; 1,823 scenarios / 36,690 steps passed. Attempt 1 failed in the unchanged DynamoTurnAdmission racing-start unit test; rerunning only the failed job passed. This was an intermittent failure in an unchanged backend concurrency check; its cause was not established, and no backend behavior was modified in this promotion.\n- Postmerge CI: https://github.com/AnthusAI/Chatticus/actions/runs/39013866917 attempt 2 succeeded in conversation, web, and infra; all 1,823 scenarios / 36,690 steps and the dry run passed. Attempt 1 failed one unchanged backend concurrency scenario, features/single_computer_start_disk_ownership.feature:9 (\"Two turns need a stopped computer\", expected one host start, observed two); 1,822 / 1,823 scenarios passed. Those files were unchanged by this release, and that scenario passed the exact promotion and develop CI suites. Only the failed conversation job was retried once, without changing code or weakening tests. These were intermittent failures in unchanged backend concurrency checks; their cause was not established, and a potential existing backend issue is not ruled out.\n- Staging: https://github.com/AnthusAI/Chatticus/actions/runs/39013877238 succeeded at exact main merge 614142b8d2cfee474eeb22a700c3ff0f4c894d98, including control-plane and web deployment steps. https://staging.chattic.us/chat and /api/health returned 200, health status ok / environment staging, all 12 referenced assets returned 200, and served assets contained all four expected viewport-height, roster-width, panel-width, and resize-handle markers.\n- Production: https://github.com/AnthusAI/Chatticus/actions/runs/39014147132 succeeded at the same exact merge, including control-plane and web deployment steps. https://hey.chattic.us/chat and /api/health returned 200, health status ok / environment production, all 12 referenced assets returned 200, and all four expected fix markers were present in served assets. Production dispatch followed successful staging verification.\n- Version publication: https://github.com/AnthusAI/Chatticus/actions/runs/39015373335 succeeded in release and guard-pre-1-0 from source 614142b8d2cfee474eeb22a700c3ff0f4c894d98. Release v0.48.1 was published at 2026-10-17T07:54:54Z: https://github.com/AnthusAI/Chatticus/releases/tag/v0.48.1. Main release-metadata commit d72fc4784485b7189edf285d4c797994771f12d3 differs from deployed 614142b8 only in CHANGELOG.md, package-lock.json, and package.json; staging and production deployed the application source merge, not this later metadata commit.\n\nVerification limits: physical iPad testing and an authenticated live-user layout check were not performed. Mounted production-component browser Gherkin proves the tested behaviors; public health and served-asset checks prove deployment and delivery of the fix. No IAM, secrets, permissions, migrations, or live computer-image tag promotion was performed. Automatic immutable computer-image build/push run 39013866927 succeeded but did not promote a live tag. Concurrent dirty infra and parent/workspace issue changes were preserved and excluded from the documentation commit.\n",
+      "created_at": "2026-10-17T07:56:22.043491Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "release-records",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
+    },
+    {
+      "id": "1aae28c8-05e6-431d-bf05-080a5380b2b7",
+      "author": "home",
+      "text": "Completed: PR #591 merged to main, exact staging and production web deployments verified, full postmerge CI passed on one retry, and v0.48.1 published. Exact receipts and verification limits are recorded above.",
+      "created_at": "2026-10-17T07:56:32.141584Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-17T06:17:50.699288Z",
-  "updated_at": "2026-10-17T06:33:33.552887Z",
-  "closed_at": null,
+  "updated_at": "2026-10-17T07:56:35.942392Z",
+  "closed_at": "2026-10-17T07:56:35.942354Z",
   "agent": {
     "platform": "codex",
     "model": "gpt-6.1-sol",
+    "name": "release-records",
     "settings": {
       "reasoning_effort": "medium"
     }
   },
-  "right_now_summary": "Promotion awaits required Gherkin coverage and review; no deployment or iPad testing has occurred.",
-  "right_now_updated_at": "2026-10-17T06:19:12.008987Z",
+  "right_now_summary": "PR #591 merged, staging and production deployments passed verification, post-merge CI passed, and v0.48.1 was published.",
+  "right_now_updated_at": "2026-10-17T07:56:37.215506Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
