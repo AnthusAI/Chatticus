@@ -377,13 +377,3 @@ export async function seedIntegrationTestOrganization(
 	}
 	await new OrganizationsKernelImpl().adminSeedOrganization(tenantId, ownerEmail, "Integration Test", deps);
 }
-
-/** Reject integration bearer calls that name a different user id in the body. */
-export function assertIntegrationTestUserId(principal: Principal, actorUserId: string): void {
-	if (principal.kind !== "integration") {
-		return;
-	}
-	if (principal.userId === null || actorUserId !== principal.userId) {
-		throw new PrincipalHttpError(403, "integration test credential user mismatch");
-	}
-}

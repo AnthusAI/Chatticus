@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { BotNotFoundError } from "../../domain/bots.ts";
 import { invokeTaskTool, listTasks, TaskNotFoundError, taskById, TaskToolRequestError } from "../../domain/tasks.ts";
 import type { Task } from "../../domain/tasks.ts";
+import { assertActingUserId, assertMayReadUserRecords } from "../acting-user.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import type { IdSource } from "../app.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
@@ -90,6 +91,7 @@ export async function listUserTasksHandler(c: Context, deps: TaskRouteDependenci
 	if (isRefusal(principal)) {
 		return principal;
 	}
+	assertMayReadUserRecords(principal, pathParameter(c, "user_id"));
 	const tasks = await listTasks(pathParameter(c, "tenant_id"), pathParameter(c, "user_id"), deps);
 	return c.json({ tasks: tasks.map(taskPayload) }, 200);
 }
@@ -104,6 +106,7 @@ export async function createUserTaskHandler(c: Context, deps: TaskRouteDependenc
 	if (body === null) {
 		return c.json({ detail: "bot_id and title are required" }, 422);
 	}
+	assertActingUserId(principal, pathParameter(c, "user_id"));
 	return runTaskTool(c, deps, pathParameter(c, "user_id"), "create", body);
 }
 
@@ -114,7 +117,9 @@ export async function getTaskHandler(c: Context, deps: TaskRouteDependencies): P
 		return principal;
 	}
 	try {
-		return c.json(taskPayload(await taskById(pathParameter(c, "tenant_id"), pathParameter(c, "task_id"), deps)), 200);
+		const task = await taskById(pathParameter(c, "tenant_id"), pathParameter(c, "task_id"), deps);
+		assertMayReadUserRecords(principal, task.userId);
+		return c.json(taskPayload(task), 200);
 	} catch (error) {
 		if (error instanceof TaskNotFoundError) {
 			return c.json({ detail: "task not found" }, 404);
@@ -139,5 +144,9 @@ export async function patchTaskHandler(c: Context, deps: TaskRouteDependencies):
 		return c.json({ detail: "bot_id and an action of complete or close are required" }, 422);
 	}
 	const taskId = pathParameter(c, "task_id");
+	const existingTask = await deps.store.getTask(pathParameter(c, "tenant_id"), taskId);
+	if (existingTask !== null) {
+		assertMayReadUserRecords(principal, existingTask.userId);
+	}
 	return runTaskTool(c, deps, "", action, { ...body, arguments: { ...body.arguments, task_id: taskId } });
 }
