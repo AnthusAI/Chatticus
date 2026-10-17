@@ -32,6 +32,14 @@ export class CustomerComputersStack extends cdk.Stack {
         "Organization snapshot bucket in the customer account (from the cross-account template).",
     });
 
+    iam.PermissionsBoundary.of(this).apply(
+      iam.ManagedPolicy.fromManagedPolicyArn(
+        this,
+        "ComputersBoundary",
+        cdk.Fn.sub("arn:aws:iam::${AWS::AccountId}:policy/ChatticusComputersBoundary"),
+      ),
+    );
+
     const vpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
       natGateways: 0,
