@@ -260,7 +260,10 @@
           ],
           "Version": "2012-10-17"
         },
-        "Description": "Customer computer host task role (ephemeral live root only)."
+        "Description": "Customer computer host task role (ephemeral live root only).",
+        "PermissionsBoundary": {
+          "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:policy/ChatticusComputersBoundary"
+        }
       },
       "Metadata": {
         "aws:cdk:path": "ChatticusComputers/ComputerTaskRole/Resource"
@@ -458,6 +461,9 @@
             }
           ],
           "Version": "2012-10-17"
+        },
+        "PermissionsBoundary": {
+          "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:policy/ChatticusComputersBoundary"
         }
       },
       "Metadata": {

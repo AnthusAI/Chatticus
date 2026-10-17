@@ -58,6 +58,20 @@ describe("customer-role template publish helper", () => {
     assert.doesNotMatch(repoTemplate, /AWS::IAM::AccessKey/);
   });
 
+  it("only lets the role create computer roles that carry the permissions boundary", () => {
+    const repoTemplate = readCustomerRoleTemplate();
+    assert.match(repoTemplate, /ChatticusComputersBoundary:\s+Type: 'AWS::IAM::ManagedPolicy'/);
+    assert.match(
+      repoTemplate,
+      /Sid: IAMCreateBoundedComputerRoles[\s\S]*?iam:CreateRole[\s\S]*?iam:PutRolePolicy[\s\S]*?'iam:PermissionsBoundary': !Ref ChatticusComputersBoundary/,
+    );
+    assert.doesNotMatch(repoTemplate, /iam:AttachRolePolicy/);
+    assert.match(
+      repoTemplate,
+      /iam:PassRole'\s+Resource: !Sub '[^']*role\/ChatticusComputers\*'\s+Condition:\s+StringEquals:\s+'iam:PassedToService': 'ecs-tasks.amazonaws.com'/,
+    );
+  });
+
   it("declares a retained organization snapshot bucket with SnapshotBucketName output", () => {
     const repoTemplate = readCustomerRoleTemplate();
     assert.match(repoTemplate, /OrganizationSnapshotBucket:/);
