@@ -1,0 +1,52 @@
+name: Acceptance smoke test
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Require the integration test principal
+        env:
+          INTEGRATION_TEST_ROLE_ARN: ${{ vars.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          if [ -z "$INTEGRATION_TEST_ROLE_ARN" ]; then
+            echo "::error::The ${TARGET_ENVIRONMENT} GitHub environment has no CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN variable, so the acceptance smoke test cannot run. Wire the ${TARGET_ENVIRONMENT} integration test principal (chatticus-99cae9)."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials as the integration test principal
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Run the acceptance smoke test
+        working-directory: conversation
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: npx tsx bin/acceptance.ts --environment "$TARGET_ENVIRONMENT"

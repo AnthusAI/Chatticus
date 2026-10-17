@@ -146,6 +146,38 @@ describe("deploy workflow YAML", () => {
     }
   });
 
+  describe("post-deploy acceptance smoke test", () => {
+    const SMOKE_TEST_CALLERS: Record<string, string> = {
+      "deploy-controlplane-development.yml": "development",
+      "deploy-thinturn-development.yml": "development",
+      "deploy-controlplane-staging.yml": "staging",
+      "deploy-web-staging.yml": "staging",
+      "deploy-thinturn-staging.yml": "staging",
+    };
+
+    for (const [fileName, environment] of Object.entries(SMOKE_TEST_CALLERS)) {
+      it(`${fileName} runs the smoke test for ${environment} only after its deploy job succeeds`, () => {
+        const contents = readFileSync(join(workflowsDir, fileName), "utf8");
+        assert.match(
+          contents,
+          new RegExp(
+            `\\n  smoke-test:\\n    needs: deploy\\n    permissions:\\n      contents: read\\n      id-token: write\\n    uses: \\./\\.github/workflows/acceptance-smoke-test\\.yml\\n    with:\\n      environment: ${environment}\\n`,
+          ),
+        );
+      });
+    }
+
+    it("the reusable workflow runs the black-box runner under the integration test principal and fails loudly when it is not wired", () => {
+      const contents = readFileSync(join(workflowsDir, "acceptance-smoke-test.yml"), "utf8");
+      assert.match(contents, /^on:\n  workflow_call:/m);
+      assert.match(contents, /environment: \$\{\{ inputs\.environment \}\}/);
+      assert.match(contents, /role-to-assume: \$\{\{ vars\.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN \}\}/);
+      assert.match(contents, /if \[ -z "\$INTEGRATION_TEST_ROLE_ARN" \]; then[\s\S]*?::error::[\s\S]*?exit 1/);
+      assert.match(contents, /npx tsx bin\/acceptance\.ts --environment "\$TARGET_ENVIRONMENT"/);
+      assert.doesNotMatch(contents, /secrets\.AWS_ACCESS_KEY_ID|secrets\.AWS_SECRET_ACCESS_KEY/);
+    });
+  });
+
   const THIN_TURN_SCRIPT = (environment: string): string => `deploy-chatticus-dedicated-account.sh ${environment} thin-turn`;
   const WEB_SCRIPT = (environment: string): string => `deploy-chatticus-dedicated-account.sh ${environment} web`;
 
