@@ -113,16 +113,15 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 	const { tenantId, owner } = await workerOf(c, deps);
 	const body = await parseHostBody(c, computerStateRequestSchema);
 	if ("refusal" in body) return body.refusal;
-	if (owner !== null && body.value.stopped !== undefined) {
-		const current = await computerForOrganization(tenantId, deps);
-		const ownsGeneration = current.hostStartGeneration === owner.startGeneration;
-		const reportsOwnGeneration = body.value.stopped === false || body.value.start_generation === owner.startGeneration;
-		if (!ownsGeneration || !reportsOwnGeneration) {
-			return ownerErrorResponse(c, "stale_generation", "owner credential is not valid for this host start generation");
-		}
-	}
 	if (owner !== null) {
 		const current = await computerForOrganization(tenantId, deps);
+		if (body.value.stopped !== undefined) {
+			const ownsGeneration = current.hostStartGeneration === owner.startGeneration;
+			const reportsOwnGeneration = body.value.stopped === false || body.value.start_generation === owner.startGeneration;
+			if (!ownsGeneration || !reportsOwnGeneration) {
+				return ownerErrorResponse(c, "stale_generation", "owner credential is not valid for this host start generation");
+			}
+		}
 		if (current.ownerId === undefined) {
 			const isStoppedReport = body.value.stopped === true && body.value.start_generation === owner.startGeneration;
 			const reportsOnlyStopped = body.value.capability_ready === undefined && body.value.capability_unavailable === undefined;
@@ -138,7 +137,16 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 	}
 	let computer = await computerForOrganization(tenantId, deps);
 	if (body.value.stopped !== undefined) {
-		computer = await setComputerStopped(tenantId, body.value.stopped, deps, body.value.disk_matches_published === true);
+		computer = await setComputerStopped(
+			tenantId,
+			body.value.stopped,
+			deps,
+			body.value.disk_matches_published === true,
+			owner !== null && body.value.stopped ? owner.startGeneration : undefined,
+		);
+		if (owner !== null && body.value.stopped && computer.hostStartGeneration !== owner.startGeneration) {
+			return ownerErrorResponse(c, "stale_generation", "owner credential is not valid for this host start generation");
+		}
 		if (body.value.stopped && body.value.start_generation !== undefined) {
 			await releaseHostStartLease(tenantId, body.value.start_generation, deps);
 		}
