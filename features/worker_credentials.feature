@@ -69,3 +69,39 @@ Feature: Per-worker credentials
     When a recycled Front Door serves the same messaging store
     And the worker bearer credential is used on a worker route
     Then the worker route responds with status 200
+
+  Scenario: Registering a worker for an organization that does not exist is refused
+    Given an empty control plane
+    When a worker attempts to register:
+      | worker_id    | garage-mac-1 |
+      | tenant_id    | nowhere      |
+      | cost_class   | local        |
+      | capabilities | computer     |
+    Then the registration is refused with status 403
+    And no computer exists for tenant "nowhere"
+
+  Scenario: Registering a worker for a disabled organization is refused
+    Given an empty control plane
+    And a disabled organization "paused"
+    When a worker attempts to register:
+      | worker_id    | garage-mac-1 |
+      | tenant_id    | paused       |
+      | cost_class   | local        |
+      | capabilities | cpu          |
+    Then the registration is refused with status 403
+
+  Scenario: Re-registering an existing worker without its current token is refused and leaves its token valid
+    Given an empty control plane
+    And a worker registered over HTTP as:
+      | worker_id    | garage-mac-1 |
+      | tenant_id    | anthus       |
+      | cost_class   | local        |
+      | capabilities | cpu          |
+    When a worker attempts to register without presenting its current token:
+      | worker_id    | garage-mac-1 |
+      | tenant_id    | anthus       |
+      | cost_class   | fargate      |
+      | capabilities | cpu          |
+    Then the registration is refused with status 403
+    And the worker bearer credential is used on a worker route
+    And the worker route responds with status 200

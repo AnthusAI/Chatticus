@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { recordResponse } from "../api.ts";
+import { ensureTestOrganization } from "../org-user-client.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 /** One worker registration sent through the scenario's HTTP front door. */
@@ -10,11 +11,21 @@ export type WorkerRegistrationRequest = {
 	capabilities: string[];
 	computerId?: string;
 	headers?: Record<string, string>;
+	organizationState?: "enabled" | "absent";
 };
+
+function currentTokenOf(world: ChatticusWorld, tenantId: string, workerId: string): string | undefined {
+	return world.registeredWorkers.find((worker) => worker.tenantId === tenantId && worker.workerId === workerId)?.token;
+}
 
 /** Register one worker over HTTP, keep its bearer token on the world, and return the token. */
 export async function registerWorkerOverHttp(world: ChatticusWorld, request: WorkerRegistrationRequest): Promise<string> {
 	assert.ok(world.api, "The scenario has no HTTP front door.");
+	if ((request.organizationState ?? "enabled") === "enabled") {
+		await ensureTestOrganization(world, request.tenantId);
+	}
+	const currentToken = currentTokenOf(world, request.tenantId, request.workerId);
+	const authorizationHeaders: Record<string, string> = currentToken === undefined ? {} : { Authorization: `Bearer ${currentToken}` };
 	const body: Record<string, unknown> = {
 		worker_id: request.workerId,
 		cost_class: request.costClass,
@@ -24,7 +35,7 @@ export async function registerWorkerOverHttp(world: ChatticusWorld, request: Wor
 		body.computer_id = request.computerId;
 	}
 	const response = await recordResponse(
-		await world.api.post(`/orgs/${request.tenantId}/workers/register`, { headers: request.headers ?? {}, body }),
+		await world.api.post(`/orgs/${request.tenantId}/workers/register`, { headers: { ...authorizationHeaders, ...request.headers }, body }),
 	);
 	assert.equal(response.status, 200, response.text);
 	const token = response.json.token as string;

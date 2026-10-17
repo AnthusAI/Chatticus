@@ -6,7 +6,7 @@ import { cognitoKeys, wireFrontDoor } from "../front-door.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
 import { runMembersCliExpectingSuccess } from "../members-cli-process.ts";
 import type { ChatticusWorld } from "../world.ts";
-import { registerWorkerOverHttp } from "./worker-registration.ts";
+import { registerWorker } from "../../src/domain/workers.ts";
 
 /** The operator bearer secret the operator and self-setup front doors are wired with unless a scenario names one. */
 export const DEFAULT_OPERATOR_KEY = "test-operator-secret";
@@ -146,13 +146,17 @@ Given("a worker registered for that organization", async function (this: Chattic
 	const state = operatorState(this);
 	const organization = scenarioOrganization(this);
 	state.workerId = "operator-test-worker";
-	await registerWorkerOverHttp(this, {
-		tenantId: organization.tenantId,
-		workerId: state.workerId,
-		costClass: "local",
-		capabilities: ["cpu"],
-		headers: state.requestHeaders,
-	});
+	const token = await registerWorker(
+		{
+			workerId: state.workerId,
+			tenantId: organization.tenantId,
+			costClass: "local",
+			capabilities: ["cpu"],
+			computerId: null,
+		},
+		{ store: this.messagingStore(), clock: this.clock, ids: this.ids },
+	);
+	this.workerTokens.set(state.workerId, token);
 });
 
 When("the operator calls the enable endpoint for that organization", async function (this: ChatticusWorld) {

@@ -23,6 +23,12 @@ export class WorkerTenantMismatchError extends DomainError {
 	}
 }
 
+export class WorkerRegistrationRefusedError extends DomainError {
+	constructor(message: string) {
+		super("worker_registration_refused", message);
+	}
+}
+
 export class WorkerNotRegisteredError extends DomainError {
 	constructor(message: string) {
 		super("worker_not_registered", message);
@@ -372,6 +378,9 @@ export function statusFor(error: unknown): number {
 		return 403;
 	}
 	if (error instanceof TaskAccessDeniedError) {
+		return 403;
+	}
+	if (error instanceof WorkerRegistrationRefusedError) {
 		return 403;
 	}
 	if (error instanceof MemberStandingRequiredError || error instanceof GrantExceedsMemberStandingError) {

@@ -1,7 +1,8 @@
 import type { Context } from "hono";
-import { registerWorker } from "../../domain/workers.ts";
+import { registerWorkerForCaller } from "../../domain/workers.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import type { Clock, IdSource } from "../app.ts";
+import { parseBearerToken } from "../../auth/principal.ts";
 import { pathParameter } from "../user-principal.ts";
 
 /** Everything the worker routes depend on. */
@@ -39,15 +40,17 @@ function parseRegisterWorkerBody(raw: unknown): RegisterWorkerBody | null {
 }
 
 /**
- * POST /orgs/{tenant_id}/workers/register: the worker bootstrap. It carries no principal; the invoke key gate in
- * front of every route is the only credential. The response holds the worker's one-time bearer token.
+ * POST /orgs/{tenant_id}/workers/register: the worker bootstrap. It carries no principal, so the invoke key gate in
+ * front of every route is the only credential for a first registration of a worker id in an enabled organization;
+ * registering an existing worker id again also needs that worker's current bearer token. The response holds the worker's
+ * new bearer token.
  */
 export async function registerWorkerHandler(c: Context, deps: WorkerRouteDependencies): Promise<Response> {
 	const body = parseRegisterWorkerBody(await c.req.json().catch(() => null));
 	if (body === null) {
 		return c.json({ detail: "worker_id, cost_class and capabilities are required" }, 422);
 	}
-	const token = await registerWorker(
+	const token = await registerWorkerForCaller(
 		{
 			workerId: body.worker_id,
 			tenantId: pathParameter(c, "tenant_id"),
@@ -55,6 +58,7 @@ export async function registerWorkerHandler(c: Context, deps: WorkerRouteDepende
 			capabilities: body.capabilities,
 			computerId: body.computer_id,
 		},
+		parseBearerToken(c.req.header("Authorization") ?? null),
 		deps,
 	);
 	return c.json({ worker_id: body.worker_id, token }, 200);
