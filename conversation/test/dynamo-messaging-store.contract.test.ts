@@ -150,6 +150,20 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 			expect(await store.getOrganization("tenant-missing")).toBeNull();
 		});
 
+		it("writes a monthly spend ceiling only while the organization holds none", async () => {
+			const store = await makeStore();
+			const withoutCeiling = organization("tenant-a", { status: "enabled", awsSetupPath: "anthus-managed" });
+			await store.putOrganization(withoutCeiling);
+			await store.putOrganization(organization("tenant-b", { monthlyAwsSpendCeilingUsd: Decimal.parse("500") }));
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-a", Decimal.parse("50"))).toBe(true);
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-a", Decimal.parse("75"))).toBe(false);
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-b", Decimal.parse("50"))).toBe(false);
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-missing", Decimal.parse("50"))).toBe(false);
+			expect(await store.getOrganization("tenant-a")).toEqual({ ...withoutCeiling, monthlyAwsSpendCeilingUsd: Decimal.parse("50") });
+			expect((await store.getOrganization("tenant-b"))?.monthlyAwsSpendCeilingUsd?.toString()).toBe(Decimal.parse("500").toString());
+			expect(await store.getOrganization("tenant-missing")).toBeNull();
+		});
+
 		it("lists memberships of one organization sorted by user, across several pages", async () => {
 			const store = await makeStore();
 			for (const userId of ["u-e", "u-b", "u-d", "u-a", "u-c"]) {

@@ -1,3 +1,4 @@
+import type { Decimal } from "../src/budget/decimal.ts";
 import type { ComputerRuntimeSegment } from "../src/budget/models.ts";
 import type { Identity, Invitation, Membership, Organization, OrganizationStatus } from "../src/domain/organizations.ts";
 import type { Channel, ChannelMessageRecord } from "../src/domain/channels.ts";
@@ -44,6 +45,15 @@ export class InMemoryMessagingStore implements MessagingStore {
 
 	async putOrganization(organization: Organization): Promise<void> {
 		this.organizations.set(organization.tenantId, organization);
+	}
+
+	async setMonthlyAwsSpendCeilingWhenUnset(tenantId: string, monthlyAwsSpendCeilingUsd: Decimal): Promise<boolean> {
+		const stored = this.organizations.get(tenantId);
+		if (stored === undefined || stored.monthlyAwsSpendCeilingUsd !== null) {
+			return false;
+		}
+		this.organizations.set(tenantId, { ...stored, monthlyAwsSpendCeilingUsd });
+		return true;
 	}
 
 	async getMembership(tenantId: string, userId: string): Promise<Membership | null> {

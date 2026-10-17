@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Decimal } from "../budget/decimal.ts";
+import { Decimal } from "../budget/decimal.ts";
 import type { Clock } from "../storage/storage-support.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import {
@@ -194,6 +194,9 @@ export function withDeploymentAccountHome(organization: Organization, deployment
 	return { ...organization, awsAccountId: deploymentAwsAccountId, awsSetupPath: "anthus-managed" };
 }
 
+/** The monthly AWS spend ceiling every new organization starts with, in US dollars, until an owner chooses another. */
+export const DEFAULT_MONTHLY_AWS_SPEND_CEILING_USD: Decimal = Decimal.parse("50.00");
+
 /** IdSource generates unique identifiers. */
 export interface IdSource {
 	next(): string;
@@ -237,7 +240,7 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 			awsSetupPath: null,
 			setupFeeCents: null,
 			assistedSetupSession: false,
-			monthlyAwsSpendCeilingUsd: null,
+			monthlyAwsSpendCeilingUsd: DEFAULT_MONTHLY_AWS_SPEND_CEILING_USD,
 		};
 		await deps.store.putOrganization(organization);
 		const membership: Membership = {
@@ -287,7 +290,7 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 			awsSetupPath: "anthus-managed",
 			setupFeeCents: null,
 			assistedSetupSession: false,
-			monthlyAwsSpendCeilingUsd: null,
+			monthlyAwsSpendCeilingUsd: DEFAULT_MONTHLY_AWS_SPEND_CEILING_USD,
 		};
 		await deps.store.putOrganization(organization);
 		await deps.store.putMembership({
