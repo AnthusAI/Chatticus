@@ -14,14 +14,12 @@
   "created_at": "2026-10-16T13:15:01.928604Z",
   "updated_at": "2026-10-16T13:15:01.928930Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "claude-code",
     "model": "claude",
-    "name": "Claude (project thread for Ryan)",
-    "settings": {}
+    "name": "Claude (project thread for Ryan)"
   },
-  "agent_assignment": null
+  "right_now_summary": "The team is building a full-size code editor with a file tree, Monaco, diff view, and space for a coding assistant.",
+  "right_now_updated_at": "2026-10-17T07:50:13.389430Z",
+  "custom": {}
 }

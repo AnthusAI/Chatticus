@@ -17,26 +17,22 @@
       "text": "Landed on develop in #587 (70679de). Panel plugin host with Context, Files and Costs; Split and Full sizes (Full docks the conversation on the left); full-width agent turns; per-reply model and token usage; session turns, tokens and cache share in the header. Follow-up noted in review: below 1280px the hidden docked panel stays mounted while the sheet is open, so Files and Costs can fetch twice (pre-existing).",
       "created_at": "2026-10-16T14:04:53.777035Z",
       "comment_type": "default",
-      "data": {},
       "agent": {
         "platform": "claude-code",
         "model": "claude",
-        "name": "Claude (project thread for Ryan)",
-        "settings": {}
+        "name": "Claude (project thread for Ryan)"
       }
     }
   ],
   "created_at": "2026-10-16T13:14:45.584656Z",
   "updated_at": "2026-10-16T14:05:06.648790Z",
   "closed_at": "2026-10-16T14:05:06.648517Z",
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "claude-code",
     "model": "claude",
-    "name": "Claude (project thread for Ryan)",
-    "settings": {}
+    "name": "Claude (project thread for Ryan)"
   },
-  "agent_assignment": null
+  "right_now_summary": "The workspace now hosts Context, Files, and Costs plugins with split/full views and per-reply usage details.",
+  "right_now_updated_at": "2026-10-17T07:50:05.890003Z",
+  "custom": {}
 }

@@ -38,8 +38,8 @@
       "reasoning_effort": "medium"
     }
   },
-  "right_now_summary": "The team is defining board access, storage, consistency, and shared UI before building the integration.",
-  "right_now_updated_at": "2026-10-16T20:43:56.980181Z",
+  "right_now_summary": "The team is defining board access, storage, isolation, and shared UI before building the integration.",
+  "right_now_updated_at": "2026-10-17T07:50:01.356163Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"

@@ -47,8 +47,8 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The TypeScript control plane and owner-computer path still need promotion work for staging and production.",
-  "right_now_updated_at": "2026-10-13T15:29:20.025055Z",
+  "right_now_summary": "The migration plan is documented, but environment and image promotion await owner direction.",
+  "right_now_updated_at": "2026-10-17T07:50:03.408675Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"

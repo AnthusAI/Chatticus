@@ -14,14 +14,12 @@
   "created_at": "2026-10-16T13:15:12.036679Z",
   "updated_at": "2026-10-16T13:15:12.036938Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "claude-code",
     "model": "claude",
-    "name": "Claude (project thread for Ryan)",
-    "settings": {}
+    "name": "Claude (project thread for Ryan)"
   },
-  "agent_assignment": null
+  "right_now_summary": "The system needs to record first-token latency and total turn duration for usage metrics.",
+  "right_now_updated_at": "2026-10-17T07:50:09.795370Z",
+  "custom": {}
 }
