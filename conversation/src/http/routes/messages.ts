@@ -94,7 +94,6 @@ export async function postChannelMessageHandler(c: Context, deps: MessageRouteDe
 		return c.json({ detail: "bots post through the executor, not the user message route" }, 403);
 	}
 	assertActingUserId(principal, body.authorId);
-	await assertCallerParticipatesInChannel(principal, pathParameter(c, "tenant_id"), pathParameter(c, "channel_id"), deps.messages);
 	const result = await postMessage(deps.messages, {
 		tenantId: pathParameter(c, "tenant_id"),
 		channelId: pathParameter(c, "channel_id"),
