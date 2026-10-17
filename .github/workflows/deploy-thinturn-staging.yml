@@ -55,3 +55,12 @@ jobs:
           CHATTICUS_BUDGETS_NOTIFICATION_EMAIL: ${{ secrets.CHATTICUS_BUDGETS_NOTIFICATION_EMAIL }}
           CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
         run: sh deploy-chatticus-dedicated-account.sh staging thin-turn
+
+  smoke-test:
+    needs: deploy
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/acceptance-smoke-test.yml
+    with:
+      environment: staging
