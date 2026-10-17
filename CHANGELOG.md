@@ -1,3 +1,9 @@
+## [0.48.1](https://github.com/AnthusAI/Chatticus/compare/v0.48.0...v0.48.1) (2026-10-17)
+
+### Bug Fixes
+
+* **web:** full-height workspace on iPad Safari, and resizable sidebar and panel ([#590](https://github.com/AnthusAI/Chatticus/issues/590)) ([87a7de9](https://github.com/AnthusAI/Chatticus/commit/87a7de982b99a73e635fb24db8cb46a3110c8077))
+
 ## [0.48.0](https://github.com/AnthusAI/Chatticus/compare/v0.47.0...v0.48.0) (2026-10-16)
 
 ### Features
