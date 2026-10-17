@@ -33,7 +33,8 @@ export const REVIEW_SCREENSHOT_COGNITO_CLIENT_ID = "review-screenshots";
 
 const REVIEW_SCREENSHOT_AUTHORITY = `https://cognito-idp.us-east-1.amazonaws.com/${REVIEW_SCREENSHOT_COGNITO_USER_POOL_ID}`;
 const SESSION_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
-const SETTLE_AFTER_ARRANGE_MILLISECONDS = 600;
+const SETTLE_AFTER_ARRANGE_MILLISECONDS = 1200;
+const ARRANGE_STEP_TIMEOUT_MILLISECONDS = 8000;
 
 const contentTypeByExtension: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -196,16 +197,20 @@ async function captureReviewScreenshots(siteDirectory: string, outputDirectory: 
         for (const colorScheme of REVIEW_COLOR_SCHEMES) {
           const context = await openReviewContext(browser, origin, viewport, colorScheme, screen, workspace);
           const page = await context.newPage();
+          page.setDefaultTimeout(ARRANGE_STEP_TIMEOUT_MILLISECONDS);
+          const consoleErrors: string[] = [];
           page.on("pageerror", (error) => manifest.pageErrors.push(`${screen.id} ${viewport.id}: ${error.message}`));
+          page.on("console", (message) => {
+            if (message.type() === "error") consoleErrors.push(message.text());
+          });
           await page.clock.setFixedTime(new Date(REVIEW_SCREENSHOT_FIXED_TIME));
           try {
-            await page.goto(`${origin}/chat/`, { waitUntil: "networkidle" });
+            await page.goto(`${origin}/chat/`, { waitUntil: "load" });
             const screenExists = await screen.arrange(page);
             if (!screenExists) {
               manifest.skipped.push({ screenId: screen.id, viewportId: viewport.id, colorScheme, reason: "not shown at this size" });
               continue;
             }
-            await page.waitForLoadState("networkidle");
             await page.waitForTimeout(SETTLE_AFTER_ARRANGE_MILLISECONDS);
             const fileName = reviewShotFileName(screen.id, viewport.id, colorScheme);
             await page.screenshot({ path: join(outputDirectory, fileName), animations: "disabled", caret: "hide" });
@@ -218,8 +223,14 @@ async function captureReviewScreenshots(siteDirectory: string, outputDirectory: 
               colorScheme,
             });
           } catch (error) {
-            const reason = error instanceof Error ? error.message.split("\n")[0] : String(error);
-            manifest.skipped.push({ screenId: screen.id, viewportId: viewport.id, colorScheme, reason });
+            const visibleText = await page.locator("body").innerText().catch(() => "");
+            const failureDetail = [
+              error instanceof Error ? error.message.split("\n")[0] : String(error),
+              `at ${page.url()}`,
+              `page text: ${visibleText.replace(/\s+/g, " ").slice(0, 240)}`,
+              ...consoleErrors.slice(0, 3).map((consoleError) => `console: ${consoleError.slice(0, 200)}`),
+            ].join(" | ");
+            manifest.skipped.push({ screenId: screen.id, viewportId: viewport.id, colorScheme, reason: failureDetail });
             await page.screenshot({ path: join(outputDirectory, `failed--${reviewShotFileName(screen.id, viewport.id, colorScheme)}`) }).catch(() => undefined);
           } finally {
             await context.close();
