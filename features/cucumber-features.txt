@@ -171,3 +171,4 @@ features/cost_api.feature
 features/cost_api_gateway_rows.feature
 features/role_access_manifest.feature
 features/owner_credential_broker_fault_switch.feature
+features/member_identity_binding.feature

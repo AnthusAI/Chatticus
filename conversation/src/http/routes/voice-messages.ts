@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { assertIntegrationTestUserId } from "../../auth/integration-test.ts";
+import { assertActingUserId, assertCallerParticipatesInChannel } from "../acting-user.ts";
 import { postVoiceMessage, type VoiceMessageDependencies } from "../../domain/voice-messages.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
 import { messagePayload } from "./messages.ts";
@@ -48,7 +48,8 @@ export async function postVoiceMessageHandler(c: Context, deps: VoiceMessageRout
 			422,
 		);
 	}
-	assertIntegrationTestUserId(principal, body.authorId);
+	assertActingUserId(principal, body.authorId);
+	await assertCallerParticipatesInChannel(principal, pathParameter(c, "tenant_id"), pathParameter(c, "channel_id"), deps.voice.messages);
 	const result = await postVoiceMessage(deps.voice, {
 		tenantId: pathParameter(c, "tenant_id"),
 		channelId: pathParameter(c, "channel_id"),

@@ -1,5 +1,4 @@
 import type { Context } from "hono";
-import { assertIntegrationTestUserId } from "../../auth/integration-test.ts";
 import {
 	ChannelNotFoundError,
 	createChannel,
@@ -8,6 +7,7 @@ import {
 	primaryHumanParticipant,
 } from "../../domain/channels.ts";
 import type { Channel, ChannelKind } from "../../domain/channels.ts";
+import { assertActingUserId, assertCallerParticipatesInChannel, assertMayReadUserRecords } from "../acting-user.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import type { IdSource } from "../app.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
@@ -75,7 +75,7 @@ export async function createChannelHandler(c: Context, deps: ChannelRouteDepende
 	if (body === null) {
 		return c.json({ detail: "user_id, bot_ids, kind and name are required" }, 422);
 	}
-	assertIntegrationTestUserId(principal, body.user_id);
+	assertActingUserId(principal, body.user_id);
 	const idempotencyKey = (c.req.header("Idempotency-Key") ?? "").trim() || null;
 	const channel = await createChannel(
 		pathParameter(c, "tenant_id"),
@@ -93,6 +93,7 @@ export async function listUserChannelsHandler(c: Context, deps: ChannelRouteDepe
 	if (isRefusal(principal)) {
 		return principal;
 	}
+	assertMayReadUserRecords(principal, pathParameter(c, "user_id"));
 	const channels = await listChannels(pathParameter(c, "tenant_id"), pathParameter(c, "user_id"), deps);
 	return c.json({ channels: channels.map(channelPayload) }, 200);
 }
@@ -103,6 +104,7 @@ export async function getChannelHandler(c: Context, deps: ChannelRouteDependenci
 	if (isRefusal(principal)) {
 		return principal;
 	}
+	await assertCallerParticipatesInChannel(principal, pathParameter(c, "tenant_id"), pathParameter(c, "channel_id"), deps);
 	try {
 		return c.json(channelPayload(await getChannel(pathParameter(c, "tenant_id"), pathParameter(c, "channel_id"), deps)), 200);
 	} catch (error) {
