@@ -1,0 +1,43 @@
+{
+  "id": "chatticus-dd9d905e-c295-49f9-96ae-6e313fd6e53a",
+  "title": "Promote PR 590 iPad layout and resizable panels to main",
+  "description": "Ryan authorized promotion of the iPad full-height workspace and resizable sidebar/panel fix from PR #590 to main. Before promotion, verify current remote main/develop scope and exact promotion checks. Preserve concurrent work. Use the normal release workflow; follow production deployment receipts and verify health and relevant UI where feasible. Physical iPad testing remains unperformed unless actually verified. Do not change permissions or promote computer images. Application source: develop 87a7de982b99a73e635fb24db8cb46a3110c8077; only additional source commit since previous application promotion is PR #590 plus Kanbus planning records. This card tracks release work, not an additional implementation.",
+  "type": "chore",
+  "status": "blocked",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "17724dfd-a692-4c4e-8017-6deb6db4c9a6",
+      "author": "home",
+      "text": "Release promotion blocked by required repository review. PR #591 opened from develop source 87a7de982b99a73e635fb24db8cb46a3110c8077 to main 36ab05927c4ee4d3b7ed15e2cb8d785c1822a00a, containing only #590 application changes plus existing Kanbus records. Read-only reviewer found no concrete functional defect and all five pure-helper tests passed, but requested changes because AGENTS.md requires Gherkin regression coverage for viewport recovery and drag/key/reset/persistence behaviors; #590 adds none. Promotion PR placed in draft and not merged. Exact promotion CI is pending. Main production workflows are workflow_dispatch only, so there is no automatic production deployment to follow. No deployments, permission changes or computer-image promotions were performed. Physical iPad testing remains unperformed. Follow-up: add the required behavior specifications in a scoped develop change, rerun exact promotion checks and review, then merge; explicit owner authorization is needed to waive the repository review gate instead.",
+      "created_at": "2026-10-17T06:19:10.459484Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "Chatticus release promotion",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
+    }
+  ],
+  "created_at": "2026-10-17T06:17:50.699288Z",
+  "updated_at": "2026-10-17T06:19:10.459523Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "Promotion awaits required Gherkin coverage and review; no deployment or iPad testing has occurred.",
+  "right_now_updated_at": "2026-10-17T06:19:12.008987Z",
+  "custom": {}
+}
