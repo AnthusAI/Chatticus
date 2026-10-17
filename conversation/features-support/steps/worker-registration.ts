@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { recordResponse } from "../api.ts";
+import { ensureTestOrganization } from "../org-user-client.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 /** One worker registration sent through the scenario's HTTP front door. */
@@ -13,27 +14,6 @@ export type WorkerRegistrationRequest = {
 	organizationState?: "enabled" | "absent";
 };
 
-async function ensureEnabledOrganization(world: ChatticusWorld, tenantId: string): Promise<void> {
-	const store = world.messagingStore();
-	if ((await store.getOrganization(tenantId)) !== null) {
-		return;
-	}
-	await store.putOrganization({
-		tenantId,
-		name: tenantId,
-		status: "enabled",
-		ownerUserId: "worker-registration-support-owner",
-		createdAt: world.clock.now(),
-		awsAccountId: null,
-		awsCrossAccountRole: null,
-		awsExternalId: null,
-		awsSetupPath: null,
-		setupFeeCents: null,
-		assistedSetupSession: false,
-		monthlyAwsSpendCeilingUsd: null,
-	});
-}
-
 function currentTokenOf(world: ChatticusWorld, tenantId: string, workerId: string): string | undefined {
 	return world.registeredWorkers.find((worker) => worker.tenantId === tenantId && worker.workerId === workerId)?.token;
 }
@@ -42,7 +22,7 @@ function currentTokenOf(world: ChatticusWorld, tenantId: string, workerId: strin
 export async function registerWorkerOverHttp(world: ChatticusWorld, request: WorkerRegistrationRequest): Promise<string> {
 	assert.ok(world.api, "The scenario has no HTTP front door.");
 	if ((request.organizationState ?? "enabled") === "enabled") {
-		await ensureEnabledOrganization(world, request.tenantId);
+		await ensureTestOrganization(world, request.tenantId);
 	}
 	const currentToken = currentTokenOf(world, request.tenantId, request.workerId);
 	const authorizationHeaders: Record<string, string> = currentToken === undefined ? {} : { Authorization: `Bearer ${currentToken}` };
