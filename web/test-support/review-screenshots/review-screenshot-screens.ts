@@ -41,8 +41,10 @@ async function clickFirstVisible(page: Page, locator: ReturnType<Page["getByRole
 }
 
 async function openPlanningChannel(page: Page): Promise<void> {
-  await clickFirstVisible(page, page.getByRole("button", { name: "Open bots and channels" }));
   const planning = page.getByRole("button", { name: /Planning/ }).filter({ visible: true }).first();
+  const openRoster = page.getByRole("button", { name: "Open bots and channels" }).filter({ visible: true }).first();
+  await planning.or(openRoster).first().waitFor({ state: "visible" });
+  if (!(await planning.isVisible())) await openRoster.click();
   await planning.waitFor({ state: "visible" });
   await planning.click();
   await page.getByText("All 128 tests pass", { exact: false }).filter({ visible: true }).first().waitFor({ state: "visible" });

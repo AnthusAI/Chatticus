@@ -107,7 +107,7 @@ export function reviewScreenshotCommentBody(inputs: CommentInputs): string {
     "",
     ...changedSection(inputs, lightChanged),
     ...(darkChanged.length > 0 ? ["<details><summary>Dark mode changes</summary>", "", ...changedSection(inputs, darkChanged), "</details>", ""] : []),
-    ...(removed.length > 0 ? [`Screens no longer taken: ${removed.map(shotTitle).join("; ")}.`, ""] : []),
+    ...(removed.length > 0 ? [`Taken on \`${inputs.baseBranchName}\` but not on this pull request: ${removed.map(shotTitle).join("; ")}.`, ""] : []),
     "### Every screen, light mode",
     "",
     ...gridSection(inputs, "light"),

@@ -121,8 +121,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           rm -rf "pr-${PULL_REQUEST_NUMBER}"
           mkdir -p "$gallery_path/head" "$gallery_path/base"
-          cp "$RUNNER_TEMP"/shots/head/*.png "$gallery_path/head/" 2>/dev/null || true
-          cp "$RUNNER_TEMP"/shots/base/*.png "$gallery_path/base/" 2>/dev/null || true
+          find "$RUNNER_TEMP/shots/head" -maxdepth 1 -name '*.png' ! -name 'failed--*' -exec cp {} "$gallery_path/head/" \;
+          find "$RUNNER_TEMP/shots/base" -maxdepth 1 -name '*.png' ! -name 'failed--*' -exec cp {} "$gallery_path/base/" \;
           git add -A
           git commit --quiet -m "Screenshots for pull request ${PULL_REQUEST_NUMBER} at ${short_sha}"
           for attempt in 1 2 3; do
