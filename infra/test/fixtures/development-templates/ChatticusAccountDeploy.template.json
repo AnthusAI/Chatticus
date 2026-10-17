@@ -468,9 +468,138 @@
           }
         ]
       }
+    },
+    "GithubActionsIntegrationTestD69DD481": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                },
+                "StringLike": {
+                  "token.actions.githubusercontent.com:sub": "repo:*@152415604/*@1350947261:environment:development"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Federated": {
+                  "Ref": "GitHubOidcA2A496A3"
+                }
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "GitHub Actions OIDC: development acceptance smoke test (integration-test session exchange).",
+        "MaxSessionDuration": 3600,
+        "RoleName": "chatticus-github-actions-integration-test-development",
+        "Tags": [
+          {
+            "Key": "chatticus:application",
+            "Value": "Chatticus"
+          },
+          {
+            "Key": "chatticus:component",
+            "Value": "deploy"
+          },
+          {
+            "Key": "chatticus:environment",
+            "Value": "shared"
+          },
+          {
+            "Key": "chatticus:installation",
+            "Value": "Test"
+          }
+        ]
+      }
+    },
+    "GithubActionsIntegrationTestDefaultPolicy4C06AC50": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "ssm:GetParameter",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/development/thin-turn/cloudfront-url"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/development/thin-turn/invoke-key-secret-arn"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Action": "secretsmanager:GetSecretValue",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "SsmParameterValuechatticusdevelopmentthinturninvokekeysecretarnC96584B6F00A464EAD1953AFF4B05118Parameter"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "GithubActionsIntegrationTestDefaultPolicy4C06AC50",
+        "Roles": [
+          {
+            "Ref": "GithubActionsIntegrationTestD69DD481"
+          }
+        ]
+      }
+    }
+  },
+  "Parameters": {
+    "SsmParameterValuechatticusdevelopmentthinturninvokekeysecretarnC96584B6F00A464EAD1953AFF4B05118Parameter": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/chatticus/development/thin-turn/invoke-key-secret-arn"
+    },
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
     }
   },
   "Outputs": {
+    "IntegrationTestRoleArn": {
+      "Description": "Value for the CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN variable of the development GitHub environment.",
+      "Value": {
+        "Fn::GetAtt": [
+          "GithubActionsIntegrationTestD69DD481",
+          "Arn"
+        ]
+      }
+    },
     "GithubDeployRoleArn": {
       "Description": "Environment secret AWS_DEPLOY_ROLE_ARN for the development GitHub environment, set only at cutover.",
       "Value": {
@@ -479,13 +608,6 @@
           "Arn"
         ]
       }
-    }
-  },
-  "Parameters": {
-    "BootstrapVersion": {
-      "Type": "AWS::SSM::Parameter::Value<String>",
-      "Default": "/cdk-bootstrap/hnb659fds/version",
-      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
     }
   },
   "Rules": {

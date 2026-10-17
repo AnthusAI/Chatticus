@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
+import { AccountGitHubDeployStack, INTEGRATION_TEST_ROLE_NAME } from "../lib/account-github-deploy-stack";
 import { COMPUTER_IMAGE_PUSH_ACTIONS } from "../lib/deploy-role-policy";
 import { CHATTICUS_CLOUD_ENVIRONMENTS, type ChatticusCloudEnvironment } from "../lib/environments";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
@@ -65,7 +65,7 @@ function roleViews(template: Template): RoleView[] {
 function synthAccount(environment: ChatticusCloudEnvironment): RoleView {
   const app = new cdk.App();
   const stack = new AccountGitHubDeployStack(app, "ChatticusAccountDeploy", { env: ENV, githubEnvironment: environment });
-  const views = roleViews(Template.fromStack(stack));
+  const views = roleViews(Template.fromStack(stack)).filter((view) => view.roleName !== INTEGRATION_TEST_ROLE_NAME);
   assert.equal(views.length, 1);
   return views[0];
 }
