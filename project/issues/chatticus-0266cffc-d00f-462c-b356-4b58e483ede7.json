@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-0266cffc-d00f-462c-b356-4b58e483ede7",
+  "title": "A user sees the same project board their Pi Durable agent is working on",
+  "description": "As a Chatticus user, I want to inspect the active project board so I can follow my teammate's work.\n\nProposed acceptance behavior for future implementation; not executable proof or a delivery claim.\n\n```gherkin\nFeature: Project board visibility\n  Scenario: Inspect the selected project\n    Given my Chatticus Pi Durable agent is working in an authorized project on its persistent computer\n    And that project has a file-based Kanbus board\n    When I open that project's board in Chatticus\n    Then I see its issues, statuses and hierarchy from those canonical project files\n    And the view identifies which project board I am seeing\n  Scenario: The selected board cannot be read\n    Given the selected project's board is unavailable\n    When I open its board view\n    Then I see an unavailable state rather than a fabricated empty board\n```\n\nDesign/acceptance questions before implementation: How is the active project selected when several roots exist? Where is the view discovered? What establishes authorized filesystem access and what freshness information is visible? Coordinate panel integration through chatticus-8cc558.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e1019848-ae02-463e-b6bd-217ae52ad6cc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:31.830454Z",
+  "updated_at": "2026-10-16T20:43:31.830485Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The board view is still being designed, with project selection and access rules unresolved.",
+  "right_now_updated_at": "2026-10-16T20:43:33.789672Z",
+  "custom": {}
+}

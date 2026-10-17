@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-d316c0a3-db10-4faa-aa6e-89739b9c12a1",
+  "title": "A bot keeps an internal to-do board independent of project boards",
+  "description": "As a Chatticus bot user, I want ongoing bot work tracked separately from a specific project so project context does not swallow internal commitments.\n\nProposed acceptance behavior for future implementation; not executable proof or a delivery claim.\n\n```gherkin\nFeature: Internal bot boards\n  Scenario: Record work with no project board selected\n    Given an internal bot board has been authorized for my scope\n    And no project board is selected\n    When the bot records a to-do item through the approved issue tool\n    Then the item belongs to the internal bot board\n    And no project filesystem board is changed\n  Scenario: Switch board kinds\n    Given I am permitted to inspect an internal board and a project board\n    When I switch between them\n    Then each view identifies its board and board kind\n    And issues from one board are not silently mixed into the other\n```\n\nDesign/acceptance questions before implementation: Resolve bot/user/organization/account ownership and whether multiple bots share a board. Which issue tools and user visibility/edit controls apply? Must reads and updates work on a computerless worker? Preserve capability-based readiness; do not require a project filesystem by accident. Retain the shared @kanbus/ui presentation.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-c5f14c7f-bcfb-44b3-9b54-462aabde066a",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:46.056240Z",
+  "updated_at": "2026-10-16T20:43:46.056272Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The team is defining separate internal bot boards without mixing them with project boards.",
+  "right_now_updated_at": "2026-10-16T20:43:47.184180Z",
+  "custom": {}
+}

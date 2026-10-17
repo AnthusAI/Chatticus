@@ -88,3 +88,34 @@ Feature: Real Chatticus workspace
     Then both regions open as named sheets
     And every icon-only control has an accessible name
     And keyboard focus remains visible
+
+  Scenario Outline: The workspace recovers its full height after browser lifecycle changes
+    Given the real workspace is mounted in a browser
+    When the available workspace height recovers after "<event>"
+    Then the workspace fills the recovered viewport without document overflow
+
+    Examples:
+      | event             |
+      | resize            |
+      | orientationchange |
+      | pageshow          |
+      | focusout          |
+      | visualViewport    |
+
+  Scenario Outline: Members resize and reset either workspace column
+    Given the real workspace is mounted in a browser
+    When the member drags, reloads, keyboard-resizes and resets the "<column>"
+    Then the rendered column keeps the chosen width
+    And the rendered column follows its keyboard directions and width limits
+    And the rendered column returns to its default width
+
+    Examples:
+      | column  |
+      | sidebar |
+      | panel   |
+
+  Scenario: Wide saved columns give space back to the conversation in a smaller window
+    Given the real workspace is mounted in a browser
+    When the member saves both columns at their widest and narrows the window
+    Then the conversation retains its minimum width without horizontal overflow
+    And both columns return to their saved widths when the window widens

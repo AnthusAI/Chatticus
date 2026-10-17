@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-e1ba25a5-020e-4ea8-b046-8524630bb0dc",
+  "title": "Shared Kanbus boards honor the Chatticus theme and authorized project scope",
+  "description": "As a user, I want a familiar board that stays readable in my chosen theme and only reveals authorized projects.\n\nProposed acceptance behavior for future implementation; not executable proof or a delivery claim.\n\n```gherkin\nFeature: Themeable scoped project boards\n  Scenario: Change the workspace theme\n    Given I am viewing an authorized project Kanbus board\n    When I switch between the supported light and dark workspace themes\n    Then the board and issue details remain legible and usable\n    And the selected project and issue state remain unchanged\n  Scenario: Attempt to open an unauthorized project board\n    Given a project board is outside my permitted scope\n    When I attempt to open it\n    Then its issue content is not disclosed\n```\n\nDesign/acceptance questions before implementation: Specify membership/tenant/account/project boundaries and refusal behavior, including changed membership and stale selection. Verify dependency compatibility and accessibility. Implementation constraint: use @kanbus/ui shared Board/card/detail components and supported styling hooks; upstream reusable gaps instead of duplicating a Chatticus board.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e1019848-ae02-463e-b6bd-217ae52ad6cc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:41.312304Z",
+  "updated_at": "2026-10-16T20:43:41.312338Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The team is defining theme support and access rules for shared Kanbus project boards.",
+  "right_now_updated_at": "2026-10-16T20:43:43.013554Z",
+  "custom": {}
+}

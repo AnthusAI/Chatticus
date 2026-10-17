@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-54650334-b7ee-4520-848c-4aff296fd9b6",
+  "title": "Internal board access stays within reviewed bot and account boundaries",
+  "description": "As an authorized user, I want bot boards visible only within their permitted scope so internal work remains isolated.\n\nProposed acceptance behavior for future implementation; not executable proof or a delivery claim.\n\n```gherkin\nFeature: Internal board access isolation\n  Scenario: Read within an approved scope\n    Given my membership and bot permissions allow access to an internal board\n    When I request that board through the approved user or agent interface\n    Then I can inspect the permitted issues and board identity\n  Scenario: Guess an out-of-scope board identifier\n    Given an internal board is outside the caller's permitted scope\n    When the caller requests or updates it using a guessed identifier\n    Then no issue content is disclosed\n    And no issue is changed\n  Scenario: Access has been revoked\n    Given a caller previously had access to an internal board\n    And that access is revoked\n    When the caller next requests or updates the board\n    Then the request obeys the reviewed revocation contract\n    And revoked access does not permit issue changes\n```\n\nDesign/acceptance questions before implementation: Define board ownership and account placement, tenant membership versus bot authority, user/agent read and write policies, delegation, denial responses and revocation timing. Verify isolation for canonical S3 records, DynamoDB catalog queries and the shared UI. Keep credentials, IAM policy details and resource provisioning outside this filing request.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-c5f14c7f-bcfb-44b3-9b54-462aabde066a",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:53.839402Z",
+  "updated_at": "2026-10-16T20:43:53.839445Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The team is defining access rules to keep internal boards isolated and protected from unauthorized changes.",
+  "right_now_updated_at": "2026-10-16T20:43:55.068937Z",
+  "custom": {}
+}

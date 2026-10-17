@@ -1,7 +1,7 @@
 {
   "id": "chatticus-d6997cd3-02c5-4715-b965-7a75a1507659",
   "title": "Promote the TypeScript control plane and the owner computer path to staging and production",
-  "description": "Staging and production still run Python (main has no conversation/). Needs: the migration runbook per environment, ControlPlane stacks, per-environment Computers and Snapshots stacks, signing-key secret and scoped role without the development gate, an image pipeline with a real tag instead of the hand-pushed :dev, and a live rehearsal in each. The user decides when.",
+  "description": "Staging and production still run Python (main has no conversation/). Needs: the migration runbook per environment, ControlPlane stacks, per-environment Computers and Snapshots stacks, signing-key secret and scoped role without the development gate, an image pipeline with a real tag instead of the hand-pushed :dev, and a live rehearsal in each. The user decides when.\n\n## Current next-step plan — 2026-10-17\n\nPriority4 independent computer-image promotion planning: do not bundle image-tag changes with the iPad layout main promotion. The authorized iPad task is chatticus-dd9d905e, owned by thread01a14672-124f-7743-a1d2-9271e0b780cf; its owner is adding required Gherkin coverage, product PR to develop, promotionPR591 and established production dispatch. This documentation worker does not edit that issue, parent9eeed9 or workspace epicdaa715. No computer-image promotion or permission changes were authorized by that iPad scope.\n\nThe previously completed image-pipeline storya6ed3b87 remains closed; do not reopen it or repeat completed image builds. Future requested image promotion requires exact environment/sourceSHA/digest scope and owner direction.\n\nFeature: Independently approved computer image promotion\n  Scenario: Promote a reviewed compatible image\n    Given separately approved environment source SHA and immutable image digest\n    When the existing scoped promotion workflow is reviewed and executed by its authorized owner\n    Then build provenance and backend compatibility match the chosen digest\n    And environment-tag/readback health/relevant live-turn acceptance and rollback evidence are recorded independently of web/iPad source promotion\n\nRecommendations awaiting direction: which environment/digest requires promotion now and what live acceptance applies. No image build/tag flip dispatch permissions or cloud action in this task. Historic workflow/default-branch limitations must be rechecked against current named environment workflows before being cited as a blocker.\n\nAuthority: Ryan requested this plan as the permanent Kanbus record. This action updates documentation only. The desired product outcomes are requested priorities, not claims of implementation or hosted acceptance. Existing implementation owners retain their approvals; recommendations needing further scope, release, permission or migration direction stay explicitly gated. No feature code, deployment, paid call, permission change or unrelated merge is performed here.",
   "type": "task",
   "status": "open",
   "priority": 2,
@@ -22,10 +22,25 @@
         "model": "claude-sonnet-5-5",
         "name": "promote-agent"
       }
+    },
+    {
+      "id": "2f69c2a1-3032-4a0f-9e82-89f34de7d1c5",
+      "author": "home",
+      "text": "2026-10-17 next-step plan recorded in the description. Priority4 independent computer-image promotion planning: do not bundle image-tag changes with the iPad layout main promotion. The authorized iPad task is chatticus-dd9d905e, owned by thread01a14672-124f-7743-a1d2-9271e0b780cf; its owner is adding required Gherkin coverage, product PR to develop, promotionPR591 and established production dispatch. This documentation worker does not edit that issue, parent9eeed9 or workspace epicdaa715. No computer-image promotion or permission changes were authorized by that iPad scope.\n\nThe previously completed image-pipeline storya6ed3b87 remains closed; do not reopen it or repeat completed image builds. Future requested image promotion requires exact environment/sourceSHA/digest scope and owner direction.\n\nFeature: Independently approved computer image promotion\n  Scenario: Promote a reviewed compatible image\n    Given separately approved environment source SHA and immutable image digest\n    When the existing scoped promotion workflow is reviewed and executed by its authorized owner\n    Then build provenance and backend compatibility match the chosen digest\n    And environment-tag/readback health/relevant live-turn acceptance and rollback evidence are recorded independently of web/iPad source promotion\n\nRecommendations awaiting direction: which environment/digest requires promotion now and what live acceptance applies. No image build/tag flip dispatch permissions or cloud action in this task. Historic workflow/default-branch limitations must be rechecked against current named environment workflows before being cited as a blocker.",
+      "created_at": "2026-10-17T06:22:48.663895Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "next-step-plan-reconciliation",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
     }
   ],
   "created_at": "2026-10-09T20:57:38.857926Z",
-  "updated_at": "2026-10-13T15:29:18.159109Z",
+  "updated_at": "2026-10-17T06:22:48.663919Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
@@ -34,5 +49,8 @@
   },
   "right_now_summary": "The TypeScript control plane and owner-computer path still need promotion work for staging and production.",
   "right_now_updated_at": "2026-10-13T15:29:20.025055Z",
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }

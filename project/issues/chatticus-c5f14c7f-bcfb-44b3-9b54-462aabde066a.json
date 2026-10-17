@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-c5f14c7f-bcfb-44b3-9b54-462aabde066a",
+  "title": "Milestone 2: DynamoDB-powered internal bot boards with S3 canonical records",
+  "description": "Outcome: bots have durable internal boards and to-do lists separate from the project boards on their computers. A bot can track ongoing work without creating or borrowing a project repository board.\n\nStorage direction requested by Ryan: cloud Kanbus/Virtuus approach with canonical issue files/text on S3 and DynamoDB card-catalog indexes powering internal boards. DynamoDB supplies scoped discovery/query indexes; S3 holds canonical record content. This is a proposed integration, not a claim that Kanbus/Virtuus already provides a ready Chatticus backend. A local project board remains file-based under Milestone 1; this milestone does not silently migrate it.\n\nDefinition of Done: internal boards remain distinct from project boards; approved agent and user flows operate within the selected board scope; canonical records and indexes have specified consistency/recovery behavior; shared @kanbus/ui components remain DRY and themeable across both stores. Specify behavior before product code and prove the selected backend's capabilities before relying on them.\n\nOpen questions: one board per bot, user, organization or another scope? Which account owns canonical objects/indexes, and what authorizes access? Which tools can run without summoning a computer? Which users see or edit which internal lists? How do writes, retries, concurrent updates, catalog lag and index rebuilding work without reporting false success? How does this relate to the historical thin Task item and its evidence-to-complete rule? Decide through design/acceptance review, not by assuming a table/key/API/IAM scheme or migration.",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-0e336492-e21e-458b-ac45-884918900339",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-16T20:43:28.709933Z",
+  "updated_at": "2026-10-16T20:43:28.709975Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Kanbus integration documentation",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": "The team is defining access, consistency, and isolation rules before integrating S3 and DynamoDB.",
+  "right_now_updated_at": "2026-10-16T20:43:56.116212Z",
+  "custom": {}
+}
