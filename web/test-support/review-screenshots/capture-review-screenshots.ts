@@ -158,7 +158,7 @@ async function openReviewContext(
     const { storageKey, storageValue } = fakeStoredOidcUser();
     await context.addInitScript(
       ([key, value]) => {
-        window.localStorage.setItem(key, value);
+        window.sessionStorage.setItem(key, value);
       },
       [storageKey, storageValue] as const,
     );
