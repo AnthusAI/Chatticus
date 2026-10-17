@@ -336,15 +336,15 @@ export class ReviewScreenshotWorkspace {
     const organizationPath = organizationMatch[2];
     const userPrefix = `/users/${REVIEW_SCREENSHOT_USER_ID}`;
 
-    if (organizationPath === `${userPrefix}/bots`) return jsonAnswer(200, seededBots);
-    if (organizationPath === `${userPrefix}/channels`) return jsonAnswer(200, seededChannels);
-    if (organizationPath === `${userPrefix}/tasks`) return jsonAnswer(200, seededTasks);
+    if (organizationPath === `${userPrefix}/bots`) return jsonAnswer(200, { bots: seededBots });
+    if (organizationPath === `${userPrefix}/channels`) return jsonAnswer(200, { channels: seededChannels });
+    if (organizationPath === `${userPrefix}/tasks`) return jsonAnswer(200, { tasks: seededTasks });
     if (organizationPath === `${userPrefix}/computer`) return jsonAnswer(200, seededComputer);
 
     const channelMatch = /^\/channels\/([^/]+)\/(messages|turn|turns\/latest)$/.exec(organizationPath);
     if (channelMatch) {
       const channelId = decodeURIComponent(channelMatch[1]);
-      if (channelMatch[2] === "messages") return jsonAnswer(200, seededMessagesByChannel[channelId] ?? []);
+      if (channelMatch[2] === "messages") return jsonAnswer(200, { messages: seededMessagesByChannel[channelId] ?? [] });
       if (channelMatch[2] === "turn") return jsonAnswer(404, { detail: "No active turn." });
       const latestTurn = latestTurnByChannel[channelId];
       return latestTurn ? jsonAnswer(200, latestTurn) : jsonAnswer(404, { detail: "No turn yet." });

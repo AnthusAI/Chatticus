@@ -39,41 +39,39 @@ function pngDataUrl(path: string): string {
   return `data:image/png;base64,${readFileSync(path).toString("base64")}`;
 }
 
+const CHANGED_PIXEL_SHARE_IN_PAGE = `async ({ baseUrl, headUrl, tolerance }) => {
+  const loadImage = (source) => new Promise((resolveImage, rejectImage) => {
+    const image = new Image();
+    image.onload = () => resolveImage(image);
+    image.onerror = () => rejectImage(new Error("image failed to load"));
+    image.src = source;
+  });
+  const pixelsOf = (image) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const drawing = canvas.getContext("2d");
+    drawing.drawImage(image, 0, 0);
+    return drawing.getImageData(0, 0, image.width, image.height).data;
+  };
+  const [baseImage, headImage] = await Promise.all([loadImage(baseUrl), loadImage(headUrl)]);
+  if (baseImage.width !== headImage.width || baseImage.height !== headImage.height) return 1;
+  const basePixels = pixelsOf(baseImage);
+  const headPixels = pixelsOf(headImage);
+  let changedPixels = 0;
+  for (let offset = 0; offset < basePixels.length; offset += 4) {
+    if (
+      Math.abs(basePixels[offset] - headPixels[offset]) > tolerance ||
+      Math.abs(basePixels[offset + 1] - headPixels[offset + 1]) > tolerance ||
+      Math.abs(basePixels[offset + 2] - headPixels[offset + 2]) > tolerance
+    ) changedPixels += 1;
+  }
+  return changedPixels / (basePixels.length / 4);
+}`;
+
 async function changedPixelShareOf(page: Page, basePath: string, headPath: string): Promise<number> {
-  return page.evaluate(
-    async ({ baseUrl, headUrl, tolerance }) => {
-      const loadImage = (source: string) =>
-        new Promise<HTMLImageElement>((resolveImage, rejectImage) => {
-          const image = new Image();
-          image.onload = () => resolveImage(image);
-          image.onerror = () => rejectImage(new Error("image failed to load"));
-          image.src = source;
-        });
-      const [baseImage, headImage] = await Promise.all([loadImage(baseUrl), loadImage(headUrl)]);
-      if (baseImage.width !== headImage.width || baseImage.height !== headImage.height) return 1;
-      const pixelsOf = (image: HTMLImageElement) => {
-        const canvas = document.createElement("canvas");
-        canvas.width = image.width;
-        canvas.height = image.height;
-        const drawing = canvas.getContext("2d");
-        if (drawing === null) throw new Error("no 2d canvas");
-        drawing.drawImage(image, 0, 0);
-        return drawing.getImageData(0, 0, image.width, image.height).data;
-      };
-      const basePixels = pixelsOf(baseImage);
-      const headPixels = pixelsOf(headImage);
-      let changedPixels = 0;
-      for (let offset = 0; offset < basePixels.length; offset += 4) {
-        const differs =
-          Math.abs(basePixels[offset] - headPixels[offset]) > tolerance ||
-          Math.abs(basePixels[offset + 1] - headPixels[offset + 1]) > tolerance ||
-          Math.abs(basePixels[offset + 2] - headPixels[offset + 2]) > tolerance;
-        if (differs) changedPixels += 1;
-      }
-      return changedPixels / (basePixels.length / 4);
-    },
-    { baseUrl: pngDataUrl(basePath), headUrl: pngDataUrl(headPath), tolerance: CHANNEL_DIFFERENCE_TOLERANCE },
-  );
+  const inputs = { baseUrl: pngDataUrl(basePath), headUrl: pngDataUrl(headPath), tolerance: CHANNEL_DIFFERENCE_TOLERANCE };
+  return page.evaluate(`(${CHANGED_PIXEL_SHARE_IN_PAGE})(${JSON.stringify(inputs)})`) as Promise<number>;
 }
 
 async function compareReviewScreenshots(baseDirectory: string, headDirectory: string): Promise<ComparisonReport> {
