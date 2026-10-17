@@ -21,6 +21,7 @@ export async function resetScenarioToEmptyControlPlane(world: ChatticusWorld): P
 	emptiedControlPlanes.add(world);
 	world.scenarioMessagingStore = world.createMessagingStore();
 	await wireFrontDoor(world, { signupMode: "invitation_only", cognitoVerifier: true });
+	world.testOwnerEmails = new Map();
 	world.botsById = new Map();
 	world.botsByName = new Map();
 	world.lastChannel = null;
