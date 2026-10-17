@@ -59,8 +59,10 @@ A worker advertises:
 - cost class: `local`, `fargate`, or `ec2`
 - heartbeat timestamp
 
-A `worker_id` is owned by the tenant that first registered it. Re-registering
-the same id under another tenant is rejected.
+A `worker_id` belongs to one tenant's roster. Registration is refused unless the
+organization exists and is enabled, and registering an existing `worker_id` again
+needs that worker's current bearer token; a host that has lost its token registers
+under a new `worker_id`.
 
 A turn job carries:
 

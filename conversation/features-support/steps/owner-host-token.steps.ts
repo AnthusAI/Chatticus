@@ -51,7 +51,11 @@ async function registerHostWorker(world: ChatticusWorld): Promise<void> {
 	assert.ok(world.app);
 	const response = await world.app.request(expand("/orgs/{tenant}/workers/register"), {
 		method: "POST",
-		headers: { "content-type": "application/json", [INVOKE_HEADER]: scenario.invokeKey },
+		headers: {
+			"content-type": "application/json",
+			[INVOKE_HEADER]: scenario.invokeKey,
+			...(scenario.workerToken ? { authorization: `Bearer ${scenario.workerToken}` } : {}),
+		},
 		body: JSON.stringify({ worker_id: "customer-host", cost_class: "local", capabilities: ["cpu", "computer"] }),
 	});
 	scenario.lastStatus = response.status;

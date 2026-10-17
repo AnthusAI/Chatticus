@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { BROWSER_ACTION_KINDS, type HostAction, type RegateActionRequest } from "@chatticus/host-protocol";
 import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { ComputerHostBootDriver, type HostBootPlane } from "./boot.ts";
@@ -198,14 +199,15 @@ export async function main(): Promise<void> {
 	console.info(`computer_host_worker_start tenant_id=${tenantId} user_id=${userId}`);
 	const invokeKey = (process.env["CHATTICUS_INVOKE_KEY"] ?? "").trim();
 	const deadlineMilliseconds = Date.now() + Number.parseInt(process.env["CHATTICUS_HOST_WORKER_SECONDS"] ?? `${DEFAULT_HOST_WORKER_SECONDS}`, 10) * 1000;
-	const workerToken = await registerHostWorker({ baseUrl, tenantId, workerId: DEFAULT_WORKER_ID, invokeKey });
+	const workerId = `${DEFAULT_WORKER_ID}-${randomUUID()}`;
+	const workerToken = await registerHostWorker({ baseUrl, tenantId, workerId, invokeKey });
 	const plane = new HostProtocolClient({ baseUrl, tenantId, workerToken, userId, invokeKey });
 	await runHostWorker({
 		plane,
-		bootDriver: new ComputerHostBootDriver(plane, { tenantId, workerId: DEFAULT_WORKER_ID }),
+		bootDriver: new ComputerHostBootDriver(plane, { tenantId, workerId }),
 		executor: new HostActionExecutor(),
 		tenantId,
-		workerId: DEFAULT_WORKER_ID,
+		workerId,
 		deadlineMilliseconds,
 	});
 }
