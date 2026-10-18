@@ -1,3 +1,10 @@
+## [0.49.0](https://github.com/AnthusAI/Chatticus/compare/v0.48.1...v0.49.0) (2026-10-18)
+
+### Features
+
+* **infra:** GitHub OIDC integration test role for the development acceptance smoke test ([#598](https://github.com/AnthusAI/Chatticus/issues/598)) ([51402ab](https://github.com/AnthusAI/Chatticus/commit/51402ab99db62fc84ff1f0813abfd3d648427d68))
+* **spend:** start every organization at a 50 dollar monthly spend ceiling ([#594](https://github.com/AnthusAI/Chatticus/issues/594)) ([3c2ed84](https://github.com/AnthusAI/Chatticus/commit/3c2ed840125b216d06227db50aa442d4da4915ee))
+
 ## [0.48.1](https://github.com/AnthusAI/Chatticus/compare/v0.48.0...v0.48.1) (2026-10-17)
 
 ### Bug Fixes
