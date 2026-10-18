@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { assertIntegrationTestUserId } from "../../auth/integration-test.ts";
+import { assertActingUserId, assertCallerParticipatesInChannel } from "../acting-user.ts";
 import { listMessages, type Message, type MessageDependencies, postMessage } from "../../domain/messages.ts";
 import type { ToolActivityItem } from "../../pi/message-activity.ts";
 import type { ActorKind } from "../../domain/channels.ts";
@@ -90,9 +90,10 @@ export async function postChannelMessageHandler(c: Context, deps: MessageRouteDe
 	if (body === null) {
 		return c.json({ detail: "author_kind, author_id and body are required" }, 422);
 	}
-	if (body.authorKind === "human") {
-		assertIntegrationTestUserId(principal, body.authorId);
+	if (body.authorKind !== "human") {
+		return c.json({ detail: "bots post through the executor, not the user message route" }, 403);
 	}
+	assertActingUserId(principal, body.authorId);
 	const result = await postMessage(deps.messages, {
 		tenantId: pathParameter(c, "tenant_id"),
 		channelId: pathParameter(c, "channel_id"),
@@ -112,6 +113,7 @@ export async function listChannelMessagesHandler(c: Context, deps: MessageRouteD
 	if (isRefusal(principal)) {
 		return principal;
 	}
+	await assertCallerParticipatesInChannel(principal, pathParameter(c, "tenant_id"), pathParameter(c, "channel_id"), deps.messages);
 	const after = Number(c.req.query("after") ?? "0");
 	if (!Number.isInteger(after) || after < 0) {
 		return c.json({ detail: "after must be a non-negative integer" }, 422);

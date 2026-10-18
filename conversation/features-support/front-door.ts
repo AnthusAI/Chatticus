@@ -1,3 +1,4 @@
+import type { MessageDependencies } from "../src/domain/messages.ts";
 import type { IntegrationTestAuthConfig } from "../src/auth/integration-test.ts";
 import type { SignupMode } from "../src/domain/signup-mode.ts";
 import { createApp } from "../src/http/app.ts";
@@ -77,6 +78,16 @@ function messageDependencies(world: ChatticusWorld, piStorage: ScenarioPiStorage
 			bucket: piStorage.bucket,
 			commitCache: new MessageBodyCache<Promise<CommitObject>>(),
 		},
+	};
+}
+
+/** The domain message dependencies the executor uses to post a bot's message, which no HTTP user route accepts. */
+export async function executorMessageDependencies(world: ChatticusWorld): Promise<MessageDependencies> {
+	return {
+		store: world.messagingStore(),
+		ids: world.ids,
+		clock: world.clock,
+		...messageDependencies(world, await ensurePiStorage(world)),
 	};
 }
 
