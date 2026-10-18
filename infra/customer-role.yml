@@ -32,6 +32,45 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
 
+  ChatticusComputersBoundary:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: 'ChatticusComputersBoundary'
+      Description: 'Permissions boundary every ChatticusComputers role must carry; caps computer roles at snapshot access, log writing, image pulls, and ECS Exec channels.'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SnapshotReadWrite
+            Effect: Allow
+            Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+            Resource: !Sub '${OrganizationSnapshotBucket.Arn}/*'
+          - Sid: ComputerLogs
+            Effect: Allow
+            Action:
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogGroups'
+              - 'logs:DescribeLogStreams'
+            Resource: '*'
+          - Sid: ComputerImagePull
+            Effect: Allow
+            Action:
+              - 'ecr:GetAuthorizationToken'
+              - 'ecr:BatchCheckLayerAvailability'
+              - 'ecr:BatchGetImage'
+              - 'ecr:GetDownloadUrlForLayer'
+            Resource: '*'
+          - Sid: EcsExecChannels
+            Effect: Allow
+            Action:
+              - 'ssmmessages:CreateControlChannel'
+              - 'ssmmessages:CreateDataChannel'
+              - 'ssmmessages:OpenControlChannel'
+              - 'ssmmessages:OpenDataChannel'
+            Resource: '*'
+
   ChatticusCrossAccountRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -68,15 +107,22 @@ Resources:
                   - 'cloudformation:GetTemplate'
                   - 'cloudformation:GetTemplateSummary'
                 Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/ChatticusComputers*/*'
-              - Sid: ECS
+              - Sid: ECSUnscoped
+                Effect: Allow
+                Action:
+                  - 'ecs:RegisterTaskDefinition'
+                  - 'ecs:DeregisterTaskDefinition'
+                  - 'ecs:DescribeTaskDefinition'
+                  - 'ecs:ListClusters'
+                  - 'ecs:ListServices'
+                  - 'ecs:ListTasks'
+                Resource: '*'
+              - Sid: ECSScopedToChatticusComputers
                 Effect: Allow
                 Action:
                   - 'ecs:CreateCluster'
                   - 'ecs:DeleteCluster'
                   - 'ecs:DescribeClusters'
-                  - 'ecs:RegisterTaskDefinition'
-                  - 'ecs:DeregisterTaskDefinition'
-                  - 'ecs:DescribeTaskDefinition'
                   - 'ecs:RunTask'
                   - 'ecs:StopTask'
                   - 'ecs:DescribeTasks'
@@ -86,11 +132,12 @@ Resources:
                   - 'ecs:DescribeServices'
                   - 'ecs:TagResource'
                   - 'ecs:UntagResource'
-                  - 'ecs:ListTasks'
-                  - 'ecs:ListClusters'
-                  - 'ecs:ListServices'
                   - 'ecs:ListTagsForResource'
-                Resource: '*'
+                Resource:
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/ChatticusComputers*'
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/ChatticusComputers*/*'
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/ChatticusComputers*/*'
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/ChatticusComputers*:*'
               - Sid: EC2
                 Effect: Allow
                 Action:
@@ -161,25 +208,40 @@ Resources:
                   - 'logs:PutLogEvents'
                   - 'logs:DescribeLogStreams'
                 Resource: '*'
-              - Sid: IAM
+              - Sid: IAMCreateBoundedComputerRoles
                 Effect: Allow
                 Action:
                   - 'iam:CreateRole'
-                  - 'iam:DeleteRole'
-                  - 'iam:GetRole'
-                  - 'iam:PassRole'
-                  - 'iam:AttachRolePolicy'
-                  - 'iam:DetachRolePolicy'
                   - 'iam:PutRolePolicy'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/ChatticusComputers*'
+                Condition:
+                  StringEquals:
+                    'iam:PermissionsBoundary': !Ref ChatticusComputersBoundary
+              - Sid: IAMManageComputerRoles
+                Effect: Allow
+                Action:
+                  - 'iam:DeleteRole'
                   - 'iam:DeleteRolePolicy'
+                  - 'iam:TagRole'
+                  - 'iam:UntagRole'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/ChatticusComputers*'
+              - Sid: IAMReadRoles
+                Effect: Allow
+                Action:
+                  - 'iam:GetRole'
                   - 'iam:GetRolePolicy'
                   - 'iam:ListRolePolicies'
                   - 'iam:ListAttachedRolePolicies'
-                  - 'iam:TagRole'
-                  - 'iam:UntagRole'
                 Resource:
                   - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ChatticusComputers*'
                   - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ChatticusOrganizationComputerRole'
+              - Sid: IAMPassComputerRolesToEcsTasks
+                Effect: Allow
+                Action: 'iam:PassRole'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/ChatticusComputers*'
+                Condition:
+                  StringEquals:
+                    'iam:PassedToService': 'ecs-tasks.amazonaws.com'
               - Sid: ECSServiceLinkedRole
                 Effect: Allow
                 Action: 'iam:CreateServiceLinkedRole'
@@ -192,6 +254,9 @@ Outputs:
   SnapshotBucketName:
     Description: 'Organization snapshot bucket in this AWS account'
     Value: !Ref OrganizationSnapshotBucket
+  ComputersBoundaryArn:
+    Description: 'The permissions boundary every ChatticusComputers role must carry'
+    Value: !Ref ChatticusComputersBoundary
   RoleArn:
     Description: 'The ARN of the cross-account role'
     Value: !GetAtt ChatticusCrossAccountRole.Arn
