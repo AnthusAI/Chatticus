@@ -346,6 +346,8 @@ the shape of the other organization routes (`403` with `detail`).
 
 Workers register at `POST /orgs/{tenant_id}/workers/register` and receive a
 one-time bearer token. The control plane stores only a SHA-256 hash.
+Registration is refused with 403 for an unknown or disabled organization, and for an
+existing `worker_id` unless the request carries that worker's current bearer token.
 Worker routes require `Authorization: Bearer <token>`. The shared
 `X-Chatticus-Invoke-Key` remains a CloudFront-to-Lambda gate and is not
 caller identity.

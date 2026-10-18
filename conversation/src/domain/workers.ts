@@ -1,12 +1,12 @@
 import { hashWorkerToken, mintWorkerToken, verifyWorkerTokenHash, workerIdOfToken } from "../auth/worker-credentials.ts";
-import { WorkerNotRegisteredError, WorkerTenantMismatchError } from "../http/errors.ts";
+import { WorkerNotRegisteredError, WorkerRegistrationRefusedError, WorkerTenantMismatchError } from "../http/errors.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import type { Computer } from "../store/codecs/computer.ts";
 import type { Worker } from "../store/codecs/worker.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { ensureComputer } from "./computers.ts";
 
-export { WorkerNotRegisteredError, WorkerTenantMismatchError };
+export { WorkerNotRegisteredError, WorkerRegistrationRefusedError, WorkerTenantMismatchError };
 
 /** Where a worker runs, cheapest first. */
 export type CostClass = "local" | "ec2" | "fargate";
@@ -55,11 +55,6 @@ export async function registerWorker(
 	deps: { store: MessagingStore; clock: Clock; ids: IdSource },
 ): Promise<string> {
 	const existing = await deps.store.getWorker(registration.tenantId, registration.workerId);
-	if (existing !== null && existing.tenantId !== registration.tenantId) {
-		throw new WorkerTenantMismatchError(
-			`Worker ${JSON.stringify(registration.workerId)} is registered to tenant ${JSON.stringify(existing.tenantId)}, not ${JSON.stringify(registration.tenantId)}.`,
-		);
-	}
 	let computerId = registration.computerId;
 	if (registration.capabilities.includes("computer")) {
 		const organizationComputer = await ensureComputer(registration.tenantId, deps, registration.computerId);
@@ -81,6 +76,36 @@ export async function registerWorker(
 			: { hydratedSnapshotGeneration: existing.hydratedSnapshotGeneration }),
 	});
 	return token;
+}
+
+/**
+ * Register a worker on behalf of a caller the front door has not otherwise identified. The organization must exist and be
+ * enabled, and a worker id that is already registered can be registered again only by the holder of its current bearer
+ * token, so holding the shared invoke key neither creates computers for unknown organizations nor rotates another worker's
+ * token. Both refusals answer alike so that a caller cannot probe which organizations exist.
+ *
+ * @throws WorkerRegistrationRefusedError when the organization is unavailable or the current token is missing or wrong.
+ */
+export async function registerWorkerForCaller(
+	registration: WorkerRegistration,
+	presentedToken: string | null,
+	deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+): Promise<string> {
+	const organization = await deps.store.getOrganization(registration.tenantId);
+	if (organization === null || organization.status !== "enabled") {
+		throw new WorkerRegistrationRefusedError("The organization is not available for worker registration.");
+	}
+	const existing = await deps.store.getWorker(registration.tenantId, registration.workerId);
+	if (existing !== null) {
+		const presentedTokenIsCurrent =
+			presentedToken !== null && verifyWorkerTokenHash(presentedToken, existing.tokenHash);
+		if (!presentedTokenIsCurrent) {
+			throw new WorkerRegistrationRefusedError(
+				`Worker ${JSON.stringify(registration.workerId)} is already registered; its current bearer token is required to register it again.`,
+			);
+		}
+	}
+	return registerWorker(registration, deps);
 }
 
 /** Longest worker id a credential may claim; a user's identity token is longer and is not looked up as a worker. */
