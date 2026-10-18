@@ -1,55 +1,50 @@
 /**
  * The workspace panel is a plugin host. Each panel plugin is one view the panel can show beside the conversation
  * (split) or across the workspace with the conversation docked beside it (full). The core plugins ship with the
- * workspace; plugins from other products are registered the same way when the external loader lands.
+ * workspace; plugins from other products are registered the same way through the plugin registry.
  */
 
+import type { PanelPluginManifest } from "./panel-plugin-manifest";
+import { CORE_PANEL_PLUGIN_MANIFESTS } from "./panel-plugin-registry";
 import { WORKSPACE_COLUMN_WIDTH_CSS_VARIABLES } from "./workspace-column-widths";
 
 /** How much of the workspace the panel takes. */
 export type PanelSize = "split" | "full";
 
-/** The panel plugins that ship with the workspace. */
-export type CorePanelPluginId = "context" | "files" | "costs";
+export type { CorePanelPluginId } from "./panel-plugin-registry";
 
-/** What the host needs to list, open and size one panel plugin. */
-export type PanelPluginDefinition = {
-  id: CorePanelPluginId;
-  label: string;
-  supportedSizes: readonly PanelSize[];
-};
+const FALLBACK_PANEL_SIZE: PanelSize = "split";
 
-const EVERY_PANEL_SIZE: readonly PanelSize[] = ["split", "full"];
-
-/** The core panel plugins, in tab order. */
-export const CORE_PANEL_PLUGINS: ReadonlyArray<PanelPluginDefinition> = [
-  { id: "context", label: "Context", supportedSizes: EVERY_PANEL_SIZE },
-  { id: "files", label: "Files", supportedSizes: EVERY_PANEL_SIZE },
-  { id: "costs", label: "Costs", supportedSizes: EVERY_PANEL_SIZE },
-];
-
-/** The plugin an arrow, Home or End key moves to; null for any other key. */
-export function nextPanelPlugin(current: CorePanelPluginId, key: string): CorePanelPluginId | null {
-  const index = CORE_PANEL_PLUGINS.findIndex((plugin) => plugin.id === current);
-  const last = CORE_PANEL_PLUGINS.length - 1;
+/** The plugin an arrow, Home or End key moves to among the given plugins; null for any other key. */
+export function nextPanelPlugin(
+  current: string,
+  key: string,
+  plugins: ReadonlyArray<PanelPluginManifest> = CORE_PANEL_PLUGIN_MANIFESTS,
+): string | null {
+  const index = plugins.findIndex((plugin) => plugin.id === current);
+  const last = plugins.length - 1;
   switch (key) {
     case "ArrowRight":
-      return CORE_PANEL_PLUGINS[index === last ? 0 : index + 1].id;
+      return plugins[index === last ? 0 : index + 1].id;
     case "ArrowLeft":
-      return CORE_PANEL_PLUGINS[index === 0 ? last : index - 1].id;
+      return plugins[index <= 0 ? last : index - 1].id;
     case "Home":
-      return CORE_PANEL_PLUGINS[0].id;
+      return plugins[0].id;
     case "End":
-      return CORE_PANEL_PLUGINS[last].id;
+      return plugins[last].id;
     default:
       return null;
   }
 }
 
 /** The size the panel takes when a plugin opens: the requested size when the plugin supports it, otherwise split. */
-export function panelSizeForPlugin(pluginId: CorePanelPluginId, requestedSize: PanelSize): PanelSize {
-  const plugin = CORE_PANEL_PLUGINS.find((candidate) => candidate.id === pluginId);
-  return plugin?.supportedSizes.includes(requestedSize) ? requestedSize : "split";
+export function panelSizeForPlugin(
+  pluginId: string,
+  requestedSize: PanelSize,
+  plugins: ReadonlyArray<PanelPluginManifest> = CORE_PANEL_PLUGIN_MANIFESTS,
+): PanelSize {
+  const plugin = plugins.find((candidate) => candidate.id === pluginId);
+  return plugin?.sizes.includes(requestedSize) ? requestedSize : FALLBACK_PANEL_SIZE;
 }
 
 /** The workspace shell's layout class for the panel's state and which columns carry a user-chosen width. */
