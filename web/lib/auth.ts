@@ -233,7 +233,7 @@ export function buildUserManagerSettings(config: CognitoConfig): UserManagerSett
     post_logout_redirect_uri: postLogoutRedirectUri(config),
     response_type: "code",
     scope: "openid email profile",
-    userStore: new WebStorageStateStore({ store: window.localStorage }),
+    userStore: new WebStorageStateStore({ store: window.sessionStorage }),
     automaticSilentRenew: true,
     accessTokenExpiringNotificationTimeInSeconds: 60,
   };

@@ -18,13 +18,25 @@ export function openTurnStream(
   lastEventId?: number,
 ): () => void {
   const controller = new AbortController();
-  let closed = false;
+  let deliberatelyClosed = false;
+  let endNotified = false;
+
+  const notifyEndExactlyOnce = (notify: () => void) => {
+    if (endNotified || deliberatelyClosed) {
+      return;
+    }
+    endNotified = true;
+    notify();
+  };
 
   void (async () => {
     const headers: Record<string, string> = {
       Accept: "text/event-stream",
       ...(await authorizedHeaders()),
     };
+    if (deliberatelyClosed) {
+      return;
+    }
     if (lastEventId && lastEventId > 0) {
       headers["Last-Event-ID"] = String(lastEventId);
     }
@@ -46,38 +58,41 @@ export function openTurnStream(
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      while (!closed) {
+      let sawTerminalEvent = false;
+      while (!deliberatelyClosed && !sawTerminalEvent) {
         const { done, value } = await reader.read();
         if (done) {
           break;
         }
         buffer += decoder.decode(value, { stream: true });
         buffer = parseSseFrames(buffer, (event) => {
+          if (deliberatelyClosed || sawTerminalEvent) {
+            return;
+          }
           handlers.onEvent(event);
           if (isTerminalTurnEvent(event.kind)) {
-            closed = true;
-            controller.abort();
-            handlers.onClose?.();
+            sawTerminalEvent = true;
           }
         });
       }
-      if (!closed) {
-        handlers.onClose?.();
+      if (sawTerminalEvent) {
+        controller.abort();
       }
+      notifyEndExactlyOnce(() => handlers.onClose?.());
     } catch (error) {
       if (controller.signal.aborted) {
         return;
       }
-      handlers.onError?.(
-        error instanceof Error ? error : new Error("turn stream failed"),
+      notifyEndExactlyOnce(() =>
+        handlers.onError?.(
+          error instanceof Error ? error : new Error("turn stream failed"),
+        ),
       );
-      handlers.onClose?.();
     }
   })();
 
   return () => {
-    closed = true;
+    deliberatelyClosed = true;
     controller.abort();
-    handlers.onClose?.();
   };
 }

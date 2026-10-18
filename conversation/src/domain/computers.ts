@@ -8,7 +8,7 @@ import {
 import { snapshotUri } from "../snapshot/uri.ts";
 import { pythonRepr } from "./bots.ts";
 import type { Clock, IdSource } from "../http/app.ts";
-import { withoutOwner, type Computer } from "../store/codecs/computer.ts";
+import type { Computer } from "../store/codecs/computer.ts";
 import type { Worker } from "../store/codecs/worker.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { refuseIfComputerWorkPaused, type SpendPauseDependencies } from "./organization-spend.ts";
@@ -42,8 +42,12 @@ export async function ensureComputer(
 	if (existing !== null) {
 		return existing;
 	}
-	const computer: Computer = {
-		computerId: computerId ?? deps.ids.next(),
+	return deps.store.createComputerIfAbsent(newComputerRecord(tenantId, computerId ?? deps.ids.next()));
+}
+
+function newComputerRecord(tenantId: string, computerId: string): Computer {
+	return {
+		computerId,
 		tenantId,
 		policy: "prefer_local",
 		stopped: false,
@@ -56,8 +60,6 @@ export async function ensureComputer(
 		diskDirty: false,
 		hydrateRequired: false,
 	};
-	await deps.store.putComputer(computer);
-	return computer;
 }
 
 /**
@@ -97,14 +99,13 @@ export async function setComputerStopped(
 	stopped: boolean,
 	deps: { store: MessagingStore; ids: IdSource },
 	diskMatchesPublished = false,
+	expectedHostStartGeneration?: number,
 ): Promise<Computer> {
-	const computer = await ensureComputer(tenantId, deps);
-	const { browserUnavailable: _kept, ...withoutUnavailable } = computer;
-	const updated: Computer = stopped
-		? { ...withoutOwner(computer), stopped, modelReady: false, workspaceReady: false, browserReady: false, diskDirty: diskMatchesPublished ? false : computer.diskDirty }
-		: { ...withoutUnavailable, stopped };
-	await deps.store.putComputer(updated);
-	return updated;
+	const current = await ensureComputer(tenantId, deps);
+	const updated = stopped
+		? await deps.store.markComputerStopped(tenantId, { diskMatchesPublished, expectedHostStartGeneration })
+		: await deps.store.markComputerRunning(tenantId);
+	return updated ?? current;
 }
 
 /**
@@ -159,20 +160,11 @@ export async function recordComputerCapabilityReady(
 	capability: string,
 	deps: { store: MessagingStore; ids: IdSource },
 ): Promise<Computer> {
-	const computer = await ensureComputer(tenantId, deps);
-	const updated: Computer = { ...computer };
-	if (capability === MODEL_CAPABILITY) {
-		updated.modelReady = true;
-	} else if (capability === WORKSPACE_CAPABILITY) {
-		updated.workspaceReady = true;
-	} else if (capability === BROWSER_CAPABILITY) {
-		updated.browserReady = true;
-		delete updated.browserUnavailable;
-	} else {
+	if (capability !== MODEL_CAPABILITY && capability !== WORKSPACE_CAPABILITY && capability !== BROWSER_CAPABILITY) {
 		throw new Error(`Unknown capability ${JSON.stringify(capability)}.`);
 	}
-	await deps.store.putComputer(updated);
-	return updated;
+	const current = await ensureComputer(tenantId, deps);
+	return (await deps.store.recordComputerCapabilityReady(tenantId, capability)) ?? current;
 }
 
 /** What the model reads when it calls a browser tool on a computer whose image has no browser. */
@@ -192,10 +184,8 @@ export async function recordComputerCapabilityUnavailable(
 	if (capability !== BROWSER_CAPABILITY) {
 		throw new Error(`Capability ${JSON.stringify(capability)} cannot be unavailable.`);
 	}
-	const computer = await ensureComputer(tenantId, deps);
-	const updated: Computer = { ...computer, browserReady: false, browserUnavailable: true };
-	await deps.store.putComputer(updated);
-	return updated;
+	const current = await ensureComputer(tenantId, deps);
+	return (await deps.store.recordComputerBrowserUnavailable(tenantId)) ?? current;
 }
 
 /** One host start of one generation: the right to start the computer's host and the user it is started for. */

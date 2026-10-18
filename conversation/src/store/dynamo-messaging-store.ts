@@ -558,6 +558,63 @@ export class DynamoMessagingStore implements MessagingStore {
 		await this.put({ ...computerCodec.encode(computer), pk: key.pk, sk: key.sk });
 	}
 
+	async createComputerIfAbsent(computer: Computer): Promise<Computer> {
+		const key = computerRecordItemKey(computer.tenantId);
+		try {
+			await this.client.send(
+				new PutItemCommand({
+					TableName: this.tableName,
+					Item: { ...computerCodec.encode(computer), pk: key.pk, sk: key.sk },
+					ConditionExpression: "attribute_not_exists(pk)",
+				}),
+			);
+			return computer;
+		} catch (error) {
+			if (!(error instanceof ConditionalCheckFailedException)) throw error;
+			return (await this.getComputer(computer.tenantId))!;
+		}
+	}
+
+	async markComputerStopped(tenantId: string, change: { diskMatchesPublished: boolean; expectedHostStartGeneration?: number }): Promise<Computer | null> {
+		const values: Item = { ":off": { BOOL: false }, ":on": { BOOL: true } };
+		let condition = "attribute_exists(pk)";
+		if (change.expectedHostStartGeneration !== undefined) {
+			condition += " AND host_start_generation = :generation";
+			values[":generation"] = { N: String(change.expectedHostStartGeneration) };
+		}
+		const diskDirtyAssignment = change.diskMatchesPublished ? ", disk_dirty = :off" : "";
+		return this.updateComputerWhere(tenantId, {
+			update: `SET stopped = :on, model_ready = :off, workspace_ready = :off, browser_ready = :off${diskDirtyAssignment} REMOVE ${computerCodec.OWNER_ATTRIBUTE_NAMES.join(", ")}`,
+			condition,
+			values,
+		});
+	}
+
+	async markComputerRunning(tenantId: string): Promise<Computer | null> {
+		return this.updateComputerWhere(tenantId, {
+			update: "SET stopped = :off REMOVE browser_unavailable",
+			condition: "attribute_exists(pk)",
+			values: { ":off": { BOOL: false } },
+		});
+	}
+
+	async recordComputerCapabilityReady(tenantId: string, capability: "model" | "workspace" | "browser"): Promise<Computer | null> {
+		const attribute = { model: "model_ready", workspace: "workspace_ready", browser: "browser_ready" }[capability];
+		return this.updateComputerWhere(tenantId, {
+			update: `SET ${attribute} = :on${capability === "browser" ? " REMOVE browser_unavailable" : ""}`,
+			condition: "attribute_exists(pk)",
+			values: { ":on": { BOOL: true } },
+		});
+	}
+
+	async recordComputerBrowserUnavailable(tenantId: string): Promise<Computer | null> {
+		return this.updateComputerWhere(tenantId, {
+			update: "SET browser_ready = :off, browser_unavailable = :on",
+			condition: "attribute_exists(pk)",
+			values: { ":off": { BOOL: false }, ":on": { BOOL: true } },
+		});
+	}
+
 	async claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null> {
 		try {
 			const response = await this.client.send(

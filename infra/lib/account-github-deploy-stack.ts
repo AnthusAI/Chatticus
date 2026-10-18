@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import {
   ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
@@ -9,12 +10,15 @@ import {
   webParameterPrefix,
   thinTurnParameterPrefix,
   integrationTestParameterPrefix,
+  invokeKeySecretArnParameterName,
   type ChatticusCloudEnvironment,
 } from "./environments";
-import { createGithubDeployRole, type GithubDeployEnvironment } from "./github-deploy-stack";
+import { createGithubDeployRole, GITHUB_SUB_PREFIX, type GithubDeployEnvironment } from "./github-deploy-stack";
 import { TAG_ENVIRONMENT } from "./tagging";
 
 export const GITHUB_OIDC_PROVIDER_URL = "token.actions.githubusercontent.com";
+
+export const INTEGRATION_TEST_ROLE_NAME = "chatticus-github-actions-integration-test-development";
 
 export interface AccountGitHubDeployStackProps extends cdk.StackProps {
   githubEnvironment: GithubDeployEnvironment;
@@ -87,6 +91,7 @@ function peerEnvironmentDenyStatements(
  */
 export class AccountGitHubDeployStack extends cdk.Stack {
   public readonly deployRole: iam.Role;
+  public readonly integrationTestRole?: iam.Role;
 
   constructor(scope: Construct, id: string, props: AccountGitHubDeployStackProps) {
     super(scope, id, props);
@@ -122,9 +127,56 @@ export class AccountGitHubDeployStack extends cdk.Stack {
       this.deployRole.addToPolicy(statement);
     }
 
+    if (props.githubEnvironment === "development") {
+      this.integrationTestRole = this.createIntegrationTestRole(providerArn);
+    }
+
     new cdk.CfnOutput(this, "GithubDeployRoleArn", {
       value: this.deployRole.roleArn,
       description: `Environment secret AWS_DEPLOY_ROLE_ARN for the ${props.githubEnvironment} GitHub environment, set only at cutover.`,
     });
+  }
+
+  /**
+   * The principal the post-deploy acceptance smoke test runs as: assumed through
+   * GitHub OIDC by the development environment only, with read access to the two
+   * thin-turn parameters the acceptance runner resolves and to the invoke-key
+   * secret they point to, and nothing else. Its ARN is the value of the
+   * CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN GitHub environment variable and
+   * of the control plane's integration-test allowed-role parameter.
+   */
+  private createIntegrationTestRole(providerArn: string): iam.Role {
+    const role = new iam.Role(this, "GithubActionsIntegrationTest", {
+      roleName: INTEGRATION_TEST_ROLE_NAME,
+      description: "GitHub Actions OIDC: development acceptance smoke test (integration-test session exchange).",
+      maxSessionDuration: cdk.Duration.hours(1),
+      assumedBy: new iam.WebIdentityPrincipal(providerArn, {
+        StringEquals: { [`${GITHUB_OIDC_PROVIDER_URL}:aud`]: "sts.amazonaws.com" },
+        StringLike: { [`${GITHUB_OIDC_PROVIDER_URL}:sub`]: `${GITHUB_SUB_PREFIX}:environment:development` },
+      }),
+    });
+    const thinTurnPrefix = thinTurnParameterPrefix("development");
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [`${thinTurnPrefix}/cloudfront-url`, invokeKeySecretArnParameterName("development")].map(
+          (name) =>
+            this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
+        ),
+      }),
+    );
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [
+          ssm.StringParameter.valueForStringParameter(this, invokeKeySecretArnParameterName("development")),
+        ],
+      }),
+    );
+    new cdk.CfnOutput(this, "IntegrationTestRoleArn", {
+      value: role.roleArn,
+      description: "Value for the CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN variable of the development GitHub environment.",
+    });
+    return role;
   }
 }

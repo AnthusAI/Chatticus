@@ -19,7 +19,7 @@ const GITHUB_REPOSITORY = "AnthusAI/Chatticus";
  * segments, pinned only by the numeric ids, so a rename (e.g. to
  * `AnthusAI/Chatticus`) does not invalidate every deploy role in one motion.
  */
-const GITHUB_SUB_PREFIX = "repo:*@152415604/*@1350947261";
+export const GITHUB_SUB_PREFIX = "repo:*@152415604/*@1350947261";
 
 /**
  * Development deploy workflows this role is intended to back (documentation
