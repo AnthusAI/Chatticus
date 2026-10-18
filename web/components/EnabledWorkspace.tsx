@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  Check,
-  ChevronDown,
   CircleAlert,
-  Computer as ComputerIcon,
   Menu,
   PanelRight,
   Plus,
@@ -19,13 +16,10 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Sheet } from "./ui/sheet";
 import { ComputerPausedNotice } from "./ComputerPausedNotice";
-import { TurnGrantPanel } from "./TurnGrantPanel";
-import { ComputerFilesPanel } from "./workspace/ComputerFilesPanel";
 import { ChannelCostChip, MessageCostContext, type MessageCostContextValue } from "./workspace/CostMarkers";
-import { CostsPanel } from "./workspace/CostsPanel";
 import { WorkspaceColumnResizeHandle, useResizableWorkspaceColumnWidth } from "./workspace/WorkspaceColumnResizeHandle";
 import { useWorkspaceViewportHeight } from "./useWorkspaceViewportHeight";
-import { PanelPluginTabs, PanelSizeSwitch, panelPluginPanelDomId, panelPluginTabDomId, type PanelHostPlacement } from "./workspace/PanelPluginTabs";
+import { PanelPluginTabs, PanelSizeSwitch, type PanelHostPlacement } from "./workspace/PanelPluginTabs";
 import { useVoiceControl, type VoiceControl } from "./useVoiceControl";
 import {
   createBot,
@@ -92,7 +86,12 @@ import {
 import { createVoiceLineDelivery } from "../lib/voice-line-delivery";
 import type { RetainedTurnActivity } from "../lib/committed-activity";
 import { reduceTurnActivity } from "../lib/turn-activity";
-import { panelSizeForPlugin, workspaceColumnWidthStyle, workspaceShellLayoutClassName, CORE_PANEL_PLUGINS, type CorePanelPluginId, type PanelSize } from "../lib/panel-plugins";
+import { panelSizeForPlugin, workspaceColumnWidthStyle, workspaceShellLayoutClassName, type PanelSize } from "../lib/panel-plugins";
+import type { PanelPluginObjectReference, PanelPluginStatus } from "../lib/panel-plugin-host-api";
+import { panelPluginRegistry } from "../lib/panel-plugin-registry";
+import { PanelPluginViewport } from "./workspace/panel-plugins/PanelPluginViewport";
+import type { CorePanelServices } from "./workspace/panel-plugins/core-panel-elements";
+import { configuredPanelPluginManifestUrls, useConfiguredPanelPluginManifests, useRegisteredPanelPlugins } from "./workspace/panel-plugins/use-registered-panel-plugins";
 import { touchedFilesFromActivity } from "../lib/touched-files";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
@@ -141,6 +140,8 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
+const CONFIGURED_PANEL_PLUGIN_MANIFEST_URLS = configuredPanelPluginManifestUrls(process.env.NEXT_PUBLIC_PANEL_PLUGIN_MANIFEST_URLS);
+
 function isBelowDockedPanelWidth(): boolean {
   return !window.matchMedia(`(min-width: ${INSPECTOR_DESKTOP_MIN_WIDTH_PX}px)`).matches;
 }
@@ -181,10 +182,14 @@ export function EnabledWorkspace({
   const [panelWidthPixels, setPanelWidthPixels] = useResizableWorkspaceColumnWidth("panel");
   const rosterColumnRef = useRef<HTMLDivElement>(null);
   const panelColumnRef = useRef<HTMLDivElement>(null);
-  const [inspectorTab, setInspectorTab] = useState<CorePanelPluginId>("context");
+  useConfiguredPanelPluginManifests(CONFIGURED_PANEL_PLUGIN_MANIFEST_URLS);
+  const panelPlugins = useRegisteredPanelPlugins();
+  const [inspectorTab, setInspectorTab] = useState<string>("context");
   const [panelSize, setPanelSize] = useState<PanelSize>("split");
-  const [filesTabVisited, setFilesTabVisited] = useState(false);
-  const [costsTabVisited, setCostsTabVisited] = useState(false);
+  const [visitedPanelPluginIds, setVisitedPanelPluginIds] = useState<ReadonlySet<string>>(() => new Set(["context"]));
+  const [panelObjectReferenceByPluginId, setPanelObjectReferenceByPluginId] = useState<Record<string, PanelPluginObjectReference | undefined>>({});
+  const [panelTitleByPluginId, setPanelTitleByPluginId] = useState<Record<string, string | undefined>>({});
+  const [panelStatusByPluginId, setPanelStatusByPluginId] = useState<Record<string, PanelPluginStatus | undefined>>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"bot" | "channel">("bot");
   const [createName, setCreateName] = useState("");
@@ -252,7 +257,7 @@ export function EnabledWorkspace({
     }
   }, [costs, turn]);
   const showCostsTab = useCallback(() => {
-    setCostsTabVisited(true);
+    setVisitedPanelPluginIds((visited) => new Set(visited).add("costs"));
     setInspectorTab("costs");
     setInspectorOpen(isBelowDockedPanelWidth());
     setInspectorCollapsed(false);
@@ -864,103 +869,74 @@ export function EnabledWorkspace({
     </aside>
   );
 
+  const selectPanelPlugin = useCallback((pluginId: string) => {
+    setVisitedPanelPluginIds((visited) => (visited.has(pluginId) ? visited : new Set(visited).add(pluginId)));
+    setInspectorTab(pluginId);
+    setPanelSize((currentSize) => panelSizeForPlugin(pluginId, currentSize, panelPlugins));
+  }, [panelPlugins]);
+
+  const openPanelObject = useCallback((objectReference: PanelPluginObjectReference) => {
+    const handler = panelPluginRegistry.findHandlerOfObjectType(objectReference.type);
+    if (!handler) return;
+    setPanelObjectReferenceByPluginId((references) => ({ ...references, [handler.id]: objectReference }));
+    selectPanelPlugin(handler.id);
+    setInspectorOpen(isBelowDockedPanelWidth());
+    setInspectorCollapsed(false);
+  }, [selectPanelPlugin]);
+
+  const setPanelPluginTitle = useCallback((pluginId: string, title: string) => {
+    setPanelTitleByPluginId((titles) => ({ ...titles, [pluginId]: title }));
+  }, []);
+
+  const setPanelPluginStatus = useCallback((pluginId: string, status: PanelPluginStatus | null) => {
+    setPanelStatusByPluginId((statuses) => ({ ...statuses, [pluginId]: status ?? undefined }));
+  }, []);
+
+  const corePanelServices = useMemo<CorePanelServices>(
+    () => ({
+      activeOrg,
+      role: activeOrganization?.role ?? "member",
+      touchedFiles,
+      costs,
+      costLabels,
+      inspector,
+      tasksAreOrganizationWide: selectedItem?.kind === "channel",
+      turnGrantTurnId: turn && isTurnGrantPanelVisible(turn.turn_id, turnStatus) ? turn.turn_id : null,
+    }),
+    [activeOrg, activeOrganization?.role, touchedFiles, costs, costLabels, inspector, selectedItem?.kind, turn, turnStatus],
+  );
+
   const renderPanelHost = (placement: PanelHostPlacement) => (
     <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-3" aria-label={INSPECTOR_SHEET_TITLE}>
       <div className="flex items-center gap-2 pb-3">
-        <h2 className="sr-only">{CORE_PANEL_PLUGINS.find((plugin) => plugin.id === inspectorTab)?.label}</h2>
+        <h2 className="sr-only">{panelTitleByPluginId[inspectorTab] ?? panelPlugins.find((plugin) => plugin.id === inspectorTab)?.name}</h2>
         <PanelPluginTabs
           placement={placement}
+          plugins={panelPlugins}
           selected={inspectorTab}
-          onSelect={(tab) => {
-            if (tab === "files") setFilesTabVisited(true);
-            if (tab === "costs") setCostsTabVisited(true);
-            setInspectorTab(tab);
-            setPanelSize((currentSize) => panelSizeForPlugin(tab, currentSize));
-          }}
+          titleByPluginId={panelTitleByPluginId}
+          statusByPluginId={panelStatusByPluginId}
+          onSelect={selectPanelPlugin}
         />
         <span className="flex-1" />
         <div className="hidden xl:block">
-          <PanelSizeSwitch size={panelSize} onChange={(size) => setPanelSize(panelSizeForPlugin(inspectorTab, size))} />
+          <PanelSizeSwitch size={panelSize} onChange={(size) => setPanelSize(panelSizeForPlugin(inspectorTab, size, panelPlugins))} />
         </div>
         <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.closeInspector} onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); setPanelSize("split"); }}><X size={18} aria-hidden="true" /></Button>
       </div>
-      {filesTabVisited ? (
-        <div
-          role="tabpanel"
-          id={panelPluginPanelDomId(placement, "files")}
-          aria-labelledby={panelPluginTabDomId(placement, "files")}
-          hidden={inspectorTab !== "files"}
-          className="min-h-0 flex-1 overflow-y-auto pb-4"
-        >
-          <ComputerFilesPanel
-            key={activeOrg.tenantId}
-            org={activeOrg}
-            touched={touchedFiles}
-            role={activeOrganization?.role ?? "member"}
-            active={inspectorTab === "files"}
-          />
-        </div>
-      ) : null}
-      {costsTabVisited ? (
-        <div
-          role="tabpanel"
-          id={panelPluginPanelDomId(placement, "costs")}
-          aria-labelledby={panelPluginTabDomId(placement, "costs")}
-          hidden={inspectorTab !== "costs"}
-          className="min-h-0 flex-1 overflow-y-auto pb-4"
-        >
-          <CostsPanel key={activeOrg.tenantId} controller={costs} labels={costLabels} active={inspectorTab === "costs"} />
-        </div>
-      ) : null}
-      {inspectorTab !== "context" ? null : (
-      <div
-        role="tabpanel"
-        id={panelPluginPanelDomId(placement, "context")}
-        aria-labelledby={panelPluginTabDomId(placement, "context")}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4"
-      >
-        <section className="rounded-2xl bg-surface p-4">
-          <div className="flex items-center gap-2"><ComputerIcon size={17} aria-hidden="true" /><h3 className="text-sm font-bold">Computer</h3></div>
-          {inspector.computer ? (
-            <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-              <dt className="text-surface-foreground/50">State</dt><dd className="font-semibold">{inspector.computer.stateLabel}</dd>
-              <dt className="text-surface-foreground/50">Policy</dt><dd className="font-mono">{inspector.computer.policy}</dd>
-              <dt className="text-surface-foreground/50">Generation</dt><dd className="font-mono">{inspector.computer.generation}</dd>
-              <dt className="text-surface-foreground/50">Identity</dt><dd className="truncate font-mono" title={inspector.computer.identity}>{inspector.computer.identity}</dd>
-            </dl>
-          ) : <p className="mt-3 text-xs text-surface-foreground/55">Computer status unavailable.</p>}
-          {inspector.computerControls.map((control) => <Button key={control} variant="ghost" size="sm">{control}</Button>)}
-        </section>
-        <section>
-          <div className="flex items-center gap-2 px-1"><Check size={17} aria-hidden="true" /><h3 className="text-sm font-bold">{selectedItem?.kind === "channel" ? "Organization tasks" : "Tasks"}</h3></div>
-          {selectedItem?.kind === "channel" ? <p className="px-1 pt-1 text-xs text-surface-foreground/50">Tasks are organization-wide and are not linked to channels.</p> : null}
-          <div className="mt-3 grid gap-2">
-            {inspector.tasks.map(({ task, creatorName: creator, updaterName: updater }) => {
-              return (
-                <details key={task.task_id} className="group rounded-2xl bg-surface p-4">
-                  <summary className={`flex cursor-pointer list-none items-start justify-between gap-3 ${FOCUS_RING_CLASS}`}>
-                    <span className="text-sm font-semibold leading-5">{task.title}</span>
-                    <span className="flex shrink-0 items-center gap-1 font-mono text-[0.6rem] uppercase text-surface-foreground/50">{task.status}<ChevronDown size={13} className="transition-transform group-open:rotate-180" aria-hidden="true" /></span>
-                  </summary>
-                  <dl className="mt-3 grid gap-2 text-xs text-surface-foreground/65">
-                    {task.evidence ? <div><dt className="font-semibold text-surface-foreground">Evidence</dt><dd className="mt-0.5 whitespace-pre-wrap">{task.evidence}</dd></div> : null}
-                    {task.close_reason ? <div><dt className="font-semibold text-surface-foreground">Close reason</dt><dd className="mt-0.5">{task.close_reason}</dd></div> : null}
-                    {creator || updater ? <div><dt className="font-semibold text-surface-foreground">Bot provenance</dt><dd className="mt-0.5">{creator ? `Created by ${creator}` : ""}{creator && updater ? "; " : ""}{updater ? `updated by ${updater}` : ""}</dd></div> : null}
-                  </dl>
-                </details>
-              );
-            })}
-            {inspector.tasks.length === 0 ? <p className="rounded-2xl bg-surface p-4 text-xs text-surface-foreground/55">No matching tasks.</p> : null}
-          </div>
-        </section>
-        {turn && isTurnGrantPanelVisible(turn.turn_id, turnStatus) ? (
-          <TurnGrantPanel
-            activeOrg={activeOrg}
-            turnId={turn.turn_id}
-          />
-        ) : null}
-      </div>
-      )}
+      <PanelPluginViewport
+        placement={placement}
+        plugins={panelPlugins}
+        selectedPluginId={inspectorTab}
+        visitedPluginIds={visitedPanelPluginIds}
+        size={panelSize}
+        organizationKey={activeOrg.tenantId}
+        services={corePanelServices}
+        objectReferenceByPluginId={panelObjectReferenceByPluginId}
+        onOpenObject={openPanelObject}
+        onTitleChange={setPanelPluginTitle}
+        onStatusChange={setPanelPluginStatus}
+      />
     </aside>
   );
 
