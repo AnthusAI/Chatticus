@@ -47,3 +47,12 @@ jobs:
         env:
           CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
         run: sh deploy-chatticus-dedicated-account.sh staging web
+
+  smoke-test:
+    needs: deploy
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/acceptance-smoke-test.yml
+    with:
+      environment: staging

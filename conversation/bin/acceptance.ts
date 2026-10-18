@@ -26,13 +26,18 @@ class InvokeKeyUnavailableError extends Error {}
 
 const REGION = "us-east-1";
 
-function resolveBaseUrl(environment: string): string {
+async function resolveBaseUrl(environment: string): Promise<string> {
 	const variableName = `CHATTICUS_${environment.toUpperCase()}_BASE_URL`;
-	const url = process.env[variableName];
-	if (!url) {
-		throw new BaseUrlNotSetError(`base url for ${environment} not set (${variableName})`);
+	const explicitUrl = process.env[variableName];
+	if (explicitUrl) {
+		return explicitUrl;
 	}
-	return url;
+	const parameter = `/chatticus/${environment}/thin-turn/cloudfront-url`;
+	const publishedUrl = (await new SSMClient({ region: REGION }).send(new GetParameterCommand({ Name: parameter }))).Parameter?.Value;
+	if (!publishedUrl) {
+		throw new BaseUrlNotSetError(`base url for ${environment} not set (${variableName}) and SSM parameter ${parameter} has no value`);
+	}
+	return publishedUrl;
 }
 
 async function readInvokeKey(environment: string): Promise<string> {
@@ -51,7 +56,7 @@ async function readInvokeKey(environment: string): Promise<string> {
 async function runSmoke(environment: string): Promise<SmokeRunResult> {
 	const checks: string[] = [];
 	try {
-		const baseUrl = resolveBaseUrl(environment);
+		const baseUrl = await resolveBaseUrl(environment);
 		const credentials = await new STSClient({ region: REGION }).config.credentials();
 		const invokeKey = await readInvokeKey(environment);
 		await runSmokeTest({ baseUrl, invokeKey, credentials }, checks);
