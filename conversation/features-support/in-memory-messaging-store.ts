@@ -281,6 +281,60 @@ export class InMemoryMessagingStore implements MessagingStore {
 		this.computers.set(computer.tenantId, structuredClone(computer));
 	}
 
+	async createComputerIfAbsent(computer: Computer): Promise<Computer> {
+		const existing = this.computers.get(computer.tenantId);
+		if (existing !== undefined) return structuredClone(existing);
+		this.computers.set(computer.tenantId, structuredClone(computer));
+		return structuredClone(computer);
+	}
+
+	async markComputerStopped(tenantId: string, change: { diskMatchesPublished: boolean; expectedHostStartGeneration?: number }): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined) return null;
+		if (change.expectedHostStartGeneration !== undefined && computer.hostStartGeneration !== change.expectedHostStartGeneration) return null;
+		const stopped: Computer = {
+			...withoutOwner(computer),
+			stopped: true,
+			modelReady: false,
+			workspaceReady: false,
+			browserReady: false,
+			diskDirty: change.diskMatchesPublished ? false : computer.diskDirty,
+		};
+		this.computers.set(tenantId, stopped);
+		return structuredClone(stopped);
+	}
+
+	async markComputerRunning(tenantId: string): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined) return null;
+		const { browserUnavailable: _cleared, ...kept } = computer;
+		const running: Computer = { ...kept, stopped: false };
+		this.computers.set(tenantId, running);
+		return structuredClone(running);
+	}
+
+	async recordComputerCapabilityReady(tenantId: string, capability: "model" | "workspace" | "browser"): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined) return null;
+		const { browserUnavailable: _cleared, ...withoutUnavailable } = computer;
+		const next: Computer =
+			capability === "model"
+				? { ...computer, modelReady: true }
+				: capability === "workspace"
+					? { ...computer, workspaceReady: true }
+					: { ...withoutUnavailable, browserReady: true };
+		this.computers.set(tenantId, next);
+		return structuredClone(next);
+	}
+
+	async recordComputerBrowserUnavailable(tenantId: string): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined) return null;
+		const next: Computer = { ...computer, browserReady: false, browserUnavailable: true };
+		this.computers.set(tenantId, next);
+		return structuredClone(next);
+	}
+
 	async claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null> {
 		const computer = this.computers.get(tenantId);
 		if (computer === undefined || computer.hostStartGeneration !== expectedGeneration) {

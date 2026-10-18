@@ -11,3 +11,8 @@ Feature: Computer host readiness
     When the computer host finishes booting through model and workspace gates
     Then model readiness is recorded before browser readiness
     And browser readiness is not recorded until the browser gate clears
+
+  Scenario: A dispatch offered during a readiness report survives the report
+    Given the household computer has a live owner on its first host start generation
+    When a dispatch is offered to the owner while a workspace readiness report is being recorded
+    Then the computer is workspace ready and still holds that dispatch for the owner
