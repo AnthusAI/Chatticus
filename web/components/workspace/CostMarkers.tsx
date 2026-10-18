@@ -3,7 +3,15 @@
 import { createContext, useContext, type FC } from "react";
 import { CircleDollarSign } from "lucide-react";
 
-import { describeFigure, markerText, markerUsageText, sessionUsageText, type MessageCostMarker } from "@/lib/costs";
+import {
+  describeFigure,
+  markerText,
+  markerUsageText,
+  replyLatencyText,
+  sessionLatencyText,
+  sessionUsageText,
+  type MessageCostMarker,
+} from "@/lib/costs";
 import type { ChannelCosts, Phase } from "@/lib/costs-controller";
 
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt";
@@ -15,11 +23,13 @@ const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:rin
  */
 export const ChannelCostChip: FC<{
   phase: Phase<ChannelCosts>;
+  replyLatenciesMs?: readonly number[];
   onOpen: () => void;
-}> = ({ phase, onOpen }) => {
+}> = ({ phase, replyLatenciesMs = [], onOpen }) => {
   if (phase.status !== "ready" || phase.value.totals.rows === 0) return null;
   const figure = describeFigure(phase.value.totals);
-  const usage = sessionUsageText(phase.value.totals);
+  const latency = sessionLatencyText(replyLatenciesMs);
+  const usage = [sessionUsageText(phase.value.totals), latency].filter((part) => part !== null).join(" · ");
   return (
     <button
       type="button"
@@ -39,6 +49,7 @@ export const ChannelCostChip: FC<{
 /** What the thread needs to put a cost marker under a message. */
 export type MessageCostContextValue = {
   markers: ReadonlyMap<number, MessageCostMarker[]>;
+  replyLatencyMsBySeq?: ReadonlyMap<number, number>;
   onOpen: (seq: number) => void;
 };
 
@@ -49,22 +60,25 @@ export const MessageCostContext = createContext<MessageCostContextValue | null>(
 export const MessageCostMarkerView: FC<{
   seq: number;
   markers: readonly MessageCostMarker[];
+  replyLatencyMs?: number;
   onOpen: (seq: number) => void;
-}> = ({ seq, markers, onOpen }) => (
+}> = ({ seq, markers, replyLatencyMs, onOpen }) => (
   <span className="mt-1 flex flex-wrap items-center gap-x-3" data-testid="message-cost-marker">
     {markers.map((marker) => {
       const usage = markerUsageText(marker);
+      const latency = marker.side === "produced" && replyLatencyMs !== undefined ? replyLatencyText(replyLatencyMs) : "";
       return (
         <button
           key={marker.side}
           type="button"
           onClick={() => onOpen(seq)}
-          aria-label={`${markerText(marker)}${marker.figure.incompleteLabel ? `, ${marker.figure.incompleteLabel}` : ""}${usage ? `, ${usage}` : ""}. Show the model calls`}
+          aria-label={`${markerText(marker)}${marker.figure.incompleteLabel ? `, ${marker.figure.incompleteLabel}` : ""}${usage ? `, ${usage}` : ""}${latency ? `, ${latency}` : ""}. Show the model calls`}
           className={`inline-flex min-h-8 flex-wrap items-center gap-x-2 rounded-full text-left font-mono text-[0.62rem] text-surface-foreground/60 hover:text-surface-foreground ${FOCUS}`}
         >
           <span className="text-surface-foreground/80">{markerText(marker)}</span>
           {marker.figure.incompleteLabel ? <span className="font-bold text-clay">incomplete</span> : null}
           {usage ? <span>{usage}</span> : null}
+          {latency ? <span data-testid="reply-latency">{latency}</span> : null}
         </button>
       );
     })}
@@ -77,5 +91,5 @@ export const MessageCostSlot: FC<{ seq: number | undefined }> = ({ seq }) => {
   if (!context || seq === undefined) return null;
   const markers = context.markers.get(seq);
   if (!markers || markers.length === 0) return null;
-  return <MessageCostMarkerView seq={seq} markers={markers} onOpen={context.onOpen} />;
+  return <MessageCostMarkerView seq={seq} markers={markers} replyLatencyMs={context.replyLatencyMsBySeq?.get(seq)} onOpen={context.onOpen} />;
 };

@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { setIdTokenSourceForTests } from "../lib/api-auth";
 import { costsApiFor } from "../lib/costs-api";
 import { CostsController } from "../lib/costs-controller";
+import { replyLatenciesBySeq, type MessageMoment } from "../lib/costs";
 import { FakeCostApi, type FakeCall, type FakeTurn } from "./costs-fake";
 
 (globalThis as { React?: typeof React }).React = React;
@@ -15,6 +16,7 @@ const PREVIEW_MESSAGE_COUNT = 6;
 
 const fake = new FakeCostApi();
 let controller: CostsController | null = null;
+let messageMoments: MessageMoment[] = [];
 let delivered: Array<{ filename: string; mimeType: string; text: string }> = [];
 
 globalThis.fetch = fake.fetch as typeof fetch;
@@ -56,6 +58,22 @@ function parseCalls(text: string, defaultModel: string): FakeCall[] {
 }
 
 type SeedRow = Record<string, string>;
+
+const FIRST_MESSAGE_WRITTEN_AT_MS = NOW.getTime() - 60 * 60 * 1000;
+const MILLISECONDS_BETWEEN_PROMPTS = 60 * 1000;
+
+function seedMessageMoments(rows: SeedRow[]): MessageMoment[] {
+  return rows.flatMap((row) => {
+    if (!row.prompt || !row.reply || !row.replied_after_seconds) return [];
+    const promptSeq = Number(row.prompt);
+    const promptWrittenAtMs = FIRST_MESSAGE_WRITTEN_AT_MS + promptSeq * MILLISECONDS_BETWEEN_PROMPTS;
+    const replyWrittenAtMs = promptWrittenAtMs + Number(row.replied_after_seconds) * 1000;
+    return [
+      { seq: promptSeq, created_at: new Date(promptWrittenAtMs).toISOString() },
+      { seq: Number(row.reply), created_at: new Date(replyWrittenAtMs).toISOString() },
+    ];
+  });
+}
 
 function seedTurns(rows: SeedRow[]): FakeTurn[] {
   return rows.map((row) => ({
@@ -132,16 +150,18 @@ async function render(): Promise<{ html: string; text: string; elements: TestEle
       onExport: noop,
     },
   });
+  const channelRows = snapshot.channel.status === "ready" ? snapshot.channel.value.turns.rows : [];
+  const replyLatencyMsBySeq = replyLatenciesBySeq(channelRows, messageMoments);
   const slots = Array.from({ length: PREVIEW_MESSAGE_COUNT }, (_unused, index) =>
     createElement("div", { key: index, "data-testid": `message-${index + 1}` }, createElement(markers.MessageCostSlot, { seq: index + 1 })),
   );
   const preview = createElement(
     "div",
     { "data-testid": "conversation-preview" },
-    createElement(markers.ChannelCostChip, { phase: snapshot.channel, onOpen: noop }),
+    createElement(markers.ChannelCostChip, { phase: snapshot.channel, replyLatenciesMs: [...replyLatencyMsBySeq.values()], onOpen: noop }),
     createElement(
       markers.MessageCostContext.Provider,
-      { value: { markers: snapshot.markers, onOpen: noop } },
+      { value: { markers: snapshot.markers, replyLatencyMsBySeq, onOpen: noop } },
       createElement("div", null, slots),
     ),
   );
@@ -173,6 +193,7 @@ async function handle(command: Command): Promise<unknown> {
       fake.isMember = command.member;
       if (command.bulk) fake.seedBulk(command.bulk.count, command.bulk.cost);
       else fake.seed(seedTurns(command.rows ?? []));
+      messageMoments = seedMessageMoments(command.rows ?? []);
       return null;
     }
     case "open-tab": {
