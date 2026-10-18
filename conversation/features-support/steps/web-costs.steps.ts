@@ -283,6 +283,13 @@ Then("the conversation cost chip shows {string}", async function (this: Chatticu
 	assert.ok(chip.text.includes(text), `The chip shows "${chip.text}", not "${text}".`);
 });
 
+Then("the conversation cost chip does not show {string}", async function (this: ChatticusWorld, text: string) {
+	const state = await processOf(this).state();
+	const chip = elementNamed(state, "channel-cost-chip");
+	assert.ok(chip, "The conversation shows no cost chip.");
+	assert.ok(!chip.text.includes(text), `The chip shows "${chip.text}".`);
+});
+
 Then("the cost API was asked for the cost of the channel {string}", async function (this: ChatticusWorld, name: string) {
 	const state = await processOf(this).state();
 	const route = `/channels/channel-${name.toLowerCase()}/cost`;

@@ -7,6 +7,10 @@ import {
   addDecimalTexts,
   breakdownLines,
   buildMessageMarkers,
+  replyLatenciesBySeq,
+  replyLatencyText,
+  sessionLatencyText,
+  typicalReplyLatencyMs,
   describeFigure,
   describeTotalsNotes,
   formatRecordedAt,
@@ -276,6 +280,45 @@ describe("message markers", () => {
     ]);
     assert.equal(markerText(markers.get(2)![0]), "Took at least $0.0002");
     assert.equal(markers.get(2)![0].figure.incompleteLabel, "incomplete: 1 unpriced call");
+  });
+});
+
+describe("reply latency", () => {
+  const moments = [
+    { seq: 1, created_at: "2026-10-12T09:00:00.000Z" },
+    { seq: 2, created_at: "2026-10-12T09:00:04.200Z" },
+    { seq: 3, created_at: "2026-10-12T09:01:00.000Z" },
+    { seq: 4, created_at: "2026-10-12T09:00:59.000Z" },
+  ];
+
+  it("measures from the prompt a turn answered to the reply it wrote", () => {
+    const latencies = replyLatenciesBySeq([row({ prompt_message_seq: 1, message_seq: 2 })], moments);
+    assert.equal(latencies.get(2), 4200);
+  });
+
+  it("leaves out a turn with a missing message, an unknown message or a reply written before its prompt", () => {
+    const latencies = replyLatenciesBySeq(
+      [
+        row({ id: "a", prompt_message_seq: 1, message_seq: null }),
+        row({ id: "b", prompt_message_seq: 1, message_seq: 9 }),
+        row({ id: "c", prompt_message_seq: 3, message_seq: 4 }),
+      ],
+      moments,
+    );
+    assert.equal(latencies.size, 0);
+  });
+
+  it("takes the median, averaging the middle two", () => {
+    assert.equal(typicalReplyLatencyMs([]), null);
+    assert.equal(typicalReplyLatencyMs([9000, 1000, 5000]), 5000);
+    assert.equal(typicalReplyLatencyMs([1000, 3000, 5000, 9000]), 4000);
+  });
+
+  it("writes the times people read", () => {
+    assert.equal(replyLatencyText(340), "replied in 340 ms");
+    assert.equal(replyLatencyText(4200), "replied in 4.2 s");
+    assert.equal(sessionLatencyText([2000, 8000, 14000]), "typical reply 8.0 s");
+    assert.equal(sessionLatencyText([]), null);
   });
 });
 

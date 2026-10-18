@@ -6,6 +6,8 @@
 
 import type { CostGroup, CostRow, CostTotals } from "@chatticus/host-protocol/costs";
 
+import { formatToolDuration } from "./turn-activity";
+
 /** The words that say what the numbers are. They are the same everywhere a figure appears. */
 export const COST_BASIS_COPY = "Model token cost at published list prices. This is not a bill.";
 
@@ -390,6 +392,50 @@ export function sessionUsageText(totals: CostTotals): string {
   const parts = [pluralize(totals.turns, "turn"), `${formatTokens(usage.contextTokens + usage.outputTokens)} tokens`];
   if (usage.cachedShare !== null) parts.push(`${Math.round(usage.cachedShare * 100)}% cached`);
   return parts.join(" · ");
+}
+
+/** The time a message was written, which is all the latency of a reply needs to know about the thread. */
+export type MessageMoment = { seq: number; created_at: string };
+
+/**
+ * How long each reply took to arrive: the time from the member message a turn answered to the message the turn wrote,
+ * keyed by the reply's sequence number. A turn missing either message, or whose times are unreadable or run backwards,
+ * has no latency; a reply written by more than one turn takes the slowest.
+ */
+export function replyLatenciesBySeq(rows: readonly CostRow[], messages: readonly MessageMoment[]): Map<number, number> {
+  const writtenAtBySeq = new Map<number, number>();
+  for (const message of messages) writtenAtBySeq.set(message.seq, Date.parse(message.created_at));
+  const latencies = new Map<number, number>();
+  for (const row of rows) {
+    if (row.prompt_message_seq === null || row.message_seq === null) continue;
+    const promptWrittenAt = writtenAtBySeq.get(row.prompt_message_seq);
+    const replyWrittenAt = writtenAtBySeq.get(row.message_seq);
+    if (promptWrittenAt === undefined || replyWrittenAt === undefined) continue;
+    const latencyMs = replyWrittenAt - promptWrittenAt;
+    if (!Number.isFinite(latencyMs) || latencyMs < 0) continue;
+    latencies.set(row.message_seq, Math.max(latencies.get(row.message_seq) ?? 0, latencyMs));
+  }
+  return latencies;
+}
+
+/** The middle reply time of a conversation, or null when no reply has one. */
+export function typicalReplyLatencyMs(latenciesMs: readonly number[]): number | null {
+  if (latenciesMs.length === 0) return null;
+  const ordered = [...latenciesMs].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 === 1 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+}
+
+/** `replied in 4.2 s`: the time a reply took, under the reply. */
+export function replyLatencyText(latencyMs: number): string {
+  return `replied in ${formatToolDuration(latencyMs) ?? "an unknown time"}`;
+}
+
+/** `typical reply 4.2 s`: the session's middle reply time for the conversation header, or null when no reply has one. */
+export function sessionLatencyText(latenciesMs: readonly number[]): string | null {
+  const typical = typicalReplyLatencyMs(latenciesMs);
+  const written = typical === null ? null : formatToolDuration(typical);
+  return written === null ? null : `typical reply ${written}`;
 }
 
 type MarkerBucket = { rows: CostRow[]; turnIds: string[] };

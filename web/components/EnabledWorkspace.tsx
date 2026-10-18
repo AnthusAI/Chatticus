@@ -44,6 +44,7 @@ import {
 import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
 import { costsApiFor } from "../lib/costs-api";
 import { CostsController } from "../lib/costs-controller";
+import { replyLatenciesBySeq } from "../lib/costs";
 import { downloadTextFile } from "../lib/download-text-file";
 import type { ActiveOrg } from "../lib/membership-state";
 import type { MeOrganization } from "../lib/me";
@@ -261,15 +262,24 @@ export function EnabledWorkspace({
     setInspectorOpen(isBelowDockedPanelWidth());
     setInspectorCollapsed(false);
   }, []);
+  const replyLatencyMsBySeq = useMemo(
+    () =>
+      costsSnapshot.channel.status === "ready"
+        ? replyLatenciesBySeq(costsSnapshot.channel.value.turns.rows, selectedMessages)
+        : new Map<number, number>(),
+    [costsSnapshot.channel, selectedMessages],
+  );
+  const replyLatenciesMs = useMemo(() => [...replyLatencyMsBySeq.values()], [replyLatencyMsBySeq]);
   const messageCostContext = useMemo<MessageCostContextValue>(
     () => ({
       markers: costsSnapshot.markers,
+      replyLatencyMsBySeq,
       onOpen: (seq) => {
         void costs.openMessage(seq);
         showCostsTab();
       },
     }),
-    [costs, costsSnapshot.markers, showCostsTab],
+    [costs, costsSnapshot.markers, replyLatencyMsBySeq, showCostsTab],
   );
   const rosterViewState = resolveRosterViewState({
     loading,
@@ -957,6 +967,7 @@ export function EnabledWorkspace({
           </div>
           <ChannelCostChip
             phase={costsSnapshot.channel}
+            replyLatenciesMs={replyLatenciesMs}
             onOpen={() => {
               costs.setScope("channel");
               costs.closeDrilldown();
