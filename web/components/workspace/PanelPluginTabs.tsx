@@ -2,27 +2,33 @@
 
 import type { FC, KeyboardEvent } from "react";
 
-import { CORE_PANEL_PLUGINS, nextPanelPlugin, type CorePanelPluginId } from "@/lib/panel-plugins";
+import type { PanelPluginStatus } from "@/lib/panel-plugin-host-api";
+import type { PanelPluginManifest } from "@/lib/panel-plugin-manifest";
+import { CORE_PANEL_PLUGIN_MANIFESTS } from "@/lib/panel-plugin-registry";
+import { nextPanelPlugin } from "@/lib/panel-plugins";
 
 /** Where a panel plugin host is mounted; each placement gets its own DOM ids so both can exist at once. */
 export type PanelHostPlacement = "docked" | "sheet";
 
-export function panelPluginTabDomId(placement: PanelHostPlacement, id: CorePanelPluginId): string {
+export function panelPluginTabDomId(placement: PanelHostPlacement, id: string): string {
   return `panel-plugin-${placement}-tab-${id}`;
 }
 
-export function panelPluginPanelDomId(placement: PanelHostPlacement, id: CorePanelPluginId): string {
+export function panelPluginPanelDomId(placement: PanelHostPlacement, id: string): string {
   return `panel-plugin-${placement}-panel-${id}`;
 }
 
 /** One tab per panel plugin; arrow keys move between them. */
 export const PanelPluginTabs: FC<{
   placement: PanelHostPlacement;
-  selected: CorePanelPluginId;
-  onSelect: (id: CorePanelPluginId) => void;
-}> = ({ placement, selected, onSelect }) => {
+  selected: string;
+  onSelect: (id: string) => void;
+  plugins?: ReadonlyArray<PanelPluginManifest>;
+  titleByPluginId?: Readonly<Record<string, string | undefined>>;
+  statusByPluginId?: Readonly<Record<string, PanelPluginStatus | undefined>>;
+}> = ({ placement, selected, onSelect, plugins = CORE_PANEL_PLUGIN_MANIFESTS, titleByPluginId = {}, statusByPluginId = {} }) => {
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const next = nextPanelPlugin(selected, event.key);
+    const next = nextPanelPlugin(selected, event.key, plugins);
     if (next === null) return;
     event.preventDefault();
     onSelect(next);
@@ -30,8 +36,9 @@ export const PanelPluginTabs: FC<{
   };
   return (
     <div role="tablist" aria-label="Panel plugins" onKeyDown={onKeyDown} className="flex min-w-0 gap-1">
-      {CORE_PANEL_PLUGINS.map((plugin) => {
+      {plugins.map((plugin) => {
         const isSelected = plugin.id === selected;
+        const status = statusByPluginId[plugin.id];
         return (
           <button
             key={plugin.id}
@@ -46,7 +53,8 @@ export const PanelPluginTabs: FC<{
               isSelected ? "bg-surface" : "hover:bg-surface/60"
             }`}
           >
-            {plugin.label}
+            {titleByPluginId[plugin.id] ?? plugin.name}
+            {status ? <span className={`ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-[0.6rem] ${status.tone === "danger" ? "bg-clay/25" : status.tone === "attention" ? "bg-amber/25" : "bg-surface-raised"}`}>{status.label}</span> : null}
           </button>
         );
       })}

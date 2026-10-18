@@ -10,6 +10,22 @@ import { build } from "esbuild";
 import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 
+const ACCEPTANCE_PLUGIN_MODULE = `
+class AcceptanceNotePanel extends HTMLElement {
+  set chatticus(binding) {
+    this.binding = binding;
+    this.textContent = "size=" + binding.context.size + " active=" + binding.context.active + " theme=" + binding.context.theme;
+    if (!this.titled) {
+      this.titled = true;
+      binding.host.setTitle("Acceptance notes");
+      binding.host.setStatus({ label: "3", tone: "attention" });
+    }
+  }
+  get chatticus() { return this.binding; }
+}
+customElements.define("acceptance-note-panel", AcceptanceNotePanel);
+`;
+
 /** Exercise the real workspace in Chrome; lifecycle events model Safari recovery, not a physical iPad keyboard. */
 async function main(): Promise<void> {
   const input = JSON.parse(process.argv[2] ?? "{}");
@@ -33,7 +49,10 @@ async function main(): Promise<void> {
   const css = await postcss([tailwindcss({ config: join(webDirectory, "tailwind.config.ts") })])
     .process(globalCss, { from: join(webDirectory, "app/globals.css") });
   const server = createServer((request, response) => {
-    if (request.url === "/fixture.js") {
+    if (request.url === "/acceptance-plugin.js") {
+      response.setHeader("Content-Type", "text/javascript");
+      response.end(ACCEPTANCE_PLUGIN_MODULE);
+    } else if (request.url === "/fixture.js") {
       response.setHeader("Content-Type", "text/javascript");
       response.end(bundle.outputFiles[0].contents);
     } else {
@@ -211,6 +230,42 @@ async function main(): Promise<void> {
       await viewport(2000, 900);
       await delay(100);
       output = { saved, narrow, restored: { sidebar: await width("sidebar"), panel: await width("panel") } };
+    } else if (input.action === "plugins") {
+      await until(`document.querySelector('chatticus-context-panel') !== null`);
+      const contextPanelRendered = await evaluate(`document.querySelector('chatticus-context-panel').textContent.includes('Computer')`);
+      await evaluate(`document.querySelector('[role="tab"]:nth-child(2)').click()`);
+      await until(`document.querySelector('chatticus-files-panel') !== null`);
+      const registration = await evaluate(`window.registerAcceptancePanelPlugin({
+        id: "acceptance-notes", name: "Notes", version: "1.0.0", entry: "/acceptance-plugin.js",
+        elements: { panel: "acceptance-note-panel" }, sizes: ["split", "full"], handles: ["acceptance.note"],
+      })`);
+      await until(`[...document.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent.includes('Notes'))`);
+      const tabNamesBeforeOpening = await evaluate(`[...document.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)`);
+      await evaluate(`[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent.includes('Notes')).click()`);
+      await until(`document.querySelector('acceptance-note-panel') !== null && document.querySelector('acceptance-note-panel').textContent !== ''`);
+      await until(`[...document.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent.includes('Acceptance notes'))`);
+      const splitContent = await evaluate(`document.querySelector('acceptance-note-panel').textContent`);
+      await evaluate(`[...document.querySelectorAll('[aria-label="Panel size"] button')].find((button) => button.textContent === 'Full').click()`);
+      await until(`document.querySelector('acceptance-note-panel').textContent.includes('size=full')`);
+      const fullContent = await evaluate(`document.querySelector('acceptance-note-panel').textContent`);
+      const tabTitlesAfterOpening = await evaluate(`[...document.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)`);
+      await evaluate(`[...document.querySelectorAll('[role="tab"]')][0].click()`);
+      await until(`document.querySelector('acceptance-note-panel').closest('[role="tabpanel"]').hidden`);
+      const keptMountedWhileHidden = await evaluate(`document.querySelector('acceptance-note-panel').textContent.includes('active=false')`);
+      const reservedCoreRegistration = await evaluate(`window.registerAcceptancePanelPlugin({
+        id: "files", name: "Impostor", version: "1.0.0", elements: { panel: "impostor-panel" }, sizes: ["split"],
+      })`);
+      const failingRegistration = await evaluate(`window.registerAcceptancePanelPlugin({
+        id: "missing-module", name: "Missing", version: "1.0.0", entry: "/does-not-exist.js", elements: { panel: "missing-module-panel" }, sizes: ["split"],
+      })`);
+      await until(`[...document.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent.includes('Missing'))`);
+      await evaluate(`[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent.includes('Missing')).click()`);
+      const failureAlert = `[...document.querySelectorAll('[role="alert"]')].find((alert) => alert.textContent.includes('could not be loaded'))`;
+      await until(`${failureAlert} !== undefined`);
+      output = {
+        contextPanelRendered, registration, fullContent, tabNamesBeforeOpening, splitContent, tabTitlesAfterOpening, keptMountedWhileHidden,
+        reservedCoreRegistration, failingRegistration, failureMessage: await evaluate(`${failureAlert}.textContent`),
+      };
     } else throw new Error(`Unknown browser action ${input.action}`);
     process.stdout.write(JSON.stringify(output));
   } catch (error) {

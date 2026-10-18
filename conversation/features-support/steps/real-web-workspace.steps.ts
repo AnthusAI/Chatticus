@@ -487,3 +487,53 @@ Then("the conversation retains its minimum width without horizontal overflow", f
 Then("both columns return to their saved widths when the window widens", function (this: ChatticusWorld) {
 	assert.deepEqual(scenarioOf(this).result.restored, scenarioOf(this).result.saved);
 });
+
+When("a plugin manifest for a custom element {string} is registered", { timeout: 60_000 }, async function (this: ChatticusWorld) {
+	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "plugins" })]);
+});
+
+Then("the panel lists the plugin as a tab after the core plugins", function (this: ChatticusWorld) {
+	const result = scenarioOf(this).result;
+	assert.deepEqual(result.registration, { ok: true, replaced: false });
+	assert.deepEqual(result.tabNamesBeforeOpening, ["Context", "Files", "Costs", "Notes"]);
+});
+
+Then("opening the plugin shows its element with the panel size, active state and theme", function (this: ChatticusWorld) {
+	assert.equal(scenarioOf(this).result.splitContent, "size=split active=true theme=light");
+});
+
+Then("the plugin renames its tab and shows a status badge through the host", function (this: ChatticusWorld) {
+	assert.deepEqual(scenarioOf(this).result.tabTitlesAfterOpening, ["Context", "Files", "Costs", "Acceptance notes3"]);
+});
+
+Then("switching the panel to full size tells the plugin the new size", function (this: ChatticusWorld) {
+	assert.equal(scenarioOf(this).result.fullContent, "size=full active=true theme=light");
+});
+
+Then("the plugin stays mounted while another tab is selected", function (this: ChatticusWorld) {
+	assert.equal(scenarioOf(this).result.keptMountedWhileHidden, true);
+});
+
+When("a plugin manifest claims the identity of the core {string} plugin", { timeout: 60_000 }, async function (this: ChatticusWorld) {
+	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "plugins" })]);
+});
+
+Then("the registration is refused as reserved", function (this: ChatticusWorld) {
+	assert.deepEqual(scenarioOf(this).result.reservedCoreRegistration, { ok: false, reason: "core_plugin_is_reserved" });
+});
+
+Then("the Context and Files panels are rendered by their plugin elements", function (this: ChatticusWorld) {
+	assert.equal(scenarioOf(this).result.contextPanelRendered, true);
+});
+
+When("a plugin manifest points at a module that does not exist", { timeout: 60_000 }, async function (this: ChatticusWorld) {
+	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "plugins" })]);
+});
+
+Then("its tab explains the plugin could not be loaded", function (this: ChatticusWorld) {
+	assert.match(scenarioOf(this).result.failureMessage, /Missing could not be loaded/);
+});
+
+Then("the other panel tabs keep working", function (this: ChatticusWorld) {
+	assert.deepEqual(scenarioOf(this).result.tabNamesBeforeOpening.slice(0, 3), ["Context", "Files", "Costs"]);
+});
