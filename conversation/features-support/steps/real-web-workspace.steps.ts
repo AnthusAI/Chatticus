@@ -488,7 +488,7 @@ Then("both columns return to their saved widths when the window widens", functio
 	assert.deepEqual(scenarioOf(this).result.restored, scenarioOf(this).result.saved);
 });
 
-When("a plugin manifest for a custom element {string} is registered", { timeout: 60_000 }, async function (this: ChatticusWorld) {
+When("a plugin manifest for a custom element {string} is registered", { timeout: 60_000 }, async function (this: ChatticusWorld, _elementTag: string) {
 	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "plugins" })]);
 });
 
@@ -514,7 +514,7 @@ Then("the plugin stays mounted while another tab is selected", function (this: C
 	assert.equal(scenarioOf(this).result.keptMountedWhileHidden, true);
 });
 
-When("a plugin manifest claims the identity of the core {string} plugin", { timeout: 60_000 }, async function (this: ChatticusWorld) {
+When("a plugin manifest claims the identity of the core {string} plugin", { timeout: 60_000 }, async function (this: ChatticusWorld, _pluginId: string) {
 	scenarioOf(this).result = await runWebHarness("workspace-browser-harness.ts", [JSON.stringify({ action: "plugins" })]);
 });
 
