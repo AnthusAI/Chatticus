@@ -1,6 +1,13 @@
 import { createRoot } from "react-dom/client";
 import { EnabledWorkspace } from "../components/EnabledWorkspace";
 import { setIdTokenSourceForTests } from "../lib/api-auth";
+import { panelPluginRegistry } from "../lib/panel-plugin-registry";
+import { parsePanelPluginManifest } from "../lib/panel-plugin-manifest";
+
+(window as unknown as { registerAcceptancePanelPlugin: (manifest: unknown) => unknown }).registerAcceptancePanelPlugin = (manifest) => {
+  const parsed = parsePanelPluginManifest(manifest);
+  return parsed.ok ? panelPluginRegistry.register(parsed.manifest) : parsed;
+};
 
 setIdTokenSourceForTests(async () => "workspace-layout-fixture");
 window.fetch = async (input) => {

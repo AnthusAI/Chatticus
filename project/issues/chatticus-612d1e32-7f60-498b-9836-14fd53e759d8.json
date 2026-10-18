@@ -1,0 +1,29 @@
+{
+  "id": "chatticus-612d1e32-7f60-498b-9836-14fd53e759d8",
+  "title": "Blind whole-record computer writes race the conditional owner and dispatch updates",
+  "description": "setComputerStopped and the capability updates in conversation/src/domain/computers.ts:59,106,174,197 read the computer, rebuild it and PutItem it with no condition, while about twenty conditional UpdateItem paths in store/dynamo-messaging-store.ts:561-898 (offerOwnerDispatch, consumeOwnerBootstrap, claimHostStartGeneration, touchInteractiveWindow, queueLiveFileOperation) touch the same item. A conditional update that lands between the read and the write is silently reverted. http/host.ts:117-147 checks host_start_generation at line 118 and writes blind at line 141.\n\nFix: express these transitions as conditional UpdateItems through the existing updateComputerWhere helper, conditioned on host_start_generation (and owner_id where relevant); reserve putComputer for creation with attribute_not_exists(pk); collapse hostComputerStateHandler to one read and one conditional write. Add a Gherkin scenario where a dispatch lands during a stopped report and survives.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-140ca224-2364-449d-814e-44719c19d249",
+  "labels": [
+    "review-2026-10-17"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-17T14:45:16.062515Z",
+  "updated_at": "2026-10-17T14:45:16.063579Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Chatticus review thread",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

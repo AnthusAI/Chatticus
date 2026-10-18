@@ -136,8 +136,8 @@
   "created_at": "2026-09-03T13:15:08.373478Z",
   "updated_at": "2026-09-08T18:23:33.529971Z",
   "closed_at": null,
-  "right_now_summary": "Cross-account provisioning is built and tested; only a live customer session remains.",
-  "right_now_updated_at": "2026-10-14T03:09:56.454192Z",
+  "right_now_summary": "Cross-account provisioning is built and verified, with live customer-account testing still awaiting a real session.",
+  "right_now_updated_at": "2026-10-17T13:25:07.564340Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"

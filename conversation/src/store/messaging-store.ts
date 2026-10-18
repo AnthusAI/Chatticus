@@ -1,3 +1,4 @@
+import type { Decimal } from "../budget/decimal.ts";
 import type { ComputerRuntimeSegment } from "../budget/models.ts";
 import type { Bot } from "./codecs/bot.ts";
 import type { Task } from "./codecs/task.ts";
@@ -14,6 +15,11 @@ export interface MessagingStore {
 	putIdentity(identity: Identity): Promise<void>;
 	getOrganization(tenantId: string): Promise<Organization | null>;
 	putOrganization(organization: Organization): Promise<void>;
+	/**
+	 * Give an existing organization a monthly AWS spend ceiling only while it holds none, leaving every other field as
+	 * stored. Returns whether the ceiling was written; false when the organization is missing or already has a ceiling.
+	 */
+	setMonthlyAwsSpendCeilingWhenUnset(tenantId: string, monthlyAwsSpendCeilingUsd: Decimal): Promise<boolean>;
 	getMembership(tenantId: string, userId: string): Promise<Membership | null>;
 	putMembership(membership: Membership): Promise<void>;
 	listMemberships(tenantId: string): Promise<Membership[]>;
@@ -79,6 +85,39 @@ export interface MessagingStore {
 	listTasks(tenantId: string, userId: string): Promise<Task[]>;
 	getComputer(tenantId: string): Promise<Computer | null>;
 	putComputer(computer: Computer): Promise<void>;
+	/**
+	 * Create the computer of an organization only when it has none, so two first callers cannot overwrite each other.
+	 *
+	 * @returns The stored computer: the one just created, or the one a concurrent caller created first.
+	 */
+	createComputerIfAbsent(computer: Computer): Promise<Computer>;
+	/**
+	 * Mark the computer stopped as a targeted update: the readiness gates and every owner field are cleared and nothing else
+	 * is touched, so a field another caller wrote after this caller's last read survives. When `expectedHostStartGeneration`
+	 * is given the update applies only while the stored generation still equals it.
+	 *
+	 * @returns The computer after the change, or null when there is no computer or the generation moved.
+	 */
+	markComputerStopped(tenantId: string, change: { diskMatchesPublished: boolean; expectedHostStartGeneration?: number }): Promise<Computer | null>;
+	/**
+	 * Mark the computer running as a targeted update that clears the browser-unavailable marker and touches no other field.
+	 *
+	 * @returns The computer after the change, or null when there is no computer.
+	 */
+	markComputerRunning(tenantId: string): Promise<Computer | null>;
+	/**
+	 * Record that one capability gate cleared, as a targeted update. The browser capability also clears the
+	 * browser-unavailable marker.
+	 *
+	 * @returns The computer after the change, or null when there is no computer.
+	 */
+	recordComputerCapabilityReady(tenantId: string, capability: "model" | "workspace" | "browser"): Promise<Computer | null>;
+	/**
+	 * Record that the computer booted without a browser, as a targeted update.
+	 *
+	 * @returns The computer after the change, or null when there is no computer.
+	 */
+	recordComputerBrowserUnavailable(tenantId: string): Promise<Computer | null>;
 	/**
 	 * Start the next host start generation under a lease, only while the stored generation is still `expectedGeneration`,
 	 * so two callers that both saw no live lease cannot both start a host. A new generation also clears the disk write

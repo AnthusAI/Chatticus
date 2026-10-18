@@ -7,8 +7,8 @@ import { join } from "node:path";
  * Guard for chatticus-930da7: TurnGrantPanel existed, was fully tested, and was
  * imported by nothing, so turn authority controls did not exist in the product.
  *
- * WHAT THIS PROVES: EnabledWorkspace still references the panel and still gates
- * it on isTurnGrantPanelVisible. That is enough to catch the regression that
+ * WHAT THIS PROVES: the Context panel element still renders the panel, and
+ * EnabledWorkspace still decides when to offer it with isTurnGrantPanelVisible. That is enough to catch the regression that
  * actually happened — the component being orphaned.
  *
  * WHAT THIS DOES NOT PROVE: that the panel renders. These assertions read source
@@ -22,12 +22,17 @@ const source = readFileSync(
   "utf8",
 );
 
+const contextPanelSource = readFileSync(
+  join(__dirname, "..", "components", "workspace", "panel-plugins", "core-panel-elements.tsx"),
+  "utf8",
+);
+
 describe("TurnGrantPanel wiring", () => {
-  it("EnabledWorkspace imports TurnGrantPanel", () => {
+  it("the Context panel element imports TurnGrantPanel", () => {
     assert.match(
-      source,
-      /import\s*{[^}]*\bTurnGrantPanel\b[^}]*}\s*from\s*["']\.\/TurnGrantPanel["']/,
-      "EnabledWorkspace.tsx must import TurnGrantPanel",
+      contextPanelSource,
+      /import\s*{[^}]*\bTurnGrantPanel\b[^}]*}\s*from\s*["']@\/components\/TurnGrantPanel["']/,
+      "core-panel-elements.tsx must import TurnGrantPanel",
     );
   });
 
@@ -39,18 +44,24 @@ describe("TurnGrantPanel wiring", () => {
     );
   });
 
-  it("renders TurnGrantPanel gated on isTurnGrantPanelVisible", () => {
-    // Whitespace- and argument-agnostic: only that the gate precedes the render,
-    // close enough together to be the same expression.
+  it("EnabledWorkspace gates the grant offered to the Context panel on isTurnGrantPanelVisible", () => {
     assert.match(
       source,
-      /isTurnGrantPanelVisible\s*\([\s\S]{0,120}?<TurnGrantPanel\b/,
-      "EnabledWorkspace.tsx must render TurnGrantPanel gated on isTurnGrantPanelVisible",
+      /turnGrantTurnId:[^\n]*isTurnGrantPanelVisible\s*\(/,
+      "EnabledWorkspace.tsx must set turnGrantTurnId only when isTurnGrantPanelVisible says so",
+    );
+  });
+
+  it("the Context panel element renders TurnGrantPanel only when a grant turn is offered", () => {
+    assert.match(
+      contextPanelSource,
+      /turnGrantTurnId\s*!==\s*null\s*\?\s*<TurnGrantPanel\b/,
+      "core-panel-elements.tsx must render TurnGrantPanel gated on turnGrantTurnId",
     );
   });
 
   it("passes activeOrg and turnId to TurnGrantPanel", () => {
-    const tag = source.match(/<TurnGrantPanel\b[\s\S]*?\/>/);
+    const tag = contextPanelSource.match(/<TurnGrantPanel\b[\s\S]*?\/>/);
     assert.ok(tag, "expected a self-closing <TurnGrantPanel /> element");
     assert.match(tag[0], /\bactiveOrg=/, "TurnGrantPanel needs an activeOrg prop");
     assert.match(tag[0], /\bturnId=/, "TurnGrantPanel needs a turnId prop");

@@ -27,8 +27,13 @@ import {
   thinTurnParameterPrefix,
   WEB_CLOUDFRONT_ENABLED,
   webParameterPrefix,
+  AUTH_DOMAIN_NAMES,
   WEB_CROSS_ORIGIN_ISOLATION,
 } from "./environments";
+import {
+  CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER,
+  webContentSecurityPolicy,
+} from "./web-content-security-policy";
 import {
   CHATTICUS_LOG_RETENTION,
   CustomResourceProviderLogRetentionAspect,
@@ -101,17 +106,30 @@ export class WebStack extends cdk.Stack {
       comment: "SPA fallback status for S3 paths; never rewrite /api responses.",
     });
 
-    const crossOriginIsolationHeaders = WEB_CROSS_ORIGIN_ISOLATION[environmentName]
-      ? new cloudfront.ResponseHeadersPolicy(this, "CrossOriginIsolationHeaders", {
-          comment: `Chatticus ${environmentName} cross-origin isolation for on-device voice.`,
-          customHeadersBehavior: {
-            customHeaders: [
-              { header: "Cross-Origin-Opener-Policy", value: "same-origin", override: true },
-              { header: "Cross-Origin-Embedder-Policy", value: "require-corp", override: true },
-            ],
+    const crossOriginIsolationCustomHeaders = WEB_CROSS_ORIGIN_ISOLATION[environmentName]
+      ? [
+          { header: "Cross-Origin-Opener-Policy", value: "same-origin", override: true },
+          { header: "Cross-Origin-Embedder-Policy", value: "require-corp", override: true },
+        ]
+      : [];
+    const siteResponseHeaders = new cloudfront.ResponseHeadersPolicy(this, "SiteResponseHeaders", {
+      comment: `Chatticus ${environmentName} site headers: report-only CSP${
+        WEB_CROSS_ORIGIN_ISOLATION[environmentName] ? " and cross-origin isolation for on-device voice" : ""
+      }.`,
+      customHeadersBehavior: {
+        customHeaders: [
+          ...crossOriginIsolationCustomHeaders,
+          {
+            header: CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER,
+            value: webContentSecurityPolicy({
+              cognitoRegion: this.region,
+              authDomainName: AUTH_DOMAIN_NAMES[environmentName],
+            }),
+            override: true,
           },
-        })
-      : undefined;
+        ],
+      },
+    });
 
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
       enabled: WEB_CLOUDFRONT_ENABLED[environmentName],
@@ -124,7 +142,7 @@ export class WebStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-        responseHeadersPolicy: crossOriginIsolationHeaders,
+        responseHeadersPolicy: siteResponseHeaders,
         functionAssociations: [
           {
             function: spaViewerRequest,

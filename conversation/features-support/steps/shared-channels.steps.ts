@@ -4,7 +4,8 @@ import { createBot } from "../../src/domain/bots.ts";
 import { createChannel, type Channel } from "../../src/domain/channels.ts";
 import type { Organization } from "../../src/domain/organizations.ts";
 import { recordResponse } from "../api.ts";
-import { bearerFor } from "../front-door.ts";
+import { postMessage } from "../../src/domain/messages.ts";
+import { bearerFor, executorMessageDependencies } from "../front-door.ts";
 import { useComputer } from "./shared-computer.steps.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -154,11 +155,16 @@ When(
 When(
 	"organization bot {string} posts {string} addressed to organization bot {string} in shared channel {string}",
 	async function (this: ChatticusWorld, author: string, body: string, addressee: string, channelName: string) {
-		await postToSharedChannel(this, channelName, memberEmails(this)[0]!, {
-			author_kind: "bot",
-			author_id: botNamed(this, author).botId,
+		const channel = sharedChannelNamed(this, channelName);
+		await postMessage(await executorMessageDependencies(this), {
+			tenantId: channel.tenantId,
+			channelId: channel.channelId,
+			authorKind: "bot",
+			authorId: botNamed(this, author).botId,
 			body,
-			addressed_to_bot_id: botNamed(this, addressee).botId,
+			addressedToBotId: botNamed(this, addressee).botId,
+			idempotencyKey: null,
+			enqueueTurn: false,
 		});
 	},
 );

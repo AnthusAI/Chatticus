@@ -344,6 +344,20 @@ zero. `error` and `pending` both make the meter unavailable, and an
 organization with a ceiling and an unavailable meter has new computer work
 refused. Days Cost Explorer has not populated stay `pending`.
 
+## The default ceiling
+
+Every organization starts with a monthly ceiling of 50.00 USD, whether it was
+created in the app or seeded by the operator. Self-setup replaces it with the
+ceiling the owner chooses, and an owner can raise it when work pauses.
+Organizations created before this rule hold no ceiling; give them the default
+once with
+`node conversation/bin/migrate-organization-spend-ceiling.ts --environment ENV`
+(a dry run; add `--execute` to write, `--tenant T` to limit it to one
+organization). It writes only the ceiling, and only while the organization
+still holds none, so it never changes a ceiling an owner set. An enabled
+organization whose month already cost 50.00 or more is paused the moment it
+gets the ceiling, so read the month-to-date rollup before running `--execute`.
+
 ## Platform-hosted organizations: priced from recorded runtime
 
 An organization hosted in the deployment account (setup path `anthus-managed`,

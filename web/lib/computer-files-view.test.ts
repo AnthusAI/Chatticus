@@ -7,7 +7,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { buildListingView, describeFilesError, FilesApiError } from "./computer-files";
 import { emptyListing, textFileRange, touchingCards, workspaceListing } from "./computer-files-fixtures";
 import { startEditSession } from "./computer-files-edit";
-import { CORE_PANEL_PLUGINS, nextPanelPlugin, panelSizeForPlugin, workspaceShellLayoutClassName } from "./panel-plugins";
+import { CORE_PANEL_PLUGIN_MANIFESTS } from "./panel-plugin-registry";
+import { nextPanelPlugin, panelSizeForPlugin, workspaceShellLayoutClassName } from "./panel-plugins";
 import { collectTouchedFiles } from "./touched-files";
 
 (globalThis as { React?: typeof React }).React = React;
@@ -168,7 +169,7 @@ describe("PanelPluginTabs", () => {
     assert.equal(nextPanelPlugin("files", "ArrowRight"), "costs");
     assert.equal(nextPanelPlugin("costs", "ArrowRight"), "context");
     assert.equal(nextPanelPlugin("context", "ArrowLeft"), "costs");
-    assert.equal(nextPanelPlugin("files", "Home"), CORE_PANEL_PLUGINS[0].id);
+    assert.equal(nextPanelPlugin("files", "Home"), CORE_PANEL_PLUGIN_MANIFESTS[0].id);
     assert.equal(nextPanelPlugin("context", "End"), "costs");
     assert.equal(nextPanelPlugin("context", "a"), null);
   });

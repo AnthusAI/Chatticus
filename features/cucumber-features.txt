@@ -87,6 +87,7 @@ features/customer_account_provisioning.feature
 features/customer_computer_image.feature
 features/customer_cross_account_role_api.feature
 features/customer_snapshot_bucket_template.feature
+features/customer_role_privilege_boundary.feature
 features/organization_spend_ceiling_provisioning.feature
 features/web_organization_signup.feature
 features/computer_ecs_host_starter.feature
@@ -137,6 +138,7 @@ features/model_gateway_observability.feature
 features/owner_start_observability.feature
 features/organization_aws_home_on_enable.feature
 features/organization_aws_home_migration.feature
+features/organization_default_spend_ceiling.feature
 features/owner_host_token.feature
 features/owner_supervisor_server.feature
 features/computer_owner_credential_drain.feature
@@ -170,3 +172,4 @@ features/cost_api.feature
 features/cost_api_gateway_rows.feature
 features/role_access_manifest.feature
 features/owner_credential_broker_fault_switch.feature
+features/member_identity_binding.feature

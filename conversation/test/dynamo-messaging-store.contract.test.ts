@@ -150,6 +150,20 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 			expect(await store.getOrganization("tenant-missing")).toBeNull();
 		});
 
+		it("writes a monthly spend ceiling only while the organization holds none", async () => {
+			const store = await makeStore();
+			const withoutCeiling = organization("tenant-a", { status: "enabled", awsSetupPath: "anthus-managed" });
+			await store.putOrganization(withoutCeiling);
+			await store.putOrganization(organization("tenant-b", { monthlyAwsSpendCeilingUsd: Decimal.parse("500") }));
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-a", Decimal.parse("50"))).toBe(true);
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-a", Decimal.parse("75"))).toBe(false);
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-b", Decimal.parse("50"))).toBe(false);
+			expect(await store.setMonthlyAwsSpendCeilingWhenUnset("tenant-missing", Decimal.parse("50"))).toBe(false);
+			expect(await store.getOrganization("tenant-a")).toEqual({ ...withoutCeiling, monthlyAwsSpendCeilingUsd: Decimal.parse("50") });
+			expect((await store.getOrganization("tenant-b"))?.monthlyAwsSpendCeilingUsd?.toString()).toBe(Decimal.parse("500").toString());
+			expect(await store.getOrganization("tenant-missing")).toBeNull();
+		});
+
 		it("lists memberships of one organization sorted by user, across several pages", async () => {
 			const store = await makeStore();
 			for (const userId of ["u-e", "u-b", "u-d", "u-a", "u-c"]) {
@@ -570,6 +584,51 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 					await store.putComputer(computerOnGeneration(1));
 					await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
 				};
+
+				it("creates a computer only when the organization has none and returns the one that won", async () => {
+					const store = await makeStore();
+					const first = await store.createComputerIfAbsent(computerOnGeneration(0));
+					const second = await store.createComputerIfAbsent({ ...computerOnGeneration(0), computerId: "c-late" });
+					expect(first.computerId).toBe("c-1");
+					expect(second.computerId).toBe("c-1");
+					expect((await store.getComputer("tenant-a"))?.computerId).toBe("c-1");
+				});
+
+				it("keeps a dispatch offered after the stopped reader looked when a capability report lands", async () => {
+					const store = await makeStore();
+					await liveOwner(store);
+					expect(await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-1"))).toBe(true);
+					const recorded = await store.recordComputerCapabilityReady("tenant-a", "workspace");
+					expect(recorded?.workspaceReady).toBe(true);
+					expect(recorded?.dispatchId).toBe("d-1");
+					expect(recorded?.ownerId).toBe("owner-a");
+					expect(await store.recordComputerBrowserUnavailable("tenant-a")).toMatchObject({ browserReady: false, browserUnavailable: true, dispatchId: "d-1" });
+					expect(await store.recordComputerCapabilityReady("tenant-a", "browser")).toMatchObject({ browserReady: true, dispatchId: "d-1" });
+					expect((await store.getComputer("tenant-a"))?.browserUnavailable).toBeUndefined();
+				});
+
+				it("stops the computer for the expected generation only and leaves a newer generation untouched", async () => {
+					const store = await makeStore();
+					await liveOwner(store);
+					await store.recordComputerCapabilityReady("tenant-a", "workspace");
+					expect(await store.markComputerStopped("tenant-a", { diskMatchesPublished: false, expectedHostStartGeneration: 2 })).toBeNull();
+					expect(await store.getComputer("tenant-a")).toMatchObject({ stopped: false, workspaceReady: true, ownerId: "owner-a" });
+					const stopped = await store.markComputerStopped("tenant-a", { diskMatchesPublished: false, expectedHostStartGeneration: 1 });
+					expect(stopped).toMatchObject({ stopped: true, modelReady: false, workspaceReady: false, browserReady: false, ownerGeneration: 1 });
+					expect(stopped?.ownerId).toBeUndefined();
+					expect(await store.markComputerStopped("tenant-none", { diskMatchesPublished: false })).toBeNull();
+				});
+
+				it("clears the dirty flag on a stop only when the live disk matches the published pack, and a start keeps unrelated fields", async () => {
+					const store = await makeStore();
+					await store.putComputer({ ...computerOnGeneration(1), diskDirty: true });
+					expect((await store.markComputerStopped("tenant-a", { diskMatchesPublished: false }))?.diskDirty).toBe(true);
+					expect((await store.markComputerStopped("tenant-a", { diskMatchesPublished: true }))?.diskDirty).toBe(false);
+					await store.recordComputerBrowserUnavailable("tenant-a");
+					const running = await store.markComputerRunning("tenant-a");
+					expect(running).toMatchObject({ stopped: false, hostStartGeneration: 1 });
+					expect(running?.browserUnavailable).toBeUndefined();
+				});
 
 				it("records a supervisor renewal once for the value that was read, at second precision, and moves the credential expiry", async () => {
 					const store = await makeStore();

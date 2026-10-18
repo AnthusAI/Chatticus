@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
+import { AccountGitHubDeployStack, INTEGRATION_TEST_ROLE_NAME } from "../lib/account-github-deploy-stack";
 import {
   ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_ROLE_NAMES,
@@ -13,7 +13,7 @@ import {
 } from "../lib/environments";
 import { federatedPrincipalConditions, roleAssumeRolePolicy } from "./github-deploy-stack-harness";
 
-const GITHUB_SUB_PREFIX = "repo:*@152415604/*@1350947261";
+import { GITHUB_SUB_PREFIX } from "../lib/github-deploy-stack";
 
 function synth(environment: (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number]): Template {
   const app = new cdk.App();
@@ -46,8 +46,8 @@ describe("AccountGitHubDeployStack", () => {
         });
       }
 
-      it("creates exactly one deploy role, not one per environment", () => {
-        template.resourceCountIs("AWS::IAM::Role", 1);
+      it("creates exactly one deploy role, not one per environment, plus the integration test role in development only", () => {
+        template.resourceCountIs("AWS::IAM::Role", environment === "development" ? 2 : 1);
         template.hasResourceProperties("AWS::IAM::Role", { RoleName: ACCOUNT_DEPLOY_ROLE_NAMES[environment] });
       });
 
@@ -72,6 +72,33 @@ describe("AccountGitHubDeployStack", () => {
       it("outputs the role ARN for the cutover step", () => {
         assert.ok("GithubDeployRoleArn" in template.toJSON().Outputs);
       });
+    });
+  }
+});
+
+describe("integration test role", () => {
+  const template = synth("development");
+
+  it("is trusted only by the development GitHub environment sub claim", () => {
+    const condition = federatedPrincipalConditions(roleAssumeRolePolicy(template, INTEGRATION_TEST_ROLE_NAME));
+    const subject = (condition.StringLike as Record<string, string>)["token.actions.githubusercontent.com:sub"];
+    assert.equal(subject, `${GITHUB_SUB_PREFIX}:environment:development`);
+  });
+
+  it("can only read the two thin-turn parameters and the invoke key secret", () => {
+    const policies = template.findResources("AWS::IAM::Policy");
+    const statements = Object.values(policies)
+      .filter((policy) => JSON.stringify(policy).includes("IntegrationTest"))
+      .flatMap((policy) => (policy as any).Properties.PolicyDocument.Statement);
+    assert.deepEqual(
+      statements.flatMap((statement: any) => statement.Action).sort(),
+      ["secretsmanager:GetSecretValue", "ssm:GetParameter"],
+    );
+  });
+
+  for (const environment of ["staging", "production"] as const) {
+    it(`does not exist in ${environment}`, () => {
+      assert.equal(JSON.stringify(synth(environment).toJSON()).includes(INTEGRATION_TEST_ROLE_NAME), false);
     });
   }
 });

@@ -9,6 +9,7 @@ import {
   provisioningParameterPrefix,
 } from "../lib/customer-role-template";
 import {
+  AUTH_DOMAIN_NAMES,
   WEB_CLOUDFRONT_ENABLED,
   WEB_CROSS_ORIGIN_ISOLATION,
   WEB_SITE_DOMAINS,
@@ -155,29 +156,45 @@ describe("WebStack single-domain routing (post marketing split, chatticus-3926bc
   });
 });
 
-describe("WebStack cross-origin isolation for on-device voice", () => {
+describe("WebStack response headers", () => {
+  function customHeaderItems(template: ReturnType<typeof synthWebStack>) {
+    const [policy] = Object.values(template.findResources("AWS::CloudFront::ResponseHeadersPolicy"));
+    return (policy.Properties as {
+      ResponseHeadersPolicyConfig: { CustomHeadersConfig: { Items: { Header: string; Value: string; Override: boolean }[] } };
+    }).ResponseHeadersPolicyConfig.CustomHeadersConfig.Items;
+  }
+
   for (const environmentName of ["development", "staging", "production"] as const) {
     it(`${WEB_CROSS_ORIGIN_ISOLATION[environmentName] ? "isolates" : "does not isolate"} ${environmentName}`, () => {
       const template = synthWebStack(environmentName);
-      const policies = template.findResources("AWS::CloudFront::ResponseHeadersPolicy");
-      if (!WEB_CROSS_ORIGIN_ISOLATION[environmentName]) {
-        assert.equal(Object.keys(policies).length, 0);
-        return;
-      }
-      template.hasResourceProperties("AWS::CloudFront::ResponseHeadersPolicy", {
-        ResponseHeadersPolicyConfig: {
-          CustomHeadersConfig: {
-            Items: [
-              { Header: "Cross-Origin-Opener-Policy", Value: "same-origin", Override: true },
-              { Header: "Cross-Origin-Embedder-Policy", Value: "require-corp", Override: true },
-            ],
-          },
-        },
-      });
+      const headerNames = customHeaderItems(template).map((item) => item.Header);
+      assert.equal(headerNames.includes("Cross-Origin-Opener-Policy"), WEB_CROSS_ORIGIN_ISOLATION[environmentName]);
+      assert.equal(headerNames.includes("Cross-Origin-Embedder-Policy"), WEB_CROSS_ORIGIN_ISOLATION[environmentName]);
       const distribution = Object.values(
         template.findResources("AWS::CloudFront::Distribution"),
       )[0] as { Properties: { DistributionConfig: { DefaultCacheBehavior: { ResponseHeadersPolicyId?: unknown } } } };
       assert.ok(distribution.Properties.DistributionConfig.DefaultCacheBehavior.ResponseHeadersPolicyId);
+    });
+
+    it(`sends a report-only content security policy for ${environmentName}`, () => {
+      const items = customHeaderItems(synthWebStack(environmentName));
+      const policyItem = items.find((item) => item.Header === "Content-Security-Policy-Report-Only");
+      assert.ok(policyItem, "report-only CSP header present");
+      assert.equal(policyItem.Override, true);
+      assert.equal(items.some((item) => item.Header === "Content-Security-Policy"), false);
+      const directives = new Map(
+        policyItem.Value.split("; ").map((directive) => {
+          const [name, ...sources] = directive.split(" ");
+          return [name, sources] as const;
+        }),
+      );
+      assert.deepEqual(directives.get("default-src"), ["'self'"]);
+      assert.ok(directives.get("worker-src")?.includes("blob:"));
+      assert.ok(directives.get("script-src")?.includes("'wasm-unsafe-eval'"));
+      assert.ok(directives.get("connect-src")?.includes("https://cognito-idp.us-east-1.amazonaws.com"));
+      assert.ok(directives.get("connect-src")?.includes(`https://${AUTH_DOMAIN_NAMES[environmentName]}`));
+      assert.deepEqual(directives.get("object-src"), ["'none'"]);
+      assert.deepEqual(directives.get("frame-ancestors"), ["'none'"]);
     });
   }
 });

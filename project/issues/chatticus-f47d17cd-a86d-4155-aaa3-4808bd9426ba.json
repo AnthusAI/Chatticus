@@ -1,0 +1,29 @@
+{
+  "id": "chatticus-f47d17cd-a86d-4155-aaa3-4808bd9426ba",
+  "title": "An enabled member can act as any other member on user routes",
+  "description": "assertIntegrationTestUserId (conversation/src/auth/integration-test.ts:382-389) returns immediately unless the principal kind is integration, so for a real Cognito user the body's author_id is trusted (http/routes/messages.ts:93-105). Any enabled member can post as another participant or as a bot, create channels and tasks for another user_id, and list another user's channels and tasks (routes/channels.ts:78,96; routes/tasks.ts:93,107,142).\n\nFix: rename the helper to assertActingUserId and enforce actorUserId === principal.userId for every principal kind; refuse author_kind bot on the user message route (bots post through the executor); require the principal to be a participant before listing or posting to a channel; bind /users/{user_id} routes to the principal or to owners. One Gherkin refusal scenario per route, failing before the fix.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-140ca224-2364-449d-814e-44719c19d249",
+  "labels": [
+    "review-2026-10-17"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-17T14:44:24.095924Z",
+  "updated_at": "2026-10-17T14:44:24.097311Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Chatticus review thread",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

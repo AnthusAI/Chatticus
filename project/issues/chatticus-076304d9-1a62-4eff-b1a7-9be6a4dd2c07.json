@@ -32,7 +32,7 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "Bot messages render fenced code and other Markdown correctly; clipboard copying still needs verification.",
+  "right_now_updated_at": "2026-10-17T07:51:26.326902Z",
   "custom": {}
 }

@@ -14,14 +14,12 @@
   "created_at": "2026-10-16T13:14:51.012492Z",
   "updated_at": "2026-10-16T13:14:51.012739Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "claude-code",
     "model": "claude",
-    "name": "Claude (project thread for Ryan)",
-    "settings": {}
+    "name": "Claude (project thread for Ryan)"
   },
-  "agent_assignment": null
+  "right_now_summary": "The team is defining a manifest and ESM entry to load external panel plugins as web components.",
+  "right_now_updated_at": "2026-10-17T07:50:15.463536Z",
+  "custom": {}
 }

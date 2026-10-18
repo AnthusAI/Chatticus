@@ -117,3 +117,61 @@ When("the worker bearer credential is used on a browser route", async function (
 	);
 	this.browserRouteStatus = response.status;
 });
+
+let lastRegistrationAttempt: RecordedResponse | null = null;
+
+async function attemptRegistration(world: ChatticusWorld, table: DataTable, presentCurrentToken: boolean): Promise<void> {
+	assert.ok(world.api, "The scenario has no HTTP front door.");
+	const values: Record<string, string> = {};
+	for (const row of table.raw()) {
+		values[(row[0] ?? "").trim()] = (row[1] ?? "").trim();
+	}
+	const current = world.registeredWorkers.find(
+		(worker) => worker.tenantId === values.tenant_id && worker.workerId === values.worker_id,
+	);
+	const headers: Record<string, string> =
+		presentCurrentToken && current !== undefined ? { Authorization: `Bearer ${current.token}` } : {};
+	lastRegistrationAttempt = await recordResponse(
+		await world.api.post(`/orgs/${values.tenant_id}/workers/register`, {
+			headers,
+			body: {
+				worker_id: values.worker_id,
+				cost_class: values.cost_class,
+				capabilities: (values.capabilities ?? "").split(",").map((item) => item.trim()).filter((item) => item !== ""),
+			},
+		}),
+	);
+}
+
+When("a worker attempts to register:", async function (this: ChatticusWorld, table: DataTable) {
+	await attemptRegistration(this, table, true);
+});
+
+When(
+	"a worker attempts to register without presenting its current token:",
+	async function (this: ChatticusWorld, table: DataTable) {
+		await attemptRegistration(this, table, false);
+	},
+);
+
+Given("a disabled organization {string}", async function (this: ChatticusWorld, tenantId: string) {
+	await this.messagingStore().putOrganization({
+		tenantId,
+		name: tenantId,
+		status: "suspended",
+		ownerUserId: "disabled-organization-owner",
+		createdAt: this.clock.now(),
+		awsAccountId: null,
+		awsCrossAccountRole: null,
+		awsExternalId: null,
+		awsSetupPath: null,
+		setupFeeCents: null,
+		assistedSetupSession: false,
+		monthlyAwsSpendCeilingUsd: null,
+	});
+});
+
+Then("the registration is refused with status {int}", function (this: ChatticusWorld, status: number) {
+	assert.ok(lastRegistrationAttempt, "No registration was attempted.");
+	assert.equal(lastRegistrationAttempt.status, status, lastRegistrationAttempt.text);
+});

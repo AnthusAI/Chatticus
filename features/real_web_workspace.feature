@@ -119,3 +119,24 @@ Feature: Real Chatticus workspace
     When the member saves both columns at their widest and narrows the window
     Then the conversation retains its minimum width without horizontal overflow
     And both columns return to their saved widths when the window widens
+
+  Scenario: The panel loads a plugin described by a manifest and hands it live context
+    Given the real workspace is mounted in a browser
+    When a plugin manifest for a custom element "acceptance-note-panel" is registered
+    Then the panel lists the plugin as a tab after the core plugins
+    And opening the plugin shows its element with the panel size, active state and theme
+    And the plugin renames its tab and shows a status badge through the host
+    And switching the panel to full size tells the plugin the new size
+    And the plugin stays mounted while another tab is selected
+
+  Scenario: The core panels run as plugin elements and cannot be replaced
+    Given the real workspace is mounted in a browser
+    When a plugin manifest claims the identity of the core "files" plugin
+    Then the registration is refused as reserved
+    And the Context and Files panels are rendered by their plugin elements
+
+  Scenario: A plugin whose module cannot be loaded fails inside its own tab
+    Given the real workspace is mounted in a browser
+    When a plugin manifest points at a module that does not exist
+    Then its tab explains the plugin could not be loaded
+    And the other panel tabs keep working

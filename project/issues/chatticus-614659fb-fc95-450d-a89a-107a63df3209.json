@@ -32,7 +32,7 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "New channels now show an empty message list without writing a session or returning an error.",
+  "right_now_updated_at": "2026-10-17T07:51:24.877071Z",
   "custom": {}
 }

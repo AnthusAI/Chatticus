@@ -1,0 +1,42 @@
+{
+  "id": "chatticus-140ca224-2364-449d-814e-44719c19d249",
+  "title": "Fix the top findings of the 2026-10-17 full review",
+  "description": "Follow-ups from the full review of develop at 3c2ed84 (Claude Doc: https://claude.ai/code/artifact/37d2f3b8-a89b-47ba-8013-989badfc68ff, raw notes under project files reviews/2026-10-17-full-review). Six bugs, each fixed on its own branch with its own PR into develop, Gherkin first.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "97e48b78-ff36-41bd-8c80-c0b96671efb4",
+      "author": "unknown",
+      "text": "Working notes for whoever implements these. No code has been written yet: six Opus agents were started and stopped by a rate limit before making any commit, so every child bug starts from origin/develop.\n\nParallelism: all six touch different files and can run at the same time, one branch and one PR into develop each. Only overlap: chatticus-f47d17 (member identity) and chatticus-dcab9a (worker registration) both edit conversation/src/http, and chatticus-612d1e (computer record writes) and chatticus-16af42 (customer role, if it adds an ExternalId to the organization record) both touch conversation/src/domain; merge order does not matter but expect a trivial rebase.\n\nPriority order if capacity is limited: f47d17 and 16af42 (P0), then 3a9358, 612d1e, dcab9a, 0ee2a2.\n\nEach child issue has the file and line references and the fix. Behavior-driven rule: Gherkin scenario first, then steps, then code; see AGENTS.md. Gates: cd conversation, npm run typecheck, npm test, npm run test:features (needs moto: CHATTICUS_TEST_AWS_ENDPOINT=http://127.0.0.1:5555 with moto_server -p 5555 or docker motoserver/moto:5.2.3); infra: cd infra, npm test.\n\nCloud container caveat: npm ci fails on the web workspace because the anthus-vultus tarball on GitHub returns 403 from the sandbox network. Workaround that worked: git clone AnthusAI/Vultus is also blocked, so use npm ci -w conversation -w host-protocol -w computer/host -w infra --ignore-scripts for everything except web. The web bug (chatticus-3a9358) needs a machine that can reach github.com/AnthusAI/Vultus, or its web gates will have to rely on CI.\n\nSource of findings: Claude Doc https://claude.ai/code/artifact/37d2f3b8-a89b-47ba-8013-989badfc68ff and raw notes in project files under reviews/2026-10-17-full-review/.",
+      "created_at": "2026-10-17T16:03:19.535067Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude",
+        "name": "Chatticus review thread",
+        "settings": {}
+      }
+    }
+  ],
+  "created_at": "2026-10-17T14:43:57.819615Z",
+  "updated_at": "2026-10-17T16:03:19.535289Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude",
+    "name": "Chatticus review thread",
+    "settings": {}
+  },
+  "agent_assignment": null
+}

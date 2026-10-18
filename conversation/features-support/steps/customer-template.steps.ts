@@ -206,3 +206,132 @@ Then(
 Then("the container environment does not hardcode an Anthus snapshot bucket name", function (this: ChatticusWorld) {
 	assert.ok(!JSON.stringify(computersTemplate(this)).includes("ChatticusSnapshots"));
 });
+
+
+function boundaryPolicyStatements(world: ChatticusWorld): Array<Record<string, any>> {
+	const boundary = customerRoleTemplate(world).Resources?.ChatticusComputersBoundary;
+	assert.equal(boundary?.Type, "AWS::IAM::ManagedPolicy", "The template declares no ChatticusComputersBoundary managed policy.");
+	assert.equal(boundary.Properties?.ManagedPolicyName, "ChatticusComputersBoundary");
+	const statements = boundary.Properties?.PolicyDocument?.Statement ?? [];
+	return Array.isArray(statements) ? statements : [statements];
+}
+
+const IAM_ROLE_WRITE_ACTIONS = [
+	"iam:CreateRole",
+	"iam:PutRolePolicy",
+	"iam:AttachRolePolicy",
+	"iam:DeleteRole",
+	"iam:DeleteRolePolicy",
+	"iam:DetachRolePolicy",
+	"iam:TagRole",
+	"iam:UntagRole",
+	"iam:UpdateAssumeRolePolicy",
+];
+
+function resourcesText(statement: Record<string, any>): string {
+	return JSON.stringify(statement.Resource ?? []);
+}
+
+Then("the template declares a ChatticusComputersBoundary managed policy", function (this: ChatticusWorld) {
+	assert.ok(boundaryPolicyStatements(this).length > 0);
+});
+
+Then("the boundary grants no IAM, STS, or organization administration actions", function (this: ChatticusWorld) {
+	const grants = boundaryPolicyStatements(this).flatMap((statement) => [...actionsOf(statement)]);
+	assert.ok(grants.length > 0);
+	for (const grant of grants) {
+		assert.doesNotMatch(grant, /^(\*|iam:|sts:|organizations:|account:|cloudformation:|ecs:|ec2:)/, `The boundary grants ${grant}.`);
+	}
+});
+
+Then(
+	"every IAM action that creates or changes a computer role is conditioned on the ChatticusComputersBoundary permissions boundary",
+	function (this: ChatticusWorld) {
+		const creating = crossAccountRoleStatements(this).filter((statement) => {
+			const actions = actionsOf(statement);
+			return actions.has("iam:CreateRole") || actions.has("iam:PutRolePolicy");
+		});
+		assert.ok(creating.length > 0);
+		for (const statement of creating) {
+			assert.deepEqual(
+				statement.Condition?.StringEquals?.["iam:PermissionsBoundary"],
+				{ Ref: "ChatticusComputersBoundary" },
+				`Statement ${statement.Sid} can create or change a role without the permissions boundary.`,
+			);
+		}
+	},
+);
+
+for (const action of ["iam:AttachRolePolicy", "iam:DeleteRolePermissionsBoundary", "iam:PutRolePermissionsBoundary"]) {
+	Then(`the cross-account role policy does not grant ${action}`, function (this: ChatticusWorld) {
+		assert.ok(!grantsAction(grantedActions(crossAccountRoleStatements(this)), action));
+	});
+}
+
+Then("no IAM action that writes a role applies to ChatticusOrganizationComputerRole", function (this: ChatticusWorld) {
+	for (const statement of crossAccountRoleStatements(this).filter((candidate) => candidate.Effect === "Allow")) {
+		const writes = IAM_ROLE_WRITE_ACTIONS.some((action) => actionsOf(statement).has(action));
+		if (writes) {
+			assert.ok(
+				!resourcesText(statement).includes("ChatticusOrganizationComputerRole"),
+				`Statement ${statement.Sid} lets the role rewrite itself.`,
+			);
+		}
+	}
+});
+
+Then(
+	"iam:PassRole is limited to ChatticusComputers roles passed to ecs-tasks.amazonaws.com",
+	function (this: ChatticusWorld) {
+		const passing = crossAccountRoleStatements(this).filter((statement) => actionsOf(statement).has("iam:PassRole"));
+		assert.equal(passing.length, 1);
+		assert.ok(resourcesText(passing[0]).includes("role/ChatticusComputers*"));
+		assert.doesNotMatch(resourcesText(passing[0]), /ChatticusOrganizationComputerRole|"\*"/);
+		assert.equal(passing[0].Condition?.StringEquals?.["iam:PassedToService"], "ecs-tasks.amazonaws.com");
+	},
+);
+
+Then(
+	"ECS actions other than registration and listing are scoped to ChatticusComputers clusters, services, and task definitions",
+	function (this: ChatticusWorld) {
+		const unscopedAllowed = new Set([
+			"ecs:RegisterTaskDefinition",
+			"ecs:DeregisterTaskDefinition",
+			"ecs:DescribeTaskDefinition",
+			"ecs:ListClusters",
+			"ecs:ListServices",
+			"ecs:ListTasks",
+		]);
+		const ecsStatements = crossAccountRoleStatements(this).filter((statement) =>
+			[...actionsOf(statement)].some((action) => action.startsWith("ecs:")),
+		);
+		for (const statement of ecsStatements) {
+			if (resourcesText(statement).includes('"*"')) {
+				for (const action of actionsOf(statement)) {
+					assert.ok(unscopedAllowed.has(action), `${action} is granted on every ECS resource.`);
+				}
+			} else {
+				assert.ok(resourcesText(statement).includes("ChatticusComputers*"));
+			}
+		}
+		const grants = grantedActions(ecsStatements);
+		assert.ok(grants.includes("ecs:RunTask"));
+		const runTask = ecsStatements.find((statement) => actionsOf(statement).has("ecs:RunTask"))!;
+		assert.ok(resourcesText(runTask).includes("task-definition/ChatticusComputers*"));
+	},
+);
+
+Then(
+	"every IAM role in the ChatticusComputers stack names the ChatticusComputersBoundary permissions boundary",
+	function (this: ChatticusWorld) {
+		const roles = Object.entries<any>(computersTemplate(this).Resources ?? {}).filter(([, resource]) => resource?.Type === "AWS::IAM::Role");
+		assert.ok(roles.length >= 2);
+		for (const [logicalId, role] of roles) {
+			assert.deepEqual(
+				role.Properties?.PermissionsBoundary,
+				{ "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:policy/ChatticusComputersBoundary" },
+				`${logicalId} has no permissions boundary.`,
+			);
+		}
+	},
+);

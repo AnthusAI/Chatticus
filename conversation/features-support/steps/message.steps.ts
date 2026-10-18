@@ -4,7 +4,8 @@ import { createBot } from "../../src/domain/bots.ts";
 import type { TurnRunJob } from "../../src/domain/turn-admission.ts";
 import { DynamoTurnAdmission } from "../../src/store/turn-admission-store.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
-import { TURN_RUN_QUEUE } from "../front-door.ts";
+import { executorMessageDependencies, TURN_RUN_QUEUE } from "../front-door.ts";
+import { postMessage } from "../../src/domain/messages.ts";
 import { memberGet, memberPost } from "../org-user-client.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -210,12 +211,17 @@ When(
 When(
 	"bot {string} posts {string} addressed to bot {string} on the channel",
 	async function (this: ChatticusWorld, authorName: string, body: string, addresseeName: string) {
-		await postAccepted(this, {
+		const channel = openChannelOf(this);
+		const result = await postMessage(await executorMessageDependencies(this), {
+			tenantId: channel.tenantId,
+			channelId: channel.channelId,
 			authorKind: "bot",
 			authorId: botNamed(this, authorName).botId,
 			body,
 			addressedToBotId: botNamed(this, addresseeName).botId,
+			idempotencyKey: null,
 		});
+		this.lastTurnId = result.turnId;
 	},
 );
 

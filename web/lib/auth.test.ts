@@ -57,33 +57,36 @@ describe("loadCognitoConfig", () => {
 });
 
 describe("buildUserManagerSettings", () => {
-  const backing: Record<string, string> = {};
-  const localStorage = {
-    get length() {
-      return Object.keys(backing).length;
-    },
-    clear() {
-      for (const key of Object.keys(backing)) {
+  function createStorage(backing: Record<string, string>) {
+    return {
+      get length() {
+        return Object.keys(backing).length;
+      },
+      clear() {
+        for (const key of Object.keys(backing)) {
+          delete backing[key];
+        }
+      },
+      getItem(key: string) {
+        return backing[key] ?? null;
+      },
+      key(index: number) {
+        return Object.keys(backing)[index] ?? null;
+      },
+      removeItem(key: string) {
         delete backing[key];
-      }
-    },
-    getItem(key: string) {
-      return backing[key] ?? null;
-    },
-    key(index: number) {
-      return Object.keys(backing)[index] ?? null;
-    },
-    removeItem(key: string) {
-      delete backing[key];
-    },
-    setItem(key: string, value: string) {
-      backing[key] = value;
-    },
-  };
+      },
+      setItem(key: string, value: string) {
+        backing[key] = value;
+      },
+    };
+  }
+  const localStorage = createStorage({});
+  const sessionStorage = createStorage({});
   const previousWindow = globalThis.window;
 
   before(() => {
-    globalThis.window = { localStorage } as Window & typeof globalThis;
+    globalThis.window = { localStorage, sessionStorage } as Window & typeof globalThis;
   });
 
   after(() => {
@@ -118,9 +121,12 @@ describe("buildUserManagerSettings", () => {
     assert.equal(settings.scope, "openid email profile");
   });
 
-  it("persists the OIDC user in localStorage", () => {
+  it("keeps the OIDC user in sessionStorage so tokens do not outlive the tab", async () => {
     const settings = buildUserManagerSettings(testConfig);
     assert.ok(settings.userStore instanceof WebStorageStateStore);
+    await settings.userStore?.set("user-key", "serialized-user");
+    assert.equal(window.sessionStorage.length, 1);
+    assert.equal(window.localStorage.length, 0);
   });
 });
 

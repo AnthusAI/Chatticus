@@ -289,6 +289,34 @@ Feature: Members see what their organization's bots cost in the web workspace
     And message 1 does not show the cost marker "in ·"
 
   @web
+  Scenario: A reply shows how long it took to arrive after the message it answered
+    Given the cost view for "ryan@example.com" in "Anthus Labs" with these turns this month
+      | turn | bot | channel  | model        | calls  | prompt | reply | replied_after_seconds |
+      | t1   | Pi  | Planning | gpt-5.4-mini | 0.0002 | 1      | 2     | 4.2                   |
+    When the member opens the "Planning" conversation
+    Then message 2 shows the cost marker "replied in 4.2 s"
+    And message 1 does not show the cost marker "replied in"
+
+  @web
+  Scenario: The conversation header shows the typical reply time beside the cost
+    Given the cost view for "ryan@example.com" in "Anthus Labs" with these turns this month
+      | turn | bot | channel  | model        | calls  | prompt | reply | replied_after_seconds |
+      | t1   | Pi  | Planning | gpt-5.4-mini | 0.0002 | 1      | 2     | 2                     |
+      | t2   | Pi  | Planning | gpt-5.4-mini | 0.0004 | 3      | 4     | 14                    |
+      | t3   | Pi  | Planning | gpt-5.4-mini | 0.0004 | 5      | 6     | 8                     |
+    When the member opens the "Planning" conversation
+    Then the conversation cost chip shows "typical reply 8.0 s"
+
+  @web
+  Scenario: A reply with no known time shows no latency
+    Given the cost view for "ryan@example.com" in "Anthus Labs" with these turns this month
+      | turn | bot | channel  | model        | calls  | prompt | reply |
+      | t1   | Pi  | Planning | gpt-5.4-mini | 0.0002 | 1      | 2     |
+    When the member opens the "Planning" conversation
+    Then message 2 does not show the cost marker "replied in"
+    And the conversation cost chip does not show "typical reply"
+
+  @web
   Scenario: A message with no recorded cost shows no marker
     Given the cost view for "ryan@example.com" in "Anthus Labs" with these turns this month
       | turn | bot | channel  | model        | calls  | prompt | reply |

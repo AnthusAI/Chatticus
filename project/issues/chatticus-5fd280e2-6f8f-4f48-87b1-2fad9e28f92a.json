@@ -32,7 +32,7 @@
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is defining scenarios before adding redacted tool arguments and clarifying workspace behavior.",
-  "right_now_updated_at": "2026-10-07T21:17:26.001410Z",
+  "right_now_summary": "Sanitized tool arguments now appear in events, with clearer errors and documented newline behavior.",
+  "right_now_updated_at": "2026-10-17T07:51:23.660201Z",
   "custom": {}
 }

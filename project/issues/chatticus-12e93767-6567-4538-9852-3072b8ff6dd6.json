@@ -14,14 +14,12 @@
   "created_at": "2026-10-16T13:15:17.151586Z",
   "updated_at": "2026-10-16T13:15:17.151860Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "claude-code",
     "model": "claude",
-    "name": "Claude (project thread for Ryan)",
-    "settings": {}
+    "name": "Claude (project thread for Ryan)"
   },
-  "agent_assignment": null
+  "right_now_summary": "The workspace is being updated to show month-to-date AWS spend and explain when work is paused.",
+  "right_now_updated_at": "2026-10-17T07:50:07.903446Z",
+  "custom": {}
 }
