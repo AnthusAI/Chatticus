@@ -656,8 +656,11 @@ before the web stack exists). When AWS lookup fails, pass `--base-url` or
 set the env var (see gitignored `AGENTS.local.md`). SQS queue checks
 need that same AWS identity. Staging and production web CloudFront are
 enabled; use thin-turn stack outputs or `AGENTS.local.md` when you mean
-those environments. It does not scale Fargate. Do not run this from
-GitHub Actions.
+those environments. It does not scale Fargate. The development and
+staging deploy workflows run it automatically after each deploy through
+`.github/workflows/acceptance-smoke-test.yml`, as the integration test
+principal in `CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN`; it fails loudly
+when that variable is not set for the GitHub environment.
 
 If Docker Desktop is running, the snapshot packer can be checked with
 `sh computer/test_relocate.sh`.
