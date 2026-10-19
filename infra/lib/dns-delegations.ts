@@ -6,9 +6,16 @@ export interface Delegation {
 /**
  * Names the management chattic.us zone hands to a zone in another account. Each
  * entry is the four name servers of a zone created by that environment's
- * zones stack (ChatticusEnvironmentZones in the development account and in the
- * production account, ChatticusEnvironmentZonesStaging for staging, which shares
- * the production account; their SiteNameServers and AuthNameServers outputs). The zones are retained, so these stay valid for the zone's life.
+ * zones stack (the SiteNameServers and AuthNameServers outputs of
+ * ChatticusEnvironmentZonesDevelopment, ChatticusEnvironmentZonesStaging and
+ * ChatticusEnvironmentZones, all in the production account). The zones are
+ * retained, so these stay valid for the zone's life.
+ *
+ * The develop.chattic.us and auth-develop.chattic.us entries still hold the name
+ * servers of the retired development account. They must be replaced with the
+ * outputs of ChatticusEnvironmentZonesDevelopment once that stack exists, in a
+ * separate change that is deployed through ChatticusManagementDns before the
+ * development stacks can validate their certificates.
  */
 export const DELEGATIONS: readonly Delegation[] = [
   {

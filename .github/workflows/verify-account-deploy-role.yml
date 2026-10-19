@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: GitHub environment whose new-account deploy role to verify
+        description: GitHub environment whose deploy role in the production account to verify
         required: true
         type: choice
         options:

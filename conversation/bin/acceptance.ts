@@ -5,7 +5,8 @@
  *
  * Speaks only HTTP to a deployed environment: exchange the caller's IAM identity for an integration bearer, create a
  * bot and a channel, post, read the SSE stream, reload, and steer. The AWS credentials come from the ambient chain
- * (AWS_PROFILE); the invoke key is read from Secrets Manager at runtime and never printed.
+ * (AWS_PROFILE=chatticus-production for a local run: development, staging and production all live in the one production
+ * AWS account); the invoke key is read from Secrets Manager at runtime and never printed.
  */
 
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";

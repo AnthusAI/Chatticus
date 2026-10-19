@@ -14,9 +14,9 @@ Rules for the whole page:
   you paste output anywhere.
 - Commands are marked **READ-ONLY** or **DESTRUCTIVE**. A destructive command changes the live system, says what it costs,
   and says how to undo it.
-- Everything is written for **development** (profile `chatticus-development`, stack `ChatticusControlPlane`). Staging and
+- Everything is written for **development** (profile `chatticus-production`, stack `ChatticusControlPlaneDevelopment`). Staging and
   production have no owner path yet (the signing key secret is created in development only, `control-plane-stack.ts`:
-  `if (isDevelopment)`); when they get one, the profile is `chatticus-<environment>` and the stacks are
+  `if (isDevelopment)`); when they get one, the profile is `chatticus-production` (the one account holds every environment) and the stacks are
   `ChatticusControlPlaneStaging` and `ChatticusControlPlaneProduction`.
 - Anything this page could not verify is marked **UNVERIFIED**, with the way to verify it. Section 12 lists them.
 
@@ -24,9 +24,9 @@ Rules for the whole page:
 
 | Thing | Name | Where it lives | Lifetime | Who may use it |
 | --- | --- | --- | --- | --- |
-| Supervisor role | `ComputerSupervisorRole` (CDK construct id; physical name `ChatticusControlPlane-ComputerSupervisorRole...`) | `infra/lib/computer-host-start.ts` | sessions of at most 3600 s | only the broker's execution role may assume it, with exactly two session tags |
+| Supervisor role | `ComputerSupervisorRole` (CDK construct id; physical name `ChatticusControlPlaneDevelopment-ComputerSupervisorRole...`) | `infra/lib/computer-host-start.ts` | sessions of at most 3600 s | only the broker's execution role may assume it, with exactly two session tags |
 | Per-turn role | `ComputerOwnerScopedRole` (same pattern) | the same file | sessions of at most 3600 s | only the broker, with exactly five session tags |
-| Credential broker | Lambda `ChatticusControlPlane-OwnerCredentialBroker...` | `conversation/src/lambdas/owner-credential-broker.ts` | | invoked by the Front Door only |
+| Credential broker | Lambda `ChatticusControlPlaneDevelopment-OwnerCredentialBroker...` | `conversation/src/lambdas/owner-credential-broker.ts` | | invoked by the Front Door only |
 | Signing key | Secrets Manager secret, CDK construct id `ModelGatewaySigningKey`, physical name `ModelGatewaySigningKey<hash>-<suffix>`; its ARN is in `CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN` on the Front Door, the ComputerStarter and the broker | `infra/lib/control-plane-stack.ts` | until rotated | those three functions only |
 | Bootstrap token | signed with the key; audience `owner-bootstrap` | minted by the ComputerStarter, held in the owner task's container override | 300 s, single use | the supervisor, once |
 | Supervisor token | signed with the key; audience `computer-owner` | supervisor memory | at most 3600 s | the owner routes of one computer |
@@ -68,7 +68,7 @@ read it from a protected file, not from the command line):
 sh -c 'set -a; . "$LEAKED_CREDENTIALS_FILE"; set +a; aws sts get-caller-identity --query Arn --output text' | sed -E 's/[0-9]{12}/************/g'
 ```
 
-The result `arn:aws:sts::...:assumed-role/ChatticusControlPlane-ComputerSupervisorRole.../supervisor-<ownerId>` is a
+The result `arn:aws:sts::...:assumed-role/ChatticusControlPlaneDevelopment-ComputerSupervisorRole.../supervisor-<ownerId>` is a
 supervisor session; `.../ComputerOwnerScopedRole.../turn-<ownerId>` is a per-turn session. The part after the last slash is
 `supervisor-` or `turn-` followed by the owner id (decision R20 of the renewal contract; the 2a broker names the session the
 same way, `OWNER_SUPERVISOR_PROTOCOL.md` section 7). If the file is not a credential of those two roles, this runbook does not
@@ -80,10 +80,10 @@ The owner id in the session name is the key. Every owner log line carries `tenan
 per event, `event key=value key=value` (`conversation/src/observability/log-line.ts`).
 
 ```sh
-export AWS_PROFILE=chatticus-development AWS_REGION=us-east-1
+export AWS_PROFILE=chatticus-production AWS_REGION=us-east-1
 NOW=$(date +%s)
 aws logs start-query \
-  --log-group-name /aws/lambda/ChatticusControlPlane-OwnerCredentialBroker9BE3FA2-wqqIPWhimLdX \
+  --log-group-name /aws/lambda/ChatticusControlPlaneDevelopment-OwnerCredentialBroker9BE3FA2-wqqIPWhimLdX \
   --start-time $((NOW - 7200)) --end-time "$NOW" \
   --query-string 'fields @timestamp, @message | filter @message like /owner-OWNER_ID_HERE/ | sort @timestamp asc | limit 50' \
   --query queryId --output text
@@ -91,7 +91,7 @@ aws logs get-query-results --query-id QUERY_ID_FROM_ABOVE --query 'results[][?fi
 ```
 
 (`logs start-query` writes nothing; it is read-only. The group names are current for development; list them with
-`aws logs describe-log-groups --log-group-name-prefix /aws/lambda/ChatticusControlPlane --query 'logGroups[].logGroupName' --output text`.)
+`aws logs describe-log-groups --log-group-name-prefix /aws/lambda/ChatticusControlPlaneDevelopment --query 'logGroups[].logGroupName' --output text`.)
 
 The owner log lines that exist today, and what each tells you:
 
@@ -243,11 +243,11 @@ Set `T` to the current UTC time. Sessions issued before `T` are denied; sessions
 `T` passes.
 
 ```sh
-export AWS_PROFILE=chatticus-development AWS_REGION=us-east-1
+export AWS_PROFILE=chatticus-production AWS_REGION=us-east-1
 REVOKE_BEFORE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "$REVOKE_BEFORE"
-SUPERVISOR_ROLE=ChatticusControlPlane-ComputerSupervisorRoleE300F7A-i6M9lsa1Kouv
-SCOPED_ROLE=ChatticusControlPlane-ComputerOwnerScopedRoleF18EE4-kb5WDKtzV8l1
+SUPERVISOR_ROLE=ChatticusControlPlaneDevelopment-ComputerSupervisorRoleE300F7A-i6M9lsa1Kouv
+SCOPED_ROLE=ChatticusControlPlaneDevelopment-ComputerOwnerScopedRoleF18EE4-kb5WDKtzV8l1
 DENY_DOCUMENT=$(printf '{"Version":"2012-10-17","Statement":{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"%s"}}}}' "$REVOKE_BEFORE")
 aws iam put-role-policy --role-name "$SUPERVISOR_ROLE" --policy-name AWSRevokeOlderSessions --policy-document "$DENY_DOCUMENT"
 aws iam put-role-policy --role-name "$SCOPED_ROLE" --policy-name AWSRevokeOlderSessions --policy-document "$DENY_DOCUMENT"
@@ -256,7 +256,7 @@ aws iam put-role-policy --role-name "$SCOPED_ROLE" --policy-name AWSRevokeOlderS
 The physical role names above are the development ones as of this writing; re-derive them (READ-ONLY) when in doubt:
 
 ```sh
-aws cloudformation describe-stack-resources --stack-name ChatticusControlPlane \
+aws cloudformation describe-stack-resources --stack-name ChatticusControlPlaneDevelopment \
   --query "StackResources[?ResourceType=='AWS::IAM::Role' && (starts_with(LogicalResourceId,'ComputerSupervisorRole') || starts_with(LogicalResourceId,'ComputerOwnerScopedRole'))].[LogicalResourceId,PhysicalResourceId]" --output text
 ```
 
@@ -284,8 +284,8 @@ the real role with nothing changed. This was run on development while writing th
 ```sh
 REVOKE_BEFORE=2026-10-14T03:00:00Z
 DENY_DOCUMENT=$(printf '{"Version":"2012-10-17","Statement":{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"%s"}}}}' "$REVOKE_BEFORE")
-SUPERVISOR_ARN=$(aws lambda get-function-configuration --function-name ChatticusControlPlane-OwnerCredentialBroker9BE3FA2-wqqIPWhimLdX --query Environment.Variables.CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN --output text)
-BUCKET=$(aws lambda get-function-configuration --function-name ChatticusControlPlane-FrontDoor201A7CE0-GIZcTzywOZCI --query Environment.Variables.CHATTICUS_SNAPSHOT_BUCKET --output text)
+SUPERVISOR_ARN=$(aws lambda get-function-configuration --function-name ChatticusControlPlaneDevelopment-OwnerCredentialBroker9BE3FA2-wqqIPWhimLdX --query Environment.Variables.CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN --output text)
+BUCKET=$(aws lambda get-function-configuration --function-name ChatticusControlPlaneDevelopment-FrontDoor201A7CE0-GIZcTzywOZCI --query Environment.Variables.CHATTICUS_SNAPSHOT_BUCKET --output text)
 for ISSUED in 2026-10-14T02:00:00Z 2026-10-14T04:00:00Z; do
   aws iam simulate-principal-policy --policy-source-arn "$SUPERVISOR_ARN" --policy-input-list "$DENY_DOCUMENT" \
     --action-names s3:GetObject --resource-arns "arn:aws:s3:::$BUCKET/tenants/t1/computers/c1/x" \
@@ -317,7 +317,7 @@ per-turn role the same way with an action from its policy (`conversation/src/gat
    ```
    Expect `PASS role access development: 42 of 42 allowed (frontDoor 12, ownerTurn 28, supervisor 2)`. (Run read-only on
    development while writing this page, before any deny existed.) If the SDK complains the SSO token is expired although the
-   AWS CLI works, export the CLI's credentials first: `eval "$(aws configure export-credentials --profile chatticus-development --format env)"`.
+   AWS CLI works, export the CLI's credentials first: `eval "$(aws configure export-credentials --profile chatticus-production --format env)"`.
 3. The deny proof is section 3.3 with the real `T`, and the live proof is the next step: the broker still issues.
 4. **The broker is not locked out:** cause one fresh issue (a member sends a message that needs the computer, section 10.1) and
    look for `owner_broker_issued` in the broker log group with a timestamp after `T`, and a CloudTrail `AssumeRole` with that
@@ -376,8 +376,8 @@ Do not rotate the key to contain a leak of one supervisor credential or one gate
 ### 5.2 Steps (DESTRUCTIVE)
 
 ```sh
-export AWS_PROFILE=chatticus-development AWS_REGION=us-east-1
-SECRET_ARN=$(aws lambda get-function-configuration --function-name ChatticusControlPlane-FrontDoor201A7CE0-GIZcTzywOZCI --query Environment.Variables.CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN --output text)
+export AWS_PROFILE=chatticus-production AWS_REGION=us-east-1
+SECRET_ARN=$(aws lambda get-function-configuration --function-name ChatticusControlPlaneDevelopment-FrontDoor201A7CE0-GIZcTzywOZCI --query Environment.Variables.CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN --output text)
 aws secretsmanager list-secret-version-ids --secret-id "$SECRET_ARN" --query 'Versions[].[VersionId,VersionStages[0]]' --output text
 ```
 
@@ -396,7 +396,7 @@ aws secretsmanager list-secret-version-ids --secret-id "$SECRET_ARN" --query 'Ve
    configuration change makes new invocations start new execution environments, which re-read the secret. Change the
    description to a timestamp (the one setting nothing depends on):
    ```sh
-   for FUNCTION in ChatticusControlPlane-FrontDoor201A7CE0-GIZcTzywOZCI ChatticusControlPlane-ComputerStarterFFA18BAD-oE2OhAMuk3jz ChatticusControlPlane-OwnerCredentialBroker9BE3FA2-wqqIPWhimLdX; do
+   for FUNCTION in ChatticusControlPlaneDevelopment-FrontDoor201A7CE0-GIZcTzywOZCI ChatticusControlPlaneDevelopment-ComputerStarterFFA18BAD-oE2OhAMuk3jz ChatticusControlPlaneDevelopment-OwnerCredentialBroker9BE3FA2-wqqIPWhimLdX; do
      aws lambda update-function-configuration --function-name "$FUNCTION" --description "signing key rotated $(date -u +%Y-%m-%dT%H:%M:%SZ)" --query LastUpdateStatus --output text
      aws lambda wait function-updated-v2 --function-name "$FUNCTION"
    done
@@ -521,7 +521,7 @@ the one to look for), never content. There is no HTTP route for it (decision O4:
 READ-ONLY:
 
 ```sh
-TABLE=$(aws lambda get-function-configuration --function-name ChatticusControlPlane-FrontDoor201A7CE0-GIZcTzywOZCI --query Environment.Variables.CHATTICUS_MESSAGING_TABLE --output text)
+TABLE=$(aws lambda get-function-configuration --function-name ChatticusControlPlaneDevelopment-FrontDoor201A7CE0-GIZcTzywOZCI --query Environment.Variables.CHATTICUS_MESSAGING_TABLE --output text)
 FROM_MS=$(( ($(date +%s) - 86400) * 1000 ))
 aws dynamodb query --table-name "$TABLE" \
   --key-condition-expression 'pk = :pk AND sk >= :from' \

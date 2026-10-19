@@ -9,7 +9,7 @@ we are going** (the v1 product architecture); this page is the protocol.
 ## Control plane versus workers
 
 ```
-    User at hey.chattic.us (production) or dev.chattic.us (development)
+    User at hey.chattic.us (production) or develop.chattic.us (development)
         |  POST to a per-request front door
         |  server-sent events for one turn
         v

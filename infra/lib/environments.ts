@@ -7,83 +7,83 @@ export const CHATTICUS_CLOUD_ENVIRONMENTS = [
 export type ChatticusCloudEnvironment = (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number];
 
 export const THIN_TURN_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusThinTurn",
+  development: "ChatticusThinTurnDevelopment",
   staging: "ChatticusThinTurnStaging",
   production: "ChatticusThinTurnProduction",
 };
 
 export const CONTROL_PLANE_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusControlPlane",
+  development: "ChatticusControlPlaneDevelopment",
   staging: "ChatticusControlPlaneStaging",
   production: "ChatticusControlPlaneProduction",
 };
 
 export const WEB_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusWeb",
+  development: "ChatticusWebDevelopment",
   staging: "ChatticusWebStaging",
   production: "ChatticusWebProduction",
 };
 
 export const AUTH_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusAuth",
+  development: "ChatticusAuthDevelopment",
   staging: "ChatticusAuthStaging",
   production: "ChatticusAuthProduction",
 };
 
 /**
- * Stack ids of the stacks that were once one copy per account. Development and
- * production keep the unsuffixed ids they have always had: production's account
- * already holds those stacks, live, and renaming one would replace its resources
- * and change the name servers of its delegated zones. Staging joins the
- * production account later and takes the suffixed ids, so the two environments
- * that share that account never collide.
+ * Stack ids of the stacks that were once one copy per account. All three
+ * environments live in the one production account, so every environment except
+ * production carries an environment suffix. Production keeps the unsuffixed ids
+ * it has always had: its account already holds those stacks, live, and renaming
+ * one would replace its resources and change the name servers of its delegated
+ * zones. Development and staging take the suffixed ids, so the three never
+ * collide on a stack, repository, task definition family or role.
  */
 export const SNAPSHOT_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusSnapshots",
+  development: "ChatticusSnapshotsDevelopment",
   staging: "ChatticusSnapshotsStaging",
   production: "ChatticusSnapshots",
 };
 
 export const COMPUTERS_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusComputers",
+  development: "ChatticusComputersDevelopment",
   staging: "ChatticusComputersStaging",
   production: "ChatticusComputers",
 };
 
 export const ENVIRONMENT_ZONES_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusEnvironmentZones",
+  development: "ChatticusEnvironmentZonesDevelopment",
   staging: "ChatticusEnvironmentZonesStaging",
   production: "ChatticusEnvironmentZones",
 };
 
 export const ENVIRONMENT_CERTIFICATES_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusEnvironmentCertificates",
+  development: "ChatticusEnvironmentCertificatesDevelopment",
   staging: "ChatticusEnvironmentCertificatesStaging",
   production: "ChatticusEnvironmentCertificates",
 };
 
 export const ACCOUNT_DEPLOY_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
-  development: "ChatticusAccountDeploy",
+  development: "ChatticusAccountDeployDevelopment",
   staging: "ChatticusAccountDeployStaging",
   production: "ChatticusAccountDeploy",
 };
 
 /**
  * Whether an environment's deploy stack creates the GitHub OIDC identity provider
- * of its account. AWS allows one provider per issuer URL per account. Development
- * and production each own the provider of their account (production's
- * ChatticusAccountDeploy has always created it). Staging shares production's
- * account, so its deploy stack imports that provider by ARN and requires
- * production's deploy stack to exist first.
+ * of the account. AWS allows one provider per issuer URL per account, and all
+ * three environments share one account. Production's ChatticusAccountDeploy has
+ * always created it. Development's and staging's deploy stacks import that
+ * provider by ARN and require production's deploy stack to exist first.
  */
 export const ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER: Record<ChatticusCloudEnvironment, boolean> = {
-  development: true,
+  development: false,
   staging: false,
   production: true,
 };
 
 export const ACCOUNT_DEPLOY_ROLE_NAMES: Record<ChatticusCloudEnvironment, string> = {
-  development: "chatticus-github-actions-deploy",
+  development: "chatticus-github-actions-deploy-development",
   staging: "chatticus-github-actions-deploy-staging",
   production: "chatticus-github-actions-deploy",
 };
@@ -100,17 +100,14 @@ export const COMPUTER_IMAGE_TAGS: Record<ChatticusCloudEnvironment, string> = {
 };
 
 /**
- * The environments whose stacks live in the same AWS account as the given one.
- * Staging and production share the production account; development has an
- * account of its own.
+ * The other environments whose stacks live in the same AWS account as the given
+ * one. All three environments share the production account, so each has the
+ * other two as peers.
  */
 export function peerEnvironmentsInSameAccount(
   environment: ChatticusCloudEnvironment,
 ): ChatticusCloudEnvironment[] {
-  if (environment === "development") {
-    return [];
-  }
-  return environment === "staging" ? ["production"] : ["staging"];
+  return CHATTICUS_CLOUD_ENVIRONMENTS.filter((name) => name !== environment);
 }
 
 export const AUTH_DOMAIN_NAMES: Record<ChatticusCloudEnvironment, string> = {
@@ -131,14 +128,13 @@ export interface EnvironmentHostnames {
 }
 
 /**
- * Hostnames of an environment that runs in its own dedicated account. CloudFront
- * alternate domain names and Cognito custom domains are unique worldwide, so an
- * environment moving out of the legacy account cannot reuse a name the legacy
- * environment still holds: development takes new names and legacy's dev names
- * are retired with it. Staging and production keep their names and can only be
- * deployed once legacy has released them.
+ * The hostnames each environment is served from in the production account.
+ * CloudFront alternate domain names and Cognito custom domains are unique
+ * worldwide, so the names a retired account's environment still holds cannot be
+ * reused until it releases them: development takes develop.chattic.us and
+ * auth-develop.chattic.us, never the retired dev.chattic.us names.
  */
-export const DEDICATED_ACCOUNT_HOSTNAMES: Record<ChatticusCloudEnvironment, EnvironmentHostnames> = {
+export const ENVIRONMENT_HOSTNAMES: Record<ChatticusCloudEnvironment, EnvironmentHostnames> = {
   development: { siteDomain: "develop.chattic.us", authDomain: "auth-develop.chattic.us" },
   staging: { siteDomain: "staging.chattic.us", authDomain: "auth-staging.chattic.us" },
   production: { siteDomain: "hey.chattic.us", authDomain: "auth.chattic.us" },

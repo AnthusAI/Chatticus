@@ -54,7 +54,7 @@ describe("AccountGitHubDeployStack computer image publishing", () => {
     assert.deepEqual(actionsOf(pushStatement).sort(), [...COMPUTER_IMAGE_PUSH_ACTIONS].sort());
     const arn = resourceArn(pushStatement);
     assert.match(arn, /arn:/);
-    assert.match(arn, /:ecr:us-east-1:222222222222:repository\/chatticuscomputers-computerimage\*/);
+    assert.match(arn, /:ecr:us-east-1:222222222222:repository\/chatticuscomputersdevelopment-computerimage\*/);
     assert.ok(!Array.isArray(pushStatement.Resource));
     assert.equal(arn.includes('"*"'), false);
   });
@@ -71,11 +71,14 @@ describe("AccountGitHubDeployStack computer image publishing", () => {
     const read = statements.find((statement) => statement.Sid === "ReadEnvironmentStacks");
     assert.ok(read);
     assert.ok(actionsOf(read).includes("cloudformation:DescribeStacks"));
-    assert.match(resourceArn(read), /:cloudformation:us-east-1:222222222222:stack\/ChatticusComputers\/\*/);
-    assert.doesNotMatch(resourceArn(read), /ChatticusComputersStaging/);
+    assert.match(resourceArn(read), /:cloudformation:us-east-1:222222222222:stack\/ChatticusComputersDevelopment\/\*/);
+    assert.doesNotMatch(resourceArn(read), /ChatticusComputersStaging|stack\/ChatticusComputers\//);
   });
 
-  it("publishes to the staging repository from staging and the production repository from production", () => {
+  it("publishes to the development repository from development, the staging repository from staging and the production repository from production", () => {
+    const development = statements.find((statement) => statement.Sid === "ComputerImagePush");
+    assert.ok(development);
+    assert.match(resourceArn(development), /repository\/chatticuscomputersdevelopment-computerimage\*/);
     const staging = allowStatements(synthAccountDeploy("staging")).find((statement) => statement.Sid === "ComputerImagePush");
     const production = allowStatements(synthAccountDeploy("production")).find((statement) => statement.Sid === "ComputerImagePush");
     assert.ok(staging && production);
@@ -92,7 +95,7 @@ describe("computer repository name prefix", () => {
   it("matches the name CloudFormation generates for the synthesized repository", () => {
     const app = new cdk.App();
     const support = new cdk.Stack(app, "Support", { env: ENV });
-    const stack = new ComputerStack(app, "ChatticusComputers", {
+    const stack = new ComputerStack(app, "ChatticusComputersDevelopment", {
       env: ENV,
       chatticusEnvironment: "development",
       snapshotBucket: new s3.Bucket(support, "Snapshots"),

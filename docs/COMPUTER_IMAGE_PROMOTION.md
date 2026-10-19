@@ -9,7 +9,7 @@ is deployed and verified.**
 
 ## What runs today
 
-The `ChatticusComputers` owner task definition runs the image `:dev` of the Computers ECR repository
+The `ChatticusComputersDevelopment` owner task definition (family `ChatticusComputerOwnerDevelopment`) runs the image `:dev` of the development Computers ECR repository
 (`infra/lib/computer-stack.ts`, `ecs.ContainerImage.fromEcrRepository(repository, "dev")`). That tag is what reaches every
 computer start, so moving it is the production-relevant step of an image rollout. It is not part of the build.
 
@@ -25,14 +25,15 @@ The build never moves `dev`. `computer/push-computer-image.sh` (break-glass) pus
 ## Per-environment tags
 
 Each environment has its own Computers stack and therefore its own ECR repository, so a tag never crosses
-environments. The owner task definition runs the moving tag `dev` in development (`ChatticusComputers`), `staging` in
-staging (`ChatticusComputersStaging`) and `production` in production (`ChatticusComputers` in the production account,
-the name it was deployed under); staging and production share one AWS account but not a repository. The tag name comes
+environments. The owner task definition runs the moving tag `dev` in development (`ChatticusComputersDevelopment`),
+`staging` in staging (`ChatticusComputersStaging`) and `production` in production (`ChatticusComputers`, the name it was
+deployed under); all three environments share one AWS account (the production account) but not a repository, a task
+definition family or a deploy role. The tag name comes
 from `COMPUTER_IMAGE_TAGS` in `infra/lib/environments.ts`.
 
 | Environment | Build (immutable `sha-<commit>`) | Promote (moves the tag) | Server side that must have succeeded for the commit |
 | --- | --- | --- | --- |
-| development | `build-computer-image-development.yml` (push to `develop`) | `promote-computer-image-development.yml`, tag `dev` | `deploy-controlplane-development.yml`, `deploy-thinturn-development.yml` |
+| development | `build-computer-image-development.yml` (push to `develop`; it keeps its own workflow because the release build triggers on `main`) | `promote-computer-image-development.yml`, tag `dev` | `deploy-controlplane-development.yml`, `deploy-thinturn-development.yml` |
 | staging | `build-computer-image-release.yml` job `push-staging` (push to `main`, or dispatch) | `promote-computer-image-staging.yml`, tag `staging` | `deploy-controlplane-staging.yml`, `deploy-thinturn-staging.yml` |
 | production | `build-computer-image-release.yml` job `push-production` | `promote-computer-image-production.yml`, tag `production` | `deploy-controlplane-production.yml`, `deploy-thinturn-production.yml` |
 

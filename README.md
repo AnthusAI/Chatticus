@@ -100,7 +100,18 @@ policies allow only `main`. A merge to `main` does not deploy either
 environment: both use `workflow_dispatch`, and production follows staging
 verification. Actions semantic-release owns version publication on `main`.
 
-### Staging and the marketing site moved into the production AWS account
+### Development, staging and the marketing site live in the production AWS account
+
+There is one AWS account for every Chatticus environment: the production account
+(`us-east-1`, profile `chatticus-production`). **Development** runs there as
+`Development`-suffixed stacks (`AccountDeployDevelopment`, `SnapshotsDevelopment`,
+`ComputersDevelopment`, `EnvironmentZonesDevelopment`,
+`EnvironmentCertificatesDevelopment`, `ThinTurnDevelopment`,
+`ControlPlaneDevelopment`, `AuthDevelopment`, `WebDevelopment`) at
+`develop.chattic.us`; the former separate development account is retired. Each
+environment has its own deploy role (`chatticus-github-actions-deploy-development`,
+`-staging`, and `chatticus-github-actions-deploy` for production) that denies the
+other two environments' resources.
 
 There is no separate staging AWS account. **Staging** now runs in the production
 account as `Staging`-suffixed stacks (`AccountDeployStaging`, `SnapshotsStaging`,
@@ -176,8 +187,8 @@ own-account Fargate host task definition and service were removed from the
 Computers stack (PR 518, deployed 2026-10-12).
 
 The development environment is **[develop.chattic.us](https://develop.chattic.us)**
-in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
-deployment; older proofs below that name it ran there.
+in the production AWS account, as the `Development`-suffixed stacks. `dev.chattic.us`
+is the stale legacy deployment; older proofs below that name it ran there.
 
 ### Model spend ceiling and clean-exit disk state (development only)
 
@@ -430,7 +441,7 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 | Host | Role | Notes |
 | --- | --- | --- |
 | [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; served from the production AWS account with its own intake (SES sandbox) |
-| [develop.chattic.us](https://develop.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
+| [develop.chattic.us](https://develop.chattic.us) | Development product + API (production AWS account) | Same-origin `/api`; product `/chat` at `/` |
 | [hey.chattic.us](https://hey.chattic.us) | Production product | Deployed with the current release, computers startable; web CloudFront enabled, serves 200; no live computer turn tested |
 | [staging.chattic.us](https://staging.chattic.us) | Staging (production AWS account) | Serves 200; computers startable, no live computer turn tested |
 
@@ -449,11 +460,11 @@ remains the fallback when CI cannot be used.
 
 ### Cloud stacks (do not destroy)
 
-`ChatticusDns`, `ChatticusAuth`, `ChatticusWeb*` (CF enabled in development, staging, and
+`ChatticusDns`, `ChatticusAuth*`, `ChatticusWeb*` (CF enabled in development, staging, and
 production), `ChatticusThinTurn*`, `ChatticusSnapshots*`, `ChatticusComputers*`
-(unsuffixed in development's account and in the production account, where production
-is already live under those names; staging, which shares the production account, has
-the `Staging` copies), `ChatticusBudgets` (one per account). Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
+(unsuffixed for production, which is already live under those names; development and
+staging, which share the production account, have the `Development` and `Staging` copies),
+`ChatticusBudgets` (one per account, production's). Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
 
 ### Kernel-only on `develop` (not on live worker loop)
 
@@ -651,7 +662,7 @@ check.
 
 That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, or the
-`CloudFrontUrl` output on stack `ChatticusWeb` (or `ChatticusThinTurn`
+`CloudFrontUrl` output on stack `ChatticusWebDevelopment` (or `ChatticusThinTurnDevelopment`
 before the web stack exists). When AWS lookup fails, pass `--base-url` or
 set the env var (see gitignored `AGENTS.local.md`). SQS queue checks
 need that same AWS identity. Staging and production web CloudFront are
@@ -670,22 +681,23 @@ AWS resources are CDK only (`infra/`). Do not create them in the console.
 thin-turn environment; never do that.
 Deploy one named stack:
 
-Deploy development ThinTurn only:
+Deploy one development stack (all three environments are in the one production
+AWS account; sign in with profile `chatticus-production`):
 
 ```bash
 cd infra
-sh deploy-chatticus-thinturn-development.sh
+sh deploy-chatticus-dedicated-account.sh development thin-turn
 ```
 
 That fails closed without AWS identity and never passes `--all`. Staging
-and production, when you mean those stacks:
+and production use the same script with their own name:
 
 ```bash
-npx cdk deploy ChatticusThinTurnStaging
-npx cdk deploy ChatticusThinTurnProduction
+sh deploy-chatticus-dedicated-account.sh staging thin-turn
+sh deploy-chatticus-dedicated-account.sh production thin-turn
 ```
 
-**ChatticusThinTurn** is development. Staging and production are separate
+**ChatticusThinTurnDevelopment** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront (web CF
 enabled on staging and production). Do not merge `develop` to `main` as
 parking. Do not destroy the snapshot, computer, or budgets stacks.

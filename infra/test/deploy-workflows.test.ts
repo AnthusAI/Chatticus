@@ -311,7 +311,7 @@ describe("computer image tag rule: an environment tag moves only after the serve
   const promoteScript = readFileSync(join(repositoryRoot, "infra", "promote-computer-image.sh"), "utf8");
   const TAGS: Record<string, string> = { development: "dev", staging: "staging", production: "production" };
   const STACKS: Record<string, string> = {
-    development: "ChatticusComputers",
+    development: "ChatticusComputersDevelopment",
     staging: "ChatticusComputersStaging",
     production: "ChatticusComputers",
   };
@@ -330,9 +330,12 @@ describe("computer image tag rule: an environment tag moves only after the serve
     assert.doesNotMatch(build, /put-image/);
   }
 
-  it("the development build pushes the immutable sha tag and never the dev tag", () => {
+  it("the development build pushes the immutable sha tag and never the dev tag, into the development Computers stack's repository", () => {
     const build = readFileSync(join(workflowsDir, "build-computer-image-development.yml"), "utf8");
     assertBuildNeverMovesTag(build);
+    assert.match(build, /--stack-name "\$\{COMPUTERS_STACK\}"/);
+    assert.match(build, /COMPUTERS_STACK: ChatticusComputersDevelopment\n/);
+    assert.doesNotMatch(build, /--stack-name ChatticusComputers\b/);
     assert.equal(build.split("\n").filter((line) => /docker (tag|push)/.test(line)).length, 2);
   });
 

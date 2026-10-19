@@ -61,7 +61,7 @@ Deploy and accept against named cloud environments from the start:
 
 ## v1 — personal, shippable scope
 
-- Web chat at hey.chattic.us (production) and dev.chattic.us (development)
+- Web chat at hey.chattic.us (production) and develop.chattic.us (development)
 - Named bots with isolated memory
 - One shared computer per user
 - Model tool loop via OpenAI, with structured tools and the gated browser path

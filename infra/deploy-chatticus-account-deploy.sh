@@ -1,10 +1,8 @@
 #!/bin/sh
-# One-time deploy of one environment's GitHub deploy role. Development's account
-# and the production account each get their OIDC provider here, from the
-# environment that owns the account (production's ChatticusAccountDeploy has always
-# created it). Staging shares the production account: its role stack imports that
-# provider, so production must be deployed here first. Never --all. Run with that
-# account's credentials, never legacy's.
+# One-time deploy of one environment's GitHub deploy role into the production AWS account, where all three
+# environments live. Production's ChatticusAccountDeploy has always created the account's one GitHub OIDC provider.
+# Development's and staging's role stacks import that provider, so production must be deployed here first. Never
+# --all. Run with the production account's credentials (profile chatticus-production), never legacy's.
 set -eu
 
 cd "$(dirname "$0")"
@@ -16,7 +14,7 @@ usage() {
 
 [ "$#" -eq 1 ] || usage
 case "$1" in
-  development) ENVIRONMENT="$1"; STACK="ChatticusAccountDeploy" ;;
+  development) ENVIRONMENT="$1"; STACK="ChatticusAccountDeployDevelopment" ;;
   staging) ENVIRONMENT="$1"; STACK="ChatticusAccountDeployStaging" ;;
   production) ENVIRONMENT="$1"; STACK="ChatticusAccountDeploy" ;;
   *) usage ;;

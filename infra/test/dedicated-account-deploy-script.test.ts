@@ -49,26 +49,35 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     assert.equal(execFileSync("sh", ["-n", script]).length, 0);
   });
 
-  it("maps every shared-by-name stack to the environment's stack id: production keeps its live unsuffixed ids, staging is suffixed", () => {
+  it("maps every shared-by-name stack to the environment's stack id: production keeps its live unsuffixed ids, development and staging are suffixed", () => {
     for (const [stack, base] of [
       ["snapshots", "ChatticusSnapshots"],
       ["computers", "ChatticusComputers"],
       ["zones", "ChatticusEnvironmentZones"],
       ["certificates", "ChatticusEnvironmentCertificates"],
     ]) {
-      assert.match(contents, new RegExp(`development:${stack}\\) STACK="${base}"`));
+      assert.match(contents, new RegExp(`development:${stack}\\) STACK="${base}Development"`));
       assert.match(contents, new RegExp(`staging:${stack}\\) STACK="${base}Staging"`));
       assert.match(contents, new RegExp(`production:${stack}\\) STACK="${base}"`));
       assert.doesNotMatch(contents, new RegExp(`${base}Production`));
     }
-    assert.match(contents, /development:budgets \| production:budgets\) STACK="ChatticusBudgets"/);
+    assert.match(contents, /production:budgets\) STACK="ChatticusBudgets"/);
+    assert.doesNotMatch(contents, /development:budgets/);
     assert.doesNotMatch(contents, /staging:budgets/);
     assert.doesNotMatch(contents, /\*:budgets/);
     assert.doesNotMatch(contents, /\*:(snapshots|computers|zones|certificates)\)/);
   });
 
+  it("refuses to deploy the account-level budget stack for development and staging, before touching AWS", () => {
+    for (const environment of ["development", "staging"]) {
+      const result = run([environment, "budgets"]);
+      assert.equal(result.status, 2, environment);
+      assert.match(result.stderr, /usage: sh deploy-chatticus-dedicated-account\.sh/);
+    }
+  });
+
   it("accepts the control-plane stack for every environment, mapped to that environment's own stack id", () => {
-    assert.match(contents, /development:control-plane\) STACK="ChatticusControlPlane"/);
+    assert.match(contents, /development:control-plane\) STACK="ChatticusControlPlaneDevelopment"/);
     assert.match(contents, /staging:control-plane\) STACK="ChatticusControlPlaneStaging"/);
     assert.match(contents, /production:control-plane\) STACK="ChatticusControlPlaneProduction"/);
     for (const environment of ["development", "staging", "production"]) {
@@ -113,7 +122,7 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
   });
 
   describe("when another workflow starts updating the stack between the status check and the deploy", () => {
-    const inProgressMessage = "Stack ChatticusWeb is in UPDATE_IN_PROGRESS state and can not be updated.";
+    const inProgressMessage = "Stack ChatticusWebDevelopment is in UPDATE_IN_PROGRESS state and can not be updated.";
 
     function runWithStubs(options: { deployOutcomes: Array<{ exitCode: number; output: string }>; stackStatuses: string[] }): {
       status: number | null;
@@ -207,8 +216,8 @@ exit "\${line%%|*}"
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.deployCalls, 2);
       assert.equal(result.synthCalls, 1);
-      assert.match(result.stdout, /ChatticusWeb deploy attempt 1 hit an in-progress update/);
-      assert.match(result.stdout, /ChatticusWeb is UPDATE_IN_PROGRESS \(another workflow deploying it\); waiting\./);
+      assert.match(result.stdout, /ChatticusWebDevelopment deploy attempt 1 hit an in-progress update/);
+      assert.match(result.stdout, /ChatticusWebDevelopment is UPDATE_IN_PROGRESS \(another workflow deploying it\); waiting\./);
       assert.doesNotMatch(result.stdout + result.stderr, /\b\d{12}\b/);
     });
 
@@ -264,7 +273,7 @@ exit "\${line%%|*}"
     }
 
     it("does not retry an unrelated change set or stack error", () => {
-      for (const output of ["ChangeSet creation failed: Template format error", "Stack ChatticusWeb is in ROLLBACK_COMPLETE state", "Resource handler returned message: already exists as a bucket"]) {
+      for (const output of ["ChangeSet creation failed: Template format error", "Stack ChatticusWebDevelopment is in ROLLBACK_COMPLETE state", "Resource handler returned message: already exists as a bucket"]) {
         const result = runWithStubs({
           deployOutcomes: [{ exitCode: 4, output }],
           stackStatuses: ["UPDATE_COMPLETE"],
@@ -291,12 +300,17 @@ exit "\${line%%|*}"
 describe("deploy-chatticus-account-deploy.sh", () => {
   const accountDeploy = readFileSync(join(__dirname, "..", "deploy-chatticus-account-deploy.sh"), "utf8");
 
-  it("deploys each environment's own deploy-role stack, production under the name it already has", () => {
-    assert.match(accountDeploy, /development\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeploy" ;;/);
+  it("deploys each environment's own deploy-role stack, production under the name it already has, development and staging suffixed", () => {
+    assert.match(accountDeploy, /development\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeployDevelopment" ;;/);
     assert.match(accountDeploy, /staging\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeployStaging" ;;/);
     assert.match(accountDeploy, /production\) ENVIRONMENT="\$1"; STACK="ChatticusAccountDeploy" ;;/);
     assert.match(accountDeploy, /cdk deploy "\$\{STACK\}" --exclusively --require-approval never/);
     assert.doesNotMatch(accountDeploy.split("\n").filter((line) => !line.startsWith("#")).join("\n"), /--all/);
+  });
+
+  it("says in its header that all three environments share the production account", () => {
+    assert.match(accountDeploy, /all three\s+# environments live/);
+    assert.doesNotMatch(accountDeploy, /Development's account/);
   });
 
   it("has no separate OIDC provider script or stack: the production deploy stack owns the provider", () => {
