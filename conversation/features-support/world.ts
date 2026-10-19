@@ -53,6 +53,7 @@ export class ChatticusWorld extends World {
 
 	readonly now = new Date("2026-08-31T06:00:00Z");
 	budgetEnvironment = "development";
+	scheduledRollupRejection: Error | null = null;
 	monthlyLimitUsd = Decimal.parse("100");
 	readonly accountSpend = new FakeAccountSpendReader();
 	readonly budgetAlerts = new FakeBudgetAlertsPublisher();

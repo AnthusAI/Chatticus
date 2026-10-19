@@ -40,8 +40,8 @@ export interface DailyRollupRequest {
  * session did record is not counted a second time. Calls the price book could not price are counted on the row
  * (`unpriced_calls`) and logged, never skipped without trace.
  *
- * An organization in its own AWS account also has every earlier day of the month that was pending or could not be read
- * rolled up again, so one failed read of its account does not hold its meter unknown for the rest of the month. Every
+ * Every organization also has the newest earlier days of the month that could not be read rolled up again first (and,
+ * in its own AWS account, those still pending), so one failed read does not pause it for the rest of the month. Every
  * organization-day the run could not read is published as one alert, so an unreadable meter is never silent.
  */
 export async function runDailyRollup(request: DailyRollupRequest): Promise<void> {
@@ -60,19 +60,26 @@ export async function runDailyRollup(request: DailyRollupRequest): Promise<void>
 	await publishUnreadableSpend(request, unreadableDays);
 }
 
+/** The most earlier days of the month one run reads again for one organization. */
+export const MOST_UNREAD_DAYS_READ_AGAIN_PER_RUN = 5;
+
 /**
- * The days to roll up for one organization: the rollup day, preceded, for an organization in its own AWS account, by
- * each earlier day of the same month whose row is pending or could not be read. A hosted organization's earlier day is
- * not read again: runtime that was never recorded would read as a measured zero.
+ * The days to roll up for one organization: each earlier day of the same month whose row could not be read (and, for
+ * an organization in its own AWS account, each that is still pending), newest first and at most
+ * `MOST_UNREAD_DAYS_READ_AGAIN_PER_RUN` of them, followed by the rollup day. A day that is read again and succeeds is
+ * replaced by its measured row; a day that fails again stays `error`, so the meter stays unknown rather than zero.
  */
 async function daysToRollUp(organization: Organization, request: DailyRollupRequest): Promise<string[]> {
-	if (!organizationRunsInItsOwnAwsAccount(organization)) {
-		return [request.rollupDate];
-	}
+	const readAgainStatuses = organizationRunsInItsOwnAwsAccount(organization)
+		? [CE_STATUS_PENDING, CE_STATUS_ERROR]
+		: [CE_STATUS_ERROR];
 	const days: string[] = [];
-	for (let day = firstDayOfMonth(request.rollupDate); day < request.rollupDate; day = addDays(day, 1)) {
+	for (let day = addDays(request.rollupDate, -1); day >= firstDayOfMonth(request.rollupDate); day = addDays(day, -1)) {
+		if (days.length >= MOST_UNREAD_DAYS_READ_AGAIN_PER_RUN) {
+			break;
+		}
 		const row = await request.store.getBudgetRollupRow(organization.tenantId, request.environment, day);
-		if (row !== null && (row.ceStatus === CE_STATUS_PENDING || row.ceStatus === CE_STATUS_ERROR)) {
+		if (row !== null && readAgainStatuses.includes(row.ceStatus)) {
 			days.push(day);
 		}
 	}
