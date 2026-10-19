@@ -8,13 +8,33 @@
   "assignee": null,
   "creator": null,
   "parent": "chatticus-0e336492-e21e-458b-ac45-884918900339",
-  "labels": ["review", "cleanup"],
+  "labels": [
+    "review",
+    "cleanup"
+  ],
   "dependencies": [],
-  "comments": [],
-  "created_at": "2026-10-19T16:50:00.000000Z",
-  "updated_at": "2026-10-19T16:50:00.000000Z",
+  "comments": [
+    {
+      "id": "18ddcbba-2ca4-4adc-8ebf-854dc738f94a",
+      "author": "home",
+      "text": "Classification against origin/develop (2026-10-19):\n1. Stray features/computer_owner_credential_renewal.feature-e with conflict marker: was TRUE; FIXED by PR 612 (deleted; real feature still listed in cucumber-features.txt; CI green).\n2. develop package.json version lag (0.44.0 vs main 0.50.0): was TRUE; main-only commits were release commits and merge commits only; FIXED by merge-commit sync PR 613 (develop now 0.50.0). It will lag again after each release; recurring cost of semantic-release on main only.\n3. README is a ~700-line changelog (769 lines): STILL TRUE, not changed. Proposal: keep README.md as stable (what it is, quickstart, layout, gates, links); move the \"What is live today\" status log to docs/STATUS.md; keep the AGENTS.md milestone rule but point it at docs/STATUS.md. Owner decides.\n4. Kanbus board commits about half of develop history: STILL TRUE (133 of last 300 commits start with \"pm:\"). By design per AGENTS.md; mitigation if desired is squashing board updates or batching, owner decision.\n5. Report-only CSP not promoted to enforcing: STILL TRUE (infra/lib/web-content-security-policy.ts and web-stack test assert only Content-Security-Policy-Report-Only, and assert the enforcing header is absent). Promotion needs report review first; not a cheap fix, left open.\n6. Infra findings only in the Claude Doc: NOT CHECKABLE from this Mac (document not in repo); needs triage from the doc itself. Lower-priority findings files likewise untriaged.\nTicket left open for items 3, 4, 5, 6.",
+      "created_at": "2026-10-19T23:26:46.003257Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-review-cleanup"
+      }
+    }
+  ],
+  "created_at": "2026-10-19T16:50:00Z",
+  "updated_at": "2026-10-19T23:26:46.003657Z",
   "closed_at": null,
-  "agent": {"platform": "claude-code", "model": "claude-sonnet-5-5", "name": "Claude (project thread for Ryan)"},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Claude (project thread for Ryan)"
+  },
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {}
