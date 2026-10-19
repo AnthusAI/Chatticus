@@ -1,3 +1,56 @@
+## [0.50.0](https://github.com/AnthusAI/Chatticus/compare/v0.49.0...v0.50.0) (2026-10-19)
+
+### Features
+
+* the daily rollup reads unreadable days again and accepts a date (self-healing spend meter) ([#608](https://github.com/AnthusAI/Chatticus/issues/608)) ([74b21a6](https://github.com/AnthusAI/Chatticus/commit/74b21a682026d30782e618dbdab9b4bc4fee38d2))
+
+## [0.49.0](https://github.com/AnthusAI/Chatticus/compare/v0.48.1...v0.49.0) (2026-10-18)
+
+### Features
+
+* **infra:** GitHub OIDC integration test role for the development acceptance smoke test ([#598](https://github.com/AnthusAI/Chatticus/issues/598)) ([51402ab](https://github.com/AnthusAI/Chatticus/commit/51402ab99db62fc84ff1f0813abfd3d648427d68))
+* **spend:** start every organization at a 50 dollar monthly spend ceiling ([#594](https://github.com/AnthusAI/Chatticus/issues/594)) ([3c2ed84](https://github.com/AnthusAI/Chatticus/commit/3c2ed840125b216d06227db50aa442d4da4915ee))
+
+## [0.48.1](https://github.com/AnthusAI/Chatticus/compare/v0.48.0...v0.48.1) (2026-10-17)
+
+### Bug Fixes
+
+* **web:** full-height workspace on iPad Safari, and resizable sidebar and panel ([#590](https://github.com/AnthusAI/Chatticus/issues/590)) ([87a7de9](https://github.com/AnthusAI/Chatticus/commit/87a7de982b99a73e635fb24db8cb46a3110c8077))
+
+## [0.48.0](https://github.com/AnthusAI/Chatticus/compare/v0.47.0...v0.48.0) (2026-10-16)
+
+### Features
+
+* **web:** flat workspace with a panel plugin host and per-reply usage (chatticus-29602c) ([#587](https://github.com/AnthusAI/Chatticus/issues/587)) ([70679de](https://github.com/AnthusAI/Chatticus/commit/70679dea3bad932293860bc12b17f0ae3350297a))
+
+### Bug Fixes
+
+* an unreadable spend day no longer pauses a hosted organization's computer for the month (chatticus-9ac621) ([#588](https://github.com/AnthusAI/Chatticus/issues/588)) ([b96ae20](https://github.com/AnthusAI/Chatticus/commit/b96ae20404cc4ad2e667b96a125ee33b5313ec45))
+
+## [0.47.0](https://github.com/AnthusAI/Chatticus/compare/v0.46.0...v0.47.0) (2026-10-16)
+
+### Features
+
+* CloudWatch alarms and an alarm topic for every environment's control plane ([#583](https://github.com/AnthusAI/Chatticus/issues/583)) ([c6b858a](https://github.com/AnthusAI/Chatticus/commit/c6b858a41924cc429207aec11f56226741ad1162))
+* platform-hosted organizations are metered from recorded computer runtime (chatticus-26f253, chatticus-9ac621) ([#586](https://github.com/AnthusAI/Chatticus/issues/586)) ([155d0a4](https://github.com/AnthusAI/Chatticus/commit/155d0a45a7f12d4c262e298a8759f24fae0bc543))
+
+## [0.46.0](https://github.com/AnthusAI/Chatticus/compare/v0.45.0...v0.46.0) (2026-10-15)
+
+### Features
+
+* organizations created in the app are enabled and hosted in the deployment account ([#580](https://github.com/AnthusAI/Chatticus/issues/580)) ([6eaba7e](https://github.com/AnthusAI/Chatticus/commit/6eaba7e2637f2f6a73868d6f9b3e57c62f374c84))
+* staging and production signup is invitation_only until the owner opens it ([#581](https://github.com/AnthusAI/Chatticus/issues/581)) ([4108aff](https://github.com/AnthusAI/Chatticus/commit/4108affa7e42cca7a04d0e88bb07cf53cf39eb91))
+
+## [0.45.0](https://github.com/AnthusAI/Chatticus/compare/v0.44.0...v0.45.0) (2026-10-15)
+
+### Features
+
+* point the management zone apex and www at the marketing distribution in the production account ([73a14df](https://github.com/AnthusAI/Chatticus/commit/73a14df6136c0f55e39b7167c0e55a3de4693ee0))
+
+### Bug Fixes
+
+* publish DMARC policy without a report address ([#573](https://github.com/AnthusAI/Chatticus/issues/573)) ([34884a1](https://github.com/AnthusAI/Chatticus/commit/34884a157c2b0ec0f4ec957eb7ee381dc48f9d54))
+
 ## [0.44.0](https://github.com/AnthusAI/Chatticus/compare/v0.43.1...v0.44.0) (2026-10-15)
 
 ### Features
