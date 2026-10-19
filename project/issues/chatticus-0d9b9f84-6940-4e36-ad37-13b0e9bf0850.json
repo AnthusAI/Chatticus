@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-0d9b9f84-6940-4e36-ad37-13b0e9bf0850",
+  "title": "Apply the staging account deploy stack so the staging smoke test can pass",
+  "description": "Status 2026-10-19. Control plane, thin turn, auth and web are deployed from main to staging and production (production all green; see the handoff report). The staging smoke test job fails because the staging integration test role does not exist yet.\n\n## What is merged\n- develop (6b3db9e) has the staging-only integration test role in the staging account deploy stack (role chatticus-github-actions-integration-test-staging). Production has none, by design.\n- The same stack apply also brings in the least-privilege staging deploy role merged on 2026-10-16, which replaces AdministratorAccess with only the calls the deploy workflows make. It was never applied to the live staging stack.\n\n## What is NOT done (needs Ryan's Mac, AWS profile chatticus-production, folder /Users/home/Projects/Chattic.us)\n1. git pull develop; run `cdk diff` for ChatticusAccountDeployStaging (read-only) and confirm only the test role and the least-privilege deploy role change.\n2. Apply: `cd infra && eval \"$(AWS_PROFILE=chatticus-production aws configure export-credentials --format env)\" && sh deploy-chatticus-account-deploy.sh staging`. Never touch the production deploy stack.\n3. Read stack output IntegrationTestRoleArn and set it: `gh variable set CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN --env staging --repo AnthusAI/Chatticus --body <arn>`.\n4. Dispatch `Deploy ThinTurn (staging)` on main; confirm its smoke test job passes. If a staging deploy fails on permissions after the role change, fix the deploy role policy and redeploy.\n5. Curl https://develop.chattic.us/, https://staging.chattic.us/ and https://chattic.us/ (cloud threads cannot reach them) and record the HTTP statuses.\n\n## Blocker\nThe Remote Control session on the Mac refuses to run aws, cdk and gh apply commands (its safety checker, not a missing login; Ryan's AWS login works). Fix: allow aws, cdk, gh, curl and the deploy script in that session's permissions, or run the step 2 command once in a terminal.\n\n## Done when\nSmoke test green on staging, and the full rollout rule is met: all four components verified on development, staging and production with run links.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-0e336492-e21e-458b-ac45-884918900339",
+  "labels": ["deploy", "staging"],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-19T16:50:00.000000Z",
+  "updated_at": "2026-10-19T16:50:00.000000Z",
+  "closed_at": null,
+  "agent": {"platform": "claude-code", "model": "claude-sonnet-5-5", "name": "Claude (project thread for Ryan)"},
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
