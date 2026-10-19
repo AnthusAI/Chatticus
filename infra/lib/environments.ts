@@ -110,18 +110,6 @@ export function peerEnvironmentsInSameAccount(
   return CHATTICUS_CLOUD_ENVIRONMENTS.filter((name) => name !== environment);
 }
 
-export const AUTH_DOMAIN_NAMES: Record<ChatticusCloudEnvironment, string> = {
-  development: "auth-dev.chattic.us",
-  staging: "auth-staging.chattic.us",
-  production: "auth.chattic.us",
-};
-
-export const WEB_SITE_DOMAINS: Record<ChatticusCloudEnvironment, string> = {
-  development: "dev.chattic.us",
-  staging: "staging.chattic.us",
-  production: "hey.chattic.us",
-};
-
 export interface EnvironmentHostnames {
   siteDomain: string;
   authDomain: string;

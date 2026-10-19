@@ -407,21 +407,29 @@ Deleting `ChatticusAccountDeploy` would delete the provider and lock the other t
 
 ### Adding development and staging to the live production account
 
-Production is not bootstrapped again: its stacks exist, and the work below only touches production for one in-place
-change (step 1). Each step is one stack, run by a person with the production account's SSO session, never `--all`.
+Production is not bootstrapped again and its `ChatticusAccountDeploy` stack is **not redeployed** as part of adding
+development (owner rule: the production deploy stack is never touched). The repository template for it is ahead of the
+deployed stack by additive explicit denies of the development stacks, SSM paths and `development`-tagged resources on
+production's deploy role (the production fixture `ChatticusAccountDeploy.template.json` changes by additions only). If
+someone deploys it later, that adds those denies to production's role and changes nothing else. Each step below is one
+stack, run by a person with the production account's SSO session, never `--all`.
 
-1. `sh infra/deploy-chatticus-account-deploy.sh production`: an in-place update of the existing deploy stack that
-   attaches one IAM policy to the existing deploy role, denying it the development and staging stacks, SSM paths and
-   `development`- and `staging`-tagged resources. Run `cdk diff ChatticusAccountDeploy -c githubDeployEnvironment=production`
-   first; the only change is that policy.
-2. `sh infra/deploy-chatticus-account-deploy.sh development` and `... staging`: the new deploy roles
-   (`chatticus-github-actions-deploy-development`, `chatticus-github-actions-deploy-staging`) and their integration test
-   roles, which need production's stack to exist because they import the OIDC provider that stack created. Set the GitHub
-   environment's `AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN` and dispatch `verify-account-deploy-role.yml`.
-3. For each added environment, each with `sh infra/deploy-chatticus-dedicated-account.sh ENV STACK` in this order:
-   `snapshots`, `computers`, `zones`, (delegate both names from the management zone, wait for `dig`), `certificates`,
-   `thin-turn`, (a person seeds the Google OAuth secret and the OpenAI parameter), `control-plane`, `auth`, `web`.
-   There is no `budgets` step for them: the account's budget is production's.
+1. For each added environment, `sh infra/deploy-chatticus-dedicated-account.sh ENV STACK` in this order: `snapshots`,
+   `computers`, `zones`, (delegate both names from the management zone, wait for `dig`; for development this is the
+   follow-up PR that replaces the retired account's name servers in `infra/lib/dns-delegations.ts`), `certificates`,
+   `thin-turn`, (a person seeds the Google OAuth secret and the OpenAI parameter). There is no `budgets` step: the
+   account's budget is production's. These first stacks are deployed by an admin session; CI deploys take over once
+   step 2 and the GitHub environment secrets exist.
+2. `sh infra/deploy-chatticus-account-deploy.sh development` (and `staging`): the deploy role
+   (`chatticus-github-actions-deploy-development`) and the integration test role. This comes **after** `thin-turn`:
+   `createIntegrationTestRole` resolves `/chatticus/ENV/thin-turn/invoke-key-secret-arn` as a CloudFormation SSM parameter
+   at deploy time, and that parameter exists only once `ChatticusThinTurn<Env>` is deployed. The script also refuses an
+   account without `CDKToolkit` and production's `ChatticusAccountDeploy` (which owns the OIDC provider these stacks
+   import). Redeploy `ChatticusAccountDeployStaging` too: its peer list now includes development (an in-place IAM change).
+   Set the GitHub environment's `AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN` and dispatch `verify-account-deploy-role.yml`.
+3. `control-plane` (with `CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN` set to step 2's integration test role ARN), `auth`,
+   `web`. For development, the retired account's `ChatticusWeb` and `ChatticusAuth` stacks must be deleted before `auth`
+   and `web`: CloudFront alternate domain names and Cognito custom domains are globally unique.
 
 ### Production's live stacks are behind the code
 
@@ -433,15 +441,16 @@ Lambda functions and website, the invoke-key origin header, a snapshot bucket li
 removes an export that the deployed `ChatticusComputers` still imports. Deploy `ChatticusComputers` before
 `ChatticusSnapshots`, and read both diffs first.
 
-### What the shared account does not isolate
+### What the shared account does not isolate (known boundary)
 
-- The three deploy roles are least privilege (`infra/lib/deploy-role-policy.ts`): they assume the CDK bootstrap roles and
-  make only the read, parameter and ECR calls the workflows need, with explicit denies on the other two environments' stacks,
-  SSM parameter paths and `chatticus:environment`-tagged resources, and on IAM users, access keys, Organizations and
-  Account actions. CDK deploys go through the one set of bootstrap roles (`cdk-*-deploy-role`, `cdk-*-cfn-exec-role`),
-  which all three environments share, and the CloudFormation execution role is `AdministratorAccess`, so a deploy role that is
-  compromised can still reach the other environment and change anything CloudFormation can through them. Closing that needs a separate bootstrap qualifier per environment. This is
-  decision D10 below.
+- The three OIDC deploy roles are least privilege (`infra/lib/deploy-role-policy.ts`) and each has explicit denies on the
+  other two environments' stacks, SSM parameter paths and `chatticus:environment`-tagged resources, and on IAM users, access
+  keys, Organizations and Account actions. Those denies bound only what the OIDC role does with its own credentials. They do
+  **not** isolate the environments: every deploy role can assume the shared CDK bootstrap roles (`cdk-*-deploy-role`,
+  `cdk-*-cfn-exec-role`), and the CloudFormation execution role is `AdministratorAccess`, so a deploy driven through bootstrap
+  can still change anything CloudFormation can in any environment. Today the boundary is procedural: staging and production
+  deploy only from `main`, development from `develop`. The real fix is a separate CDK bootstrap qualifier per environment
+  (decision D10 below), a follow-up.
 - ECS, VPC and CloudFront account quotas are shared; the three computers stacks each create a VPC.
 
 ### Not built here (follow-ups)
@@ -452,5 +461,5 @@ removes an export that the deployed `ChatticusComputers` still imports. Deploy `
 
 ### Decision D10
 
-Accept the shared bootstrap roles (above), or bootstrap the production account twice with distinct qualifiers and give each
+Accept the shared bootstrap roles (above: the peer denies are a bound on the OIDC roles, not isolation), or bootstrap the production account twice with distinct qualifiers and give each
 environment's stacks its own synthesizer.

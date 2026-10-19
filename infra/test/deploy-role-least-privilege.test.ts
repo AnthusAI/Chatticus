@@ -261,7 +261,7 @@ for (const { label, environment, view } of SUBJECTS) {
   });
 }
 
-describe("least privilege: all three environments share one account, so each role denies the other two", () => {
+describe("least privilege: each OIDC role denies the other two environments directly (the shared CDK bootstrap roles are a known, unclosed boundary)", () => {
   for (const environment of CHATTICUS_CLOUD_ENVIRONMENTS) {
     const peers = CHATTICUS_CLOUD_ENVIRONMENTS.filter((name) => name !== environment);
     it(`${environment} denies ${peers.join(" and ")}'s stacks, parameters and tagged resources`, () => {

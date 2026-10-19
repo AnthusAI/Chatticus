@@ -422,6 +422,12 @@ describe("computer image tag rule: an environment tag moves only after the serve
     assert.deepEqual(writers.map((file) => file.slice(repositoryRoot.length + 1)), ["infra/promote-computer-image.sh"]);
   });
 
+  it("the Anthus break-glass script targets the development Computers stack, not production's", () => {
+    const contents = readFileSync(join(repositoryRoot, "computer", "push-computer-image.sh"), "utf8");
+    assert.match(contents, /--stack-name ChatticusComputersDevelopment \\/);
+    assert.doesNotMatch(contents, /--stack-name ChatticusComputers \\/);
+  });
+
   it("the break-glass scripts push an immutable manual tag to the development repository, never dev", () => {
     for (const name of ["push-computer-image.sh", "push-customer-computer-image.sh"]) {
       const contents = readFileSync(join(repositoryRoot, "computer", name), "utf8");

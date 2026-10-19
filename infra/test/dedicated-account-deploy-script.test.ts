@@ -313,6 +313,71 @@ describe("deploy-chatticus-account-deploy.sh", () => {
     assert.doesNotMatch(accountDeploy, /Development's account/);
   });
 
+  describe("refuses to run outside the shared production account", () => {
+    const accountDeployScript = join(__dirname, "..", "deploy-chatticus-account-deploy.sh");
+
+    function runWithAccount(environment: string, stacksPresent: string[]): { status: number | null; stderr: string; deployed: boolean } {
+      const directory = mkdtempSync(join(tmpdir(), "account-deploy-stub-"));
+      try {
+        writeFileSync(
+          join(directory, "aws"),
+          `#!/bin/sh
+case "$*" in
+  *"sts get-caller-identity"*) exit 0 ;;
+esac
+for stack in ${stacksPresent.join(" ")}; do
+  case "$*" in *"--stack-name $stack "*|*"--stack-name $stack") exit 0 ;; esac
+done
+exit 255
+`,
+        );
+        writeFileSync(join(directory, "npx"), `#!/bin/sh\necho deployed > "${directory}/deployed"\nexit 0\n`);
+        chmodSync(join(directory, "aws"), 0o755);
+        chmodSync(join(directory, "npx"), 0o755);
+        const result = spawnSync("sh", [accountDeployScript, environment], {
+          encoding: "utf8",
+          env: { PATH: `${directory}:/usr/bin:/bin`, HOME: process.env.HOME ?? "" },
+        });
+        return { status: result.status, stderr: result.stderr, deployed: existsSync(join(directory, "deployed")) };
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }
+
+    it("refuses an account without the CDKToolkit stack", () => {
+      const result = runWithAccount("development", ["ChatticusAccountDeploy"]);
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /no CDKToolkit stack/);
+      assert.equal(result.deployed, false);
+    });
+
+    it("refuses development and staging in an account without production's ChatticusAccountDeploy", () => {
+      for (const environment of ["development", "staging"]) {
+        const result = runWithAccount(environment, ["CDKToolkit"]);
+        assert.equal(result.status, 1, environment);
+        assert.match(result.stderr, /no production ChatticusAccountDeploy stack/);
+        assert.equal(result.deployed, false);
+      }
+    });
+
+    it("refuses the legacy account", () => {
+      const result = runWithAccount("development", ["CDKToolkit", "ChatticusAccountDeploy", "ChatticusDns"]);
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /legacy ChatticusDns/);
+    });
+
+    it("deploys development and staging in the shared account, and production where its own stack does not exist yet", () => {
+      for (const environment of ["development", "staging"]) {
+        const result = runWithAccount(environment, ["CDKToolkit", "ChatticusAccountDeploy"]);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.deployed, true);
+      }
+      const production = runWithAccount("production", ["CDKToolkit"]);
+      assert.equal(production.status, 0, production.stderr);
+      assert.equal(production.deployed, true);
+    });
+  });
+
   it("has no separate OIDC provider script or stack: the production deploy stack owns the provider", () => {
     assert.equal(existsSync(join(__dirname, "..", "deploy-chatticus-oidc-provider.sh")), false);
     assert.equal(existsSync(join(__dirname, "..", "lib", "github-oidc-provider-stack.ts")), false);

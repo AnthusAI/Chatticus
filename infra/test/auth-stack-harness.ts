@@ -4,11 +4,10 @@ import * as route53 from "aws-cdk-lib/aws-route53";
 import { Template } from "aws-cdk-lib/assertions";
 import {
   AUTH_STACK_IDS,
-  AUTH_DOMAIN_NAMES,
   ChatticusCloudEnvironment,
-  WEB_SITE_DOMAINS,
   webParameterPrefix,
-} from "../lib/environments";
+  ENVIRONMENT_HOSTNAMES,
+} from "../lib/environments"
 import { AuthStack } from "../lib/auth-stack";
 
 const testEnv = {
@@ -35,8 +34,8 @@ export function synthAuthStack(
   const stack = new AuthStack(app, AUTH_STACK_IDS[environmentName], {
     env: testEnv,
     chatticusEnvironment: environmentName,
-    siteDomain: WEB_SITE_DOMAINS[environmentName],
-    authDomainName: AUTH_DOMAIN_NAMES[environmentName],
+    siteDomain: ENVIRONMENT_HOSTNAMES[environmentName].siteDomain,
+    authDomainName: ENVIRONMENT_HOSTNAMES[environmentName].authDomain,
     hostedZone,
     siteCertificate,
     budgetsAlertsTopicArn,
@@ -53,9 +52,9 @@ export function authStackExpectations(
   silentCallbackUrl: string;
   webPrefix: string;
 } {
-  const siteDomain = WEB_SITE_DOMAINS[environmentName];
+  const siteDomain = ENVIRONMENT_HOSTNAMES[environmentName].siteDomain;
   return {
-    authDomainName: AUTH_DOMAIN_NAMES[environmentName],
+    authDomainName: ENVIRONMENT_HOSTNAMES[environmentName].authDomain,
     callbackUrl: `https://${siteDomain}/auth/callback`,
     silentCallbackUrl: `https://${siteDomain}/auth/silent-callback`,
     webPrefix: webParameterPrefix(environmentName),

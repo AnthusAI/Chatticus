@@ -33,11 +33,19 @@ export interface AccountGitHubDeployStackProps extends cdk.StackProps {
 }
 
 /**
- * Explicit denies that keep the deploy role of one environment out of the other
- * environments that share its AWS account: CloudFormation on their stacks, their
- * SSM parameter paths, and anything tagged with their environment. The cost
- * attribution tags (`chatticus:environment`) are applied to every resource of a
- * stack, so the tag deny reaches resources whose names carry no environment.
+ * Explicit denies on one environment's OIDC deploy role for the other
+ * environments' CloudFormation stacks, SSM parameter paths, and anything tagged
+ * with their environment.
+ *
+ * What this does: it bounds the calls the OIDC role makes with its own
+ * credentials (reading peer stack outputs and parameters, pushing to a peer
+ * repository). What it does NOT do: isolate the environments. All three roles
+ * can assume the shared CDK bootstrap roles (lib/deploy-role-policy.ts), and the
+ * bootstrap CloudFormation execution role is AdministratorAccess, so a deploy
+ * driven through bootstrap can change any environment's resources. The real fix
+ * is a separate CDK bootstrap qualifier per environment (a follow-up). Until
+ * then the boundary is procedural: staging and production deploy only from main,
+ * development from develop.
  */
 function peerEnvironmentDenyStatements(
   stack: cdk.Stack,
