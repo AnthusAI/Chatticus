@@ -19,6 +19,12 @@ import { TAG_ENVIRONMENT } from "./tagging";
 export const GITHUB_OIDC_PROVIDER_URL = "token.actions.githubusercontent.com";
 
 export const INTEGRATION_TEST_ROLE_NAME = "chatticus-github-actions-integration-test-development";
+export const STAGING_INTEGRATION_TEST_ROLE_NAME = "chatticus-github-actions-integration-test-staging";
+
+const INTEGRATION_TEST_ROLE_NAMES: Partial<Record<GithubDeployEnvironment, string>> = {
+  development: INTEGRATION_TEST_ROLE_NAME,
+  staging: STAGING_INTEGRATION_TEST_ROLE_NAME,
+};
 
 export interface AccountGitHubDeployStackProps extends cdk.StackProps {
   githubEnvironment: GithubDeployEnvironment;
@@ -127,8 +133,13 @@ export class AccountGitHubDeployStack extends cdk.Stack {
       this.deployRole.addToPolicy(statement);
     }
 
-    if (props.githubEnvironment === "development") {
-      this.integrationTestRole = this.createIntegrationTestRole(providerArn);
+    const integrationTestRoleName = INTEGRATION_TEST_ROLE_NAMES[props.githubEnvironment];
+    if (integrationTestRoleName) {
+      this.integrationTestRole = this.createIntegrationTestRole(
+        providerArn,
+        props.githubEnvironment,
+        integrationTestRoleName,
+      );
     }
 
     new cdk.CfnOutput(this, "GithubDeployRoleArn", {
@@ -139,27 +150,31 @@ export class AccountGitHubDeployStack extends cdk.Stack {
 
   /**
    * The principal the post-deploy acceptance smoke test runs as: assumed through
-   * GitHub OIDC by the development environment only, with read access to the two
+   * GitHub OIDC by its own environment only (development or staging, never production), with read access to the two
    * thin-turn parameters the acceptance runner resolves and to the invoke-key
    * secret they point to, and nothing else. Its ARN is the value of the
    * CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN GitHub environment variable and
    * of the control plane's integration-test allowed-role parameter.
    */
-  private createIntegrationTestRole(providerArn: string): iam.Role {
+  private createIntegrationTestRole(
+    providerArn: string,
+    environment: GithubDeployEnvironment,
+    roleName: string,
+  ): iam.Role {
     const role = new iam.Role(this, "GithubActionsIntegrationTest", {
-      roleName: INTEGRATION_TEST_ROLE_NAME,
-      description: "GitHub Actions OIDC: development acceptance smoke test (integration-test session exchange).",
+      roleName,
+      description: `GitHub Actions OIDC: ${environment} acceptance smoke test (integration-test session exchange).`,
       maxSessionDuration: cdk.Duration.hours(1),
       assumedBy: new iam.WebIdentityPrincipal(providerArn, {
         StringEquals: { [`${GITHUB_OIDC_PROVIDER_URL}:aud`]: "sts.amazonaws.com" },
-        StringLike: { [`${GITHUB_OIDC_PROVIDER_URL}:sub`]: `${GITHUB_SUB_PREFIX}:environment:development` },
+        StringLike: { [`${GITHUB_OIDC_PROVIDER_URL}:sub`]: `${GITHUB_SUB_PREFIX}:environment:${environment}` },
       }),
     });
-    const thinTurnPrefix = thinTurnParameterPrefix("development");
+    const thinTurnPrefix = thinTurnParameterPrefix(environment);
     role.addToPolicy(
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [`${thinTurnPrefix}/cloudfront-url`, invokeKeySecretArnParameterName("development")].map(
+        resources: [`${thinTurnPrefix}/cloudfront-url`, invokeKeySecretArnParameterName(environment)].map(
           (name) =>
             this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
         ),
@@ -169,13 +184,13 @@ export class AccountGitHubDeployStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["secretsmanager:GetSecretValue"],
         resources: [
-          ssm.StringParameter.valueForStringParameter(this, invokeKeySecretArnParameterName("development")),
+          ssm.StringParameter.valueForStringParameter(this, invokeKeySecretArnParameterName(environment)),
         ],
       }),
     );
     new cdk.CfnOutput(this, "IntegrationTestRoleArn", {
       value: role.roleArn,
-      description: "Value for the CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN variable of the development GitHub environment.",
+      description: `Value for the CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN variable of the ${environment} GitHub environment.`,
     });
     return role;
   }

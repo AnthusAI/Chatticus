@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-ecd0883e-880d-4fe7-b1e4-668d746ded9f",
+  "title": "Workspace redesign: what shipped and what remains",
+  "description": "Status 2026-10-19 for epic chatticus-daa715.\n\n## Shipped to develop (production as of 2026-10-18)\n- Flat workspace with a panel plugin host and per-reply usage (first slice).\n- Full-height workspace on iPad Safari, resizable sidebar and panel.\n- Panel plugins load from manifests as custom elements (Context, Files, Costs run on that path).\n- Reply latency shown beside cost on replies and the conversation chip.\n- A screenshot gallery (desktop, iPad, phone) is posted on every web pull request.\n\n## Remaining\n- Kanbus board plugin (workspace files now, cloud DynamoDB-backed board later).\n- Monaco code editor plugin (full screen, file tree, terminal, embedded coding assistant).\n- Browser tab plugin.\n- AWS spend against the 50 USD monthly ceiling shown in the workspace (see chatticus-9ac621 for the unresolved hosted-organization meter).\n- Dark mode polish; plugin standard decision (Korporus web components).\n\nDesign notes: /ui-design/panel-plugin-contract.md and competitor-review-kylon.md in the project files. Brand rule: flat regions, no borders or outlines. Ryan reviews from an iPad, so UI pull requests need the screenshot gallery.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
+  "labels": ["web", "ui"],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-19T16:50:00.000000Z",
+  "updated_at": "2026-10-19T16:50:00.000000Z",
+  "closed_at": null,
+  "agent": {"platform": "claude-code", "model": "claude-sonnet-5-5", "name": "Claude (project thread for Ryan)"},
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

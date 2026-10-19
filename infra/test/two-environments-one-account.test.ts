@@ -212,7 +212,7 @@ describe("staging and production in one AWS account", () => {
     for (const environment of SHARED_ACCOUNT_ENVIRONMENTS) {
       const roleNames = resourcesOf({ [ACCOUNT_DEPLOY_STACK_IDS[environment]]: synthesized[environment][ACCOUNT_DEPLOY_STACK_IDS[environment]] }, ["AWS::IAM::Role"]).map(
         (entry) => entry.resource.Properties?.RoleName,
-      );
+      ).filter((roleName) => !String(roleName).includes("integration-test"));
       assert.deepEqual(roleNames, [ACCOUNT_DEPLOY_ROLE_NAMES[environment]]);
     }
     assert.notEqual(ACCOUNT_DEPLOY_ROLE_NAMES.staging, ACCOUNT_DEPLOY_ROLE_NAMES.production);
@@ -259,7 +259,7 @@ describe("IAM is scoped per environment in the shared account", () => {
       const policies = resourcesOf(
         { deploy: synthesized[environment][ACCOUNT_DEPLOY_STACK_IDS[environment]] },
         ["AWS::IAM::Policy"],
-      );
+      ).filter((entry) => !entry.id.includes("IntegrationTest"));
       const statements = policies.flatMap(
         (entry) => (entry.resource.Properties as { PolicyDocument: { Statement: Array<{ Sid?: string; Effect: string }> } }).PolicyDocument.Statement,
       );

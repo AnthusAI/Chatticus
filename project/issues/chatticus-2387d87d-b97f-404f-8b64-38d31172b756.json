@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-2387d87d-b97f-404f-8b64-38d31172b756",
+  "title": "Let the Mac session run AWS, CDK and GitHub commands without safety-checker refusals",
+  "description": "Remote Control sessions on Ryan's Mac (folder /Users/home/Projects/Chattic.us) keep refusing aws, cdk and gh commands through their safety checker even though the AWS CLI profile chatticus-production is logged in. This stalled the staging rollout on 2026-10-19. Ryan cannot find or answer permission prompts in those sessions.\n\nDone when: the Mac session's permission settings allow aws, cdk, gh, curl and infra/deploy-chatticus-account-deploy.sh (project .claude/settings.json or equivalent) so deploy briefs run end to end with no prompts. Do not suggest cloud AWS keys; security controls forbid them.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-0e336492-e21e-458b-ac45-884918900339",
+  "labels": ["deploy", "remote-control"],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-19T16:50:00.000000Z",
+  "updated_at": "2026-10-19T16:50:00.000000Z",
+  "closed_at": null,
+  "agent": {"platform": "claude-code", "model": "claude-sonnet-5-5", "name": "Claude (project thread for Ryan)"},
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -123,13 +123,76 @@ Feature: Daily budget rollup
     And the daily budget rollup runs for 2026-08-01
     Then the budget rollup for tenant "acme" environment "development" on 2026-07-31 has ce_status "error"
 
-  Scenario: A platform-hosted day that could not be read is not rewritten as measured
+  Scenario: A platform-hosted day that could not be read is read again by the next run and cleared
     Given the runtime records of the computer of tenant "anthus" are unreadable
     When the daily budget rollup runs for 2026-08-30
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-30 has ce_status "error"
+    When the runtime records of the computer of tenant "anthus" are readable again
+    And the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-30 has ce_status "ok"
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-30 has aws_cost_usd 0.00
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
+
+  Scenario: A day whose retry still fails stays an error and keeps the organization paused
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account cannot be read
+    When the daily budget rollup runs for 2026-08-30
+    And the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-30 has ce_status "error"
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-30 has null combined_report_usd
+    And computer work of tenant "acme" is paused as of 2026-08-31 under a ceiling of 50 USD
+
+  Scenario: A day cleared by the next run lifts the pause
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account cannot be read
+    When the daily budget rollup runs for 2026-08-30
+    Then computer work of tenant "acme" is paused as of 2026-08-30 under a ceiling of 50 USD
+    When its own account can be read again
+    And its own account spent 4.00 USD on 2026-08-30
+    And its own account spent 1.00 USD on 2026-08-31
+    And the daily budget rollup runs for 2026-08-31
+    Then computer work of tenant "acme" is not paused as of 2026-08-31 under a ceiling of 50 USD
+
+  Scenario: Each run reads again at most the five newest unreadable days of the month
+    Given the runtime records of the computer of tenant "anthus" are unreadable
+    When the daily budget rollup runs for 2026-08-20
+    And the daily budget rollup runs for 2026-08-21
+    And the daily budget rollup runs for 2026-08-22
+    And the daily budget rollup runs for 2026-08-23
+    And the daily budget rollup runs for 2026-08-24
+    And the daily budget rollup runs for 2026-08-25
+    And the daily budget rollup runs for 2026-08-26
     And the runtime records of the computer of tenant "anthus" are readable again
     And the daily budget rollup runs for 2026-08-31
-    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-30 has ce_status "error"
-    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-26 has ce_status "ok"
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-22 has ce_status "ok"
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-21 has ce_status "error"
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-20 has ce_status "error"
+
+  Scenario: A scheduled run without a date rolls up yesterday
+    Given the computer of tenant "anthus" ran for 2 hours on 2026-08-30
+    When the scheduled daily budget rollup is invoked without a date at 2026-08-31T04:00:00Z
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-30 has aws_cost_usd 0.01975
+
+  Scenario: A scheduled run with a date rolls up that past day
+    Given the computer of tenant "anthus" ran for 2 hours on 2026-08-15
+    When the scheduled daily budget rollup is invoked with date "2026-08-15" at 2026-08-31T04:00:00Z
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-15 has aws_cost_usd 0.01975
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-15 has ce_status "ok"
+
+  Scenario Outline: A scheduled run with an invalid date is rejected and writes nothing
+    When the scheduled daily budget rollup is invoked with date "<date>" at 2026-08-31T04:00:00Z
+    Then the scheduled daily budget rollup is rejected for its date
+    And there is 0 budget rollup row for tenant "anthus" environment "development" on 2026-08-30
+
+    Examples:
+      | date       |
+      | yesterday  |
+      | 2026-8-15  |
+      | 2026-02-30 |
+      | 2026-08-31 |
+      | 2026-09-01 |
+      |            |
 
   Scenario: An organization whose spend could not be read is reported on the budgets topic
     Given organization "Acme" with tenant "acme" runs in its own AWS account
