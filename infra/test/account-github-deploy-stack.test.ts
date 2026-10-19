@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { AccountGitHubDeployStack, INTEGRATION_TEST_ROLE_NAME } from "../lib/account-github-deploy-stack";
+import { AccountGitHubDeployStack, INTEGRATION_TEST_ROLE_NAME, STAGING_INTEGRATION_TEST_ROLE_NAME } from "../lib/account-github-deploy-stack";
 import {
   ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_ROLE_NAMES,
@@ -46,8 +46,8 @@ describe("AccountGitHubDeployStack", () => {
         });
       }
 
-      it("creates exactly one deploy role, not one per environment, plus the integration test role in development only", () => {
-        template.resourceCountIs("AWS::IAM::Role", environment === "development" ? 2 : 1);
+      it("creates exactly one deploy role, not one per environment, plus the integration test role in development and staging only", () => {
+        template.resourceCountIs("AWS::IAM::Role", environment === "production" ? 1 : 2);
         template.hasResourceProperties("AWS::IAM::Role", { RoleName: ACCOUNT_DEPLOY_ROLE_NAMES[environment] });
       });
 
@@ -96,11 +96,38 @@ describe("integration test role", () => {
     );
   });
 
-  for (const environment of ["staging", "production"] as const) {
-    it(`does not exist in ${environment}`, () => {
-      assert.equal(JSON.stringify(synth(environment).toJSON()).includes(INTEGRATION_TEST_ROLE_NAME), false);
-    });
-  }
+  it("does not exist in production", () => {
+    const production = JSON.stringify(synth("production").toJSON());
+    assert.equal(production.includes(INTEGRATION_TEST_ROLE_NAME), false);
+    assert.equal(production.includes(STAGING_INTEGRATION_TEST_ROLE_NAME), false);
+  });
+
+  it("does not exist for development inside staging", () => {
+    assert.equal(JSON.stringify(synth("staging").toJSON()).includes(INTEGRATION_TEST_ROLE_NAME), false);
+  });
+});
+
+describe("staging integration test role", () => {
+  const template = synth("staging");
+
+  it("is trusted only by the staging GitHub environment sub claim", () => {
+    const condition = federatedPrincipalConditions(
+      roleAssumeRolePolicy(template, STAGING_INTEGRATION_TEST_ROLE_NAME),
+    );
+    const subject = (condition.StringLike as Record<string, string>)["token.actions.githubusercontent.com:sub"];
+    assert.equal(subject, `${GITHUB_SUB_PREFIX}:environment:staging`);
+  });
+
+  it("can only read parameters and secrets of staging", () => {
+    const serialized = JSON.stringify(
+      Object.values(template.findResources("AWS::IAM::Policy")).filter((policy) =>
+        JSON.stringify(policy).includes("IntegrationTest"),
+      ),
+    );
+    assert.ok(serialized.includes("/chatticus/staging/"));
+    assert.equal(serialized.includes("/chatticus/development/"), false);
+    assert.equal(serialized.includes("/chatticus/production/"), false);
+  });
 });
 
 describe("verify-account-deploy-role workflow", () => {
