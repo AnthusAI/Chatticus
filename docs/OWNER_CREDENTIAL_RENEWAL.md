@@ -985,7 +985,7 @@ Decided S6. Contract: this page, 12.3 and 7.1.
 - The four `@end-to-end` scenarios in one steps file, with the real routes, the real supervisor and a fake clock.
 - `conversation/bin/acceptance.ts` (and `conversation/src/acceptance/`): a `--owner-soak <minutes>` mode (section 19).
 - The deploy and the live proof of sections 18 and 19, each result recorded in a Kanbus comment.
-- The milestone sub-agent required by `AGENTS.md`: Kanbus statuses, the README "What is live today", this page's Status block
+- The milestone sub-agent required by `AGENTS.md`: Kanbus statuses, this page's Status block
   becomes "BUILT", the draft feature file's header is removed as its scenarios are registered.
 - Acceptance: all of the above, and `docs/LONG_LIVED_COMPUTER.md` Phase 2b marked live.
 

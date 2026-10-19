@@ -952,7 +952,7 @@ Rule: **step text does not change unless the behavior changed.** A diff in a
    `ComputerWorker`, `ComputerlessWorker`, `TurnDeadline`, the scheduler group,
    the Lambda Web Adapter layer, the `SseSpike` stack, the old queues
    (after the drained check), `python/`, `behave.ini`, the CI `python` job and
-   the pins; update AGENTS.md "Quality gates", README "What is live today" and
+   the pins; update AGENTS.md "Quality gates" and
    `CONTRIBUTING_AGENT.md`. Run order: development, then staging and
    production together on the normal `develop` to `main` promotion (the CI/CD
    in AGENTS.md), with the migration phases in 2.7.

@@ -388,8 +388,8 @@ from that loop is the merge gate, not a person on the PR.
 
 ## Milestones
 
-At every milestone, launch a **sub-agent** whose only job is Kanbus and
-the README. Comment on touched issues, keep statuses current, create
-issues for significant new work, and update README "What is live today"
-so it matches git and AWS. Do not fold that into the implementation
-agent as an afterthought. The README states the same rule for humans.
+At every milestone, launch a **sub-agent** whose only job is Kanbus
+bookkeeping. Comment on touched issues, keep statuses current, and create
+issues for significant new work. The README no longer carries a status
+section; do not add one. Do not fold that into the implementation
+agent as an afterthought.
