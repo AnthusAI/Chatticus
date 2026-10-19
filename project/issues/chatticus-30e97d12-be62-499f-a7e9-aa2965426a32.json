@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-30e97d12-be62-499f-a7e9-aa2965426a32",
+  "title": "Check the live development, staging and production sites",
+  "description": "",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d60c84f2-614d-471d-9078-19835c7aa324",
+      "author": "home",
+      "text": "2026-10-19: checked from the Mac after the full rollout and the development move: https://hey.chattic.us/api/health 200, https://staging.chattic.us/api/health 200, https://develop.chattic.us/api/health 200 (environment development), https://chattic.us/ 200, https://www.chattic.us/ 200, https://auth-develop.chattic.us/login 302. All three environments run in the one production AWS account. Re-filed because the original card (written by an earlier session with a malformed dependency entry) bricked the whole board and was removed with the owner's approval.",
+      "created_at": "2026-10-19T23:02:12.616070Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator"
+      }
+    }
+  ],
+  "created_at": "2026-10-19T23:02:07.758315Z",
+  "updated_at": "2026-10-19T23:02:12.673357Z",
+  "closed_at": "2026-10-19T23:02:12.673325Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "orchestrator"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
