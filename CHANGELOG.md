@@ -1,3 +1,9 @@
+## [0.50.0](https://github.com/AnthusAI/Chatticus/compare/v0.49.0...v0.50.0) (2026-10-19)
+
+### Features
+
+* the daily rollup reads unreadable days again and accepts a date (self-healing spend meter) ([#608](https://github.com/AnthusAI/Chatticus/issues/608)) ([74b21a6](https://github.com/AnthusAI/Chatticus/commit/74b21a682026d30782e618dbdab9b4bc4fee38d2))
+
 ## [0.49.0](https://github.com/AnthusAI/Chatticus/compare/v0.48.1...v0.49.0) (2026-10-18)
 
 ### Features
