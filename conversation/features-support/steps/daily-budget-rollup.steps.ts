@@ -12,7 +12,9 @@ import {
 	ROLLUP_ALERT_SOURCE,
 } from "../../src/budget/models.ts";
 import { RecordedRuntimeComputerSpendReader } from "../../src/budget/computer-runtime.ts";
+import { RollupDateInvalidError, resolveRollupDate } from "../../src/budget/rollup-date.ts";
 import { runDailyRollup } from "../../src/budget/runner.ts";
+import { organizationComputerWorkPaused } from "../../src/domain/organization-spend.ts";
 import { reconcilerOf } from "../cost-reconciliation-support.ts";
 import { DEPLOYMENT_AWS_ACCOUNT_ID } from "../messaging-table.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -376,5 +378,73 @@ Then(
 	async function (this: ChatticusWorld, count: number, tenantId: string, environment: string, day: string) {
 		const key = budgetRollupKey(tenantId, environment, day);
 		assert.equal(await this.messagingTable.countItemsWithSortKeyPrefix(key.pk, key.sk), count);
+	},
+);
+
+async function invokeScheduledRollup(world: ChatticusWorld, event: { date?: unknown } | undefined, invokedAt: string): Promise<void> {
+	world.scheduledRollupRejection = null;
+	const invocationTime = new Date(invokedAt);
+	try {
+		const rollupDate = resolveRollupDate(event, invocationTime);
+		await runDailyRollup({
+			store: world.store,
+			hostedComputerSpend: new RecordedRuntimeComputerSpendReader(world.store),
+			accountSpend: world.accountSpend,
+			alerts: world.budgetAlerts,
+			reconciler: reconcilerOf(world),
+			environment: world.budgetEnvironment,
+			rollupDate,
+			monthlyLimitUsd: world.monthlyLimitUsd,
+			now: invocationTime,
+		});
+	} catch (error) {
+		if (!(error instanceof RollupDateInvalidError)) {
+			throw error;
+		}
+		world.scheduledRollupRejection = error;
+	}
+}
+
+When(
+	"the scheduled daily budget rollup is invoked without a date at {word}",
+	async function (this: ChatticusWorld, invokedAt: string) {
+		await invokeScheduledRollup(this, undefined, invokedAt);
+	},
+);
+
+When(
+	"the scheduled daily budget rollup is invoked with date {string} at {word}",
+	async function (this: ChatticusWorld, date: string, invokedAt: string) {
+		await invokeScheduledRollup(this, { date }, invokedAt);
+	},
+);
+
+Then("the scheduled daily budget rollup is rejected for its date", function (this: ChatticusWorld) {
+	assert.ok(this.scheduledRollupRejection instanceof RollupDateInvalidError, "the invocation was not rejected for its date");
+});
+
+async function pausedUnderCeiling(world: ChatticusWorld, tenantId: string, day: string, ceiling: string): Promise<boolean> {
+	const organization = await world.messagingStore().getOrganization(tenantId);
+	assert.ok(organization !== null, `no organization ${tenantId}`);
+	const pause = await organizationComputerWorkPaused(
+		{ ...organization, monthlyAwsSpendCeilingUsd: Decimal.parse(ceiling) },
+		world.store,
+		world.budgetEnvironment,
+		day,
+	);
+	return pause.paused;
+}
+
+Then(
+	"computer work of tenant {string} is paused as of {word} under a ceiling of {word} USD",
+	async function (this: ChatticusWorld, tenantId: string, day: string, ceiling: string) {
+		assert.equal(await pausedUnderCeiling(this, tenantId, day, ceiling), true);
+	},
+);
+
+Then(
+	"computer work of tenant {string} is not paused as of {word} under a ceiling of {word} USD",
+	async function (this: ChatticusWorld, tenantId: string, day: string, ceiling: string) {
+		assert.equal(await pausedUnderCeiling(this, tenantId, day, ceiling), false);
 	},
 );
