@@ -70,7 +70,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-17.** The iPad workspace-height recovery and resizable
+**Last updated: 2026-10-19.** The iPad workspace-height recovery and resizable
 roster/panel columns from [PR #590](https://github.com/AnthusAI/Chatticus/pull/590),
 with browser regression coverage in
 [PR #592](https://github.com/AnthusAI/Chatticus/pull/592), reached `main` through
@@ -113,16 +113,43 @@ environment has its own deploy role (`chatticus-github-actions-deploy-developmen
 `-staging`, and `chatticus-github-actions-deploy` for production) that denies the
 other two environments' resources.
 
-There is no separate staging AWS account. **Staging** now runs in the production
+There is no separate staging AWS account. **Staging** runs in the production
 account as `Staging`-suffixed stacks (`AccountDeployStaging`, `SnapshotsStaging`,
 `ComputersStaging`, `EnvironmentZonesStaging`, `EnvironmentCertificatesStaging`,
 `ThinTurnStaging`, `ControlPlaneStaging`, `AuthStaging`, `WebStaging`), and
-`staging.chattic.us` serves 200. Production keeps its existing stack names. The
-old staging account's stacks are deleted; empty leftovers remain and the account
-is not yet closed. **Limits:** the staging integration test principal is not wired
-(staging acceptance fails with 403 on bearer exchange; chatticus-99cae9), and the
-staging deny policy is not yet on the production deploy role. Staging computers
-can start now that the computer image is promoted.
+`staging.chattic.us` serves 200. Production keeps its existing stack names.
+
+**State on 2026-10-19.**
+
+| Environment | Hostnames | Stacks | Signup |
+| --- | --- | --- | --- |
+| development | `develop.chattic.us`, `auth-develop.chattic.us` | nine `Development` stacks | open |
+| staging | `staging.chattic.us` | nine `Staging` stacks | invitation only |
+| production | `hey.chattic.us` | existing stack names | invitation only |
+
+- All three environments share the one production AWS account. Development was
+  moved into it on 2026-10-19 (PR 610, PR 611) and came back fresh after about
+  an hour of downtime: no data was carried over. The former development
+  account holds no Chatticus resources (only CDK bootstrap remains).
+- The staging and development deploy roles are least-privilege and the staging
+  integration test role exists, with staging smoke tests passing. The
+  production deploy role is **not** yet narrowed: it remains
+  AdministratorAccess by owner decision, and the production
+  `ChatticusAccountDeploy` stack is untouched. The three roles share the CDK
+  bootstrap roles (CloudFormation execution role is AdministratorAccess), so
+  the peer-environment denies bound only the OIDC roles; a separate bootstrap
+  qualifier per environment is the real isolation (chatticus-3d467e).
+- Release v0.50.0 is rolled out: control plane, thin turn, auth and web are green
+  on staging and production from `main`, and on development from `develop`.
+- 26 CloudWatch alarms exist in the account and notify the owner by email. The
+  alarm topics' email subscriptions had expired unconfirmed and were re-created
+  and confirmed on 2026-10-19; nothing yet alerts when a topic has no confirmed
+  subscription (chatticus-dd720a).
+- Lambda concurrency in the account is 1000 (raised from 10).
+- Spend ceiling: the meter for platform-hosted organizations reads recorded
+  owner runtime (PR 586), and the daily rollup retries unreadable days and
+  accepts a backfill date (PR 588, PR 608), so one unreadable day no longer
+  pauses computers permanently.
 
 The **marketing site** (`chattic.us` and `www`) is now served from the production
 AWS account by the `ChatticusMarketing` stack in the private website repo, with
