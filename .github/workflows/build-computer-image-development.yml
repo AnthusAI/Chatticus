@@ -27,6 +27,7 @@ jobs:
     env:
       LOCAL_IMAGE: chatticus-computer:ci
       AWS_REGION: us-east-1
+      COMPUTERS_STACK: ChatticusComputersDevelopment
     steps:
       - uses: actions/checkout@v4
 
@@ -66,7 +67,7 @@ jobs:
       - name: Push the immutable sha tag only
         run: |
           REPO="$(aws cloudformation describe-stacks \
-            --stack-name ChatticusComputers \
+            --stack-name "${COMPUTERS_STACK}" \
             --region "${AWS_REGION}" \
             --query "Stacks[0].Outputs[?OutputKey=='ComputerRepositoryUri'].OutputValue" \
             --output text)"

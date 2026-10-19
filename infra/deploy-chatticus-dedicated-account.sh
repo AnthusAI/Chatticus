@@ -1,11 +1,10 @@
 #!/bin/sh
-# Deploy ONE stack of ONE environment into the account that holds it. Never --all.
-# Run with that account's credentials, never the legacy account's. Staging and
-# production share one account. Production's stacks keep the unsuffixed ids they
-# were deployed under (ChatticusSnapshots, ChatticusComputers, and so on); staging's
-# carry a Staging suffix, so the two never collide. ChatticusBudgets is
-# account-level and belongs to production: only development and production deploy
-# it, staging reads its alerts topic from the production copy.
+# Deploy ONE stack of ONE environment into the production AWS account, where development, staging and
+# production all live. Never --all. Run with that account's credentials (profile chatticus-production), never the
+# legacy account's. Production's stacks keep the unsuffixed ids they were deployed under (ChatticusSnapshots,
+# ChatticusComputers, and so on); development's and staging's carry a Development or Staging suffix, so the three
+# never collide. ChatticusBudgets is account-level and belongs to production: only production deploys it, and the
+# development and staging stacks read its alerts topic from the production copy.
 #
 # Development fault switch of the owner credential broker
 # (docs/OWNER_CREDENTIAL_RENEWAL.md, R22). It exists for the development
@@ -37,15 +36,15 @@ case "$1" in
 esac
 
 case "$ENVIRONMENT:$2" in
-  development:budgets | production:budgets) STACK="ChatticusBudgets" ;;
-  development:snapshots) STACK="ChatticusSnapshots" ;;
-  development:computers) STACK="ChatticusComputers" ;;
-  development:zones) STACK="ChatticusEnvironmentZones" ;;
-  development:certificates) STACK="ChatticusEnvironmentCertificates" ;;
-  development:thin-turn) STACK="ChatticusThinTurn" ;;
-  development:control-plane) STACK="ChatticusControlPlane" ;;
-  development:web) STACK="ChatticusWeb" ;;
-  development:auth) STACK="ChatticusAuth" ;;
+  production:budgets) STACK="ChatticusBudgets" ;;
+  development:snapshots) STACK="ChatticusSnapshotsDevelopment" ;;
+  development:computers) STACK="ChatticusComputersDevelopment" ;;
+  development:zones) STACK="ChatticusEnvironmentZonesDevelopment" ;;
+  development:certificates) STACK="ChatticusEnvironmentCertificatesDevelopment" ;;
+  development:thin-turn) STACK="ChatticusThinTurnDevelopment" ;;
+  development:control-plane) STACK="ChatticusControlPlaneDevelopment" ;;
+  development:web) STACK="ChatticusWebDevelopment" ;;
+  development:auth) STACK="ChatticusAuthDevelopment" ;;
   staging:snapshots) STACK="ChatticusSnapshotsStaging" ;;
   staging:computers) STACK="ChatticusComputersStaging" ;;
   staging:zones) STACK="ChatticusEnvironmentZonesStaging" ;;

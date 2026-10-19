@@ -9,11 +9,10 @@ import {
   provisioningParameterPrefix,
 } from "../lib/customer-role-template";
 import {
-  AUTH_DOMAIN_NAMES,
   WEB_CLOUDFRONT_ENABLED,
   WEB_CROSS_ORIGIN_ISOLATION,
-  WEB_SITE_DOMAINS,
-} from "../lib/environments";
+  ENVIRONMENT_HOSTNAMES,
+} from "../lib/environments"
 import {
   deployWebsiteAssets,
   listAssetRelativeFiles,
@@ -94,7 +93,7 @@ describe("WebStack CloudFront enabled flag", () => {
   for (const environmentName of ["development", "staging", "production"] as const) {
     it(`publishes customer-role.yml at a stable URL for ${environmentName}`, () => {
       const template = synthWebStack(environmentName);
-      const siteDomain = WEB_SITE_DOMAINS[environmentName];
+      const siteDomain = ENVIRONMENT_HOSTNAMES[environmentName].siteDomain;
       const templateUrl = `https://${siteDomain}/provisioning/customer-role.yml`;
       template.hasResourceProperties("AWS::SSM::Parameter", {
         Name: `${provisioningParameterPrefix(environmentName)}/customer-role-template-url`,
@@ -126,11 +125,11 @@ describe("WebStack CloudFront enabled flag", () => {
 
 describe("WebStack single-domain routing (post marketing split, chatticus-3926bc)", () => {
   for (const environmentName of ["development", "staging", "production"] as const) {
-    it(`aliases only ${WEB_SITE_DOMAINS[environmentName]} for ${environmentName}`, () => {
+    it(`aliases only ${ENVIRONMENT_HOSTNAMES[environmentName].siteDomain} for ${environmentName}`, () => {
       const template = synthWebStack(environmentName);
       template.hasResourceProperties("AWS::CloudFront::Distribution", {
         DistributionConfig: {
-          Aliases: [WEB_SITE_DOMAINS[environmentName]],
+          Aliases: [ENVIRONMENT_HOSTNAMES[environmentName].siteDomain],
         },
       });
     });
@@ -192,7 +191,7 @@ describe("WebStack response headers", () => {
       assert.ok(directives.get("worker-src")?.includes("blob:"));
       assert.ok(directives.get("script-src")?.includes("'wasm-unsafe-eval'"));
       assert.ok(directives.get("connect-src")?.includes("https://cognito-idp.us-east-1.amazonaws.com"));
-      assert.ok(directives.get("connect-src")?.includes(`https://${AUTH_DOMAIN_NAMES[environmentName]}`));
+      assert.ok(directives.get("connect-src")?.includes(`https://${ENVIRONMENT_HOSTNAMES[environmentName].authDomain}`));
       assert.deepEqual(directives.get("object-src"), ["'none'"]);
       assert.deepEqual(directives.get("frame-ancestors"), ["'none'"]);
     });

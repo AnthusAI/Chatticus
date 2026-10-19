@@ -1,19 +1,10 @@
 {
-  "Description": "ACM certificates for the development environment's names.",
+  "Description": "Delegated Route 53 zones for the development environment's names.",
   "Resources": {
-    "SiteCertificate38C247F6": {
-      "Type": "AWS::CertificateManager::Certificate",
+    "SiteZoneFF0EAA7C": {
+      "Type": "AWS::Route53::HostedZone",
       "Properties": {
-        "DomainName": "develop.chattic.us",
-        "DomainValidationOptions": [
-          {
-            "DomainName": "develop.chattic.us",
-            "HostedZoneId": {
-              "Fn::ImportValue": "ChatticusEnvironmentZones:ExportsOutputRefSiteZoneFF0EAA7CF0B39F08"
-            }
-          }
-        ],
-        "Tags": [
+        "HostedZoneTags": [
           {
             "Key": "chatticus:application",
             "Value": "Chatticus"
@@ -29,28 +20,17 @@
           {
             "Key": "chatticus:installation",
             "Value": "Test"
-          },
-          {
-            "Key": "Name",
-            "Value": "ChatticusEnvironmentCertificates/SiteCertificate"
           }
         ],
-        "ValidationMethod": "DNS"
-      }
+        "Name": "develop.chattic.us."
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
     },
-    "AuthCertificateC5D33BF2": {
-      "Type": "AWS::CertificateManager::Certificate",
+    "AuthZone1B40937F": {
+      "Type": "AWS::Route53::HostedZone",
       "Properties": {
-        "DomainName": "auth-develop.chattic.us",
-        "DomainValidationOptions": [
-          {
-            "DomainName": "auth-develop.chattic.us",
-            "HostedZoneId": {
-              "Fn::ImportValue": "ChatticusEnvironmentZones:ExportsOutputRefAuthZone1B40937F8A89DA59"
-            }
-          }
-        ],
-        "Tags": [
+        "HostedZoneTags": [
           {
             "Key": "chatticus:application",
             "Value": "Chatticus"
@@ -66,41 +46,57 @@
           {
             "Key": "chatticus:installation",
             "Value": "Test"
-          },
-          {
-            "Key": "Name",
-            "Value": "ChatticusEnvironmentCertificates/AuthCertificate"
           }
         ],
-        "ValidationMethod": "DNS"
-      }
+        "Name": "auth-develop.chattic.us."
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
     }
   },
   "Outputs": {
-    "SiteCertificateArn": {
+    "SiteNameServers": {
+      "Description": "Delegate develop.chattic.us to these name servers from the management zone.",
       "Value": {
-        "Ref": "SiteCertificate38C247F6"
+        "Fn::Join": [
+          ",",
+          {
+            "Fn::GetAtt": [
+              "SiteZoneFF0EAA7C",
+              "NameServers"
+            ]
+          }
+        ]
       }
     },
-    "AuthCertificateArn": {
+    "AuthNameServers": {
+      "Description": "Delegate auth-develop.chattic.us to these name servers from the management zone.",
       "Value": {
-        "Ref": "AuthCertificateC5D33BF2"
+        "Fn::Join": [
+          ",",
+          {
+            "Fn::GetAtt": [
+              "AuthZone1B40937F",
+              "NameServers"
+            ]
+          }
+        ]
       }
     },
-    "ExportsOutputRefSiteCertificate38C247F695788777": {
+    "ExportsOutputRefSiteZoneFF0EAA7CF0B39F08": {
       "Value": {
-        "Ref": "SiteCertificate38C247F6"
+        "Ref": "SiteZoneFF0EAA7C"
       },
       "Export": {
-        "Name": "ChatticusEnvironmentCertificates:ExportsOutputRefSiteCertificate38C247F695788777"
+        "Name": "ChatticusEnvironmentZonesDevelopment:ExportsOutputRefSiteZoneFF0EAA7CF0B39F08"
       }
     },
-    "ExportsOutputRefAuthCertificateC5D33BF20899EEA2": {
+    "ExportsOutputRefAuthZone1B40937F8A89DA59": {
       "Value": {
-        "Ref": "AuthCertificateC5D33BF2"
+        "Ref": "AuthZone1B40937F"
       },
       "Export": {
-        "Name": "ChatticusEnvironmentCertificates:ExportsOutputRefAuthCertificateC5D33BF20899EEA2"
+        "Name": "ChatticusEnvironmentZonesDevelopment:ExportsOutputRefAuthZone1B40937F8A89DA59"
       }
     }
   },

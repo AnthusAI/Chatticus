@@ -16,8 +16,8 @@ is forbidden.
 
 | Surface | Auth path | Where defined |
 | --- | --- | --- |
-| GitHub deploy workflows | GitHub OIDC → `configure-aws-credentials` → `role-to-assume` | `.github/workflows/deploy-*.yml`, `infra/lib/github-deploy-stack.ts` |
-| Local / desk deploy | `aws login` (Identity Center or equivalent short-lived session) | `infra/deploy-*.sh` |
+| GitHub deploy workflows | GitHub OIDC → `configure-aws-credentials` → `role-to-assume`: one least-privilege role per environment in the one AWS account (`chatticus-github-actions-deploy-development`, `-staging`, and `chatticus-github-actions-deploy` for production), each trusting only its own GitHub environment and denying the other two environments' stacks, parameters and tagged resources; development and staging also have an integration-test role | `.github/workflows/deploy-*.yml`, `infra/lib/account-github-deploy-stack.ts`, `infra/lib/deploy-role-policy.ts` |
+| Local / desk deploy | `aws login` (Identity Center or equivalent short-lived session) into the one production AWS account, profile `chatticus-production`, for every environment | `infra/deploy-*.sh` |
 | Web CDK bundle (docker) | Forwards the runner's OIDC session into SAM docker | `infra/lib/web-build-env.ts` (`webDockerBundlingEnvironment`) |
 | Customer cross-account provisioning | Anthus principal `sts:AssumeRole` into `ChatticusOrganizationComputerRole` | `conversation/src/computer/provisioning.ts`, `infra/customer-role.yml` |
 | Customer computer image publish | Operator `aws login` → `sts assume-role` with `ExternalId` | `computer/push-customer-computer-image.sh` |
@@ -102,7 +102,8 @@ sh rotate-invoke-key.sh development --yes          # rotate
 What it does, in this order:
 
 1. Refuses without an explicit environment and `--yes`; uses the profile
-   `chatticus-<environment>` (`CHATTICUS_AWS_PROFILE` overrides); refuses a
+   `chatticus-production` (development, staging and production share that
+   account; `CHATTICUS_AWS_PROFILE` overrides); refuses a
    secret that is not in the session's account.
 2. Read-only checks: CloudFront and Function URL `/health` answer 200, the
    Function URL refuses a keyless request with the invoke key gate, CloudFront

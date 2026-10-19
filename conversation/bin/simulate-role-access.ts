@@ -6,9 +6,10 @@
  * Read-only: it describes the ControlPlane stack, reads the FrontDoor function configuration, and calls
  * `iam:SimulatePrincipalPolicy`, which evaluates the roles' attached policies and changes nothing. It needs credentials that
  * may call `cloudformation:DescribeStackResources`, `lambda:GetFunctionConfiguration`, `sts:GetCallerIdentity` and
- * `iam:SimulatePrincipalPolicy`; it never writes. Run it from a logged-in operator shell after a deploy:
+ * `iam:SimulatePrincipalPolicy`; it never writes. All three environments live in the one production AWS account, so run
+ * it from an operator shell logged in to that account (AWS_PROFILE=chatticus-production) after a deploy:
  *
- *   npx tsx bin/simulate-role-access.ts --environment development
+ *   AWS_PROFILE=chatticus-production npx tsx bin/simulate-role-access.ts --environment development
  *
  * It prints one summary line, naming each denied case, and exits 1 when any case is denied. The offline
  * guard (role_access_manifest.feature and infra/test/role-access-policy.test.ts) is what gates a merge; this is the check
@@ -48,7 +49,7 @@ function delayMillisecondsOf(environment: NodeJS.ProcessEnv): number {
 }
 
 const CONTROL_PLANE_STACKS: Record<string, string> = {
-	development: "ChatticusControlPlane",
+	development: "ChatticusControlPlaneDevelopment",
 	staging: "ChatticusControlPlaneStaging",
 	production: "ChatticusControlPlaneProduction",
 };

@@ -9,9 +9,9 @@ import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
   CONTROL_PLANE_STACK_IDS,
   THIN_TURN_STACK_IDS,
-  WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
-} from "../lib/environments";
+  ENVIRONMENT_HOSTNAMES,
+} from "../lib/environments"
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { stubWebsiteDeploySource } from "../lib/web-bundle-stub";
 import { WebStack } from "../lib/web-stack";
@@ -47,7 +47,7 @@ describe("ThinTurnStack exports the control plane and web stacks import", () => 
       const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
         env,
         chatticusEnvironment: environmentName,
-        siteDomain: WEB_SITE_DOMAINS[environmentName],
+        siteDomain: ENVIRONMENT_HOSTNAMES[environmentName].siteDomain,
         hostedZone: route53.HostedZone.fromHostedZoneAttributes(deps, "Zone", {
           hostedZoneId: "Z1234567890ABC",
           zoneName: "chattic.us",

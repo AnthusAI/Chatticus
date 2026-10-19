@@ -1,10 +1,19 @@
 {
-  "Description": "Delegated Route 53 zones for the development environment's names.",
+  "Description": "ACM certificates for the development environment's names.",
   "Resources": {
-    "SiteZoneFF0EAA7C": {
-      "Type": "AWS::Route53::HostedZone",
+    "SiteCertificate38C247F6": {
+      "Type": "AWS::CertificateManager::Certificate",
       "Properties": {
-        "HostedZoneTags": [
+        "DomainName": "develop.chattic.us",
+        "DomainValidationOptions": [
+          {
+            "DomainName": "develop.chattic.us",
+            "HostedZoneId": {
+              "Fn::ImportValue": "ChatticusEnvironmentZonesDevelopment:ExportsOutputRefSiteZoneFF0EAA7CF0B39F08"
+            }
+          }
+        ],
+        "Tags": [
           {
             "Key": "chatticus:application",
             "Value": "Chatticus"
@@ -20,17 +29,28 @@
           {
             "Key": "chatticus:installation",
             "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusEnvironmentCertificatesDevelopment/SiteCertificate"
           }
         ],
-        "Name": "develop.chattic.us."
-      },
-      "UpdateReplacePolicy": "Retain",
-      "DeletionPolicy": "Retain"
+        "ValidationMethod": "DNS"
+      }
     },
-    "AuthZone1B40937F": {
-      "Type": "AWS::Route53::HostedZone",
+    "AuthCertificateC5D33BF2": {
+      "Type": "AWS::CertificateManager::Certificate",
       "Properties": {
-        "HostedZoneTags": [
+        "DomainName": "auth-develop.chattic.us",
+        "DomainValidationOptions": [
+          {
+            "DomainName": "auth-develop.chattic.us",
+            "HostedZoneId": {
+              "Fn::ImportValue": "ChatticusEnvironmentZonesDevelopment:ExportsOutputRefAuthZone1B40937F8A89DA59"
+            }
+          }
+        ],
+        "Tags": [
           {
             "Key": "chatticus:application",
             "Value": "Chatticus"
@@ -46,57 +66,41 @@
           {
             "Key": "chatticus:installation",
             "Value": "Test"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusEnvironmentCertificatesDevelopment/AuthCertificate"
           }
         ],
-        "Name": "auth-develop.chattic.us."
-      },
-      "UpdateReplacePolicy": "Retain",
-      "DeletionPolicy": "Retain"
+        "ValidationMethod": "DNS"
+      }
     }
   },
   "Outputs": {
-    "SiteNameServers": {
-      "Description": "Delegate develop.chattic.us to these name servers from the management zone.",
+    "SiteCertificateArn": {
       "Value": {
-        "Fn::Join": [
-          ",",
-          {
-            "Fn::GetAtt": [
-              "SiteZoneFF0EAA7C",
-              "NameServers"
-            ]
-          }
-        ]
+        "Ref": "SiteCertificate38C247F6"
       }
     },
-    "AuthNameServers": {
-      "Description": "Delegate auth-develop.chattic.us to these name servers from the management zone.",
+    "AuthCertificateArn": {
       "Value": {
-        "Fn::Join": [
-          ",",
-          {
-            "Fn::GetAtt": [
-              "AuthZone1B40937F",
-              "NameServers"
-            ]
-          }
-        ]
+        "Ref": "AuthCertificateC5D33BF2"
       }
     },
-    "ExportsOutputRefSiteZoneFF0EAA7CF0B39F08": {
+    "ExportsOutputRefSiteCertificate38C247F695788777": {
       "Value": {
-        "Ref": "SiteZoneFF0EAA7C"
+        "Ref": "SiteCertificate38C247F6"
       },
       "Export": {
-        "Name": "ChatticusEnvironmentZones:ExportsOutputRefSiteZoneFF0EAA7CF0B39F08"
+        "Name": "ChatticusEnvironmentCertificatesDevelopment:ExportsOutputRefSiteCertificate38C247F695788777"
       }
     },
-    "ExportsOutputRefAuthZone1B40937F8A89DA59": {
+    "ExportsOutputRefAuthCertificateC5D33BF20899EEA2": {
       "Value": {
-        "Ref": "AuthZone1B40937F"
+        "Ref": "AuthCertificateC5D33BF2"
       },
       "Export": {
-        "Name": "ChatticusEnvironmentZones:ExportsOutputRefAuthZone1B40937F8A89DA59"
+        "Name": "ChatticusEnvironmentCertificatesDevelopment:ExportsOutputRefAuthCertificateC5D33BF20899EEA2"
       }
     }
   },

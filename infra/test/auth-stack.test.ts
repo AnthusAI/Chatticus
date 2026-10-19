@@ -1,7 +1,7 @@
 import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
-  AUTH_DOMAIN_NAMES,
-} from "../lib/environments";
+  ENVIRONMENT_HOSTNAMES,
+} from "../lib/environments"
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { authStackExpectations, synthAuthStack } from "./auth-stack-harness";
@@ -160,8 +160,8 @@ describe("AuthStack", () => {
   });
 
   it("maps auth domains to single-label hostnames covered by *.chattic.us", () => {
-    assert.equal(AUTH_DOMAIN_NAMES.development, "auth-dev.chattic.us");
-    assert.equal(AUTH_DOMAIN_NAMES.staging, "auth-staging.chattic.us");
-    assert.equal(AUTH_DOMAIN_NAMES.production, "auth.chattic.us");
+    assert.equal(ENVIRONMENT_HOSTNAMES.development.authDomain, "auth-develop.chattic.us");
+    assert.equal(ENVIRONMENT_HOSTNAMES.staging.authDomain, "auth-staging.chattic.us");
+    assert.equal(ENVIRONMENT_HOSTNAMES.production.authDomain, "auth.chattic.us");
   });
 });

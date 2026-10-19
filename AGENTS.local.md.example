@@ -4,15 +4,15 @@
 # never be committed. Fill values from SSM / CloudFormation after `aws login`.
 
 # ## AWS
-# Account id, region, and `aws login` notes for this desk.
+# Account id, region, and `aws login` notes for this desk. All three environments live in the one production AWS account (profile chatticus-production).
 # Account ids, member-account ids, and billing emails stay in this file
 # only. Never copy them into project/wiki or other committed docs.
 
 # ## API bases
 # aws ssm get-parameter --name /chatticus/development/thin-turn/cloudfront-url
-# aws cloudformation describe-stacks --stack-name ChatticusThinTurn \
+# aws cloudformation describe-stacks --stack-name ChatticusThinTurnDevelopment \
 #   --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue"
-# aws cloudformation describe-stacks --stack-name ChatticusWeb \
+# aws cloudformation describe-stacks --stack-name ChatticusWebDevelopment \
 #   --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionDomainName'].OutputValue"
 
 # export CHATTICUS_DEVELOPMENT_BASE_URL=

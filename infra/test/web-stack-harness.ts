@@ -8,9 +8,9 @@ import { Template } from "aws-cdk-lib/assertions";
 import * as path from "node:path";
 import {
   ChatticusCloudEnvironment,
-  WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
-} from "../lib/environments";
+  ENVIRONMENT_HOSTNAMES,
+} from "../lib/environments"
 import {
   stubWebsiteDeploySource,
   websiteDeploySourceForApp,
@@ -105,7 +105,7 @@ function createWebStackApp(
   const stack = new WebStack(app, WEB_STACK_IDS[environmentName], {
     env: testEnv,
     chatticusEnvironment: environmentName,
-    siteDomain: WEB_SITE_DOMAINS[environmentName],
+    siteDomain: ENVIRONMENT_HOSTNAMES[environmentName].siteDomain,
     hostedZone,
     siteCertificate,
     frontDoorFunctionUrl,

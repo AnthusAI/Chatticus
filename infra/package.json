@@ -10,7 +10,7 @@
     "synth:customer-computers": "cdk --app 'npx ts-node bin/customer-computers.ts' synth ChatticusComputers",
     "check:customer-computers-template": "node scripts/check-customer-computers-template.mjs",
     "test": "tsx --test test/**/*.test.ts",
-    "deploy": "echo 'Refuse: cdk deploy --all would touch snapshots, computers, and every thin-turn environment. Deploy one stack, e.g. npx cdk deploy ChatticusThinTurn' >&2; exit 1",
+    "deploy": "echo 'Refuse: cdk deploy --all would touch snapshots, computers, and every thin-turn environment. Deploy one stack, e.g. sh deploy-chatticus-dedicated-account.sh development thin-turn' >&2; exit 1",
     "diff": "cdk diff"
   },
   "dependencies": {

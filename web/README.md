@@ -22,13 +22,13 @@ same-origin `/api` (see `lib/config.ts`). To proxy those requests to a named sta
 set one of these in `.env.local`:
 
 ```bash
-CHATTICUS_DEVELOPMENT_BASE_URL=https://dev.chattic.us/api
+CHATTICUS_DEVELOPMENT_BASE_URL=https://develop.chattic.us/api
 # or
-CHATTICUS_DEV_API_ORIGIN=https://dev.chattic.us/api
+CHATTICUS_DEV_API_ORIGIN=https://develop.chattic.us/api
 ```
 
 Without either variable, `/api` is not rewritten and you need another way to reach
-the ThinTurn front door (for example, sign in on https://dev.chattic.us).
+the ThinTurn front door (for example, sign in on https://develop.chattic.us).
 
 Google sign-in uses Cognito values from the deployed `ChatticusAuth` stack; see the
 root [README](../README.md) and [infra/README](../infra/README.md).

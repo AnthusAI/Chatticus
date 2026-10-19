@@ -11,7 +11,7 @@ usage() {
   echo "  --yes      required to write anything" >&2
   echo "  --dry-run  read-only: print the steps and run the read-only checks" >&2
   echo "  --resume   finish a rotation that stopped after the new value was put (no new value is generated)" >&2
-  echo "Credentials: profile chatticus-<environment>, or CHATTICUS_AWS_PROFILE; region us-east-1." >&2
+  echo "Credentials: profile chatticus-production (all three environments share that account), or CHATTICUS_AWS_PROFILE; region us-east-1." >&2
   exit 2
 }
 
@@ -38,7 +38,7 @@ if [ "${CONFIRMED}" -ne 1 ] && [ "${DRY_RUN}" -ne 1 ]; then
   exit 2
 fi
 
-AWS_PROFILE="${CHATTICUS_AWS_PROFILE:-chatticus-${ENVIRONMENT}}"
+AWS_PROFILE="${CHATTICUS_AWS_PROFILE:-chatticus-production}"
 AWS_REGION="us-east-1"
 AWS_DEFAULT_REGION="us-east-1"
 export AWS_PROFILE AWS_REGION AWS_DEFAULT_REGION

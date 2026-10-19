@@ -1,33 +1,6 @@
 {
-  "Description": "GitHub Actions OIDC provider and development deploy role for this environment account.",
+  "Description": "GitHub Actions development deploy role, importing the account's OIDC provider.",
   "Resources": {
-    "GitHubOidcA2A496A3": {
-      "Type": "AWS::IAM::OIDCProvider",
-      "Properties": {
-        "ClientIdList": [
-          "sts.amazonaws.com"
-        ],
-        "Tags": [
-          {
-            "Key": "chatticus:application",
-            "Value": "Chatticus"
-          },
-          {
-            "Key": "chatticus:component",
-            "Value": "deploy"
-          },
-          {
-            "Key": "chatticus:environment",
-            "Value": "shared"
-          },
-          {
-            "Key": "chatticus:installation",
-            "Value": "Test"
-          }
-        ],
-        "Url": "https://token.actions.githubusercontent.com"
-      }
-    },
     "GithubActionsDeploy108F71AB": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -46,7 +19,20 @@
               "Effect": "Allow",
               "Principal": {
                 "Federated": {
-                  "Ref": "GitHubOidcA2A496A3"
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":oidc-provider/token.actions.githubusercontent.com"
+                    ]
+                  ]
                 }
               }
             }
@@ -54,7 +40,7 @@
           "Version": "2012-10-17"
         },
         "Description": "GitHub Actions OIDC deploy: development environment of this account.",
-        "RoleName": "chatticus-github-actions-deploy",
+        "RoleName": "chatticus-github-actions-deploy-development",
         "Tags": [
           {
             "Key": "chatticus:application",
@@ -66,7 +52,7 @@
           },
           {
             "Key": "chatticus:environment",
-            "Value": "shared"
+            "Value": "development"
           },
           {
             "Key": "chatticus:installation",
@@ -208,7 +194,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusAccountDeploy/*"
+                      ":stack/ChatticusAccountDeployDevelopment/*"
                     ]
                   ]
                 },
@@ -224,7 +210,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusAuth/*"
+                      ":stack/ChatticusAuthDevelopment/*"
                     ]
                   ]
                 },
@@ -240,7 +226,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusComputers/*"
+                      ":stack/ChatticusComputersDevelopment/*"
                     ]
                   ]
                 },
@@ -256,7 +242,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusControlPlane/*"
+                      ":stack/ChatticusControlPlaneDevelopment/*"
                     ]
                   ]
                 },
@@ -272,7 +258,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusEnvironmentCertificates/*"
+                      ":stack/ChatticusEnvironmentCertificatesDevelopment/*"
                     ]
                   ]
                 },
@@ -288,7 +274,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusEnvironmentZones/*"
+                      ":stack/ChatticusEnvironmentZonesDevelopment/*"
                     ]
                   ]
                 },
@@ -304,7 +290,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusSnapshots/*"
+                      ":stack/ChatticusSnapshotsDevelopment/*"
                     ]
                   ]
                 },
@@ -320,7 +306,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusThinTurn/*"
+                      ":stack/ChatticusThinTurnDevelopment/*"
                     ]
                   ]
                 },
@@ -336,7 +322,7 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
-                      ":stack/ChatticusWeb/*"
+                      ":stack/ChatticusWebDevelopment/*"
                     ]
                   ]
                 }
@@ -439,7 +425,7 @@
                     {
                       "Ref": "AWS::AccountId"
                     },
-                    ":repository/chatticuscomputers-computerimage*"
+                    ":repository/chatticuscomputersdevelopment-computerimage*"
                   ]
                 ]
               },
@@ -457,6 +443,418 @@
               "Effect": "Deny",
               "Resource": "*",
               "Sid": "DenyIdentityAndAccountAdministration"
+            },
+            {
+              "Action": "cloudformation:*",
+              "Effect": "Deny",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusAccountDeploy/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusAccountDeployStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusAuthProduction/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusAuthStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusComputers/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusComputersStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusControlPlaneProduction/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusControlPlaneStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusEnvironmentCertificates/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusEnvironmentCertificatesStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusEnvironmentZones/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusEnvironmentZonesStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusSnapshots/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusSnapshotsStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusThinTurnProduction/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusThinTurnStaging/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusWebProduction/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":stack/ChatticusWebStaging/*"
+                    ]
+                  ]
+                }
+              ],
+              "Sid": "DenyPeerEnvironmentStacks"
+            },
+            {
+              "Action": "ssm:*",
+              "Effect": "Deny",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/production/integration-test/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/production/thin-turn/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/production/web/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/staging/integration-test/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/staging/thin-turn/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":ssm:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":parameter/chatticus/staging/web/*"
+                    ]
+                  ]
+                }
+              ],
+              "Sid": "DenyPeerEnvironmentParameters"
+            },
+            {
+              "Action": "*",
+              "Condition": {
+                "StringEquals": {
+                  "aws:ResourceTag/chatticus:environment": [
+                    "staging",
+                    "production"
+                  ]
+                }
+              },
+              "Effect": "Deny",
+              "Resource": "*",
+              "Sid": "DenyPeerEnvironmentTaggedResources"
             }
           ],
           "Version": "2012-10-17"
@@ -487,7 +885,20 @@
               "Effect": "Allow",
               "Principal": {
                 "Federated": {
-                  "Ref": "GitHubOidcA2A496A3"
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":oidc-provider/token.actions.githubusercontent.com"
+                    ]
+                  ]
                 }
               }
             }
@@ -508,7 +919,7 @@
           },
           {
             "Key": "chatticus:environment",
-            "Value": "shared"
+            "Value": "development"
           },
           {
             "Key": "chatticus:installation",

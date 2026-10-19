@@ -9,22 +9,22 @@ operations.
 
 | Stack | Resources |
 | --- | --- |
-| `ChatticusSnapshots`, `ChatticusSnapshotsStaging` | S3 bucket for computer packs; IAM role local hosts may assume. One per environment: the unsuffixed id is development's in its account and production's in the production account (where it already exists); `...Staging` is staging's |
-| `ChatticusComputers`, `ChatticusComputersStaging` | One per environment (unsuffixed is development's and production's, each in its own account; `...Staging` is staging's). VPC, ECR, ECS cluster, the cluster network (subnets and security group, exported as outputs), and the owner task definition `ChatticusComputerOwner` (`ChatticusComputerOwnerStaging` for staging; Fargate ARM64, 256 CPU, 512 MiB, init process, 90 second stop timeout) with a deliberately empty task role. There is no always-defined service; the starter runs the task on demand |
+| `ChatticusSnapshots`, `ChatticusSnapshotsDevelopment`, `ChatticusSnapshotsStaging` | S3 bucket for computer packs; IAM role local hosts may assume. One per environment, all in the production account: the unsuffixed id is production's (it already exists there); `...Development` and `...Staging` are their environments' |
+| `ChatticusComputers`, `ChatticusComputersDevelopment`, `ChatticusComputersStaging` | One per environment (unsuffixed is production's; the others carry their environment). VPC, ECR, ECS cluster, the cluster network (subnets and security group, exported as outputs), and the owner task definition `ChatticusComputerOwner` (`ChatticusComputerOwnerDevelopment`, `ChatticusComputerOwnerStaging`; Fargate ARM64, 256 CPU, 512 MiB, init process, 90 second stop timeout) with a deliberately empty task role. There is no always-defined service; the starter runs the task on demand |
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
-| `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production) |
-| `ChatticusAccountDeploy` | Development's account and the production account, each its own copy: the GitHub OIDC provider of that account and its deploy role `chatticus-github-actions-deploy`. In the production account it is the production environment's deploy stack (it already exists and owns the provider) and also denies the role the staging stacks, SSM paths and `staging`-tagged resources. Not deployed in the legacy account |
-| `ChatticusAccountDeployStaging` | The production account, staging only: the deploy role `chatticus-github-actions-deploy-staging`, importing the OIDC provider that `ChatticusAccountDeploy` created, trusting only the staging GitHub environment and explicitly denying the production stacks, SSM parameters and `production`-tagged resources. Deploy it after production's |
-| `ChatticusEnvironmentZones`, `ChatticusEnvironmentCertificates` (and `...Staging`) | Per environment: the two delegated zones for that environment's web and auth names, and one certificate per name validated inside its own zone. Production's keep their existing unsuffixed ids: renaming them would replace the zones and change their name servers |
-| `ChatticusBudgets` | Account-level, one copy per account. In the production account it already exists, is tagged `production`, and its monthly limit is the combined limit of staging and production; only development and production deploy it |
+| `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows in the legacy account (development, staging, production); not used by the production account |
+| `ChatticusAccountDeploy` | The production account: the GitHub OIDC provider of the account (the one provider, created here and imported by the other two deploy stacks) and production's deploy role `chatticus-github-actions-deploy`, which also denies the development and staging stacks, SSM paths and tagged resources. Not deployed in the legacy account |
+| `ChatticusAccountDeployDevelopment`, `ChatticusAccountDeployStaging` | The production account, one per environment: that environment's deploy role (`chatticus-github-actions-deploy-development`, `chatticus-github-actions-deploy-staging`) and its integration test role (`chatticus-github-actions-integration-test-development`, `...-staging`; production has none), importing the OIDC provider that `ChatticusAccountDeploy` created, trusting only that GitHub environment and explicitly denying the other two environments' stacks, SSM parameters and tagged resources. Deploy them after production's |
+| `ChatticusEnvironmentZones`, `ChatticusEnvironmentCertificates` (and `...Development`, `...Staging`) | Per environment: the two delegated zones for that environment's web and auth names, and one certificate per name validated inside its own zone. Production's keep their existing unsuffixed ids: renaming them would replace the zones and change their name servers |
+| `ChatticusBudgets` | Account-level, one copy. It already exists in the production account, is tagged `production`, and its monthly limit is the combined limit of all three environments; only production deploys it (the deploy script refuses it for development and staging) |
 | `ChatticusManagementDns` | In the management account only: the `chattic.us` public hosted zone and its records (retained on stack deletion, termination-protected). Deployed once with `sh deploy-chatticus-management-dns.sh`; instantiated only with `-c managementDns=true` |
-| `ChatticusThinTurn` | **Development** permanent data stack: Messaging table, invoke and operator secrets (all retained) and the Node budget jobs. No request compute |
+| `ChatticusThinTurnDevelopment` | **Development** permanent data stack: Messaging table, invoke and operator secrets (all retained) and the Node budget jobs. No request compute |
 | `ChatticusThinTurnStaging` | Staging data stack (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production data stack (gated deploy of a staging-proven release; never implied by a git branch) |
-| `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
+| `ChatticusWebDevelopment` | **Development** Next.js on S3 + CloudFront at `develop.chattic.us` with same-origin `/api/*` |
 | `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
 | `ChatticusWebProduction` | Production product workspace at `hey.chattic.us` (marketing stays at `chattic.us` / `www`) |
-| `ChatticusAuth` | **Development** Cognito user pool with Google federation at `auth-dev.chattic.us` |
+| `ChatticusAuthDevelopment` | **Development** Cognito user pool with Google federation at `auth-develop.chattic.us` |
 | `ChatticusAuthStaging` | Staging Cognito auth at `auth-staging.chattic.us` |
 | `ChatticusAuthProduction` | Production Cognito auth at `auth.chattic.us` |
 
@@ -39,7 +39,7 @@ stack publishes:
 **Customer cross-account template:** `infra/customer-role.yml` is the only
 template. Each `ChatticusWeb*` stack publishes it at
 `https://{hostname}/provisioning/customer-role.yml` (development:
-`dev.chattic.us`; staging and production hostnames exist in SSM but web
+`develop.chattic.us`; staging and production hostnames exist in SSM but web
 CloudFront is enabled). Customers and runbooks **GET** that
 URL (HTTPS; body is this file unmodified) and pass the YAML to
 `aws cloudformation create-stack --template-body`. CloudFormation rejects a
@@ -47,7 +47,7 @@ CloudFront distribution URL as `--template-url`; do not use `--template-url`
 with the published hostname. Example:
 
 ```bash
-curl -fsS "https://dev.chattic.us/provisioning/customer-role.yml" \
+curl -fsS "https://develop.chattic.us/provisioning/customer-role.yml" \
   -o /tmp/customer-role.yml
 aws cloudformation create-stack ... \
   --template-body file:///tmp/customer-role.yml
@@ -60,7 +60,7 @@ Each auth stack publishes (under the same web prefix):
 
 - `/chatticus/{environment}/web/cognito-user-pool-id`
 - `/chatticus/{environment}/web/cognito-app-client-id`
-- `/chatticus/{environment}/web/cognito-auth-domain` — single-label hostname (`auth-dev`, `auth-staging`, `auth`) on the shared `*.chattic.us` certificate from `ChatticusDns`
+- `/chatticus/{environment}/web/cognito-auth-domain` — single-label hostname (`auth-develop`, `auth-staging`, `auth`) on the shared `*.chattic.us` certificate from `ChatticusDns`
 
 Google OAuth client id and secret are **not** in CDK or git. Each auth stack
 imports `chatticus/{environment}/oauth/google` from Secrets Manager (seeded
@@ -89,24 +89,26 @@ Copy the **NameServers** output (four Route 53 NS hostnames). At the
 those four values. Delegation can take up to 48 hours; ACM DNS validation
 for the site certificate usually completes soon after propagation.
 
-Until delegation finishes, do not expect `dev.chattic.us` or
+Until delegation finishes, do not expect `develop.chattic.us` or
 `chattic.us` to resolve. The web stacks still deploy; CloudFront serves
 the distribution domain name immediately.
 
-## Deploy web + API (development)
+## Deploy web + API
 
-Deploy thin-turn and web as separate one-stack scripts (never chained in one
-script). Each uses `--exclusively` so CDK does not follow `web.addDependency`
-into the other stack:
+Development, staging and production all live in the one production AWS account
+(profile `chatticus-production`). Every environment deploys one stack at a time
+through the same script, which refuses the legacy account and `--all`, and uses
+`--exclusively` so CDK does not follow `web.addDependency` into another stack:
 
 ```bash
 cd infra
-sh deploy-chatticus-thinturn-development.sh
-sh deploy-chatticus-web-development.sh
-sh deploy-chatticus-auth-development.sh
+sh deploy-chatticus-dedicated-account.sh development control-plane
+sh deploy-chatticus-dedicated-account.sh development web
+sh deploy-chatticus-dedicated-account.sh development thin-turn
+sh deploy-chatticus-dedicated-account.sh development auth
 ```
 
-Staging and production, when you mean to, one stack at a time with that environment's own account credentials (the script refuses the legacy account):
+Staging and production, when you mean to, with the same script and their own name:
 
 ```bash
 sh deploy-chatticus-dedicated-account.sh staging control-plane
@@ -118,20 +120,18 @@ GitHub Actions: the development deploy workflows run on **push** to `develop` an
 **`workflow_dispatch`**. The staging and production deploy workflows run on
 **`workflow_dispatch` only**, and every one of them deploys through
 `deploy-chatticus-dedicated-account.sh`, which refuses the legacy account. The
-GitHub `staging` and `production` environments require a reviewer, so each dispatch
-waits for approval. No CodePipeline. Each named cloud environment has its own
-AWS account, and its GitHub environment assumes that account's OIDC deploy role
-(see below).
+GitHub environments have no required reviewers (owner decision, 2026-10-15). No
+CodePipeline. The three cloud environments share one AWS account, and each GitHub
+environment assumes its own environment's OIDC deploy role in it (see below).
 
-Wire OIDC once (below), redeploy `ChatticusGitHubDeploy` after adding or
-updating trusted workflow paths, then set **`AWS_DEPLOY_ROLE_ARN`** in each
-GitHub environment from the matching stack output.
+Wire OIDC once (below), then set **`AWS_DEPLOY_ROLE_ARN`** in each GitHub
+environment from the matching stack output.
 
 | Workflow | File | Script | Stack |
 | --- | --- | --- | --- |
-| **Deploy ThinTurn (development)** | `deploy-thinturn-development.yml` | `deploy-chatticus-thinturn-development.sh` | `ChatticusThinTurn` |
-| **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-web-development.sh` | `ChatticusWeb` |
-| **Deploy Auth (development)** | `deploy-auth-development.yml` | `deploy-chatticus-auth-development.sh` | `ChatticusAuth` |
+| **Deploy ThinTurn (development)** | `deploy-thinturn-development.yml` | `deploy-chatticus-dedicated-account.sh development thin-turn` | `ChatticusThinTurnDevelopment` |
+| **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-dedicated-account.sh development web` | `ChatticusWebDevelopment` |
+| **Deploy Auth (development)** | `deploy-auth-development.yml` | `deploy-chatticus-dedicated-account.sh development auth` | `ChatticusAuthDevelopment` |
 | **Deploy ThinTurn (staging)** | `deploy-thinturn-staging.yml` | `deploy-chatticus-dedicated-account.sh staging thin-turn` | `ChatticusThinTurnStaging` |
 | **Deploy Web (staging)** | `deploy-web-staging.yml` | `deploy-chatticus-dedicated-account.sh staging web` | `ChatticusWebStaging` |
 | **Deploy Auth (staging)** | `deploy-auth-staging.yml` | `deploy-chatticus-dedicated-account.sh staging auth` | `ChatticusAuthStaging` |
@@ -162,41 +162,60 @@ one named web stack only (builds `web/` during CDK deploy).
 
 ### GitHub Actions OIDC (one-time)
 
-The account already has an IAM OIDC provider for
-`token.actions.githubusercontent.com`. Deploy the CDK stack that creates
-the GitHub Actions deploy roles:
+The production account has one IAM OIDC provider for
+`token.actions.githubusercontent.com`, created by production's
+`ChatticusAccountDeploy`. Each environment's deploy stack creates (or imports the
+provider for) that environment's deploy role:
 
 ```bash
 cd infra
-sh deploy-chatticus-github-deploy.sh
+sh deploy-chatticus-account-deploy.sh development
+sh deploy-chatticus-account-deploy.sh staging
 ```
 
-Copy the role ARN outputs. Do **not** store long-lived `AWS_ACCESS_KEY_ID`
+Production's `ChatticusAccountDeploy` already exists and owns the provider; it is
+not redeployed to add development (see "Known boundary" below). The development
+and staging stacks import its provider, and the script refuses an account that has
+no `CDKToolkit` stack or no production `ChatticusAccountDeploy`. The integration
+test role of each reads `/chatticus/<env>/thin-turn/invoke-key-secret-arn` while
+CloudFormation deploys, so an environment's account-deploy stack can only be
+deployed after its `ChatticusThinTurn<Env>` stack exists. Copy the role ARN
+outputs. Do **not** store long-lived `AWS_ACCESS_KEY_ID`
 secrets for deploy workflows; OIDC assumes a role per run. This is a hard
 control — see `docs/AWS_AUTH.md` for the full policy, verification
 commands, and legacy-key cleanup.
 
-| GitHub environment | IAM role | Stack output for `AWS_DEPLOY_ROLE_ARN` |
-| --- | --- | --- |
-| `development` | `chatticus-github-actions-deploy` | `GithubDeployRoleArn` |
-| `staging` | `chatticus-github-actions-deploy-staging` | `GithubDeployStagingRoleArn` |
-| `production` | `chatticus-github-actions-deploy-production` | `GithubDeployProductionRoleArn` |
+| GitHub environment | IAM role | Stack | Output for `AWS_DEPLOY_ROLE_ARN` |
+| --- | --- | --- | --- |
+| `development` | `chatticus-github-actions-deploy-development` | `ChatticusAccountDeployDevelopment` | `GithubDeployRoleArn` |
+| `staging` | `chatticus-github-actions-deploy-staging` | `ChatticusAccountDeployStaging` | `GithubDeployRoleArn` |
+| `production` | `chatticus-github-actions-deploy` | `ChatticusAccountDeploy` | `GithubDeployRoleArn` |
 
-Each role trusts only its GitHub environment name, audience
-`sts.amazonaws.com`, and an explicit list of `job_workflow_ref` patterns
-(`push` on the environment branch and `workflow_dispatch`). No role has `AdministratorAccess`. Each
+The development and staging environments also have an integration test role
+(`chatticus-github-actions-integration-test-<environment>`, output
+`IntegrationTestRoleArn`) that is the value of the
+`CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN` variable of that GitHub
+environment; production has none.
+
+Each role trusts only its GitHub environment name through the OIDC `sub` claim
+(audience `sts.amazonaws.com`, repository pinned by numeric id); the trust is not
+scoped by workflow file or branch. No role has `AdministratorAccess`. Each
 is defined by `deployRoleStatements` in `lib/deploy-role-policy.ts`: `sts:AssumeRole` on the four CDK bootstrap roles
 (deploy, file-publishing, image-publishing, lookup; never the CloudFormation execution role), read-only
 CloudFormation calls on its own environment's stacks and `CDKToolkit`, `ssm:GetParameter` under
 `/chatticus/<environment>/` and the bootstrap version parameter, `secretsmanager:ListSecretVersionIds` on secrets
 tagged with its environment, and the ECR push actions on its own environment's computer repository. Explicit denies
 cover IAM users, access keys and login profiles, `organizations:*` and `account:*`, plus the peer environment's
-stacks, parameters and tagged resources where two environments share an account.
-`test/deploy-role-least-privilege.test.ts` fails when a workflow or script calls an AWS API the role lacks.
+stacks, parameters and tagged resources of the other two environments, which share the account.
 
-After merging a change that adds or updates trusted workflow paths, redeploy
-`ChatticusGitHubDeploy` once (`sh deploy-chatticus-github-deploy.sh`) before
-the new workflow can assume the role.
+**Known boundary.** Those denies bound only what the OIDC role does with its own
+credentials. All three roles can assume the shared CDK bootstrap roles, and the
+bootstrap CloudFormation execution role is `AdministratorAccess`, so a deploy driven
+through bootstrap can still change any environment's resources: the denies do not
+isolate the environments from one another. Today the boundary is procedural:
+staging and production deploy only from `main`, development from `develop`. The
+real fix, a separate CDK bootstrap qualifier per environment, is a follow-up.
+`test/deploy-role-least-privilege.test.ts` fails when a workflow or script calls an AWS API the role lacks.
 
 1. **GitHub repository** → Settings → Environments. Ensure **`development`**,
    **`staging`**, and **`production`** exist. Do not add required
@@ -215,7 +234,7 @@ Then:
 
 ```bash
 export CHATTICUS_SNAPSHOT_BUCKET=<SnapshotBucketName output>
-export CHATTICUS_DEVELOPMENT_BASE_URL=https://dev.chattic.us/api
+export CHATTICUS_DEVELOPMENT_BASE_URL=https://develop.chattic.us/api
 ```
 
 Acceptance and workers use the `/api` base URL on the site hostname.
@@ -261,7 +280,7 @@ Deploy **one named control-plane stack** after seeding SSM for that
 environment, for example:
 
 ```bash
-npx cdk deploy ChatticusControlPlane          # development
+sh deploy-chatticus-dedicated-account.sh development control-plane
 ```
 
 Never `cdk deploy --all`.
@@ -270,12 +289,12 @@ Never `cdk deploy --all`.
 
 ```bash
 cd infra
-sh deploy-chatticus-thinturn-development.sh
+sh deploy-chatticus-dedicated-account.sh development thin-turn
 ```
 
 Deploy **one** stack at a time. `cdk deploy --all` and `npm run deploy`
 are forbidden (`npm run deploy` exits nonzero). Do not destroy
-`ChatticusSnapshots` or `ChatticusComputers`.
+any environment's snapshots or computers stack.
 
 In the production account the whole list below is run for staging only: production
 is already deployed under its existing stack names. The first owner start needs the environment's tag (`dev`,
@@ -359,72 +378,74 @@ npx cdk synth ChatticusWebStaging
 ```
 
 `ChatticusSnapshots` and `ChatticusComputers` are per environment (production keeps the
-unsuffixed ids it already has; staging is `...Staging`); synth them only when those
+unsuffixed ids it already has; development is `...Development` and staging `...Staging`); synth them only when those
 definitions change. Never `cdk deploy --all`.
 
 ## Computer image pipeline
 
 `.github/workflows/build-computer-image-development.yml` builds, checks and
-pushes the computer image to the `ChatticusComputers` ECR repository under the
-immutable `sha-<git sha>` tag only; the image is no longer pushed by hand. The
+pushes the computer image to the `ChatticusComputersDevelopment` ECR repository
+under the immutable `sha-<git sha>` tag only; the image is no longer pushed by
+hand. It keeps its own workflow (it triggers on push to `develop`; the release
+build, `build-computer-image-release.yml`, triggers on `main` and pushes the
+staging and production repositories). The
 `dev` tag moves only through
 `.github/workflows/promote-computer-image-development.yml` (see
 `docs/COMPUTER_IMAGE_PROMOTION.md`).
 `computer/push-computer-image.sh` is break-glass only. The workflow assumes the
-development deploy role (`AWS_DEPLOY_ROLE_ARN`). The `ChatticusAccountDeploy`
+development deploy role (`AWS_DEPLOY_ROLE_ARN`). The `ChatticusAccountDeployDevelopment`
 stack grants that role `ecr:GetAuthorizationToken`, the ECR push actions on the
-Computers repository of that account only, and `cloudformation:DescribeStacks`
-on `ChatticusComputers`.
+development Computers repository only, and `cloudformation:DescribeStacks`
+on `ChatticusComputersDevelopment`.
 
-Deploy order: the role change reaches the account only when `ChatticusAccountDeploy`
-is deployed by hand once, with the development account's credentials:
+Deploy order: the role change reaches the account only when
+`ChatticusAccountDeployDevelopment` is deployed by hand once, with the production
+account's credentials (production's `ChatticusAccountDeploy` first):
 
 ```bash
 cd infra && sh deploy-chatticus-account-deploy.sh development
 ```
 
-Until then the workflow cannot push. Deploying the `ChatticusComputers` stack
-itself (`sh deploy-chatticus-dedicated-account.sh development computers`) is a
+Until then the workflow cannot push. Deploying the `ChatticusComputersDevelopment`
+stack itself (`sh deploy-chatticus-dedicated-account.sh development computers`) is a
 separate manual step and is not part of the image pipeline.
 
-## Dedicated environment accounts
+## One account for every environment
 
-The move out of the legacy account (epic chatticus-2e4d79) gives development an
-AWS account of its own. Staging and production do not each get one: they are
-separate environments in a single account, the production account, in
-`us-east-1`. Legacy keeps `ChatticusGitHubDeploy` (three roles, one account)
-until it is retired. Each account needs one-time steps, run with that account's
-own non-root SSO credentials and never the legacy account's.
+Development, staging and production are separate environments in a single AWS
+account, the production account, in `us-east-1`. (The former separate development
+account is retired; legacy keeps `ChatticusGitHubDeploy`, three roles in the legacy
+account, until the legacy account is retired.) One-time steps run with the
+production account's own non-root SSO credentials (profile `chatticus-production`)
+and never the legacy account's.
 
-Development's account:
-
-1. `npx cdk bootstrap aws://ACCOUNT_ID/us-east-1 --profile PROFILE`
-2. `sh deploy-chatticus-account-deploy.sh development` deploys
-   `ChatticusAccountDeploy`: the GitHub OIDC provider and the one deploy role
-   trusting only the development GitHub OIDC claim.
-
-The production account (holds production, already live, and staging, being added):
-
-Production is already bootstrapped and deployed under the stack names above; nothing
-is renamed. `cdk diff` it first (with `--no-change-set` for a read-only comparison)
-and expect no replacement. Staging is added next to it:
+The account is already bootstrapped and holds production's stacks under the names
+above; nothing production is renamed. `cdk diff` first (with `--no-change-set` for
+a read-only comparison) and expect no replacement. Development and staging are
+added next to it:
 
 1. Bootstrap (`npx cdk bootstrap aws://ACCOUNT_ID/us-east-1 --profile PROFILE`)
-   already happened; the bootstrap roles are shared by both environments (see "What
-   the shared account does not isolate" in `docs/PROMOTE_TO_MAIN.md`).
-2. `sh deploy-chatticus-account-deploy.sh production` updates the existing
-   `ChatticusAccountDeploy` in place (it keeps owning the account's one GitHub OIDC
-   provider and the role `chatticus-github-actions-deploy`) and attaches the policy
-   that denies that role the staging stacks.
-3. `sh deploy-chatticus-account-deploy.sh staging` deploys
-   `ChatticusAccountDeployStaging`: the staging deploy role, importing the provider
-   by ARN, so it needs step 2's stack to exist.
-4. Staging's remaining stacks, one at a time, through
-   `sh deploy-chatticus-dedicated-account.sh staging STACK` (order in
-   `docs/PROMOTE_TO_MAIN.md` section 11). The account's budget is production's;
-   the script refuses `staging budgets`.
+   already happened; the bootstrap roles are shared by all three environments (see
+   "What the shared account does not isolate" in `docs/PROMOTE_TO_MAIN.md`).
+2. Each added environment's stacks, one at a time, through
+   `sh deploy-chatticus-dedicated-account.sh ENV STACK`, in the order under
+   "Deploying an environment into the account" below. The first stacks
+   (snapshots, computers, zones, certificates, thin-turn, control-plane, auth, web)
+   are deployed locally by an admin session; CI deploys take over once the
+   environment's account-deploy stack and GitHub environment secrets exist. The
+   account's budget is production's; the script refuses `development budgets` and
+   `staging budgets`.
+3. `sh deploy-chatticus-account-deploy.sh ENV` (`development`, `staging`) after
+   that environment's thin-turn stack exists (its integration test role resolves
+   the thin-turn invoke key parameter at deploy time). Redeploy
+   `ChatticusAccountDeployStaging` as well: its peer list now includes
+   development, an in-place IAM policy change. Do **not** redeploy production's
+   `ChatticusAccountDeploy` as part of this move (owner rule: the production deploy
+   stack is never touched). The template in the repository is ahead of the deployed
+   stack by additive denies of the development stacks only; deploying it later only
+   adds those explicit denies to production's role and changes nothing else.
 
-Then, in either kind of account, set a GitHub **environment secret** named
+Then set a GitHub **environment secret** named
 `AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN` on the matching GitHub environment from the
 stack output, and dispatch `verify-account-deploy-role.yml` for that
 environment. It assumes the role through real OIDC and confirms the account is
@@ -457,37 +478,49 @@ dropped. The apex NS and SOA are skipped because Route 53 creates them. The
 records are transitional: as each environment moves, its names are replaced by
 NS delegations to a small zone in that environment's account.
 
-## Deploying an environment into its account
+## Deploying an environment into the account
 
 Everything is built with `-c chatticusAccountEnvironment=ENV`, which produces
 only that environment's stacks (including its own snapshots, computers, zones
-and certificates). Development's and production's keep the unsuffixed ids they
-already have in their own accounts; staging's carry a `Staging` suffix because it
-shares production's account. These stacks are never the legacy account's.
+and certificates). Production keeps the unsuffixed ids it already has; development
+and staging carry a `Development` or `Staging` suffix because all three share the
+production account. These stacks are never the legacy account's.
 `ChatticusBudgets` is the one account-level stack: its id is the same whichever
-environment builds it, and the production account's single copy belongs to
-production (tagged `production`), so only development and production deploy it. The default (no context) still builds the legacy
-three-environment account and is unchanged. Development is named
+environment builds it, and the account's single copy belongs to production (tagged
+`production`), so only production deploys it. The default (no context) still builds the legacy
+three-environment account. Development is named
 `develop.chattic.us` and `auth-develop.chattic.us`: CloudFront alternate domain
 names and Cognito custom domains are unique worldwide, so a name the legacy
-environment still holds cannot be reused. Staging and production keep their
-names and can only be deployed after legacy releases them.
+environment still holds cannot be reused.
 
 Deploy one stack at a time, in this order, with that account's own credentials
 (`sh deploy-chatticus-dedicated-account.sh ENV STACK`, which refuses the legacy
 account):
 
-1. `budgets` (needs `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD` and
-   `CHATTICUS_BUDGETS_NOTIFICATION_EMAIL`; once per account, and the production
-   account already has it, so staging skips this step), then per
-   environment `snapshots`, `computers`
+1. `budgets` (production only: it needs `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD` and
+   `CHATTICUS_BUDGETS_NOTIFICATION_EMAIL`, and the account already has it, so
+   development and staging skip this step), then per environment `snapshots`,
+   `computers`
 2. `zones`, then read the two name-server outputs
 3. Delegate both names from the management zone (a reviewed change to
-   `ChatticusManagementDns`), and wait until `dig` shows the delegation
-4. `certificates` (validation cannot finish before step 3)
+   `ChatticusManagementDns`), and wait until `dig` shows the delegation. For
+   development this is the delegation follow-up PR that replaces the retired
+   account's name servers in `lib/dns-delegations.ts`.
+4. `certificates` (validation cannot finish before step 3, so the Development
+   certificates stack cannot validate until the follow-up PR points
+   `develop.chattic.us` and `auth-develop.chattic.us` at the new zones)
 5. `thin-turn` (needs no seeded secrets to deploy)
 6. **A person seeds** the Google OAuth secret `chatticus/ENV/oauth/google`
    (read by the auth stack while deploying) and, for live turns, the OpenAI
    SecureString parameter, in that account with their own session
-7. `auth`, then `web` (the web build reads the Cognito ids the auth stack
-   publishes, so auth comes first)
+7. `sh deploy-chatticus-account-deploy.sh ENV` for development and staging (needs
+   step 5)
+8. `control-plane` (development and staging: with
+   `CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN` set to step 7's integration test
+   role ARN)
+9. `auth`, then `web` (the web build reads the Cognito ids the auth stack
+   publishes, so auth comes first). **Order gate for development:** the retired
+   development account's `ChatticusWeb` and `ChatticusAuth` stacks must be deleted
+   first. CloudFront alternate domain names and Cognito custom domains are
+   globally unique, and those stacks hold `develop.chattic.us` and
+   `auth-develop.chattic.us` until they are gone.

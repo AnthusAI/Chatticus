@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { AccountGitHubDeployStack, INTEGRATION_TEST_ROLE_NAME, STAGING_INTEGRATION_TEST_ROLE_NAME } from "../lib/account-github-deploy-stack";
+import { AccountGitHubDeployStack, INTEGRATION_TEST_ENVIRONMENTS, integrationTestRoleName } from "../lib/account-github-deploy-stack";
 import {
   ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_ROLE_NAMES,
@@ -76,57 +76,59 @@ describe("AccountGitHubDeployStack", () => {
   }
 });
 
-describe("integration test role", () => {
-  const template = synth("development");
-
-  it("is trusted only by the development GitHub environment sub claim", () => {
-    const condition = federatedPrincipalConditions(roleAssumeRolePolicy(template, INTEGRATION_TEST_ROLE_NAME));
-    const subject = (condition.StringLike as Record<string, string>)["token.actions.githubusercontent.com:sub"];
-    assert.equal(subject, `${GITHUB_SUB_PREFIX}:environment:development`);
+describe("integration test roles", () => {
+  it("exist for development and staging only, named for their environment", () => {
+    assert.deepEqual([...INTEGRATION_TEST_ENVIRONMENTS], ["development", "staging"]);
+    assert.equal(integrationTestRoleName("development"), "chatticus-github-actions-integration-test-development");
+    assert.equal(integrationTestRoleName("staging"), "chatticus-github-actions-integration-test-staging");
   });
 
-  it("can only read the two thin-turn parameters and the invoke key secret", () => {
-    const policies = template.findResources("AWS::IAM::Policy");
-    const statements = Object.values(policies)
-      .filter((policy) => JSON.stringify(policy).includes("IntegrationTest"))
-      .flatMap((policy) => (policy as any).Properties.PolicyDocument.Statement);
-    assert.deepEqual(
-      statements.flatMap((statement: any) => statement.Action).sort(),
-      ["secretsmanager:GetSecretValue", "ssm:GetParameter"],
-    );
-  });
+  for (const environment of INTEGRATION_TEST_ENVIRONMENTS) {
+    describe(environment, () => {
+      const template = synth(environment);
+      const others = CHATTICUS_CLOUD_ENVIRONMENTS.filter((name) => name !== environment);
+
+      it(`is trusted only by the ${environment} GitHub environment sub claim`, () => {
+        const condition = federatedPrincipalConditions(roleAssumeRolePolicy(template, integrationTestRoleName(environment)));
+        const subject = (condition.StringLike as Record<string, string>)["token.actions.githubusercontent.com:sub"];
+        assert.equal(subject, `${GITHUB_SUB_PREFIX}:environment:${environment}`);
+      });
+
+      it("can only read the two thin-turn parameters and the invoke key secret", () => {
+        const policies = template.findResources("AWS::IAM::Policy");
+        const statements = Object.values(policies)
+          .filter((policy) => JSON.stringify(policy).includes("IntegrationTest"))
+          .flatMap((policy) => (policy as any).Properties.PolicyDocument.Statement);
+        assert.deepEqual(
+          statements.flatMap((statement: any) => statement.Action).sort(),
+          ["secretsmanager:GetSecretValue", "ssm:GetParameter"],
+        );
+      });
+
+      it(`can only read parameters and secrets of ${environment}`, () => {
+        const serialized = JSON.stringify(
+          Object.values(template.findResources("AWS::IAM::Policy")).filter((policy) =>
+            JSON.stringify(policy).includes("IntegrationTest"),
+          ),
+        );
+        assert.ok(serialized.includes(`/chatticus/${environment}/`));
+        for (const other of others) assert.equal(serialized.includes(`/chatticus/${other}/`), false, other);
+      });
+
+      it("does not exist in the other environments' deploy stacks", () => {
+        for (const other of others) {
+          assert.equal(JSON.stringify(synth(other).toJSON()).includes(integrationTestRoleName(environment)), false, other);
+        }
+      });
+    });
+  }
 
   it("does not exist in production", () => {
     const production = JSON.stringify(synth("production").toJSON());
-    assert.equal(production.includes(INTEGRATION_TEST_ROLE_NAME), false);
-    assert.equal(production.includes(STAGING_INTEGRATION_TEST_ROLE_NAME), false);
-  });
-
-  it("does not exist for development inside staging", () => {
-    assert.equal(JSON.stringify(synth("staging").toJSON()).includes(INTEGRATION_TEST_ROLE_NAME), false);
-  });
-});
-
-describe("staging integration test role", () => {
-  const template = synth("staging");
-
-  it("is trusted only by the staging GitHub environment sub claim", () => {
-    const condition = federatedPrincipalConditions(
-      roleAssumeRolePolicy(template, STAGING_INTEGRATION_TEST_ROLE_NAME),
-    );
-    const subject = (condition.StringLike as Record<string, string>)["token.actions.githubusercontent.com:sub"];
-    assert.equal(subject, `${GITHUB_SUB_PREFIX}:environment:staging`);
-  });
-
-  it("can only read parameters and secrets of staging", () => {
-    const serialized = JSON.stringify(
-      Object.values(template.findResources("AWS::IAM::Policy")).filter((policy) =>
-        JSON.stringify(policy).includes("IntegrationTest"),
-      ),
-    );
-    assert.ok(serialized.includes("/chatticus/staging/"));
-    assert.equal(serialized.includes("/chatticus/development/"), false);
-    assert.equal(serialized.includes("/chatticus/production/"), false);
+    for (const environment of CHATTICUS_CLOUD_ENVIRONMENTS) {
+      assert.equal(production.includes(`integration-test-${environment}`), false);
+    }
+    assert.equal(production.includes("IntegrationTest"), false);
   });
 });
 

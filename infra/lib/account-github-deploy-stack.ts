@@ -18,24 +18,34 @@ import { TAG_ENVIRONMENT } from "./tagging";
 
 export const GITHUB_OIDC_PROVIDER_URL = "token.actions.githubusercontent.com";
 
-export const INTEGRATION_TEST_ROLE_NAME = "chatticus-github-actions-integration-test-development";
-export const STAGING_INTEGRATION_TEST_ROLE_NAME = "chatticus-github-actions-integration-test-staging";
+/**
+ * Environments that have a GitHub OIDC integration test principal. Production
+ * never has one.
+ */
+export const INTEGRATION_TEST_ENVIRONMENTS: readonly GithubDeployEnvironment[] = ["development", "staging"];
 
-const INTEGRATION_TEST_ROLE_NAMES: Partial<Record<GithubDeployEnvironment, string>> = {
-  development: INTEGRATION_TEST_ROLE_NAME,
-  staging: STAGING_INTEGRATION_TEST_ROLE_NAME,
-};
+export function integrationTestRoleName(environment: GithubDeployEnvironment): string {
+  return `chatticus-github-actions-integration-test-${environment}`;
+}
 
 export interface AccountGitHubDeployStackProps extends cdk.StackProps {
   githubEnvironment: GithubDeployEnvironment;
 }
 
 /**
- * Explicit denies that keep the deploy role of one environment out of the other
- * environments that share its AWS account: CloudFormation on their stacks, their
- * SSM parameter paths, and anything tagged with their environment. The cost
- * attribution tags (`chatticus:environment`) are applied to every resource of a
- * stack, so the tag deny reaches resources whose names carry no environment.
+ * Explicit denies on one environment's OIDC deploy role for the other
+ * environments' CloudFormation stacks, SSM parameter paths, and anything tagged
+ * with their environment.
+ *
+ * What this does: it bounds the calls the OIDC role makes with its own
+ * credentials (reading peer stack outputs and parameters, pushing to a peer
+ * repository). What it does NOT do: isolate the environments. All three roles
+ * can assume the shared CDK bootstrap roles (lib/deploy-role-policy.ts), and the
+ * bootstrap CloudFormation execution role is AdministratorAccess, so a deploy
+ * driven through bootstrap can change any environment's resources. The real fix
+ * is a separate CDK bootstrap qualifier per environment (a follow-up). Until
+ * then the boundary is procedural: staging and production deploy only from main,
+ * development from develop.
  */
 function peerEnvironmentDenyStatements(
   stack: cdk.Stack,
@@ -86,13 +96,12 @@ function peerEnvironmentDenyStatements(
  * GitHub OIDC trust for one environment: that environment's own deploy role,
  * named for the environment, trusting only that GitHub environment.
  *
- * Development lives in an account of its own, so its stack creates the OIDC
- * provider there. Staging and production share one account, and production's
- * stack was there first: it creates the provider (as it always has) and staging's
- * stack imports it by ARN, so staging's stack can only be deployed after
- * production's. A shared account also gets the explicit denies that keep each
- * environment's role away from the other environment's stacks, parameters and
- * tagged resources.
+ * All three environments share one account. Production's stack was there
+ * first: it creates the OIDC provider (as it always has), and development's and
+ * staging's stacks import it by ARN, so they can only be deployed after
+ * production's. Each environment's role also gets the explicit denies that keep
+ * it away from the other two environments' stacks, parameters and tagged
+ * resources.
  * The legacy account keeps the three-role GitHubDeployStack until it is retired.
  */
 export class AccountGitHubDeployStack extends cdk.Stack {
@@ -133,12 +142,11 @@ export class AccountGitHubDeployStack extends cdk.Stack {
       this.deployRole.addToPolicy(statement);
     }
 
-    const integrationTestRoleName = INTEGRATION_TEST_ROLE_NAMES[props.githubEnvironment];
-    if (integrationTestRoleName) {
+    if (INTEGRATION_TEST_ENVIRONMENTS.includes(props.githubEnvironment)) {
       this.integrationTestRole = this.createIntegrationTestRole(
         providerArn,
         props.githubEnvironment,
-        integrationTestRoleName,
+        integrationTestRoleName(props.githubEnvironment),
       );
     }
 

@@ -11,12 +11,19 @@ import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 /**
  * Task definition family of the Pi session owner task of one environment. A
- * family is an account-wide name, so staging, which shares production's account,
- * gets its own. Development and production keep the unsuffixed name their
- * Computers stacks have always used.
+ * family is an account-wide name and all three environments share one account,
+ * so development and staging each get a suffixed family. Production keeps the
+ * unsuffixed name its Computers stack has always used.
  */
 export function ownerTaskDefinitionFamily(environment: ChatticusCloudEnvironment): string {
-  return environment === "staging" ? "ChatticusComputerOwnerStaging" : "ChatticusComputerOwner";
+  switch (environment) {
+    case "development":
+      return "ChatticusComputerOwnerDevelopment";
+    case "staging":
+      return "ChatticusComputerOwnerStaging";
+    case "production":
+      return "ChatticusComputerOwner";
+  }
 }
 
 /**

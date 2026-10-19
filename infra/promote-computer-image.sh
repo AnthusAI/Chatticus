@@ -15,7 +15,7 @@ set -eu
 ENVIRONMENT="${1:-}"
 COMMIT="${2:-}"
 case "${ENVIRONMENT}" in
-  development) TAG="dev"; STACK="ChatticusComputers" ;;
+  development) TAG="dev"; STACK="ChatticusComputersDevelopment" ;;
   staging) TAG="staging"; STACK="ChatticusComputersStaging" ;;
   production) TAG="production"; STACK="ChatticusComputers" ;;
   *)

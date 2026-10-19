@@ -88,6 +88,7 @@ describe("promote-computer-image.sh", () => {
   });
 
   for (const [deploymentEnvironment, tag, stack] of [
+    ["development", "dev", "ChatticusComputersDevelopment"],
     ["staging", "staging", "ChatticusComputersStaging"],
     ["production", "production", "ChatticusComputers"],
   ]) {

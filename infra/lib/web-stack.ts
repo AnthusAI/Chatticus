@@ -27,9 +27,9 @@ import {
   thinTurnParameterPrefix,
   WEB_CLOUDFRONT_ENABLED,
   webParameterPrefix,
-  AUTH_DOMAIN_NAMES,
   WEB_CROSS_ORIGIN_ISOLATION,
-} from "./environments";
+  ENVIRONMENT_HOSTNAMES,
+} from "./environments"
 import {
   CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER,
   webContentSecurityPolicy,
@@ -123,7 +123,7 @@ export class WebStack extends cdk.Stack {
             header: CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER,
             value: webContentSecurityPolicy({
               cognitoRegion: this.region,
-              authDomainName: AUTH_DOMAIN_NAMES[environmentName],
+              authDomainName: ENVIRONMENT_HOSTNAMES[environmentName].authDomain,
             }),
             override: true,
           },

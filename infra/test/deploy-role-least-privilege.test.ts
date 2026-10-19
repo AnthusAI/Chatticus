@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { AccountGitHubDeployStack, INTEGRATION_TEST_ROLE_NAME, STAGING_INTEGRATION_TEST_ROLE_NAME } from "../lib/account-github-deploy-stack";
+import { AccountGitHubDeployStack, INTEGRATION_TEST_ENVIRONMENTS, integrationTestRoleName } from "../lib/account-github-deploy-stack";
+import { computerRepositoryNamePrefix } from "../lib/computer-stack";
 import { COMPUTER_IMAGE_PUSH_ACTIONS } from "../lib/deploy-role-policy";
 import { CHATTICUS_CLOUD_ENVIRONMENTS, type ChatticusCloudEnvironment } from "../lib/environments";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
@@ -66,7 +67,7 @@ function synthAccount(environment: ChatticusCloudEnvironment): RoleView {
   const app = new cdk.App();
   const stack = new AccountGitHubDeployStack(app, "ChatticusAccountDeploy", { env: ENV, githubEnvironment: environment });
   const views = roleViews(Template.fromStack(stack)).filter(
-    (view) => view.roleName !== INTEGRATION_TEST_ROLE_NAME && view.roleName !== STAGING_INTEGRATION_TEST_ROLE_NAME,
+    (view) => !INTEGRATION_TEST_ENVIRONMENTS.some((name) => view.roleName === integrationTestRoleName(name)),
   );
   assert.equal(views.length, 1);
   return views[0];
@@ -190,8 +191,9 @@ for (const { label, environment, view } of SUBJECTS) {
       const push = allowStatements(view).find((statement) => statement.Sid === "ComputerImagePush");
       assert.ok(push);
       assert.deepEqual(actionsOf(push).sort(), [...COMPUTER_IMAGE_PUSH_ACTIONS].sort());
-      const expectedPrefix = environment === "staging" ? "chatticuscomputersstaging" : "chatticuscomputers";
-      assert.match(JSON.stringify(push.Resource), new RegExp(`:repository/${expectedPrefix}-computerimage\\*`));
+      assert.match(JSON.stringify(push.Resource), new RegExp(`:repository/${computerRepositoryNamePrefix(environment)}\\*`));
+      const expectedPrefixes = { development: "chatticuscomputersdevelopment", staging: "chatticuscomputersstaging", production: "chatticuscomputers" };
+      assert.equal(computerRepositoryNamePrefix(environment), `${expectedPrefixes[environment]}-computerimage`);
     });
 
     it("reads parameters only under its own environment prefix and the CDK bootstrap version", () => {
@@ -259,26 +261,19 @@ for (const { label, environment, view } of SUBJECTS) {
   });
 }
 
-describe("least privilege: peer environment denies remain where staging and production share an account", () => {
-  for (const [environment, peer] of [
-    ["staging", "production"],
-    ["production", "staging"],
-  ] as const) {
-    it(`${environment} still denies ${peer}'s stacks, parameters and tagged resources`, () => {
+describe("least privilege: each OIDC role denies the other two environments directly (the shared CDK bootstrap roles are a known, unclosed boundary)", () => {
+  for (const environment of CHATTICUS_CLOUD_ENVIRONMENTS) {
+    const peers = CHATTICUS_CLOUD_ENVIRONMENTS.filter((name) => name !== environment);
+    it(`${environment} denies ${peers.join(" and ")}'s stacks, parameters and tagged resources`, () => {
       const denies = denyStatements(synthAccount(environment));
       const sids = denies.map((statement) => statement.Sid);
       for (const sid of ["DenyPeerEnvironmentStacks", "DenyPeerEnvironmentParameters", "DenyPeerEnvironmentTaggedResources"]) {
         assert.ok(sids.includes(sid), sid);
       }
       const tagged = denies.find((statement) => statement.Sid === "DenyPeerEnvironmentTaggedResources");
-      assert.deepEqual(tagged?.Condition, { StringEquals: { "aws:ResourceTag/chatticus:environment": [peer] } });
+      assert.deepEqual(tagged?.Condition, { StringEquals: { "aws:ResourceTag/chatticus:environment": peers } });
     });
   }
-
-  it("development has no peer in its account, so no peer denies", () => {
-    const sids = denyStatements(synthAccount("development")).map((statement) => statement.Sid);
-    assert.ok(!sids.includes("DenyPeerEnvironmentStacks"));
-  });
 });
 
 describe("least privilege: the workflows and scripts cannot call an AWS API the role lacks", () => {

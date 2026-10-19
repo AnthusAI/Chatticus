@@ -358,65 +358,78 @@ no AWS resource.
 - **D9. Stale PRs and branches:** close #347 and #348, merge or keep #394, prune the
   `ts/owner-supervisor*` branches.
 
-## 11. Account topology: staging and production share one AWS account
+## 11. Account topology: development, staging and production share one AWS account
 
-Decision by the project owner (supersedes the "account per environment" wording above): there is no separate staging
-AWS account. Development has an account of its own. Staging and production are separate environments in one account,
-the production account, in `us-east-1`. No account ids appear here; take them from `AGENTS.local.md`.
+Decision by the project owner (supersedes the "account per environment" wording above): there is no separate development
+or staging AWS account. Development, staging and production are separate environments in one account, the production
+account, in `us-east-1` (profile `chatticus-production`). The former separate development account is retired. No account
+ids appear here; take them from `AGENTS.local.md`.
 
 The production account is already live: it holds the stacks below under the names they were deployed with, and serves
-`hey.chattic.us` and `auth.chattic.us` from them. Staging is the environment being added to that account.
+`hey.chattic.us` and `auth.chattic.us` from them. Staging and development are the environments added to that account.
 
-### Isolation by name: production keeps its live names, staging is suffixed
+### Isolation by name: production keeps its live names, development and staging are suffixed
 
 Production keeps every stack id, logical id and resource name it already has. Renaming a live stack would replace its
 resources (a snapshot bucket, ECR repository, delegated Route 53 zones whose name servers the management zone delegates
-to, ACM certificates) and change what the management account points at, so nothing in production is renamed. Staging, the
-newcomer, takes the suffixed ids, so the two never collide on a CloudFormation stack, an ECR repository, an ECS task
-definition family, an IAM role or a Cognito pool. Development keeps the unsuffixed ids it has always had, in its own
-account. Tests compare the development templates and the production templates of the changed stacks to committed copies
-(`infra/test/fixtures/development-templates`, `infra/test/fixtures/production-templates`).
+to, ACM certificates) and change what the management account points at, so nothing in production is renamed. Development
+and staging, the newcomers, take the suffixed ids, so the three never collide on a CloudFormation stack, an ECR
+repository, an ECS task definition family, an IAM role or a Cognito pool. One set of id maps in
+`infra/lib/environments.ts` and one code path in `infra/lib/dedicated-account-stacks.ts` build all three; there is no
+development-only branch. Tests compare the production templates and the development templates of the changed stacks to
+committed copies (`infra/test/fixtures/production-templates`, `infra/test/fixtures/development-templates`), and a pairwise
+test shows no two environments claim the same account-wide name.
 
 | Kind | Development | Staging | Production (live) |
 | --- | --- | --- | --- |
-| Snapshots | `ChatticusSnapshots` | `ChatticusSnapshotsStaging` | `ChatticusSnapshots` |
-| Computers (ECR, ECS, task definition family) | `ChatticusComputers` (`ChatticusComputerOwner`) | `ChatticusComputersStaging` (`ChatticusComputerOwnerStaging`) | `ChatticusComputers` (`ChatticusComputerOwner`) |
-| Delegated zones | `ChatticusEnvironmentZones` | `ChatticusEnvironmentZonesStaging` | `ChatticusEnvironmentZones` |
-| Certificates | `ChatticusEnvironmentCertificates` | `ChatticusEnvironmentCertificatesStaging` | `ChatticusEnvironmentCertificates` |
-| Thin-turn, control-plane, web, auth | unsuffixed | `...Staging` | `...Production` |
-| Deploy role stack | `ChatticusAccountDeploy` | `ChatticusAccountDeployStaging` | `ChatticusAccountDeploy` |
-| Deploy role name | `chatticus-github-actions-deploy` | `chatticus-github-actions-deploy-staging` | `chatticus-github-actions-deploy` |
-| GitHub OIDC provider | created by its deploy stack | imported by ARN from production's | created by `ChatticusAccountDeploy` |
+| Snapshots | `ChatticusSnapshotsDevelopment` | `ChatticusSnapshotsStaging` | `ChatticusSnapshots` |
+| Computers (ECR, ECS, task definition family) | `ChatticusComputersDevelopment` (`ChatticusComputerOwnerDevelopment`) | `ChatticusComputersStaging` (`ChatticusComputerOwnerStaging`) | `ChatticusComputers` (`ChatticusComputerOwner`) |
+| Delegated zones | `ChatticusEnvironmentZonesDevelopment` | `ChatticusEnvironmentZonesStaging` | `ChatticusEnvironmentZones` |
+| Certificates | `ChatticusEnvironmentCertificatesDevelopment` | `ChatticusEnvironmentCertificatesStaging` | `ChatticusEnvironmentCertificates` |
+| Thin-turn, control-plane, web, auth | `...Development` | `...Staging` | `...Production` |
+| Deploy role stack | `ChatticusAccountDeployDevelopment` | `ChatticusAccountDeployStaging` | `ChatticusAccountDeploy` |
+| Deploy role name | `chatticus-github-actions-deploy-development` | `chatticus-github-actions-deploy-staging` | `chatticus-github-actions-deploy` |
+| Integration test role | `chatticus-github-actions-integration-test-development` | `chatticus-github-actions-integration-test-staging` | none |
+| GitHub OIDC provider | imported by ARN from production's | imported by ARN from production's | created by `ChatticusAccountDeploy` |
 | Owner task image tag | `dev` | `staging` | `production` |
+| Hostnames | `develop.chattic.us`, `auth-develop.chattic.us` | `staging.chattic.us`, `auth-staging.chattic.us` | `hey.chattic.us`, `auth.chattic.us` |
 
-The unsuffixed names in the production column coincide with development's only because the two live in different
-accounts. The production owner task definition and its image tag do not exist in the account yet (the deployed Computers
-stack predates them), so naming its tag `production` replaces nothing that runs.
+The production owner task definition and its image tag do not exist in the account yet (the deployed Computers stack
+predates them), so naming its tag `production` replaces nothing that runs.
 
-Account-level, one copy in the production account: `ChatticusBudgets` (its monthly limit is the combined limit of staging
-and production; per-environment spend comes from the `chatticus:environment` tag). It already exists, is tagged
-`production`, and only development and production deploy it; the staging deploy script refuses it, and the staging
-thin-turn and auth stacks read the alerts topic from the production copy. The single GitHub OIDC provider is owned by
-production's `ChatticusAccountDeploy`, which has always created it; staging's deploy stack imports it. Deleting
-`ChatticusAccountDeploy` would delete the provider and lock staging out. CDK bootstrap (`CDKToolkit`) already exists in
-the account.
+Account-level, one copy in the production account: `ChatticusBudgets` (its monthly limit is the combined limit of all
+three environments; per-environment spend comes from the `chatticus:environment` tag). It already exists, is tagged
+`production`, and only production deploys it; the development and staging deploy scripts refuse it, and the development and
+staging thin-turn and auth stacks read the alerts topic from the production copy. The single GitHub OIDC provider is owned
+by production's `ChatticusAccountDeploy`, which has always created it; the development and staging deploy stacks import it.
+Deleting `ChatticusAccountDeploy` would delete the provider and lock the other two environments out. CDK bootstrap
+(`CDKToolkit`) already exists in the account.
 
-### Adding staging to the live production account
+### Adding development and staging to the live production account
 
-Production is not bootstrapped again: its stacks exist, and the work below only touches production for one in-place
-change (step 1). Each step is one stack, run by a person with the production account's SSO session, never `--all`.
+Production is not bootstrapped again and its `ChatticusAccountDeploy` stack is **not redeployed** as part of adding
+development (owner rule: the production deploy stack is never touched). The repository template for it is ahead of the
+deployed stack by additive explicit denies of the development stacks, SSM paths and `development`-tagged resources on
+production's deploy role (the production fixture `ChatticusAccountDeploy.template.json` changes by additions only). If
+someone deploys it later, that adds those denies to production's role and changes nothing else. Each step below is one
+stack, run by a person with the production account's SSO session, never `--all`.
 
-1. `sh infra/deploy-chatticus-account-deploy.sh production`: an in-place update of the existing deploy stack that
-   attaches one IAM policy to the existing deploy role, denying it the staging stacks, staging SSM paths and
-   `staging`-tagged resources. Run `cdk diff ChatticusAccountDeploy -c githubDeployEnvironment=production` first; the
-   only change is that policy.
-2. `sh infra/deploy-chatticus-account-deploy.sh staging`: the new staging deploy role (`chatticus-github-actions-deploy-staging`),
-   which needs production's stack to exist because it imports the OIDC provider that stack created. Set the staging
-   GitHub environment's `AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN` and dispatch `verify-account-deploy-role.yml`.
-3. For staging only, each with `sh infra/deploy-chatticus-dedicated-account.sh staging STACK` in this order:
-   `snapshots`, `computers`, `zones`, (delegate both names from the management zone, wait for `dig`), `certificates`,
-   `thin-turn`, (a person seeds the Google OAuth secret and the OpenAI parameter), `control-plane`, `auth`, `web`.
-   There is no `staging budgets` step: the account's budget is production's.
+1. For each added environment, `sh infra/deploy-chatticus-dedicated-account.sh ENV STACK` in this order: `snapshots`,
+   `computers`, `zones`, (delegate both names from the management zone, wait for `dig`; for development this is the
+   follow-up PR that replaces the retired account's name servers in `infra/lib/dns-delegations.ts`), `certificates`,
+   `thin-turn`, (a person seeds the Google OAuth secret and the OpenAI parameter). There is no `budgets` step: the
+   account's budget is production's. These first stacks are deployed by an admin session; CI deploys take over once
+   step 2 and the GitHub environment secrets exist.
+2. `sh infra/deploy-chatticus-account-deploy.sh development` (and `staging`): the deploy role
+   (`chatticus-github-actions-deploy-development`) and the integration test role. This comes **after** `thin-turn`:
+   `createIntegrationTestRole` resolves `/chatticus/ENV/thin-turn/invoke-key-secret-arn` as a CloudFormation SSM parameter
+   at deploy time, and that parameter exists only once `ChatticusThinTurn<Env>` is deployed. The script also refuses an
+   account without `CDKToolkit` and production's `ChatticusAccountDeploy` (which owns the OIDC provider these stacks
+   import). Redeploy `ChatticusAccountDeployStaging` too: its peer list now includes development (an in-place IAM change).
+   Set the GitHub environment's `AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN` and dispatch `verify-account-deploy-role.yml`.
+3. `control-plane` (with `CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN` set to step 2's integration test role ARN), `auth`,
+   `web`. For development, the retired account's `ChatticusWeb` and `ChatticusAuth` stacks must be deleted before `auth`
+   and `web`: CloudFront alternate domain names and Cognito custom domains are globally unique.
 
 ### Production's live stacks are behind the code
 
@@ -428,16 +441,17 @@ Lambda functions and website, the invoke-key origin header, a snapshot bucket li
 removes an export that the deployed `ChatticusComputers` still imports. Deploy `ChatticusComputers` before
 `ChatticusSnapshots`, and read both diffs first.
 
-### What the shared account does not isolate
+### What the shared account does not isolate (known boundary)
 
-- The two deploy roles are least privilege (`infra/lib/deploy-role-policy.ts`): they assume the CDK bootstrap roles and
-  make only the read, parameter and ECR calls the workflows need, with explicit denies on the other environment's stacks,
-  SSM parameter paths and `chatticus:environment`-tagged resources, and on IAM users, access keys, Organizations and
-  Account actions. CDK deploys go through the one set of bootstrap roles (`cdk-*-deploy-role`, `cdk-*-cfn-exec-role`),
-  which both environments share, and the CloudFormation execution role is `AdministratorAccess`, so a deploy role that is
-  compromised can still reach the other environment and change anything CloudFormation can through them. Closing that needs a separate bootstrap qualifier per environment. This is
-  decision D10 below.
-- ECS, VPC and CloudFront account quotas are shared; the two computers stacks each create a VPC.
+- The three OIDC deploy roles are least privilege (`infra/lib/deploy-role-policy.ts`) and each has explicit denies on the
+  other two environments' stacks, SSM parameter paths and `chatticus:environment`-tagged resources, and on IAM users, access
+  keys, Organizations and Account actions. Those denies bound only what the OIDC role does with its own credentials. They do
+  **not** isolate the environments: every deploy role can assume the shared CDK bootstrap roles (`cdk-*-deploy-role`,
+  `cdk-*-cfn-exec-role`), and the CloudFormation execution role is `AdministratorAccess`, so a deploy driven through bootstrap
+  can still change anything CloudFormation can in any environment. Today the boundary is procedural: staging and production
+  deploy only from `main`, development from `develop`. The real fix is a separate CDK bootstrap qualifier per environment
+  (decision D10 below), a follow-up.
+- ECS, VPC and CloudFront account quotas are shared; the three computers stacks each create a VPC.
 
 ### Not built here (follow-ups)
 
@@ -447,5 +461,5 @@ removes an export that the deployed `ChatticusComputers` still imports. Deploy `
 
 ### Decision D10
 
-Accept the shared bootstrap roles (above), or bootstrap the production account twice with distinct qualifiers and give each
+Accept the shared bootstrap roles (above: the peer denies are a bound on the OIDC roles, not isolation), or bootstrap the production account twice with distinct qualifiers and give each
 environment's stacks its own synthesizer.
