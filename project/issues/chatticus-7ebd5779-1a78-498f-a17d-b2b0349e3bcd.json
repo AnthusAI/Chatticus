@@ -3,7 +3,7 @@
   "title": "Repeat the move for staging, then production",
   "description": "After development is cut over and stable: bootstrap-and-role (already done per account by the first card), then the environment deploy, verification and cutover for chatticus-staging and chatticus-production, in that order. Production also needs a data and Cognito user plan (users cannot be exported with passwords; Google federation re-links by email). Do not start until development has run in its new account for a while.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -29,11 +29,23 @@
         "model": "claude-sonnet-5-5",
         "name": "Claude"
       }
+    },
+    {
+      "id": "3eade4cd-8f09-4b1c-ba6f-516d9f24b259",
+      "author": "home",
+      "text": "Resolved 2026-10-19 by a different shape: staging and production run in the production AWS account, and now development does too. Full release rollout 2026-10-19: control plane, thin turn, auth and web green on staging and production from main (v0.50.0), development green from develop. Staging deploy role is least-privilege (staging test role created, staging smoke tests pass); the production deploy role remains AdministratorAccess by owner rule.",
+      "created_at": "2026-10-19T22:39:10.997915Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:49.856652Z",
-  "updated_at": "2026-10-02T10:47:54.979620Z",
-  "closed_at": null,
+  "updated_at": "2026-10-19T22:39:14.838602Z",
+  "closed_at": "2026-10-19T22:39:14.838572Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

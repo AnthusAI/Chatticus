@@ -12,9 +12,22 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7693eb40-b928-4e75-b761-ddbf957b683e",
+      "author": "home",
+      "text": "Progress 2026-10-19: development moved into the production AWS account (PR 610, PR 611); nine *Development stacks healthy; develop.chattic.us and auth-develop.chattic.us served from it; development GitHub environment repointed; deploy workflows green with smoke tests; dev computer image tag promoted. Development was down about one hour and came back fresh (no data carried over). The old chatticus-development account was wiped of Chatticus resources (only CDK bootstrap remains). All three environments now share the production account. Staging and development deploy roles are least-privilege; production's remains AdministratorAccess (chatticus-e49160). Remaining: legacy retirement (chatticus-c7e113), per-environment bootstrap isolation, zone move (chatticus-4e4819).",
+      "created_at": "2026-10-19T22:39:11.175744Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-09-30T19:07:56.375945Z",
-  "updated_at": "2026-09-30T19:07:56.375984Z",
+  "updated_at": "2026-10-19T22:39:11.175771Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

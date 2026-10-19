@@ -96,10 +96,22 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "f50f0ea4-1566-4f6b-bc74-cecb8535f928",
+      "author": "home",
+      "text": "Superseded 2026-10-19: development no longer runs in a dedicated chatticus-development account. All nine *Development stacks are healthy in the production AWS account, with develop.chattic.us and auth-develop.chattic.us served from it (PR 610, PR 611). Development was down about one hour (21:04-22:12 UTC) and came back fresh; no data was carried over. The old chatticus-development account was wiped of Chatticus resources (only CDK bootstrap remains; the owner reuses it) after the owner's real development data was exported to a private local folder outside the repo.",
+      "created_at": "2026-10-19T22:39:10.935845Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-10-02T02:57:29.050920Z",
+  "updated_at": "2026-10-19T22:39:10.935891Z",
   "closed_at": "2026-10-02T02:57:29.050851Z",
   "agent": {
     "platform": "claude-code",

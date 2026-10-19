@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-5d15e4f1-678a-4680-b0da-2a3ede322dcf",
+  "title": "Remove the legacy synth path in infra/bin/chatticus.ts",
+  "description": "As a maintainer, I want the default 'legacy' three-environment synth path removed from infra/bin/chatticus.ts, so that there is one correct path now that no account deploys from it.\n\nFeature: Single synth path\n  Scenario: Synth without the legacy mode\n    Given the legacy three-environment path is removed\n    When infra synth and the infra tests run\n    Then they pass and no stack depends on the legacy default",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-19T22:39:36.946509Z",
+  "updated_at": "2026-10-19T22:39:36.946558Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

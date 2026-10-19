@@ -60,10 +60,22 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "21b1702a-c453-4033-ae63-2c6fd204ac72",
+      "author": "home",
+      "text": "2026-10-19 progress: develop.chattic.us and auth-develop.chattic.us are now delegated to zones in the production account (PR 611) and served from the production account. Zone move to the management account itself is not re-verified here; left open.",
+      "created_at": "2026-10-19T22:39:11.112790Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-30T20:00:32.237024Z",
-  "updated_at": "2026-09-30T22:09:00.517626Z",
+  "updated_at": "2026-10-19T22:39:11.112827Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

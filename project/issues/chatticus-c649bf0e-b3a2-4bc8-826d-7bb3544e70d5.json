@@ -3,7 +3,7 @@
   "title": "Cut the development GitHub environment over to the new account",
   "description": "Change the development GitHub environment's AWS_DEPLOY_ROLE_ARN secret to the new account's role so pushes to develop deploy there, after the development environment is verified. Reversible by setting the secret back. Then repoint dev.chattic.us, leave legacy development running until confident, then retire it. Needs explicit approval from Ryan at the moment of the switch.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -35,11 +35,23 @@
         "model": "claude-sonnet-5-5",
         "name": "Claude"
       }
+    },
+    {
+      "id": "cbb57347-4729-4706-8af7-8c90200e8607",
+      "author": "home",
+      "text": "Done and superseded 2026-10-19: the development GitHub environment was first cut over to the dedicated development account (PR 380) and has now been repointed to the production AWS account (PR 610 merged, delegation PR 611). Secrets AWS_DEPLOY_ROLE_ARN and AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN and variable CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN were updated; the development deploy workflows are green with smoke tests. The development deploy role is least-privilege.",
+      "created_at": "2026-10-19T22:39:10.777573Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:48.670078Z",
-  "updated_at": "2026-10-02T10:34:12.864091Z",
-  "closed_at": null,
+  "updated_at": "2026-10-19T22:39:14.737033Z",
+  "closed_at": "2026-10-19T22:39:14.736993Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

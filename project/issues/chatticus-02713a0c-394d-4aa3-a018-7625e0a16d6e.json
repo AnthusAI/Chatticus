@@ -12,9 +12,22 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2fbdb316-4284-4de1-b4bb-d4769dde7512",
+      "author": "home",
+      "text": "2026-10-19: the dedicated development account is retired. All three environments share the one production AWS account and one budget; 26 CloudWatch alarms exist there and the two alarm SNS topics' email subscriptions (expired unconfirmed) were re-created and confirmed on 2026-10-19. Lambda concurrency quota raised from 10 to 1000. This card as written (a budget in the dedicated development account) no longer applies; the owner should confirm whether to close it.",
+      "created_at": "2026-10-19T22:39:11.054992Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-02T02:57:39.695611Z",
-  "updated_at": "2026-10-02T02:57:39.695650Z",
+  "updated_at": "2026-10-19T22:39:11.055017Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

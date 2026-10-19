@@ -22,10 +22,34 @@
         "model": "claude-sonnet-5-5",
         "name": "triage-agent"
       }
+    },
+    {
+      "id": "22a3320b-5ef0-44ff-a757-a4c79695a327",
+      "author": "home",
+      "text": "Progress 2026-10-19: the staging deploy role is now least-privilege (applied 2026-10-19, staging test role created, staging smoke tests pass) and the development deploy role is also least-privilege. The PRODUCTION deploy role remains AdministratorAccess and the production ChatticusAccountDeploy stack was deliberately NOT touched (owner rule); the repo template for it is ahead of the deployed stack by additive denies. Known boundary: all roles share the CDK bootstrap roles, whose CloudFormation execution role is AdministratorAccess, so peer-environment denies bound only the OIDC roles. Left open for production, the bootstrap-qualifier follow-up, and worker token expiry.",
+      "created_at": "2026-10-19T22:39:11.353983Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    },
+    {
+      "id": "9894f908-f3de-4159-bdc4-8f4340047b03",
+      "author": "home",
+      "text": "Follow-ups filed 2026-10-19: chatticus-3d467e (separate CDK bootstrap qualifier per environment) and chatticus-0242ad (narrow the production deploy role, needs the owner's go).",
+      "created_at": "2026-10-19T22:39:42.367840Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-11T17:37:32.766437Z",
-  "updated_at": "2026-10-14T03:11:57.191066Z",
+  "updated_at": "2026-10-19T22:39:42.367903Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
