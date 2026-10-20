@@ -49,8 +49,8 @@ is 1723 files, +262781 -52971.
 | Root `package.json` | workspaces web, infra; version 0.1.0 | adds workspaces conversation, host-protocol, computer/host; adds semantic-release devDependencies |
 
 So main still ships the Python control plane (the `python/` tree, `behave`, the
-Python semantic-release). Staging and production run it too (README "The control
-plane is TypeScript on develop").
+Python semantic-release). Staging and production run the TypeScript stacks in the
+production AWS account; the README no longer carries a status section.
 
 ## 3. Release and version a merge would produce
 
@@ -325,8 +325,6 @@ no AWS resource.
 - Auth workflows redeploying legacy Cognito from new code if left on push (step 2).
 - Cognito users do not carry over to a new pool; Google re-link by email only.
 - Marketing intake breakage when legacy production thin-turn goes away.
-- The README claim "Staging and production run Python" must be updated at the
-  merge, and again at each cutover.
 - The staging integration-principal question (chatticus-80b17c) is unresolved.
 
 ## 10. Decisions the owner must make
