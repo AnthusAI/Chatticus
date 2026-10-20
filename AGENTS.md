@@ -256,14 +256,16 @@ into a product PR is also wrong: land the board on `develop` first.
 
 ## Cloud environments
 
-Chatticus has three named AWS environments for the thin-turn front door:
-**development**, **staging**, and **production**. Acceptance tests always
+Chatticus has three named environments for the thin-turn front door:
+**development**, **staging**, and **production**. All three live in the one
+production AWS account (`us-east-1`, profile `chatticus-production`): one
+account, three environments. Acceptance tests always
 pass `--environment` for one of those names. Run them from a logged-in
 developer or agent shell, not from GitHub Actions.
 
 | Branch | Cloud environment | Trigger | CDK stack |
 | --- | --- | --- | --- |
-| `develop` | development | push to `develop`, or `workflow_dispatch` | `ChatticusThinTurn` |
+| `develop` | development | push to `develop`, or `workflow_dispatch` | `ChatticusThinTurnDevelopment` |
 | `main` (release) | staging | `workflow_dispatch` only | `ChatticusThinTurnStaging` |
 | `main` (release) | production | `workflow_dispatch` only | `ChatticusThinTurnProduction` |
 
@@ -274,15 +276,16 @@ anything. A structural test in `infra/test/deploy-workflows.test.ts` fails if
 a workflow bound to the `staging` or `production` GitHub environment regains
 a push, pull_request, schedule or workflow_run trigger. Every environment
 deploys through `infra/deploy-chatticus-dedicated-account.sh ENV STACK`; the
-script refuses the legacy account. Development has an AWS account of its own.
-Staging and production are separate environments that share one AWS account
-(the production account, `us-east-1`): there is no separate staging account.
+script refuses the legacy account. Development, staging and production are
+separate environments that share one AWS account (the production account,
+`us-east-1`): there is no separate development or staging account.
 Production is already live there under the stack names it was deployed with
 (`ChatticusSnapshots`, `ChatticusComputers`, `ChatticusAccountDeploy`, ...) and
-keeps them: renaming a live stack would replace its resources. Staging, added
-to that account later, carries the environment in its ids
-(`ChatticusSnapshotsStaging`, `ChatticusComputersStaging`, and so on), so the
-two never collide. See `docs/PROMOTE_TO_MAIN.md` section 11.
+keeps them: renaming a live stack would replace its resources. Development and
+staging carry the environment in their ids (`ChatticusSnapshotsDevelopment`,
+`ChatticusComputersStaging`, and so on), so the three never collide; each
+environment's deploy role also denies the other two environments' stacks,
+parameters and tagged resources. See `docs/PROMOTE_TO_MAIN.md` section 11.
 
 `main` has no branch protection and the GitHub `staging` and `production`
 environments have no required reviewers, by decision of the owner
@@ -312,7 +315,7 @@ control-plane, Web deploys web, ThinTurn deploys thin-turn, Auth deploys auth);
 a guard in `infra/test/deploy-workflows.test.ts` enforces it. Nothing imports
 the thin-turn CloudFormation exports; control-plane and web only read thin-turn
 SSM parameters at deploy time, so the workflows need no mutual ordering beyond
-the one-time first deploy of thin-turn in a new account. Staging and production
+the one-time first deploy of thin-turn of an environment. Staging and production
 still chain control-plane, web and thin-turn inside each manual workflow.
 `infra/deploy-chatticus-dedicated-account.sh` still waits for its target stack
 to leave `*_IN_PROGRESS`, synthesizes once, and retries `cdk deploy` (up to five
@@ -331,19 +334,20 @@ is enabled in development and staging, where acceptance runs need it, and never
 in production: the script refuses it there and no production workflow passes it.
 
 Snapshots, Computers, zones and certificates are per environment:
-development and production keep the unsuffixed `ChatticusSnapshots`,
-`ChatticusComputers`, `ChatticusEnvironmentZones` and
-`ChatticusEnvironmentCertificates` in their own accounts; staging has the
-`Staging` suffixed copies in production's account. Only `ChatticusBudgets` is
-account-level (one copy, owned by production), and the account's GitHub OIDC
-provider is created by `ChatticusAccountDeploy` and imported by staging's deploy
-stack. Never `cdk deploy --all`. Never destroy the snapshots or computers stacks
-of any environment.
+production keeps the unsuffixed `ChatticusSnapshots`, `ChatticusComputers`,
+`ChatticusEnvironmentZones` and `ChatticusEnvironmentCertificates`; development
+and staging have the `Development` and `Staging` suffixed copies in the same
+account. Only `ChatticusBudgets` is account-level (one copy, owned by
+production; the deploy script refuses it for development and staging), and the
+account's GitHub OIDC provider is created by production's
+`ChatticusAccountDeploy` and imported by the development and staging deploy
+stacks. Never `cdk deploy --all`. Never destroy the snapshots or computers
+stacks of any environment.
 
 **The computer image tag flips only after the server side is verified.** The
-`ChatticusComputers` owner task definition runs the ECR tag `dev` (staging runs
-`staging` and production `production` in their own repositories; their promote
-workflows are not built yet). The build
+`ChatticusComputersDevelopment` owner task definition runs the ECR tag `dev`
+(staging runs `staging` and production `production`, each in its own repository;
+the staging and production promote workflows are not built yet). The build
 workflow (`build-computer-image-development.yml`) pushes only the immutable
 `sha-<commit>` tag and never moves `dev`. `dev` moves only through the
 `promote-computer-image-development.yml` workflow (`workflow_dispatch`, input
@@ -384,8 +388,8 @@ from that loop is the merge gate, not a person on the PR.
 
 ## Milestones
 
-At every milestone, launch a **sub-agent** whose only job is Kanbus and
-the README. Comment on touched issues, keep statuses current, create
-issues for significant new work, and update README "What is live today"
-so it matches git and AWS. Do not fold that into the implementation
-agent as an afterthought. The README states the same rule for humans.
+At every milestone, launch a **sub-agent** whose only job is Kanbus
+bookkeeping. Comment on touched issues, keep statuses current, and create
+issues for significant new work. The README no longer carries a status
+section; do not add one. Do not fold that into the implementation
+agent as an afterthought.

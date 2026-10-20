@@ -45,11 +45,11 @@ export type LongLivedWebHarness = {
  * Start a tsx harness from web/test-support that reads JSON command lines on
  * stdin and writes `{ok, result | error}` lines on stdout. State lives in the
  * process between commands, which one-shot harnesses cannot offer (fake
- * timers, an open panel). The harness imports production web code.
+ * timers, an open panel). The harness imports production web code. `env` is added to the child environment.
  */
-export function startLongLivedWebHarness(harnessFileName: string): LongLivedWebHarness {
+export function startLongLivedWebHarness(harnessFileName: string, env: Record<string, string> = {}): LongLivedWebHarness {
 	const harnessPath = join(webDirectory, "test-support", harnessFileName);
-	const child = spawn(tsxPath, [harnessPath], { cwd: webDirectory, env: process.env });
+	const child = spawn(tsxPath, [harnessPath], { cwd: webDirectory, env: { ...process.env, ...env } });
 	const waiting: Array<{ resolve: (value: any) => void; reject: (error: Error) => void }> = [];
 	let stderr = "";
 	child.stderr.on("data", (chunk) => {

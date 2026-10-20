@@ -11,7 +11,7 @@ import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
   COMPUTERS_STACK_IDS,
   CONTROL_PLANE_STACK_IDS,
-  DEDICATED_ACCOUNT_HOSTNAMES,
+  ENVIRONMENT_HOSTNAMES,
   ENVIRONMENT_CERTIFICATES_STACK_IDS,
   ENVIRONMENT_ZONES_STACK_IDS,
   SNAPSHOT_STACK_IDS,
@@ -48,17 +48,16 @@ export function readDedicatedEnvironment(app: cdk.App): ChatticusCloudEnvironmen
  * The stacks of ONE environment: that environment's thin-turn, control-plane, web
  * and auth stacks, its own snapshots, computers, delegated zones and
  * certificates. Every one of them has an id that names the environment
- * (development keeps the unsuffixed ids it has always had), so staging and
- * production can both be deployed into the one account that holds them without a
- * stack, repository, task definition family or role colliding. The budget stack
- * is account-level: its id is the same for every environment, so an account that
- * holds two environments has exactly one copy of it. The legacy
- * three-environment account is built by the default path in bin/chatticus.ts and
- * is unchanged.
+ * (production keeps the unsuffixed ids it was deployed under), so development,
+ * staging and production can all be deployed into the one account that holds
+ * them without a stack, repository, task definition family or role colliding.
+ * The budget stack is account-level: its id is the same for every environment,
+ * so the account has exactly one copy of it, owned by production. The legacy
+ * three-environment account is built by the default path in bin/chatticus.ts.
  */
 export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccountProps): void {
   const { env, environmentName, budgetsConfig } = props;
-  const hostnames = DEDICATED_ACCOUNT_HOSTNAMES[environmentName];
+  const hostnames = ENVIRONMENT_HOSTNAMES[environmentName];
 
   const budgetsStack = budgetsConfig
     ? new BudgetsStack(app, "ChatticusBudgets", {

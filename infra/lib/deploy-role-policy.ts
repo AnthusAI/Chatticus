@@ -52,10 +52,14 @@ export const CDK_TOOLKIT_STACK_NAME = "CDKToolkit";
  * invoke key secret's version ids, and pushing the computer image to the
  * environment's own repository.
  *
- * Residual boundary: the bootstrap CloudFormation execution role is itself
- * AdministratorAccess, so a principal that can drive the bootstrap deploy role
- * can still change anything CloudFormation can. The bootstrap roles are shared
- * by every environment in an account and are not changed here.
+ * Known boundary: the bootstrap CloudFormation execution role is itself
+ * AdministratorAccess and the bootstrap roles are shared by all three
+ * environments in the account. Because every deploy role can assume the bootstrap
+ * deploy role, the explicit peer-environment denies added in
+ * account-github-deploy-stack.ts bound only what the OIDC role does directly;
+ * they do not stop a deploy driven through bootstrap from touching another
+ * environment. A separate bootstrap qualifier per environment is the real fix
+ * and is a follow-up.
  */
 export function deployRoleStatements(
   stack: cdk.Stack,

@@ -495,7 +495,7 @@ When("a plugin manifest for a custom element {string} is registered", { timeout:
 Then("the panel lists the plugin as a tab after the core plugins", function (this: ChatticusWorld) {
 	const result = scenarioOf(this).result;
 	assert.deepEqual(result.registration, { ok: true, replaced: false });
-	assert.deepEqual(result.tabNamesBeforeOpening, ["Context", "Files", "Costs", "Notes"]);
+	assert.deepEqual(result.tabNamesBeforeOpening, ["Context", "Files", "Costs", "Board", "Notes"]);
 });
 
 Then("opening the plugin shows its element with the panel size, active state and theme", function (this: ChatticusWorld) {
@@ -503,7 +503,7 @@ Then("opening the plugin shows its element with the panel size, active state and
 });
 
 Then("the plugin renames its tab and shows a status badge through the host", function (this: ChatticusWorld) {
-	assert.deepEqual(scenarioOf(this).result.tabTitlesAfterOpening, ["Context", "Files", "Costs", "Acceptance notes3"]);
+	assert.deepEqual(scenarioOf(this).result.tabTitlesAfterOpening, ["Context", "Files", "Costs", "Board", "Acceptance notes3"]);
 });
 
 Then("switching the panel to full size tells the plugin the new size", function (this: ChatticusWorld) {

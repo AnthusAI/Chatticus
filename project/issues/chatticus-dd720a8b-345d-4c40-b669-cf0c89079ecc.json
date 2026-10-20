@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-dd720a8b-345d-4c40-b669-cf0c89079ecc",
+  "title": "Alert when an alarm SNS topic has no confirmed email subscription",
+  "description": "As the owner, I want a check that fires when an alarm SNS topic has no confirmed email subscription, so that alarms never silently reach nobody.\n\nOn 2026-10-19 the two alarm topics' email subscriptions had expired unconfirmed and were re-created and confirmed; nothing alerts when a topic loses its confirmed subscription. 26 CloudWatch alarms depend on these topics.\n\nFeature: Alarm delivery health\n  Scenario: A topic loses its confirmed subscription\n    Given an alarm SNS topic has no confirmed email subscription\n    When the delivery check runs\n    Then the owner is notified through a channel that does not depend on that topic",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-19T22:39:36.618573Z",
+  "updated_at": "2026-10-19T22:39:36.618609Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

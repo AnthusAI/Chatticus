@@ -54,11 +54,11 @@ const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, stri
 
 /**
  * Component and environment for one stack id; throws for a stack nobody
- * classified. The unsuffixed stacks are shared in the legacy account; in a
- * dedicated environment account they belong to that environment, which for the
- * production account includes the account-level budgets stack (it was deployed
- * there by production and staging never deploys it). The suffixed staging stacks
- * belong to staging wherever they are deployed.
+ * classified. The unsuffixed stacks are shared in the legacy account; in the
+ * production account they are production's, which includes the account-level
+ * budgets stack (production deploys it; development and staging never do). The
+ * suffixed development and staging stacks belong to their environment wherever
+ * they are deployed.
  */
 export function stackTagsFor(stackId: string, dedicatedEnvironment?: ChatticusCloudEnvironment): StackTags {
   const shared = SHARED_STACKS[stackId];

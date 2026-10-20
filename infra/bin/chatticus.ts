@@ -7,14 +7,13 @@ import { AuthStack } from "../lib/auth-stack";
 import {
   ACCOUNT_DEPLOY_CREATES_OIDC_PROVIDER,
   ACCOUNT_DEPLOY_STACK_IDS,
-  AUTH_DOMAIN_NAMES,
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
   CONTROL_PLANE_STACK_IDS,
   THIN_TURN_STACK_IDS,
-  WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
-} from "../lib/environments";
+  ENVIRONMENT_HOSTNAMES,
+} from "../lib/environments"
 import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
@@ -96,7 +95,7 @@ function buildLegacyAccountStacks(): void {
     const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
       env,
       chatticusEnvironment: environmentName,
-      siteDomain: WEB_SITE_DOMAINS[environmentName],
+      siteDomain: ENVIRONMENT_HOSTNAMES[environmentName].siteDomain,
       hostedZone: dns.hostedZone,
       siteCertificate: dns.siteCertificate,
       frontDoorFunctionUrl: controlPlane.frontDoorFunctionUrl,
@@ -112,8 +111,8 @@ function buildLegacyAccountStacks(): void {
     new AuthStack(app, AUTH_STACK_IDS[environmentName], {
       env,
       chatticusEnvironment: environmentName,
-      siteDomain: WEB_SITE_DOMAINS[environmentName],
-      authDomainName: AUTH_DOMAIN_NAMES[environmentName],
+      siteDomain: ENVIRONMENT_HOSTNAMES[environmentName].siteDomain,
+      authDomainName: ENVIRONMENT_HOSTNAMES[environmentName].authDomain,
       hostedZone: dns.hostedZone,
       siteCertificate: dns.siteCertificate,
       budgetsAlertsTopicArn,

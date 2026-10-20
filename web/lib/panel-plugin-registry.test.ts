@@ -21,27 +21,27 @@ function manifestNamed(id: string, overrides: Record<string, unknown> = {}): Pan
 
 describe("panel plugin registry", () => {
   it("starts with the core plugins in tab order", () => {
-    assert.deepEqual(createPanelPluginRegistry().list().map((plugin) => plugin.id), ["context", "files", "costs"]);
+    assert.deepEqual(createPanelPluginRegistry().list().map((plugin) => plugin.id), ["context", "files", "costs", "board"]);
   });
 
   it("appends registered plugins after the core plugins and notifies subscribers", () => {
     const registry = createPanelPluginRegistry();
     let notifications = 0;
     const unsubscribe = registry.subscribe(() => (notifications += 1));
-    assert.deepEqual(registry.register(manifestNamed("kanbus")), { ok: true, replaced: false });
-    assert.deepEqual(registry.list().map((plugin) => plugin.id), ["context", "files", "costs", "kanbus"]);
+    assert.deepEqual(registry.register(manifestNamed("notebook")), { ok: true, replaced: false });
+    assert.deepEqual(registry.list().map((plugin) => plugin.id), ["context", "files", "costs", "board", "notebook"]);
     assert.equal(notifications, 1);
     unsubscribe();
-    registry.unregister("kanbus");
+    registry.unregister("notebook");
     assert.equal(notifications, 1);
   });
 
   it("replaces a plugin registered again in the same position", () => {
     const registry = createPanelPluginRegistry();
-    registry.register(manifestNamed("kanbus"));
+    registry.register(manifestNamed("notebook"));
     registry.register(manifestNamed("browser"));
-    assert.deepEqual(registry.register(manifestNamed("kanbus", { version: "2.0.0" })), { ok: true, replaced: true });
-    assert.deepEqual(registry.list().map((plugin) => `${plugin.id}@${plugin.version}`).slice(3), ["kanbus@2.0.0", "browser@1.0.0"]);
+    assert.deepEqual(registry.register(manifestNamed("notebook", { version: "2.0.0" })), { ok: true, replaced: true });
+    assert.deepEqual(registry.list().map((plugin) => `${plugin.id}@${plugin.version}`).slice(4), ["notebook@2.0.0", "browser@1.0.0"]);
   });
 
   it("refuses to replace or remove a core plugin", () => {
@@ -53,8 +53,8 @@ describe("panel plugin registry", () => {
 
   it("finds the plugin that handles an object type", () => {
     const registry = createPanelPluginRegistry();
-    registry.register(manifestNamed("kanbus", { handles: ["kanbus.board", "kanbus.issue"] }));
-    assert.equal(registry.findHandlerOfObjectType("kanbus.issue")?.id, "kanbus");
+    registry.register(manifestNamed("notebook", { handles: ["notes.page", "notes.index"] }));
+    assert.equal(registry.findHandlerOfObjectType("notes.index")?.id, "notebook");
     assert.equal(registry.findHandlerOfObjectType("file")?.id, "files");
     assert.equal(registry.findHandlerOfObjectType("unknown"), null);
   });
@@ -68,7 +68,7 @@ describe("panel plugin registry", () => {
     const registry = createPanelPluginRegistry();
     registry.register(manifestNamed("cardonly", { sizes: ["card"], elements: { panel: "cardonly-panel", card: "cardonly-card" } }));
     const plugins = registry.list();
-    assert.equal(nextPanelPlugin("costs", "ArrowRight", plugins), "cardonly");
+    assert.equal(nextPanelPlugin("board", "ArrowRight", plugins), "cardonly");
     assert.equal(nextPanelPlugin("cardonly", "ArrowRight", plugins), "context");
     assert.equal(panelSizeForPlugin("cardonly", "full", plugins), "split");
     assert.equal(panelSizeForPlugin("files", "full", plugins), "full");

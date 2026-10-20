@@ -84,10 +84,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "1afdda20-de02-4ecc-ab0b-0bf3da844361",
+      "author": "home",
+      "text": "2026-10-19: PR 586 (platform-hosted organizations metered from recorded owner runtime, replacing the tag-based meter), PR 588 and PR 608 (the rollup retries unreadable days and accepts a backfill date) landed. A hosted organization is no longer read as zero when unattributable, and an unreadable day now retries instead of sticking as an error. The owner's org had a stuck error row for 2026-10-15 that blocked computers; it was fixed by running the rollup code for that day and computers are unpaused. Cross-account customer reads were covered by PR 371. Remaining: the first real customer-account read stays unverified (it needs an organization with the updated role and Cost Explorer enabled).",
+      "created_at": "2026-10-19T22:39:11.234082Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-19T17:16:56.139043Z",
-  "updated_at": "2026-09-20T13:25:27.123282Z",
+  "updated_at": "2026-10-19T22:39:11.234118Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

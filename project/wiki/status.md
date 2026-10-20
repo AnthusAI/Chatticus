@@ -1,6 +1,6 @@
 # Status for returning agents (2026-08-31)
 
-This page is the orientation snapshot. Kanbus issues are the record; this is the map. README "What is live today" is the public pin.
+This page is the orientation snapshot. Kanbus issues and the board are the record of status; this is the map. The README no longer carries a status section.
 
 ## What this product is
 

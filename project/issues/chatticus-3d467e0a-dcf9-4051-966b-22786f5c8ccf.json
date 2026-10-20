@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-3d467e0a-dcf9-4051-966b-22786f5c8ccf",
+  "title": "Separate CDK bootstrap qualifier per environment",
+  "description": "As the owner, I want development, staging and production to use separate CDK bootstrap qualifiers, so that peer-environment denies on the OIDC deploy roles are real isolation.\n\nAll three roles share one set of CDK bootstrap roles whose CloudFormation execution role is AdministratorAccess, so today the denies bound only the OIDC roles (chatticus-e49160).\n\nFeature: Per-environment bootstrap isolation\n  Scenario: A development deploy cannot act as production\n    Given each environment has its own CDK bootstrap qualifier and execution role\n    When the development deploy role tries to assume the production bootstrap roles\n    Then the request is denied\n    And the development deploy workflows stay green",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-19T22:39:36.474186Z",
+  "updated_at": "2026-10-19T22:39:36.474225Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

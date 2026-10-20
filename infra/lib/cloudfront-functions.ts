@@ -18,7 +18,7 @@ export const API_ORIGIN_VIEWER_REQUEST_FUNCTION = `function handler(event) {
  * before S3 lookup (OAuth callbacks have no trailing slash).
  *
  * The root rewrite is unconditional, not host-gated -- every ChatticusWeb*
- * environment's site domain (dev.chattic.us, staging.chattic.us,
+ * environment's site domain (develop.chattic.us, staging.chattic.us,
  * hey.chattic.us) is the product app now that the marketing site has its
  * own separate distribution (chatticus-3926bc). There is no other content
  * at the bucket root for any environment to fall back to.

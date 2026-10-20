@@ -6,27 +6,27 @@ export interface Delegation {
 /**
  * Names the management chattic.us zone hands to a zone in another account. Each
  * entry is the four name servers of a zone created by that environment's
- * zones stack (ChatticusEnvironmentZones in the development account and in the
- * production account, ChatticusEnvironmentZonesStaging for staging, which shares
- * the production account; their SiteNameServers and AuthNameServers outputs). The zones are retained, so these stay valid for the zone's life.
+ * zones stack (ChatticusEnvironmentZones for production, ChatticusEnvironmentZonesStaging for
+ * staging and ChatticusEnvironmentZonesDevelopment for development, all in the
+ * production account; their SiteNameServers and AuthNameServers outputs). The zones are retained, so these stay valid for the zone's life.
  */
 export const DELEGATIONS: readonly Delegation[] = [
   {
     name: "develop.chattic.us",
     nameServers: [
-      "ns-751.awsdns-29.net",
-      "ns-1930.awsdns-49.co.uk",
-      "ns-217.awsdns-27.com",
-      "ns-1515.awsdns-61.org",
+      "ns-1039.awsdns-01.org",
+      "ns-78.awsdns-09.com",
+      "ns-1580.awsdns-05.co.uk",
+      "ns-1018.awsdns-63.net",
     ],
   },
   {
     name: "auth-develop.chattic.us",
     nameServers: [
-      "ns-187.awsdns-23.com",
-      "ns-625.awsdns-14.net",
-      "ns-1142.awsdns-14.org",
-      "ns-1909.awsdns-46.co.uk",
+      "ns-1690.awsdns-19.co.uk",
+      "ns-1520.awsdns-62.org",
+      "ns-270.awsdns-33.com",
+      "ns-963.awsdns-56.net",
     ],
   },
   {

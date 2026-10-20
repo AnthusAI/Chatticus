@@ -17,6 +17,7 @@
     "@fontsource/ibm-plex-mono": "5.3.0",
     "@fontsource/manrope": "5.3.0",
     "@fontsource/newsreader": "5.3.0",
+    "@kanbus/ui": "https://github.com/AnthusAI/Kanbus/releases/download/ui-v0.3.1/kanbus-ui-0.3.1.tgz",
     "@moonshine-ai/moonshine-wasm": "0.1.5",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-avatar": "^1.1.10",

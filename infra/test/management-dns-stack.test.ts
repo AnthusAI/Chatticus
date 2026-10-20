@@ -9,7 +9,7 @@ import {
   MARKETING_SITE_CLOUDFRONT_DOMAIN,
   repointMarketingSiteAliases,
 } from "../lib/dns-marketing-records";
-import { DEDICATED_ACCOUNT_HOSTNAMES } from "../lib/environments";
+import { ENVIRONMENT_HOSTNAMES } from "../lib/environments";
 import {
   CLOUDFRONT_ALIAS_HOSTED_ZONE_ID,
   type ExportedRecordSet,
@@ -148,7 +148,7 @@ describe("ManagementDnsStack delegations", () => {
 describe("the committed delegations", () => {
   it("delegate exactly every environment's two names, once each", () => {
     const names = DELEGATIONS.map((delegation) => delegation.name).sort();
-    const expected = Object.values(DEDICATED_ACCOUNT_HOSTNAMES)
+    const expected = Object.values(ENVIRONMENT_HOSTNAMES)
       .flatMap((hostnames) => [hostnames.siteDomain, hostnames.authDomain])
       .sort();
     assert.deepEqual(names, expected);

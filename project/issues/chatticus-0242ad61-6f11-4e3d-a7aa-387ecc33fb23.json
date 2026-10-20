@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-0242ad61-6f11-4e3d-a7aa-387ecc33fb23",
+  "title": "Narrow the production deploy role like staging",
+  "description": "As the owner, I want the production deploy role scoped to least privilege like staging and development, so that a compromised workflow cannot administer the account.\n\nThe production deploy role remains AdministratorAccess. The repo template change (additive denies) is already merged but the deployed ChatticusAccountDeploy production stack was deliberately NOT touched. Owner rule: never apply without his explicit go. Apply in a window, with workflow proofs (production deploy workflows and smoke tests green afterwards).\n\nFeature: Least-privilege production deploy role\n  Scenario: Production deploys after narrowing\n    Given the owner has approved the change window\n    When the production account deploy stack is applied\n    Then the production deploy workflows and smoke tests pass\n    And the role no longer carries AdministratorAccess",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-19T22:39:36.771314Z",
+  "updated_at": "2026-10-19T22:39:36.771346Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-bookkeeper"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

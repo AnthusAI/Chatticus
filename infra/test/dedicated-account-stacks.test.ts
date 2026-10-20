@@ -11,7 +11,7 @@ import { join } from "node:path";
 import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
   CONTROL_PLANE_STACK_IDS,
-  DEDICATED_ACCOUNT_HOSTNAMES,
+  ENVIRONMENT_HOSTNAMES,
   ENVIRONMENT_CERTIFICATES_STACK_IDS,
   ENVIRONMENT_ZONES_STACK_IDS,
   THIN_TURN_STACK_IDS,
@@ -42,14 +42,14 @@ describe("dedicated account mode", () => {
 
   it("builds one environment's stacks and its own shared stacks, never the legacy account's", () => {
     assert.deepEqual(stackIds, [
-      "ChatticusAuth",
-      "ChatticusComputers",
-      "ChatticusControlPlane",
+      "ChatticusAuthDevelopment",
+      "ChatticusComputersDevelopment",
+      "ChatticusControlPlaneDevelopment",
       ENVIRONMENT_CERTIFICATES_STACK_IDS.development,
       ENVIRONMENT_ZONES_STACK_IDS.development,
-      "ChatticusSnapshots",
-      "ChatticusThinTurn",
-      "ChatticusWeb",
+      "ChatticusSnapshotsDevelopment",
+      "ChatticusThinTurnDevelopment",
+      "ChatticusWebDevelopment",
     ].sort());
     for (const legacyOnly of ["ChatticusDns", "ChatticusGitHubDeploy", "ChatticusThinTurnStaging", "ChatticusWebProduction"]) {
       assert.equal(stackIds.includes(legacyOnly), false, legacyOnly);
@@ -57,7 +57,7 @@ describe("dedicated account mode", () => {
   });
 
   it("names development develop.chattic.us and auth-develop.chattic.us, not the legacy names", () => {
-    assert.deepEqual(DEDICATED_ACCOUNT_HOSTNAMES.development, {
+    assert.deepEqual(ENVIRONMENT_HOSTNAMES.development, {
       siteDomain: "develop.chattic.us",
       authDomain: "auth-develop.chattic.us",
     });
@@ -93,7 +93,7 @@ describe("dedicated account mode", () => {
   });
 
   it("serves the web site on the new name from its own zone and certificate", () => {
-    const web = template(app, "ChatticusWeb");
+    const web = template(app, "ChatticusWebDevelopment");
     web.hasResourceProperties("AWS::CloudFront::Distribution", {
       DistributionConfig: Match.objectLike({ Aliases: ["develop.chattic.us"] }),
     });
@@ -102,7 +102,7 @@ describe("dedicated account mode", () => {
   });
 
   it("serves sign-in on the new auth name, and trusts only the new site's callbacks", () => {
-    const auth = template(app, "ChatticusAuth");
+    const auth = template(app, "ChatticusAuthDevelopment");
     auth.hasResourceProperties("AWS::Cognito::UserPoolDomain", { Domain: "auth-develop.chattic.us" });
     auth.hasResourceProperties("AWS::Route53::RecordSet", { Name: "auth-develop.chattic.us.", Type: "A" });
     auth.hasResourceProperties("AWS::Cognito::UserPoolClient", {
@@ -127,22 +127,22 @@ describe("dedicated account mode", () => {
       const records = Object.values(template(app, stackId).findResources("AWS::Route53::RecordSet", { Properties: { Name: name } }));
       return importNames((records[0] as { Properties: { HostedZoneId: unknown } }).Properties.HostedZoneId);
     };
-    const distribution = Object.values(template(app, "ChatticusWeb").findResources("AWS::CloudFront::Distribution"))[0] as {
+    const distribution = Object.values(template(app, "ChatticusWebDevelopment").findResources("AWS::CloudFront::Distribution"))[0] as {
       Properties: { DistributionConfig: { ViewerCertificate: { AcmCertificateArn: unknown } } };
     };
-    const domain = Object.values(template(app, "ChatticusAuth").findResources("AWS::Cognito::UserPoolDomain"))[0] as {
+    const domain = Object.values(template(app, "ChatticusAuthDevelopment").findResources("AWS::Cognito::UserPoolDomain"))[0] as {
       Properties: { CustomDomainConfig: { CertificateArn: unknown } };
     };
-    assert.ok(recordZone("ChatticusWeb", "develop.chattic.us.").every((name) => name.includes("SiteZone")));
-    assert.ok(recordZone("ChatticusAuth", "auth-develop.chattic.us.").every((name) => name.includes("AuthZone")));
+    assert.ok(recordZone("ChatticusWebDevelopment", "develop.chattic.us.").every((name) => name.includes("SiteZone")));
+    assert.ok(recordZone("ChatticusAuthDevelopment", "auth-develop.chattic.us.").every((name) => name.includes("AuthZone")));
     assert.ok(importNames(distribution.Properties.DistributionConfig.ViewerCertificate.AcmCertificateArn).every((name) => name.includes("SiteCertificate")));
     assert.ok(importNames(domain.Properties.CustomDomainConfig.CertificateArn).every((name) => name.includes("AuthCertificate")));
-    assert.ok(recordZone("ChatticusWeb", "develop.chattic.us.").length > 0);
+    assert.ok(recordZone("ChatticusWebDevelopment", "develop.chattic.us.").length > 0);
     assert.ok(importNames(domain.Properties.CustomDomainConfig.CertificateArn).length > 0);
   });
 
   it("builds the web stack's bundle with the new site's domain", () => {
-    const json = JSON.stringify(template(app, "ChatticusWeb").toJSON());
+    const json = JSON.stringify(template(app, "ChatticusWebDevelopment").toJSON());
     assert.equal(json.includes("https://dev.chattic.us"), false);
   });
 });
@@ -205,13 +205,14 @@ describe("tags in a dedicated account", () => {
 
   it("gives the account's own environment to stacks that are shared in legacy", () => {
     assert.equal(stackTagsFor("ChatticusSnapshots").environment, "shared");
-    assert.equal(stackTagsFor("ChatticusSnapshots", "development").environment, "development");
-    assert.equal(stackTagsFor("ChatticusThinTurn", "development").environment, "development");
+    assert.equal(stackTagsFor("ChatticusSnapshots", "production").environment, "production");
+    assert.equal(stackTagsFor("ChatticusSnapshotsDevelopment", "development").environment, "development");
+    assert.equal(stackTagsFor("ChatticusThinTurnDevelopment").environment, "development");
   });
 
   it("tags a real dedicated-account stack with its environment", () => {
     const app = buildDevelopment();
-    const snapshots = app.node.findChild("ChatticusSnapshots") as cdk.Stack;
+    const snapshots = app.node.findChild("ChatticusSnapshotsDevelopment") as cdk.Stack;
     applyStandardTags(snapshots, "Anthus AI Solutions", "development");
     const tags = Template.fromStack(snapshots).toJSON().Resources as Record<string, { Properties?: { Tags?: Array<{ Key: string; Value: string }> } }>;
     const bucketTags = Object.values(tags).find((resource) => resource.Properties?.Tags)?.Properties?.Tags ?? [];

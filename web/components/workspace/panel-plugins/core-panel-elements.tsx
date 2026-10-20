@@ -12,6 +12,7 @@ import type { TouchedFile } from "@/lib/touched-files";
 import type { InspectorModel } from "@/lib/workspace-actions";
 import { ComputerFilesPanel } from "../ComputerFilesPanel";
 import { CostsPanel } from "../CostsPanel";
+import { KanbusBoardPanel } from "../KanbusBoardPanel";
 import { defineReactPanelElement } from "./react-panel-element";
 
 export type CorePanelServices = {
@@ -94,8 +95,14 @@ function CostsPanelElementView(binding: PanelPluginElementBinding) {
   );
 }
 
+function BoardPanelElementView(binding: PanelPluginElementBinding) {
+  const { activeOrg } = servicesOf(binding);
+  return <KanbusBoardPanel org={activeOrg} active={binding.context.active} theme={binding.context.theme} />;
+}
+
 export function defineCorePanelElements(): void {
   defineReactPanelElement("chatticus-context-panel", ContextPanelElementView);
   defineReactPanelElement("chatticus-files-panel", FilesPanelElementView);
   defineReactPanelElement("chatticus-costs-panel", CostsPanelElementView);
+  defineReactPanelElement("chatticus-board-panel", BoardPanelElementView);
 }

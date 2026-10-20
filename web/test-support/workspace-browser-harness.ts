@@ -42,7 +42,7 @@ async function main(): Promise<void> {
     jsx: "automatic",
     tsconfig: join(webDirectory, "tsconfig.json"),
     define: { "process.env.NODE_ENV": '"production"', "process.env": "{}" },
-    loader: { ".wasm": "dataurl" },
+    loader: { ".wasm": "dataurl", ".css": "empty" },
   });
   const globalCss = (await readFile(join(webDirectory, "app/globals.css"), "utf8"))
     .replace('@import "../styles/shared.css";', await readFile(join(webDirectory, "styles/shared.css"), "utf8"));

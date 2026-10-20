@@ -68,399 +68,21 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 [Messaging](docs/MESSAGING.md) for the transcript and stream, and
 [Design challenges](docs/DESIGN_CHALLENGES.md) for rejected alternatives.
 
-## What is live today
+## Hosts
 
-**Last updated: 2026-10-17.** The iPad workspace-height recovery and resizable
-roster/panel columns from [PR #590](https://github.com/AnthusAI/Chatticus/pull/590),
-with browser regression coverage in
-[PR #592](https://github.com/AnthusAI/Chatticus/pull/592), reached `main` through
-[PR #591](https://github.com/AnthusAI/Chatticus/pull/591)
-(merge `614142b8`). [Release v0.48.1](https://github.com/AnthusAI/Chatticus/releases/tag/v0.48.1)
-is published; its later metadata commit `d72fc478` changes only the changelog
-and package version files. Both the
-[staging web deployment](https://github.com/AnthusAI/Chatticus/actions/runs/39013877238)
-and [production web deployment](https://github.com/AnthusAI/Chatticus/actions/runs/39014147132)
-succeeded for that exact commit through the established manual workflows,
-including their control-plane and web steps.
+All environments run in one AWS account (`us-east-1`).
 
-At `staging.chattic.us` and `hey.chattic.us`, `/chat` and `/api/health` return
-200, health reports the expected environment, and all 12 referenced assets
-return 200. Served assets contain the viewport-height recovery, persisted
-roster/panel widths, and resize-handle code. Actual Chrome workspace Gherkin
-passes locally (26 scenarios, 95 steps), and the exact promotion CI passes
-all 1,823 scenarios and 36,690 steps. **Limits:** physical iPad testing and an
-authenticated live-user layout check have not been performed; served-asset
-checks establish delivery of the fix, not those device checks. No computer
-image tag was promoted for this web release. This web release did not verify
-a live computer turn in staging or production (follow-up chatticus-61dea9).
+| Host | Role |
+| --- | --- |
+| [hey.chattic.us](https://hey.chattic.us) | Production product workspace and API |
+| [staging.chattic.us](https://staging.chattic.us) | Staging |
+| [develop.chattic.us](https://develop.chattic.us) | Development |
+| [chattic.us](https://chattic.us) | Marketing site (private `AnthusAI/Chattic.us-web` repo) |
 
-By decision of the owner (2026-10-15), `main` has no branch protection and
-staging/production have no required reviewers; their deployment branch
-policies allow only `main`. A merge to `main` does not deploy either
-environment: both use `workflow_dispatch`, and production follows staging
-verification. Actions semantic-release owns version publication on `main`.
+Deployment is described in [AGENTS.md](AGENTS.md) and [infra/README.md](infra/README.md).
+For live status, see the Kanbus board.
 
-### Staging and the marketing site moved into the production AWS account
-
-There is no separate staging AWS account. **Staging** now runs in the production
-account as `Staging`-suffixed stacks (`AccountDeployStaging`, `SnapshotsStaging`,
-`ComputersStaging`, `EnvironmentZonesStaging`, `EnvironmentCertificatesStaging`,
-`ThinTurnStaging`, `ControlPlaneStaging`, `AuthStaging`, `WebStaging`), and
-`staging.chattic.us` serves 200. Production keeps its existing stack names. The
-old staging account's stacks are deleted; empty leftovers remain and the account
-is not yet closed. **Limits:** the staging integration test principal is not wired
-(staging acceptance fails with 403 on bearer exchange; chatticus-99cae9), and the
-staging deny policy is not yet on the production deploy role. Staging computers
-can start now that the computer image is promoted.
-
-The **marketing site** (`chattic.us` and `www`) is now served from the production
-AWS account by the `ChatticusMarketing` stack in the private website repo, with
-its own intake Lambda, DynamoDB table and SES, instead of proxying to this repo's
-thin-turn. Waitlist and contact leads are recorded. **Limit:** SES production
-access was denied (sandbox), so confirmation emails reach only verified
-recipients until an appeal succeeds. Legacy marketing and thin-turn resources
-are unused but not yet deleted. Deploy workflows for staging and production are
-`workflow_dispatch` only.
-
-### The control plane is TypeScript on `develop`
-
-The Python tree is deleted from `develop` (Kanbus chatticus-f27222). The
-control plane is the TypeScript service in `conversation/`, built on Pi-durable
-(see [Pi harness](docs/PI_HARNESS.md) and
-[TypeScript control plane](docs/TYPESCRIPT_CONTROL_PLANE.md)). The **development**
-environment runs it, and the computer path is proven live there. **`main` now carries the TypeScript
-control plane (v0.44.0) and staging and production both run it in the production
-account; production has no acceptance run and no tested live computer turn**, so
-do not assume production behaves like development. Existing transcripts need the migration runbook (the design's
-cutover and rollback sections) before production moves.
-The Gherkin features run under cucumber-js with TypeScript steps. The sections
-below that predate this change describe the Python-era stack on the environments
-that still run it.
-
-### Credential renewal is live on development (Phase 2b)
-
-On **development only**, a long-lived computer owner no longer stops when its
-first credentials run out. Owner credentials last 8 hours. The supervisor
-renews them in place 1200 s before expiry, swaps them atomically, and stops
-itself with reason `credentials` if renewal keeps failing, so the next message
-starts a fresh owner. The per-turn child reads its credentials over a socket to
-the supervisor and holds none in its environment. A development-only broker
-fault switch (`deny_supervisor_renewal`, behind four gates) exists to rehearse
-the failure path. Verified live on development: an 81 minute run on one owner
-task with renewals at minute 40 and minute 80 and turns served after minute 63,
-and a forced-denial run that drained at 600 s remaining and exited with code 5.
-Not yet done: raising the owner minimum protocol version and the final docs
-pass (Kanbus chatticus-3a31bb, chatticus-816a1a). Staging and production do not
-run this path.
-
-### The computer runs Pi on development (Pi session handoff)
-
-For computers in Anthus's own AWS accounts, the Lambda runs Pi until the first
-computer tool call, parks the turn, and the ComputerStarter runs a Fargate owner
-task. A Pi owner in that container claims the parked turn (same session, new
-fence), runs Pi's own `read`, `write`, `edit` and `bash` locally, calls the model
-through a gateway route with a per-turn token (the real OpenAI key stays in the
-control plane), publishes the workspace snapshot when content changed, and (Phase 2a) stays up as a long-lived supervisor that serves further turns, polling for parked turns with a 1 s to 3 s backoff and exiting after a 900 s idle timeout; verified live on development: one owner served two back-to-back turns, while idle shutdown with a published snapshot, crash recovery and drain are not yet proven live.
-Model-chosen commands run as an unprivileged user (uid 2000) with a scrubbed
-environment. Rehearsed live on **development only**: a smoke turn, a security
-check, a recovery after the owner task was stopped mid-command, and a bug-fix
-task that persisted to a fresh owner. Computers in a customer account never get
-Pi; they keep the HTTP host protocol and the host worker. See
-[Pi session handoff](docs/PI_SESSION_HANDOFF.md) for the design, proof and the
-**limits**: staging and production do not run this path; the container
-credentials endpoint cannot be blocked on Fargate (mitigated by an empty task
-role, not blocked); credentials and the gateway token last one hour with no
-refresh; the gateway has a model allow-list, request limits and a monthly
-model spend ceiling per organization (see below); `browse` has no executor on the owner path; and the old
-own-account Fargate host task definition and service were removed from the
-Computers stack (PR 518, deployed 2026-10-12).
-
-The development environment is **[develop.chattic.us](https://develop.chattic.us)**
-in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
-deployment; older proofs below that name it ran there.
-
-### Model spend ceiling and clean-exit disk state (development only)
-
-On **development only**, the model gateway refuses a call once an organization
-has spent its monthly model budget: USD 25.00 per organization per UTC month by
-default, overridable with `CHATTICUS_MONTHLY_MODEL_SPEND_CEILING_USD` (PR 562,
-Kanbus chatticus-f34796). Over the ceiling the gateway returns 403
-`model_spend_ceiling_reached` and the caller does not retry. If spend cannot be
-read it fails closed with 503 `model_spend_unavailable`. It is separate from the
-AWS spend ceiling, needs no IAM change, and is only as fresh as the cost index
-(see [Cost accounting](docs/COST_ACCOUNTING.md) section 3.12). The ceiling is not
-yet settable per organization, not shown on the Costs tab, and does not count the
-current turn's unreconciled calls. Also on development, a clean owner exit with
-unchanged content now clears `disk_dirty`: the supervisor reports
-`disk_matches_published` on its stopped report and the Front Door clears the flag
-in the same write (PR 561, Kanbus chatticus-0ccf0b), so the next start no longer
-re-hydrates an identical snapshot. Staging and production do not run this path.
-
-### Live file view and edit on development (Phase 3, 2026-10-13)
-
-Members can view and edit a computer's files whether or not the computer is
-running (Kanbus `chatticus-041a10`, PRs 519 to 532; contract in
-[Live files protocol](docs/LIVE_FILES_PROTOCOL.md)). With the computer off,
-edits, deletes, renames and new folders go to an edit overlay in the snapshot
-bucket (written only by the Front Door with conditional puts) and the next
-owner applies them at hydrate. With the computer on, the owner serves them
-through the unprivileged file helper. Saves carry If-Match; a stale hash is
-refused with 409. Proven live on development with API calls: offline folder
-and file create, rename and a stale 409; the next turn on a fresh computer
-sees the offline edit; online read, edit, bot read-back, delete, stat 404; a
-stale save after a bot edit is refused 409 and the bot's line survives;
-If-Match and ETag pass through CloudFront. **Not yet proven:** the Files panel
-in a browser at 375 px or with a real signed-in user (`chatticus-bf7fd2`);
-container memory at 512 MiB under two helpers, a Pi turn and a publish
-(`chatticus-7c6040`). **Known gaps:** a read of a pending offline edit labels
-its source snapshot where the contract says overlay (`chatticus-5dbb7e`); the
-live audit cannot tell file hashes from folder tree hashes (`chatticus-f9cfda`);
-files over the 8 MiB live limit and a 2000-entry listing in one table item are
-unmonitored (`chatticus-e7a52f`); customer-account computers remain view-only
-(`chatticus-ed8e4e`); staging also enables the integration test principal
-(`chatticus-80b17c`). Staging and production do not run this path. Incident:
-pushing the image to development before the Front Door IAM was proven broke
-every computer start there for about 40 minutes, because moto does not enforce
-IAM; a pre-deploy IAM check is tracked in `chatticus-d88a0f`.
-
-### Cost records on development (2026-10-13)
-
-Every model call a turn makes is priced and written into the durable Pi session
-as a cost record (tokens including cached input, the price book version, and the
-computed USD), keyed so a retry cannot double count. A per-turn index item sits
-beside the session with the owner kind (`computer` or `lambda`), and the vendor
-ledger row is projected from those records. Verified live on **development
-only**: a computer-owner turn wrote 2 records (0.0001858 USD) and a Lambda turn
-wrote 1 (0.000092 USD), the ledger row matched, and the earlier double count on
-the computer-owner path is gone. The price book is versioned
-(`openai@2026-10-13+pi-ai-1.0.2`). **Customer-visible on development only:** the cost HTTP API
-(chatticus-09bef0, #541) and the web cost view (chatticus-f65e89, #542): a
-Costs tab in the inspector (Context | Files | Costs), a cost chip in the header
-of the open conversation, Triggered/Took markers under messages, an
-organization month summary broken down by bot, conversation and model, recent
-turns with Show more, a per-turn drill-down (per-call model, tokens, cache
-reads and writes, tier, price book, dollars) and CSV export at turn and call
-grain. Incomplete totals read "at least $x" with the count of unpriced calls;
-unpriced calls are never shown as zero; estimated, gateway and voice rows are
-labelled; money keeps sub-cent precision; a standing line says it is not a
-bill. Verified live: the signed-in Costs tab opens on development and shows its
-empty state for an organization with no new-format records. **Not verified:**
-the populated view with real data in the signed-in workspace (only fixtures at
-desktop and 375 px, light and dark), and the header chip and message markers in
-a live thread (follow-up under `chatticus-8c857b`). **Not built yet:** compare
-UI and export polish (chatticus-dffe56); per-sub-agent cost, since sub-agents
-are not built (chatticus-24308d); legacy ledger migration (chatticus-0d265c),
-so old ledger rows are not shown; compaction, aborted and uncommitted calls are
-not metered beyond the documented caveats; rates come from the library's
-bundled catalog and have not been verified against the vendor's published page.
-Staging and production do not
-record this. See [Cost accounting](docs/COST_ACCOUNTING.md) and Kanbus epic
-`chatticus-8c857b`.
-
-### Voice and turn failures on development (2026-10-04)
-
-On `develop` and deployed to development only; not on `main`.
-
-- **Voice control** (#385, chatticus-a8066a): the workspace listens on-device
-  with Moonshine; nothing leaves the tab until a line is addressed to a
-  teammate by name, and then it is an ordinary one-turn message. A small local
-  command grammar runs without a bot. COOP/COEP headers are on the development
-  distribution only (chatticus-604bb6). Design: [Voice](docs/VOICE.md).
-- **Spoken replies** (#389, chatticus-12096f): while listening, the open
-  conversation's reply is read aloud with browser `speechSynthesis`, cleaned
-  of markdown and capped. "Stop" silences it hands-free, and other speech is
-  ignored while it talks so the bot does not hear itself.
-- **Failure you can see** (#387, #388): a permanent model-provider error fails
-  the turn at once with a readable reason; the failed reply stays visible with
-  that reason and a Retry; `GET /channels/{id}/turns/latest` recovers it; a
-  slow turn shows a notice.
-- **Model**: bot turns run on OpenAI `gpt-6-luna` at low reasoning; voice understanding uses `gpt-5-nano`.
-
-Still open on voice (epic chatticus-628234): a 60-minute live-mic and battery
-run, an iOS device test, and COOP/COEP against sign-in before staging and
-production get the headers.
-
-### Implemented locally, not yet merged or deployed
-
-The `codex/real-chatticus-workspace-develop` branch contains the first real
-application workspace milestone. It provides a full-viewport responsive shell,
-a unified roster of persistent bots and named multi-bot channels, durable
-conversation history, active-turn recovery and turn-scoped streaming, and a
-collapsible inspector backed by current computer and task data. Direct bot
-conversations have canonical identity; named channels store their name and
-participants and expose an addressed-bot selector.
-
-This work is still under local verification. It is **not** on `develop` and has
-not been verified on `dev.chattic.us`. The development audit found 180 legacy
-channel rows: 178 direct candidates, no multi-bot named candidates, two
-human-only invalid empty channels, and one duplicate direct identity for
-AcceptLoopBot spanning five channels and 12 messages. The one-pass migration was
-applied on 2026-09-10: the empty invalid identities were removed, all 12 messages
-were preserved in one canonical direct channel, and the post-migration audit
-found no remaining legacy, invalid, or duplicate-direct groups. Routines, bot
-configuration, approvals, live computer screenshots or controls, and separate
-Tasks, Computer, Settings, or Plugins destinations remain deferred.
-
-### Deployed across environments
-
-| Environment | ThinTurn API (enforcement) | Cognito Auth (sign-out) | Web bundle |
-| --- | --- | --- | --- |
-| development (`develop.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — product `/chat` at `/` (CF enabled; marketing moved to `AnthusAI/Chattic.us-web`, chatticus-3926bc) |
-| staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Live — web CloudFront enabled, serves 200 |
-| production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Live — web CloudFront enabled, serves 200 |
-
-Staging and production thin-turn stacks may lag `develop`. Both web
-CloudFront distributions are enabled; custom auth domains `auth.chattic.us` and
-`auth-staging.chattic.us` work.
-
-Every org route requires a Cognito `id_token` or worker bearer on all three
-environments; only `/health` and `POST …/workers/register` (invoke-key gated)
-are open. Live-verified on each environment: `/health` 200, `/me` 403, org
-route 403 with no credential.
-
-A seeded owner (`ryan@anth.us` → org `anthus`, display name Anthus AI
-Solutions, enabled) can sign in with Google on development and reach the
-workspace. Operator org records are DynamoDB data, not CDK; see
-[Operator org seed](docs/OPERATOR_ORG_SEED.md).
-
-### Live on development (beyond the table)
-
-- **Operator org lifecycle HTTP** (#304): enable, suspend, and reinstate on
-  development ThinTurn. Endpoints and auth are in
-  [Operator org seed](docs/OPERATOR_ORG_SEED.md).
-- **Customer cross-account template** (#308): `infra/customer-role.yml` is
-  published at
-  `https://develop.chattic.us/provisioning/customer-role.yml` (SSM:
-  `/chatticus/development/provisioning/customer-role-template-url`). Runbook:
-  [infra/README.md](infra/README.md). Staging and production hostnames are
-  live; do not treat their template URLs as a customer onboarding path yet.
-- **Throwaway-account hand run** (`chatticus-b88c0a`): published template
-  unmodified; F-safe `pong` completed on development. Timed runbook:
-  [wiki](project/wiki/runbooks/throwaway-account-provisioning.md)
-  (~19 min Chatticus provision; consumer AWS signup unmeasured). That
-  figure **excludes** F-computer.
-- **F-computer live refuse** (`chatticus-2f2d87`, closed): ComputerWorker
-  assumed the customer role; missing customer `ChatticusComputers`;
-  **zero `RunTask` in both accounts**. Kernel handoff ~5 s.
-- **Customer-account `RunTask`** (`chatticus-82dab7`, #312–#315, closed):
-  product `CreateStack` of `ChatticusComputers` in the customer account;
-  lab-user customer `RunTask ≥ 1`.
-- **Customer host executes `browser_open`** (`chatticus-8fe4c7`, #319, closed):
-  kernel `about:blank` on development (labeled deviation from the customer
-  UI). Journal `opened:about:blank`. Customer `RunTask` 1, Anthus 0. Host
-  talks to Front Door HTTP only. Do not fold that elapsed time into the ~19 min
-  provision figure.
-- **Customer ECR holds `:dev`** (`chatticus-2b3c41`, #320, closed): task
-  definition pulls from the organization AWS home. Operator
-  `push-customer-computer-image.sh` published `:dev` under the assumed role
-  (not Lambda). Anthus `ChatticusComputers` desiredCount stays 0. Live
-  file-actions (2026-09-08) required a **repush** after host executor
-  wiring; stale `:dev` failed with `HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY`.
-- **Agent workplace files survive host recycle** (`chatticus-863f27`,
-  #324, closed): live on the throwaway org (kernel deviation). Write →
-  customer-bucket publish → stop/start → read. Journal
-  `persisted-by-agent-live-863f27`. Packs in
-  `chatticus-snapshots-{ORGANIZATION_ID}`. Do not fold elapsed time into
-  the ~19 min provision figure.
-
-### On `develop`, not on `main`
-
-- **Organization computer in the customer AWS home** (#306): host start routes
-  through the org's recorded AWS account and cross-account role; same-account
-  orgs use deployment credentials; unreachable customer roles refuse without
-  Anthus fallback. Covered in Gherkin (`cross_account_provisioning.feature`,
-  `computer_ecs_host_starter.feature`).
-- **ECS host start** is wired on **development ThinTurn only**
-  (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
-  the no-op host starter.
-- **Customer Fargate host on development** (#319): `computer_host_worker`
-  uses Front Door `/host-worker/*` (no Dynamo on the customer task role).
-  Live `browser_open` / `about:blank` completed on the ACME throwaway
-  account. Staging and production ComputerWorker still use the no-op host
-  starter. Image pull is the customer ECR `:dev` (#320).
-- **Agent workplace files on host disk** (#318–#324, `chatticus-fccc4e9a`
-  closed): Dynamo snapshot metadata, host hydrate/publish, host
-  `read_workspace`/`write_workspace`, customer org bucket, and Gherkin
-  that an agent file survives relocate
-  (`computer_host_workspace_recycle.feature`). Live throwaway proof is
-  under **Live on development** above. Do not `cdk deploy --all`.
-- **Pending and enabled members see org name, status, and tenant_id**
-  (#325, `chatticus-9c8dbf`): `GET /me` includes `name`; welcome and
-  workspace list CloudFormation `OrganizationId` without the members CLI.
-  Live on development after the web deploy from this merge.
-- **Customer cross-account RoleArn is an API, not an onboarding step**
-  (#326, `chatticus-070cb4`): `POST /orgs/{tenant_id}/self-setup/cross-account-role`
-  for a pending organization. An organization created in the app is enabled and
-  homed in the deployment account at once; the web no longer asks for an AWS
-  account.
-- **Enabled members create a named bot in the workspace** (#327,
-  `chatticus-7622fd`): `CreateBotPanel` → `POST /bots` → roster refresh.
-  Live on development: `LiveCreate` **200** and listed. Google SPA
-  sign-in still blocks automated UI; HTTP path is live.
-- **Human-started turns attach a household conversation grant** (#328,
-  `chatticus-5336ff`): `read_workspace` and `write_workspace` on
-  `/workspace` plus `approved_origin_fetch`. Live on development: human
-  message to Ping HTTP 200; Dynamo turn grant matched the preset.
-  `POST /bots` still attaches nothing until that first human message. No
-  browse, send, purchase, or `run_terminal` in the preset.
-- **Enabled members replace an active turn grant over HTTP** (#331,
-  `chatticus-be3997`): `PUT /orgs/{tenant}/turns/{id}/grant` on the
-  user route. Live on development: member PUT replaced a Ping turn grant
-  with `browse` + origin only (no union with the conversation preset).
-  Unauthenticated and worker bearer PUT 403.
-- **Enabled members replace an active turn grant from the product
-  workspace** (#333, `chatticus-753bd8`): `TurnGrantPanel` ("Authorize
-  this turn") when a turn is active; full closed replace via the same
-  user PUT. Tools offered: browse, read/write workspace, `run_terminal`
-  **default off**. No send/purchase. Live on development: SPA bundle on
-  `dev.chattic.us` includes the panel (`aa118e8` /
-  deploy-web-development 34256447742). Google SPA sign-in still blocks
-  automated UI click-through (same as create-bot); Gherkin harness is the
-  automated gate.
-- **Per-task `run_terminal` via human grant replace** (#335,
-  `chatticus-7fe070`): conversation preset stays `read_workspace` and
-  `write_workspace` only (no `run_terminal`). An enabled member
-  HTTP-replaces the active turn grant with a closed grant that includes
-  `run_terminal` and `/workspace`; policy allows the attempt (computerless
-  continuation queued, waiting on workspace). Gherkin:
-  `per_task_run_terminal_grant.feature`.
-
-### Public sites
-
-| Host | Role | Notes |
-| --- | --- | --- |
-| [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; served from the production AWS account with its own intake (SES sandbox) |
-| [develop.chattic.us](https://develop.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
-| [hey.chattic.us](https://hey.chattic.us) | Production product | Deployed with the current release, computers startable; web CloudFront enabled, serves 200; no live computer turn tested |
-| [staging.chattic.us](https://staging.chattic.us) | Staging (production AWS account) | Serves 200; computers startable, no live computer turn tested |
-
-### Live acceptance gate
-
-Live stack proof is manual: sign in at [develop.chattic.us](https://develop.chattic.us)
-and send a message.
-
-Named deploy workflows (`deploy-thinturn-development.yml`,
-`deploy-web-development.yml`, `deploy-auth-development.yml`, and the matching
-staging/production workflows) run on **push** to the environment branch
-(`develop` for development) and on **`workflow_dispatch`**; the staging and
-production workflows are `workflow_dispatch` only. GitHub Actions deploys to live AWS through OIDC
-(`ChatticusGitHubDeploy` roles). Local `cdk deploy` via `infra/deploy-*.sh`
-remains the fallback when CI cannot be used.
-
-### Cloud stacks (do not destroy)
-
-`ChatticusDns`, `ChatticusAuth`, `ChatticusWeb*` (CF enabled in development, staging, and
-production), `ChatticusThinTurn*`, `ChatticusSnapshots*`, `ChatticusComputers*`
-(unsuffixed in development's account and in the production account, where production
-is already live under those names; staging, which shares the production account, has
-the `Staging` copies), `ChatticusBudgets` (one per account). Never `cdk deploy --all`. Computers `desiredCount` stays **0**.
-
-### Kernel-only on `develop` (not on live worker loop)
-
-Overnight gated-action, immutable approval binding, unbound-browser stops, computer-seam
-recovery, capability-gated readiness beyond waiting turns, and structured handoff journal
-events are tested in Gherkin/vitest but not wired into the live worker HTTP loop yet.
-See [Approval spec](docs/APPROVAL.md) and [Organizations](docs/ORGANIZATIONS.md).
+## The thin turn
 
 ```mermaid
 flowchart LR
@@ -651,7 +273,7 @@ check.
 
 That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, or the
-`CloudFrontUrl` output on stack `ChatticusWeb` (or `ChatticusThinTurn`
+`CloudFrontUrl` output on stack `ChatticusWebDevelopment` (or `ChatticusThinTurnDevelopment`
 before the web stack exists). When AWS lookup fails, pass `--base-url` or
 set the env var (see gitignored `AGENTS.local.md`). SQS queue checks
 need that same AWS identity. Staging and production web CloudFront are
@@ -670,22 +292,23 @@ AWS resources are CDK only (`infra/`). Do not create them in the console.
 thin-turn environment; never do that.
 Deploy one named stack:
 
-Deploy development ThinTurn only:
+Deploy one development stack (all three environments are in the one production
+AWS account; sign in with profile `chatticus-production`):
 
 ```bash
 cd infra
-sh deploy-chatticus-thinturn-development.sh
+sh deploy-chatticus-dedicated-account.sh development thin-turn
 ```
 
 That fails closed without AWS identity and never passes `--all`. Staging
-and production, when you mean those stacks:
+and production use the same script with their own name:
 
 ```bash
-npx cdk deploy ChatticusThinTurnStaging
-npx cdk deploy ChatticusThinTurnProduction
+sh deploy-chatticus-dedicated-account.sh staging thin-turn
+sh deploy-chatticus-dedicated-account.sh production thin-turn
 ```
 
-**ChatticusThinTurn** is development. Staging and production are separate
+**ChatticusThinTurnDevelopment** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront (web CF
 enabled on staging and production). Do not merge `develop` to `main` as
 parking. Do not destroy the snapshot, computer, or budgets stacks.
@@ -704,12 +327,11 @@ kbs create "Describe the work" --type task
 
 At **every milestone** (a slice merged to `develop`, a promote to `main`, a
 deploy, a closed epic, or anything that changes what is true), **launch a
-sub-agent** whose only job is housekeeping. That agent comments on the
-Kanbus issues it touches, sets statuses to match reality, **creates new
-issues** for significant work that appeared, and **rewrites the "What is
-live today" section of this README** (and the next-up line) so a new reader
-is not looking at last week's world. Do not skip that pass. Do not treat it
-as a leftover for the implementation agent.
+sub-agent** whose only job is Kanbus housekeeping. That agent comments on the
+Kanbus issues it touches, sets statuses to match reality, and **creates new
+issues** for significant work that appeared. This README carries no status
+section; the board is the record of what is live. Do not skip that pass. Do
+not treat it as a leftover for the implementation agent.
 
 ## Documentation
 

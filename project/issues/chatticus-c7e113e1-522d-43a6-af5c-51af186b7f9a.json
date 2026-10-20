@@ -10,9 +10,22 @@
   "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "431e8b52-06bf-4bd2-8a23-abb5a2325c80",
+      "author": "home",
+      "text": "Final inventory facts 2026-10-19 (nothing deleted yet): the legacy marketing distribution E2KIMGDJ4DW3XZ has no aliases; the Python intake Function URL and its two data items remain; the old stacks remain. Development now runs in the production AWS account, and the old chatticus-development account has been wiped of Chatticus resources (only CDK bootstrap remains).",
+      "created_at": "2026-10-19T22:38:44.865053Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
+    }
+  ],
   "created_at": "2026-10-15T17:21:28.154450Z",
-  "updated_at": "2026-10-15T17:21:28.154480Z",
+  "updated_at": "2026-10-19T22:38:44.865084Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
