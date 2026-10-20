@@ -14,7 +14,7 @@
     "diff": "cdk diff"
   },
   "dependencies": {
-    "@kanbus/cdk": "https://github.com/AnthusAI/Kanbus/releases/download/kanbus-cdk-v0.2.0/kanbus-cdk-0.2.0.tgz",
+    "@kanbus/cdk": "https://github.com/AnthusAI/Kanbus/releases/download/kanbus-cdk-v0.2.1/kanbus-cdk-0.2.1.tgz",
     "aws-cdk-lib": "^2.215.0",
     "constructs": "^10.4.2"
   },

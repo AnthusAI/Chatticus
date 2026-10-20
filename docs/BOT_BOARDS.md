@@ -207,7 +207,7 @@ Chatticus builds no code against `kanbus-api` until these land; the features are
 | pure parsers for the offline project view | `kbs-460415fd` |
 
 Deployment. The control plane stack of each environment holds one `KanbusApi` construct from `@kanbus/cdk` (installed from the
-GitHub release tarball `kanbus-cdk-v0.2.0`, integrity pinned in the lockfile), which brings its own bucket, catalog table,
+GitHub release tarball `kanbus-cdk-v0.2.1`, integrity pinned in the lockfile), which brings its own bucket, catalog table,
 service API (`kanbus-<environment>-service`, AWS_IAM), API function, hourly sweeper and sweep rule. Chatticus writes no store of
 its own. Its service principals are the Front Door role (`provision` and `delegateActor`, every tenant) and the turn executor
 role (`delegateActor`, every tenant, no `provision`); the computer, the owner roles and the credential broker never touch the
@@ -299,7 +299,7 @@ Answers from the Kanbus project, 2026-10-20:
 
 Code: `conversation/src/board/` (the board service module and its client wiring) and `conversation/src/pi/bot-board-tool.ts`
 (the `board` tool). Chatticus reaches the board service only through the Kanbus project's published TypeScript client
-`@kanbus/api-client` 0.1.1, installed from its GitHub release tarball with the integrity pinned in the lockfile; the pin is `@kanbus/api-client` 0.1.1 together with `@kanbus/cdk` 0.2.0, as a pair (the same
+`@kanbus/api-client` 0.1.1, installed from its GitHub release tarball with the integrity pinned in the lockfile; the pin is `@kanbus/api-client` 0.1.1 together with `@kanbus/cdk` 0.2.1, as a pair (the same
 pattern as `@kanbus/ui` and `@kanbus/cdk`). It makes no HTTP call of its own to the board service and re-implements none of
 Kanbus's validation: it sends the request and maps the answer.
 
