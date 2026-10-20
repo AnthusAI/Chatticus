@@ -2150,7 +2150,7 @@ Revision 2 adds: edit while the computer is off (`source: "overlay"`), the `Edit
 
 ### E. End to end and live proof (needs A2, A4 and C2)
 
-The `@end-to-end` scenarios (LF-46, LF-64, LF-76) in one steps file, the live proof (section 17), and the milestone sub-agent for Kanbus and README.
+The `@end-to-end` scenarios (LF-46, LF-64, LF-76) in one steps file, the live proof (section 17), and the milestone sub-agent for Kanbus.
 
 **E as built** (`features/computer_file_live_end_to_end.feature`, steps in `features-support/steps/live-files-end-to-end.steps.ts` with `features-support/live-files-end-to-end-support.ts`; LF-59 is `features/computer_file_overlay_authority.feature`). Where the code differs from the text above:
 
