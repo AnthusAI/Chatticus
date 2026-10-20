@@ -10,9 +10,22 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "4b1b90d2-caa6-495e-b1ea-755c0dbe40a8",
+      "author": "home",
+      "text": "R2 check: no CloudTrail trail exists in the production account (any region, including shadow trails), none in the management account, no organization trail, no delegated administrators, no CloudTrail Lake store. Built a cheap management-events-only trail (ChatticusAuditTrail, production stack set): PR 625. Cost estimate: first copy free; S3 storage and PUTs cents a month (38 events in 24h observed). Not covered: S3 and DynamoDB data events (by decision). Secrets Manager GetSecretValue is covered (AWS docs confirm all Secrets Manager API calls are recorded). Awaiting CI and merge; deploy after merge.",
+      "created_at": "2026-10-20T19:39:12.817609Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-audit-trail"
+      }
+    }
+  ],
   "created_at": "2026-10-14T10:24:45.151566Z",
-  "updated_at": "2026-10-14T10:24:45.151602Z",
+  "updated_at": "2026-10-20T19:39:12.817624Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
