@@ -10,9 +10,22 @@
   "parent": "chatticus-0e336492-e21e-458b-ac45-884918900339",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "ff550b9a-41ad-43d1-b7fb-6eaa28166110",
+      "author": "home",
+      "text": "Owner decisions, 2026-10-20 (Ryan): (1) One internal board per bot, kept within its organization; per-user and per-organization lists may come later. (2) Bots use Kanbus for their work tracking: the bot's Kanbus board REPLACES the existing thin Task items (task tool create/get/complete/close, DynamoDB task records, web task list) as a hard cutover with a one-time migration of existing items; the evidence-to-complete rule carries over as a board rule (a card moves to Done only with evidence). (3) Storage per the existing direction: canonical record on S3 in the Kanbus issue JSON format, DynamoDB index for lookup, in the Chatticus production account, isolated per environment and per organization; the same Kanbus parser and @kanbus/ui component serve project boards and bot boards. (4) Access only through the Chatticus front door with organization membership checks; bots through a tool; computers never touch the store. (5) Bot board tools run without summoning the computer. (6) Members who can see the bot can see its board; the bot and the organization's owners and admins edit; other members read-only to start. (7) Conditional writes per card update, idempotent retries, honest saving and failed states, visible index lag, and an index rebuild from the S3 records. (8) Same Board tab with a picker: Project boards (on the computer) and Bot boards. Before any design detail: check with the Kanbus project whether Kanbus or Virtuus already has a cloud issue store to reuse, so Chatticus does not build a parallel one; then write the Gherkin first.",
+      "created_at": "2026-10-20T03:33:51.040775Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5-5",
+        "name": "orchestrator"
+      }
+    }
+  ],
   "created_at": "2026-10-16T20:43:28.709933Z",
-  "updated_at": "2026-10-16T20:43:28.709975Z",
+  "updated_at": "2026-10-20T03:33:51.040797Z",
   "closed_at": null,
   "agent": {
     "platform": "codex",
