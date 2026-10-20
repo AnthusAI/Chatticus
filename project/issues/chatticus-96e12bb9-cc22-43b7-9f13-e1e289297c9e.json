@@ -58,10 +58,22 @@
         "model": "claude-sonnet-5-5",
         "name": "claude-main"
       }
+    },
+    {
+      "id": "7bdfa210-a8cf-45c7-a2fe-bd11c08ca4ba",
+      "author": "home",
+      "text": "Board sync 2026-10-20: still in_progress, no change in substance. Verified against origin/develop: PRs 543 (012ab064), 547 (27344a08) and 546 (872e1f99) are merged; features/computer_owner_start.feature has no scenario for an owner task that starts and exits on a configuration error, and no later commit or ticket addresses the starter retry loop. The remaining work is that scenario plus the starter change, or an owner decision that it is out of scope. No activity since 2026-10-14.",
+      "created_at": "2026-10-20T13:17:35.789956Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "drift-fix"
+      }
     }
   ],
   "created_at": "2026-10-11T17:37:40.103261Z",
-  "updated_at": "2026-10-14T03:33:49.317945Z",
+  "updated_at": "2026-10-20T13:17:35.789980Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

@@ -34,10 +34,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "de3aa4ec-7e10-461d-b6ef-1b5a934ec2d0",
+      "author": "home",
+      "text": "Board sync 2026-10-20: status check, still in_progress, no change. PR 551 (ed04886d) merged to develop on 2026-10-14 12:30Z, so docs/OWNER_CREDENTIAL_REVOCATION.md is on develop. The acceptance items still open are the second-reader pass (U13) and the two doc/code differences found in review; the CDK deny switch is a separate follow-up. No evidence of either since 2026-10-14. Parent chatticus-3a31bb stays in progress until this closes.",
+      "created_at": "2026-10-20T13:17:35.684802Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "drift-fix"
+      }
     }
   ],
   "created_at": "2026-10-14T09:53:45.127752Z",
-  "updated_at": "2026-10-14T23:11:39.175557Z",
+  "updated_at": "2026-10-20T13:17:35.684821Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

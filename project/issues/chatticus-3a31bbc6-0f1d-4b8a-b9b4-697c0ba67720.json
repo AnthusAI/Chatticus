@@ -46,10 +46,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "61e4f99e-4f4e-4d7a-b80d-c3b4f374db0c",
+      "author": "home",
+      "text": "Board sync 2026-10-20: still in_progress, status is correct. Merged since the last comment: PR 560 (3f9875b4, 2026-10-14) raised the owner minimum protocol version to 3 and recorded the Phase 2b live proof, which was remaining item (1) in the previous comment. Also merged: PR 575 (89a964a3, 2026-10-15) computer image pipeline for staging and production. Children closed: P0, A1, A2, B1, B2, C, D, E. Children still open: 816a1a (second-reader pass of the revocation runbook), and the follow-ups 146c73, 1625c5, dd1539, ef581f. Close this task when 816a1a closes and the owner decides whether the open follow-ups block closing.",
+      "created_at": "2026-10-20T13:17:35.738399Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "drift-fix"
+      }
     }
   ],
   "created_at": "2026-10-12T13:18:55.826042Z",
-  "updated_at": "2026-10-14T23:11:44.887759Z",
+  "updated_at": "2026-10-20T13:17:35.738421Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

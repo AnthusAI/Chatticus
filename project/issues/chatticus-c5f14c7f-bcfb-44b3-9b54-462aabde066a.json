@@ -3,7 +3,7 @@
   "title": "Milestone 2: DynamoDB-powered internal bot boards with S3 canonical records",
   "description": "Outcome: bots have durable internal boards and to-do lists separate from the project boards on their computers. A bot can track ongoing work without creating or borrowing a project repository board.\n\nStorage direction requested by Ryan: cloud Kanbus/Virtuus approach with canonical issue files/text on S3 and DynamoDB card-catalog indexes powering internal boards. DynamoDB supplies scoped discovery/query indexes; S3 holds canonical record content. This is a proposed integration, not a claim that Kanbus/Virtuus already provides a ready Chatticus backend. A local project board remains file-based under Milestone 1; this milestone does not silently migrate it.\n\nDefinition of Done: internal boards remain distinct from project boards; approved agent and user flows operate within the selected board scope; canonical records and indexes have specified consistency/recovery behavior; shared @kanbus/ui components remain DRY and themeable across both stores. Specify behavior before product code and prove the selected backend's capabilities before relying on them.\n\nOpen questions: one board per bot, user, organization or another scope? Which account owns canonical objects/indexes, and what authorizes access? Which tools can run without summoning a computer? Which users see or edit which internal lists? How do writes, retries, concurrent updates, catalog lag and index rebuilding work without reporting false success? How does this relate to the historical thin Task item and its evidence-to-complete rule? Decide through design/acceptance review, not by assuming a table/key/API/IAM scheme or migration.",
   "type": "epic",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -58,10 +58,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bot-board-spec"
       }
+    },
+    {
+      "id": "95ddfbd8-3c88-451c-b5e5-d8aa30541934",
+      "author": "home",
+      "text": "Board sync 2026-10-20: moved open to in_progress because the spec work is landing. PR 621 (68694168, merged 2026-10-20 04:15Z) drafted the bot boards behavior specification; PR 622 (792b0cca, merged 11:14Z) applied the owner decisions of 2026-10-20 recorded above. No product code exists yet by design: the Kanbus-side stories listed in the comments above (kbs-9cb5cb40 and the others) block building against kanbus-api.",
+      "created_at": "2026-10-20T13:17:43.875603Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "drift-fix"
+      }
     }
   ],
   "created_at": "2026-10-16T20:43:28.709933Z",
-  "updated_at": "2026-10-20T10:21:26.868066Z",
+  "updated_at": "2026-10-20T13:17:43.875634Z",
   "closed_at": null,
   "agent": {
     "platform": "codex",
