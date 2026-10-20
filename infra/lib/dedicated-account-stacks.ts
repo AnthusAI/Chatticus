@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import { AuditTrailStack } from "./audit-trail-stack";
 import { AuthStack } from "./auth-stack";
 import { BudgetsStack } from "./budgets-stack";
 import type { BudgetsConfig } from "./budgets-config";
@@ -52,7 +53,9 @@ export function readDedicatedEnvironment(app: cdk.App): ChatticusCloudEnvironmen
  * staging and production can all be deployed into the one account that holds
  * them without a stack, repository, task definition family or role colliding.
  * The budget stack is account-level: its id is the same for every environment,
- * so the account has exactly one copy of it, owned by production. The legacy
+ * so the account has exactly one copy of it, owned by production. The audit
+ * trail stack is account-level the same way, but only the production build
+ * creates it, so development and staging never synthesize a second copy. The legacy
  * three-environment account is built by the default path in bin/chatticus.ts.
  */
 export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccountProps): void {
@@ -68,6 +71,13 @@ export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccoun
       })
     : undefined;
   const budgetsAlertsTopicArn = budgetsStack?.alertsTopic.topicArn;
+
+  if (environmentName === "production") {
+    new AuditTrailStack(app, "ChatticusAuditTrail", {
+      env,
+      description: "Account-level management-event audit trail (CloudTrail to S3), owned by production.",
+    });
+  }
 
   const snapshots = new SnapshotStack(app, SNAPSHOT_STACK_IDS[environmentName], {
     env,

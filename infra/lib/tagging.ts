@@ -29,6 +29,7 @@ export interface StackTags {
 
 const SHARED_STACKS: Record<string, string> = {
   ChatticusBudgets: "budgets",
+  ChatticusAuditTrail: "audit-trail",
   ChatticusSnapshots: "snapshots",
   ChatticusComputers: "computer",
   ChatticusDns: "dns",
@@ -56,7 +57,7 @@ const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, stri
  * Component and environment for one stack id; throws for a stack nobody
  * classified. The unsuffixed stacks are shared in the legacy account; in the
  * production account they are production's, which includes the account-level
- * budgets stack (production deploys it; development and staging never do). The
+ * budgets and audit trail stacks (production deploys them; development and staging never do). The
  * suffixed development and staging stacks belong to their environment wherever
  * they are deployed.
  */

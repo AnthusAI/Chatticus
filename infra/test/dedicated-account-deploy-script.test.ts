@@ -62,6 +62,10 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
       assert.doesNotMatch(contents, new RegExp(`${base}Production`));
     }
     assert.match(contents, /production:budgets\) STACK="ChatticusBudgets"/);
+    assert.match(contents, /production:audit-trail\) STACK="ChatticusAuditTrail"/);
+    assert.doesNotMatch(contents, /development:audit-trail/);
+    assert.doesNotMatch(contents, /staging:audit-trail/);
+    assert.doesNotMatch(contents, /\*:audit-trail/);
     assert.doesNotMatch(contents, /development:budgets/);
     assert.doesNotMatch(contents, /staging:budgets/);
     assert.doesNotMatch(contents, /\*:budgets/);
@@ -76,6 +80,15 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     }
   });
 
+  it("refuses to deploy the account-level audit trail stack for development and staging, before touching AWS", () => {
+    for (const environment of ["development", "staging"]) {
+      const result = run([environment, "audit-trail"]);
+      assert.equal(result.status, 2, environment);
+      assert.match(result.stderr, /usage: sh deploy-chatticus-dedicated-account\.sh/);
+    }
+    assert.match(contents, /STACK: budgets audit-trail snapshots/);
+  });
+
   it("accepts the control-plane stack for every environment, mapped to that environment's own stack id", () => {
     assert.match(contents, /development:control-plane\) STACK="ChatticusControlPlaneDevelopment"/);
     assert.match(contents, /staging:control-plane\) STACK="ChatticusControlPlaneStaging"/);
@@ -84,7 +97,7 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
       const accepted = run([environment, "control-plane"]);
       assert.notEqual(accepted.status, 2, environment);
     }
-    assert.match(contents, /STACK: budgets snapshots computers zones certificates thin-turn control-plane web auth/);
+    assert.match(contents, /STACK: budgets audit-trail snapshots computers zones certificates thin-turn control-plane web auth/);
   });
 
   it("passes the integration test role as context for the development and staging control planes only, and refuses it for production, and refuses a malformed ARN before AWS", () => {

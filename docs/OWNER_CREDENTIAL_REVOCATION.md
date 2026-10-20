@@ -672,12 +672,24 @@ ones from triage; a call whose `owner_id` was not the claimant at the time is th
 
 ### 9.3 CloudTrail (who obtained credentials, and what changed)
 
-Management events are the only ones available: `aws cloudtrail describe-trails` returns no trail in the account (checked on
-2026-10-20; the one account holds development, staging and production, so this covers all three), and the 90 day Event
-history (`lookup-events`) is all there is. **S3 and DynamoDB data events are not recorded.** That means CloudTrail can tell you
-who was issued a session, never what the session did. Confirm before you rely on it (READ-ONLY):
-`aws cloudtrail describe-trails --query 'trailList[].Name' --output text` prints nothing today; if it ever prints a name,
-`aws cloudtrail get-event-selectors --trail-name NAME` says which events it records.
+Management events are the only ones recorded, and they are recorded in two places. The 90 day Event history
+(`lookup-events`) always exists. From the day the `ChatticusAuditTrail` stack is deployed (production stack set; `sh
+infra/deploy-chatticus-dedicated-account.sh production audit-trail`) one multi-region trail, `chatticus-audit-trail`, also
+delivers management events, reads and writes, global services such as IAM and STS included, to a private S3 bucket for 400
+days. Before that day there is no trail and only the Event history exists: `aws cloudtrail describe-trails --query
+'trailList[].Name' --output text` prints nothing until the stack is deployed (it printed nothing on 2026-10-20). The one
+account holds development, staging and production, so the trail covers all three.
+
+**S3 and DynamoDB data events are not recorded, by decision (cost).** CloudTrail can tell you who was issued a session, who
+read a secret and what changed, never which snapshot objects or table items a session read. `GetSecretValue` is a management
+event and is recorded.
+
+Query the last 90 days with `aws cloudtrail lookup-events` (below). For older events, or to read in bulk, take the bucket from
+the stack output (`aws cloudformation describe-stacks --stack-name ChatticusAuditTrail --query
+'Stacks[0].Outputs[?OutputKey==`AuditTrailBucketName`].OutputValue' --output text`) and read
+`s3://BUCKET/AWSLogs/ACCOUNT_ID/CloudTrail/REGION/YYYY/MM/DD/*.json.gz` (`aws s3 cp --recursive` for a day, then `zcat` and
+`jq '.Records[] | select(.eventName == "AssumeRole")'`). Log file validation is on: `aws cloudtrail validate-logs --trail-arn
+TRAIL_ARN --start-time TIME` proves the files were not altered.
 
 Event names to look for:
 
@@ -780,7 +792,7 @@ resolved or narrowed most of the earlier list. What is left, and what was resolv
 | U7 | The shape of the `AssumeRole` row on a real match, and the populated-tenant audit query projection | Open. Development has no owner log lines and no audit rows to match; run 9.1 and 9.3 after any normal computer turn on development |
 | U8 | Whether `bin/acceptance.ts` exercises a computer turn | Resolved: it does not (10.1 step 4) |
 | U9 | Whether a 401 for a bad signature precedes body validation on the owner routes | Resolved: it does; a made-up `ct1.` token and an empty body answered 401 `invalid_credential` on development (5.4) |
-| U10 | S3 and DynamoDB data events in staging and production | Resolved: the account has no trail at all, so none of the three environments records data events (9.3) |
+| U10 | S3 and DynamoDB data events in staging and production | Resolved: data events are not recorded in any environment, by decision; management events are kept by `chatticus-audit-trail` once its stack is deployed (9.3) |
 | U11 | The reach and timing of every "after 2b" statement | Resolved: 2b is live; the page now states the 2b behaviour only. Re-read the numbers (40 minutes, 8 hours) when the constants in `host-protocol/src/supervisor.ts` change |
 | U12 | The commands of 1.2 beyond what was run | Narrowed. Ran as written on development (against the 0.1 variables): the stack lookups, the function configuration reads, `logs start-query` on the broker, the Front Door and the supervisor groups (no rows), `ecs list-tasks` (no task running), `iam simulate-principal-policy`, `simulate-role-access.ts`, the DynamoDB queries, `lookup-events`, `list-secret-version-ids`, `get-random-password`, `rotate-invoke-key.sh --dry-run`, the forged-token probe. Not run because they change something or need a live owner: 1.1 against a real leaked credential, `ecs describe-tasks --include TAGS` on a real task, 2.1 success path, 2.2, 3.2, 5.2, 7 |
 | U13 | A second reader following this page once | Done 2026-10-20 (the corrections above are the result). A third reader should repeat 2.2 and 3 on the first development owner that exists |

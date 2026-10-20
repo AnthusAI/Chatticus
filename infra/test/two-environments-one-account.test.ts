@@ -65,6 +65,7 @@ const synthesized: Record<ChatticusCloudEnvironment, SynthesizedTemplates> = {
 const ACCOUNT_LEVEL_STACK_NAMES = ["ChatticusBudgets"];
 const LIVE_PRODUCTION_STACK_NAMES = [
   "ChatticusAccountDeploy",
+  "ChatticusAuditTrail",
   "ChatticusAuthProduction",
   "ChatticusBudgets",
   "ChatticusComputers",
@@ -115,7 +116,11 @@ function resourcesOf(templates: SynthesizedTemplates, types: readonly string[]):
 describe("development, staging and production in one AWS account", () => {
   it("builds every per-environment stack under that environment's own id", () => {
     for (const environment of SHARED_ACCOUNT_ENVIRONMENTS) {
-      const expected = [...stackIdsOfEnvironment(environment), ...ACCOUNT_LEVEL_STACK_NAMES].sort();
+      const expected = [
+        ...stackIdsOfEnvironment(environment),
+        ...ACCOUNT_LEVEL_STACK_NAMES,
+        ...(environment === "production" ? ["ChatticusAuditTrail"] : []),
+      ].sort();
       const actual = stackNamesOf(environment);
       for (const id of actual) {
         assert.ok(expected.includes(id), `${environment} built unexpected stack ${id}`);

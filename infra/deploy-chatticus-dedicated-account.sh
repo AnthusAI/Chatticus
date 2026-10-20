@@ -25,7 +25,7 @@ cd "$(dirname "$0")"
 
 usage() {
   echo "usage: sh deploy-chatticus-dedicated-account.sh development|staging|production STACK" >&2
-  echo "STACK: budgets snapshots computers zones certificates thin-turn control-plane web auth" >&2
+  echo "STACK: budgets audit-trail snapshots computers zones certificates thin-turn control-plane web auth" >&2
   exit 2
 }
 
@@ -37,6 +37,7 @@ esac
 
 case "$ENVIRONMENT:$2" in
   production:budgets) STACK="ChatticusBudgets" ;;
+  production:audit-trail) STACK="ChatticusAuditTrail" ;;
   development:snapshots) STACK="ChatticusSnapshotsDevelopment" ;;
   development:computers) STACK="ChatticusComputersDevelopment" ;;
   development:zones) STACK="ChatticusEnvironmentZonesDevelopment" ;;
