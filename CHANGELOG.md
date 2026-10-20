@@ -1,3 +1,10 @@
+## [0.51.0](https://github.com/AnthusAI/Chatticus/compare/v0.50.0...v0.51.0) (2026-10-20)
+
+### Features
+
+* Board panel renders with the Kanbus project's own component (@kanbus/ui) ([#618](https://github.com/AnthusAI/Chatticus/issues/618)) ([4678ed5](https://github.com/AnthusAI/Chatticus/commit/4678ed59070f5a4f096eb67baad1c7326c9f19f2))
+* Kanbus board panel (first workspace plugin) ([#615](https://github.com/AnthusAI/Chatticus/issues/615)) ([b731f93](https://github.com/AnthusAI/Chatticus/commit/b731f9369e8d3425e987f12902b80ff28f06c944))
+
 ## [0.50.0](https://github.com/AnthusAI/Chatticus/compare/v0.49.0...v0.50.0) (2026-10-19)
 
 ### Features
