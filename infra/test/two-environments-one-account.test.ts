@@ -12,7 +12,9 @@ import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
   COMPUTER_IMAGE_TAGS,
   ENVIRONMENT_HOSTNAMES,
+  KANBUS_BOARD_ENVIRONMENTS,
   COMPUTERS_STACK_IDS,
+  CONTROL_PLANE_STACK_IDS,
   SNAPSHOT_STACK_IDS,
   peerEnvironmentsInSameAccount,
   stackIdsOfEnvironment,
@@ -227,6 +229,41 @@ describe("development, staging and production in one AWS account", () => {
         const peerNames = fixedNamesOf(synthesized[peer]);
         const collisions = [...own.keys()].filter((name) => peerNames.has(name));
         assert.deepEqual(collisions, [], `${environment} and ${peer}`);
+      }
+    }
+  });
+
+  it("gives each environment that has the Kanbus board service its own API, bucket and table, and lets only its own two roles invoke it", () => {
+    const apiNamesOf = (environment: ChatticusCloudEnvironment): string[] =>
+      resourcesOf(synthesized[environment], ["AWS::ApiGatewayV2::Api"]).map(({ resource }) => String(resource.Properties?.Name));
+    const invokeGrantsOf = (environment: ChatticusCloudEnvironment): Array<{ stack: string; roles: string[] }> =>
+      resourcesOf(synthesized[environment], ["AWS::IAM::Policy"])
+        .filter(({ resource }) => JSON.stringify(resource.Properties).includes("execute-api:Invoke"))
+        .map(({ stack, resource }) => ({
+          stack,
+          roles: ((resource.Properties?.Roles ?? []) as Array<{ Ref: string }>).map((role) => role.Ref),
+        }));
+    for (const environment of SHARED_ACCOUNT_ENVIRONMENTS) {
+      const hasService = KANBUS_BOARD_ENVIRONMENTS.includes(environment);
+      assert.deepEqual(apiNamesOf(environment), hasService ? [`kanbus-${environment}-service`] : [], environment);
+      const grants = invokeGrantsOf(environment);
+      assert.equal(grants.length, hasService ? 2 : 0, `${environment} invoke grants`);
+      for (const { stack, roles } of grants) {
+        assert.equal(stack, CONTROL_PLANE_STACK_IDS[environment]);
+        assert.equal(roles.length, 1);
+        assert.match(roles[0], /^(FrontDoor|TurnExecutor)ServiceRole/);
+      }
+      const buckets = resourcesOf(synthesized[environment], ["AWS::S3::Bucket"]).filter(({ id }) => id.startsWith("Kanbus"));
+      const tables = resourcesOf(synthesized[environment], ["AWS::DynamoDB::Table"]).filter(({ id }) => id.startsWith("Kanbus"));
+      assert.equal(buckets.length, hasService ? 1 : 0, `${environment} Kanbus bucket`);
+      assert.equal(tables.length, hasService ? 1 : 0, `${environment} Kanbus table`);
+      for (const { resource } of [...buckets, ...tables]) {
+        assert.equal(resource.Properties?.BucketName, undefined);
+        assert.equal(resource.Properties?.TableName, undefined);
+      }
+      for (const peer of peerEnvironmentsInSameAccount(environment)) {
+        const peerText = JSON.stringify(synthesized[peer][CONTROL_PLANE_STACK_IDS[peer]]);
+        assert.ok(!peerText.includes(`kanbus-${environment}-`), `${peer} names nothing of ${environment}'s Kanbus service`);
       }
     }
   });

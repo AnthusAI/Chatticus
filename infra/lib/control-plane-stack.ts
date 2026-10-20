@@ -1,3 +1,4 @@
+import { KanbusApi } from "@kanbus/cdk";
 import * as cdk from "aws-cdk-lib";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
@@ -22,6 +23,7 @@ import {
 import { readAlarmNotificationEmail } from "./budgets-config";
 import {
   ChatticusCloudEnvironment,
+  KANBUS_BOARD_ENVIRONMENTS,
   integrationTestParameterPrefix,
   invokeKeySecretArnParameterName,
   operatorKeySecretArnParameterName,
@@ -43,6 +45,9 @@ const CREATE_REQUIRE_BANNER =
   "const require = topLevelCreateRequire(import.meta.url);";
 
 const DEAD_LETTER_MAX_RECEIVE_COUNT = 5;
+
+/** Days an archived bot board is kept before the Kanbus sweeper purges it; docs/BOT_BOARDS.md section 11 (f). */
+const KANBUS_ARCHIVE_RETENTION_DAYS = 30;
 
 /** Length of the generated model gateway signing key; the token code requires at least 32. */
 export const MODEL_GATEWAY_SIGNING_KEY_LENGTH = 64;
@@ -132,6 +137,8 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly computerSupervisorRole?: iam.Role;
   /** Development only, with the scoped role: the only principal that assumes the two owner roles; the Front Door invokes it. */
   readonly ownerCredentialBrokerFunction?: lambdaNodejs.NodejsFunction;
+  /** Only in the environments of KANBUS_BOARD_ENVIRONMENTS: this environment's own Kanbus board service. */
+  readonly kanbusApi?: KanbusApi;
 
   constructor(scope: Construct, id: string, props: ControlPlaneStackProps) {
     super(scope, id, props);
@@ -407,6 +414,22 @@ export class ControlPlaneStack extends cdk.Stack {
       }),
     );
     this.computerStarterFunction = computerStarterFunction;
+
+    if (KANBUS_BOARD_ENVIRONMENTS.includes(environmentName)) {
+      const kanbusApi = new KanbusApi(this, "Kanbus", {
+        environmentName,
+        archiveRetentionDays: KANBUS_ARCHIVE_RETENTION_DAYS,
+        servicePrincipals: [
+          { role: frontDoorFunction.role!, tenants: "*", provision: true, delegateActor: true },
+          { role: turnExecutorFunction.role!, tenants: "*", provision: false, delegateActor: true },
+        ],
+      });
+      for (const target of [frontDoorFunction, turnExecutorFunction]) {
+        target.addEnvironment("CHATTICUS_KANBUS_API_URL", kanbusApi.serviceApiUrl!);
+      }
+      this.kanbusApi = kanbusApi;
+    }
+
     if (isDevelopment) {
       const modelGatewaySigningKeySecret = new secretsmanager.Secret(
         this,

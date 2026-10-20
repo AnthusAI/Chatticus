@@ -203,6 +203,14 @@ Chatticus builds no code against `kanbus-api` until these land; the features are
 | board deletion: archive, restore, purge (routes in section 6) | `kbs-791a7373` |
 | pure parsers for the offline project view | `kbs-460415fd` |
 
+Deployment. The control plane stack of each environment holds one `KanbusApi` construct from `@kanbus/cdk` (installed from the
+GitHub release tarball `kanbus-cdk-v0.2.0`, integrity pinned in the lockfile), which brings its own bucket, catalog table,
+service API (`kanbus-<environment>-service`, AWS_IAM), API function, hourly sweeper and sweep rule. Chatticus writes no store of
+its own. Its service principals are the Front Door role (`provision` and `delegateActor`, every tenant) and the turn executor
+role (`delegateActor`, every tenant, no `provision`); the computer, the owner roles and the credential broker never touch the
+store. The service URL reaches those two functions as `CHATTICUS_KANBUS_API_URL`. The rollout list `KANBUS_BOARD_ENVIRONMENTS`
+in `infra/lib/environments.ts` is `development` only until the owner extends it to staging and production.
+
 Scenarios that need parent and dependency writes carry `@kanbus-parent-writes`. Building on Kanbus Preview is accepted,
 development first.
 
@@ -234,9 +242,7 @@ Not decided. Each is a question for the owner, the Kanbus project, or both. None
     rebuild in progress?
 11. **Panel copy and gestures.** "Saved to the cloud", "Saving", "Failed to save", "Changed by someone else", dragging on
     iPad and a status menu on a phone are proposals for design review.
-12. **Deployment shape.** One `kanbus-api` deployment (bucket and table) per Chatticus environment, per the decision.
-    Confirm development, staging and production each get their own in the production account, and that the shared-stack
-    rule in AGENTS.md is not extended to it.
+12. **Deployment shape.** Decided, see section 11 (l).
 
 ## 11. Decided
 
@@ -266,3 +272,7 @@ Answers from the Kanbus project, 2026-10-20:
   organization id and project is the bot id, both lowercase UUIDs.
 - (k) Kanbus stories: `kbs-9cb5cb40`, `kbs-494ecd64`, `kbs-4818904b`, `kbs-f222b6ee`, `kbs-a19d1443`, `kbs-8283b923`,
   `kbs-344f42ca`, `kbs-791a7373`, `kbs-460415fd` (section 9).
+- (l) 2026-10-20: one `kanbus-api` deployment (bucket, table, API, sweeper) per Chatticus environment, inside that
+  environment's control plane stack, in the production account. Each environment owns separate resources and its API invoke
+  grant names only that environment's two roles, so a staging role cannot reach the development API or the reverse. The
+  shared-stack rule in AGENTS.md is not extended to it. Rollout: development first (`KANBUS_BOARD_ENVIRONMENTS`).
