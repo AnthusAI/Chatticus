@@ -3,7 +3,7 @@
   "title": "Flaky real_web_workspace scenarios: function timeout and panel-render assertion fail intermittently in CI",
   "description": "",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -22,11 +22,23 @@
         "model": "claude-opus-5-5",
         "name": "orchestrator"
       }
+    },
+    {
+      "id": "f697601c-a2a8-4c8b-a0f0-54cb5340bba8",
+      "author": "home",
+      "text": "Root cause and fix (PR 626, merged). (1) Function timeouts: the browser harness cleanup called process.kill on the Chrome process group and tolerated only ESRCH; an EPERM escaped the finally block before the HTTP server closed, so the tsx process stayed alive after printing its result and the step hit the 60 s timeout (it also leaked Chrome profile dirs, GBs of disk). Reproduced: harness alone hung 3 of 16 times under load. (2) 'false !== true' on the Context/Files panel: the step read the panel text once the custom element existed, before React committed its content (createRoot render is async); same shape for the hidden-tab active=false read and tab badge. (3) OS dependence: prefers-color-scheme, locale, timezone and fixed sleeps. Fix is harness-only: robust cleanup and explicit exit, waits on observable readiness with 20 s bounded timeouts and messages naming the missing state, color scheme/reduced motion/UTC/en-US pinned. Before: 3 of 16 feature runs passed with 4 copies at once. After: 16 of 16 under the same load, and 30 of 30 consecutive with 2 copies at once. CI on the PR was green.",
+      "created_at": "2026-10-20T20:20:25.135400Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "flaky-workspace"
+      }
     }
   ],
   "created_at": "2026-10-20T11:14:34.045763Z",
-  "updated_at": "2026-10-20T11:14:34.169025Z",
-  "closed_at": null,
+  "updated_at": "2026-10-20T20:20:25.210422Z",
+  "closed_at": "2026-10-20T20:20:25.210387Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5-5",
