@@ -48,7 +48,30 @@ A plugin that fails to import, or never defines its element, shows an error in i
 
 ## Core plugins
 
-`web/components/workspace/panel-plugins/core-panel-elements.tsx` defines `chatticus-context-panel`, `chatticus-files-panel` and `chatticus-costs-panel`. `defineReactPanelElement` wraps any React component in such an element, rendering it into its own React root. Core plugins receive their controllers through `context.services`, which only first-party plugins may rely on.
+`web/components/workspace/panel-plugins/core-panel-elements.tsx` defines `chatticus-context-panel`, `chatticus-files-panel`, `chatticus-costs-panel` and `chatticus-board-panel`. `defineReactPanelElement` wraps any React component in such an element, rendering it into its own React root. Core plugins receive their controllers through `context.services`, which only first-party plugins may rely on.
+
+## The Board plugin (Kanbus)
+
+The Board tab shows a Kanbus project that lives in the organization's workspace. A Kanbus project keeps one JSON file per issue under `project/issues/`. The panel finds `/workspace/project/issues`, or the first top-level folder of the workspace that has `project/issues`, lists it, and reads the issue files through the member file routes (`GET /computer/files` and `GET /computer/files/content`). Those routes answer from the saved copy while the computer is off, so the board does not need the computer running. The panel only reads.
+
+Limits of that data path, all from `docs/LIVE_FILES_PROTOCOL.md`: there is no bulk read, so a load is one listing plus one read per issue file; reads are rate limited to 240 per user per minute and shared with the Files tab; a listing returns at most 2000 entries; a read returns at most 256 KiB. The panel therefore reads at most 200 issue files (the most recently modified first), four at a time, remembers each file by its content hash so a refresh re-reads only changed files, and says plainly when it shows fewer issues than the project holds. A bulk read route, or a server-side board route, is the next step if boards outgrow this.
+
+Columns are the statuses in the default Kanbus workflow order (backlog, open, in progress, blocked, closed), with open, in progress and closed always shown and any other status that has an issue added after. Cards sort by priority and then by most recent update, and show the title, id, type, priority, labels, the parent id and the number of children.
+
+Theming is a small set of CSS custom properties the panel reads, each falling back to the workspace `--surface-*` tokens, so light and dark need no extra rules. Set them on any ancestor of the panel to restyle the board without touching the panel:
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `--kb-board-gap` | `0.5rem` | Space between columns |
+| `--kb-column-width` | `16rem` | Column width (at most 85% of the panel, so a column never fills a phone) |
+| `--kb-column-radius` | `1rem` | Column corner radius |
+| `--kb-column-background` | `var(--surface-0)` | Column background |
+| `--kb-card-radius` | `0.75rem` | Card corner radius |
+| `--kb-card-background` | `var(--surface-1)` | Card background |
+| `--kb-card-gap` | `0.5rem` | Space between cards |
+| `--kb-card-shadow` | `none` | Card hard-edge shadow |
+
+The names with the `--kb-` prefix are the ones `@kanbus/ui` already uses for the same things in its scoped newsprint theme (`--kb-board-gap`, `--kb-column-width`, `--kb-column-radius`, `--kb-card-radius`, `--kb-card-gap`, `--kb-card-shadow`), so a Kanbus theme can be applied here by setting those properties. `@kanbus/ui` itself is not a dependency: it is MIT licensed but not published to npm, it peers on React 18 while the web app is on React 19, and its stylesheet sets global `:root` and `html.dark` variables and uses borders and outlines, which the brand rules forbid.
 
 ## Flat style
 

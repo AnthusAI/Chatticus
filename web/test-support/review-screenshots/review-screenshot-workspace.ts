@@ -283,6 +283,29 @@ async function answerOfResponse(response: Response): Promise<ReviewScreenshotApi
   return { status: response.status, headers, body: await response.text() };
 }
 
+type SeededKanbusIssue = {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  priority: number;
+  labels: string[];
+  parent?: string;
+  updated_at: string;
+};
+
+const seededKanbusIssues: SeededKanbusIssue[] = [
+  { id: "chatticus-daa715", title: "Workspace redesign", type: "epic", status: "in_progress", priority: 1, labels: ["web", "ui"], updated_at: "2026-10-12T09:40:00Z" },
+  { id: "chatticus-ecd088", title: "Kanbus board plugin", type: "task", status: "in_progress", priority: 1, labels: ["web", "ui"], parent: "chatticus-daa715", updated_at: "2026-10-12T09:50:00Z" },
+  { id: "chatticus-3a10c2", title: "Monaco code editor plugin", type: "task", status: "open", priority: 2, labels: ["web"], parent: "chatticus-daa715", updated_at: "2026-10-11T16:00:00Z" },
+  { id: "chatticus-77be90", title: "Browser tab plugin", type: "task", status: "open", priority: 2, labels: ["web"], parent: "chatticus-daa715", updated_at: "2026-10-11T15:00:00Z" },
+  { id: "chatticus-9ac621", title: "Hosted organization spend meter", type: "bug", status: "open", priority: 0, labels: ["cost"], updated_at: "2026-10-12T08:00:00Z" },
+  { id: "chatticus-5d2f14", title: "Dark mode polish", type: "task", status: "backlog", priority: 3, labels: ["ui"], parent: "chatticus-daa715", updated_at: "2026-10-10T12:00:00Z" },
+  { id: "chatticus-c81e07", title: "Wait for the vendor key rotation", type: "task", status: "blocked", priority: 2, labels: ["ops"], updated_at: "2026-10-09T12:00:00Z" },
+  { id: "chatticus-0f4a39", title: "Per-call cost records", type: "task", status: "closed", priority: 1, labels: ["cost"], updated_at: "2026-10-12T07:00:00Z" },
+  { id: "chatticus-b9d6e2", title: "Resizable sidebar and panel", type: "task", status: "closed", priority: 2, labels: ["web", "ui"], parent: "chatticus-daa715", updated_at: "2026-10-11T10:00:00Z" },
+];
+
 /**
  * The seeded organization the review screenshots are taken in: one signed-in owner, two bots, a named channel with
  * a worked conversation, a direct channel, a running computer with files, and the cost history behind the replies.
@@ -299,6 +322,7 @@ export class ReviewScreenshotWorkspace {
     this.files.userEmail = REVIEW_SCREENSHOT_USER_EMAIL;
     this.files.seed("live", "/workspace/README.md", "# Chatticus\n\nA serverless platform that runs Pi agents as a software factory.\n");
     this.files.seed("live", "/workspace/src/panel-plugins.ts", "export const CORE_PANEL_PLUGINS = [\"context\", \"files\", \"costs\"];\n");
+    seededKanbusIssues.forEach((issue) => this.files.seed("live", `/workspace/chatticus/project/issues/${issue.id}.json`, JSON.stringify(issue)));
     this.files.seed("live", "/workspace/notes/kanbus-panel-plan.md", "# Kanbus board panel\n\n- Read the board from the computer\n- Show it beside the conversation\n");
   }
 

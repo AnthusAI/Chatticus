@@ -1,6 +1,6 @@
 import type { PanelPluginManifest } from "./panel-plugin-manifest";
 
-export const CORE_PANEL_PLUGIN_IDS = ["context", "files", "costs"] as const;
+export const CORE_PANEL_PLUGIN_IDS = ["context", "files", "costs", "board"] as const;
 
 export type CorePanelPluginId = (typeof CORE_PANEL_PLUGIN_IDS)[number];
 
@@ -23,6 +23,7 @@ export const CORE_PANEL_PLUGIN_MANIFESTS: ReadonlyArray<PanelPluginManifest> = [
   corePanelPluginManifest("context", "Context", "layout-list", ["workspace.context"]),
   corePanelPluginManifest("files", "Files", "folder", ["file", "workspace"]),
   corePanelPluginManifest("costs", "Costs", "receipt", ["costs"]),
+  corePanelPluginManifest("board", "Board", "kanban", ["kanbus.board", "kanbus.issue"]),
 ];
 
 export type PanelPluginRegistration =
