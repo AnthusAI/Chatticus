@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-46c00198-29e7-40e4-ad3b-1fce60bae5a9",
+  "title": "Decide what to do with the loose availability-zone entries in infra/cdk.context.json",
+  "description": "Found 2026-10-20 by the stand-up drift check. Three local checkouts of AnthusAI/Chatticus have an uncommitted edit to infra/cdk.context.json and no issue names it: the main checkout ~/Projects/Chattic.us (adds 16 lines, two new availability-zones entries for two accounts), .claude/worktrees/dev-cutover (8 lines, one entry) and .claude/worktrees/great-spence-5cef33 (8 lines, one entry). Every added entry is a CDK availability-zones lookup for us-east-1 (us-east-1a to 1f), the cache CDK writes when a synth or diff runs against an account that has no cached value yet. Account ids are not repeated here. Nothing is committed. The owner should decide: commit the entries to develop if the cache is meant to be shared (the file already tracks one account), or discard the edits and let CDK regenerate them. Do not commit it from a session that is not the owner of the edit.",
+  "type": "chore",
+  "status": "open",
+  "priority": 4,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-20T13:17:57.037366Z",
+  "updated_at": "2026-10-20T13:17:57.037421Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "drift-fix"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
