@@ -97,7 +97,7 @@ function CostsPanelElementView(binding: PanelPluginElementBinding) {
 
 function BoardPanelElementView(binding: PanelPluginElementBinding) {
   const { activeOrg } = servicesOf(binding);
-  return <KanbusBoardPanel org={activeOrg} active={binding.context.active} />;
+  return <KanbusBoardPanel org={activeOrg} active={binding.context.active} theme={binding.context.theme} />;
 }
 
 export function defineCorePanelElements(): void {

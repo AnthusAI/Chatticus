@@ -56,22 +56,25 @@ The Board tab shows a Kanbus project that lives in the organization's workspace.
 
 Limits of that data path, all from `docs/LIVE_FILES_PROTOCOL.md`: there is no bulk read, so a load is one listing plus one read per issue file; reads are rate limited to 240 per user per minute and shared with the Files tab; a listing returns at most 2000 entries; a read returns at most 256 KiB. The panel therefore reads at most 200 issue files (the most recently modified first), four at a time, remembers each file by its content hash so a refresh re-reads only changed files, and says plainly when it shows fewer issues than the project holds. A bulk read route, or a server-side board route, is the next step if boards outgrow this.
 
-Columns are the statuses in the default Kanbus workflow order (backlog, open, in progress, blocked, closed), with open, in progress and closed always shown and any other status that has an issue added after. Cards sort by priority and then by most recent update, and show the title, id, type, priority, labels, the parent id and the number of children.
+The columns and cards are drawn by the Kanbus project's own component, `IssueCollection` from `@kanbus/ui` (which composes the Kanbus `Board`, `BoardColumn` and `IssueCard`). Chatticus does not draw a column or a card. It parses the issue files into the component's `KanbanIssue` records and builds a `KanbanConfig` (`web/lib/kanbus-board.ts`): the open, in progress and closed statuses always, any other status that has an issue after them in the default Kanbus workflow order, the default priority names, and a color per issue type. The component's own sort rules order the cards, and its column headers collapse and expand. The panel passes no selection handler, so it stays read-only.
 
-Theming is a small set of CSS custom properties the panel reads, each falling back to the workspace `--surface-*` tokens, so light and dark need no extra rules. Set them on any ancestor of the panel to restyle the board without touching the panel:
+`@kanbus/ui` is a dependency of `web` installed from the immutable `kanbus-ui-0.3.1.tgz` asset of the public `AnthusAI/Kanbus` release `ui-v0.3.1` (the package is not on the npm registry). The lockfile records the tarball's integrity hash, so `npm ci` fetches exactly that file with no credentials. To move to a newer release, change the version in both places of the URL in `web/package.json` and run `npm install`.
 
-| Property | Default | Meaning |
+The package's stylesheet is imported by `web/styles/kanbus-board.css`, which also maps the component's variables to the workspace tokens, inside the `.chatticus-kanbus-board` wrapper only. The package's `tokens.css` is not imported, because it sets `--font-body` and `--font-mono` on `:root`, which the workspace also uses. The component keys its dark palette off a `.dark` ancestor while the workspace follows `prefers-color-scheme`, so the wrapper gets the `dark` class when the panel's `context.theme` is `dark`. The package uses Tailwind utilities, so `web/tailwind.config.ts` scans the package's `dist` and maps the colors it names (`card`, `muted`, `foreground` and so on) to those variables.
+
+The look is set by the package's own `--kb-*` variables, set on the wrapper and flat by default (no card border, no shadow):
+
+| Property | Value in the wrapper | Meaning |
 | --- | --- | --- |
 | `--kb-board-gap` | `0.5rem` | Space between columns |
-| `--kb-column-width` | `16rem` | Column width (at most 85% of the panel, so a column never fills a phone) |
+| `--kb-column-width` | `min(20rem, 85%)` | Column width (at most 85% of the panel, so a column never fills a phone) |
 | `--kb-column-radius` | `1rem` | Column corner radius |
-| `--kb-column-background` | `var(--surface-0)` | Column background |
 | `--kb-card-radius` | `0.75rem` | Card corner radius |
-| `--kb-card-background` | `var(--surface-1)` | Card background |
 | `--kb-card-gap` | `0.5rem` | Space between cards |
-| `--kb-card-shadow` | `none` | Card hard-edge shadow |
+| `--kb-card-border` | `0 solid transparent` | Card border |
+| `--kb-card-shadow` | `none` | Card shadow |
 
-The names with the `--kb-` prefix are the ones `@kanbus/ui` already uses for the same things in its scoped newsprint theme (`--kb-board-gap`, `--kb-column-width`, `--kb-column-radius`, `--kb-card-radius`, `--kb-card-gap`, `--kb-card-shadow`), so a Kanbus theme can be applied here by setting those properties. `@kanbus/ui` itself is not a dependency: it is MIT licensed but not published to npm, it peers on React 18 while the web app is on React 19, and its stylesheet sets global `:root` and `html.dark` variables and uses borders and outlines, which the brand rules forbid.
+The card color is `--surface-0`, the text colors follow `--surface-foreground`, and the keyboard focus ring is the component's own, in `--cobalt`.
 
 ## Flat style
 

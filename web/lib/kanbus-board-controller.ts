@@ -1,3 +1,5 @@
+import type { KanbanConfig, KanbanIssue } from "@kanbus/ui";
+
 import type { ComputerFilesApi } from "./computer-files-api";
 import {
   FilesApiError,
@@ -11,11 +13,9 @@ import {
 import {
   KANBUS_ISSUES_DIRECTORY,
   KANBUS_ISSUE_FILE_LIMIT,
-  buildKanbusBoardColumns,
+  buildKanbusBoardConfig,
   chooseIssueFilesToRead,
   parseKanbusIssueFile,
-  type KanbusBoardColumn,
-  type KanbusBoardIssue,
 } from "./kanbus-board";
 
 /** The two file routes the board uses. Reading is the only thing the board does to the workspace. */
@@ -36,7 +36,8 @@ export type KanbusBoardPhase =
       status: "ready";
       boardName: string;
       issuesDirectory: string;
-      columns: readonly KanbusBoardColumn[];
+      issues: readonly KanbanIssue[];
+      config: KanbanConfig;
       issueCount: number;
       skippedFileCount: number;
       unreadableFileCount: number;
@@ -55,7 +56,7 @@ export type KanbusBoardControllerOptions = {
   issueFileLimit?: number;
 };
 
-type CachedIssueFile = { sha256: string | null; issue: KanbusBoardIssue | null; unreadable: boolean };
+type CachedIssueFile = { sha256: string | null; issue: KanbanIssue | null; unreadable: boolean };
 
 function isMissingDirectory(error: unknown): boolean {
   return error instanceof FilesApiError && error.code !== null && MISSING_DIRECTORY_CODES.has(error.code);
@@ -69,7 +70,7 @@ function boardNameOf(issuesDirectory: string): string {
 
 /**
  * The behavior of the Kanbus board panel with no React and no DOM: find a Kanbus project in the workspace, read its
- * issue files through the member file routes, and arrange them into columns. A file whose hash has not changed since
+ * issue files through the member file routes, and hand them to the Kanbus board component. A file whose hash has not changed since
  * the last load is not read again, so a refresh costs one listing plus the files that changed.
  */
 export class KanbusBoardController {
@@ -205,7 +206,8 @@ export class KanbusBoardController {
       status: "ready",
       boardName: boardNameOf(found.directory),
       issuesDirectory: found.directory,
-      columns: buildKanbusBoardColumns(issues),
+      issues,
+      config: buildKanbusBoardConfig(issues),
       issueCount: issues.length,
       skippedFileCount: skippedCount,
       unreadableFileCount: results.filter((result) => result?.unreadable).length,

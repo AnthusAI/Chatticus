@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"],
+      "@kanbus/ui": ["../node_modules/@kanbus/ui/dist/index.js"]
+    }
+  }
+}

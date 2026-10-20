@@ -4,9 +4,12 @@ Feature: Members see the Kanbus board of the workspace in the Board panel
   So that I can see what the bots are working on, in columns by status, without asking in chat
 
   The panel reads the issue files of a Kanbus project (one JSON file per issue under project/issues) through the member
-  file routes, so it works with the computer off, from the saved copy. These scenarios run the real Board controller and
-  the real rendered panel against a fake running computer that answers the file routes with the shapes of
-  host-protocol/src/live-files.ts, with a fixed clock. The panel only reads: it never writes to the workspace.
+  file routes, so it works with the computer off, from the saved copy. The columns and cards are drawn by the Kanbus
+  project's own component, IssueCollection from @kanbus/ui; Chatticus supplies only the issues and a configuration.
+  These scenarios run the real Board controller and the real rendered panel, including that component, against a fake
+  running computer that answers the file routes with the shapes of host-protocol/src/live-files.ts, with a fixed clock.
+  They read the component's own DOM (kb-column, kb-column-header, issue-card). The panel only reads: it never writes to
+  the workspace.
 
   # ---------------------------------------------------------------- the board
 
@@ -30,20 +33,32 @@ Feature: Members see the Kanbus board of the workspace in the Board panel
     And the board column "open" has a count of 2
 
   @web
-  Scenario: A card shows the title, id, priority, labels and where it sits in the hierarchy
+  Scenario: A card shows the title, the id, the priority and the type
     Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
     And the workspace folder "chatticus" holds a Kanbus project with these issues
-      | id   | title                | status      | priority | labels  | type | parent |
-      | cx-0 | Workspace redesign   | in_progress | 1        |         | epic |        |
-      | cx-1 | Ship the board panel | in_progress | 1        | web, ui | task | cx-0   |
+      | id   | title                  | status      | priority | labels  | type | parent |
+      | cx-0 | Workspace redesign     | in_progress | 1        |         | epic |        |
+      | cx-1 | Ship the board panel   | in_progress | 1        | web, ui | task | cx-0   |
+      | cx-3 | Fix the login redirect | open        | 0        | web     | bug  |        |
     When the member opens the Board tab
     Then the card "cx-1" shows "Ship the board panel"
-    And the card "cx-1" shows "cx-1"
+    And the card "cx-1" shows "CX-1"
     And the card "cx-1" shows "High"
-    And the card "cx-1" shows "web"
-    And the card "cx-1" shows "ui"
-    And the card "cx-1" shows "Under cx-0"
-    And the card "cx-0" shows "1 child"
+    And the card "cx-1" is a "task" with the priority "High"
+    And the card "cx-0" is a "epic" with the priority "High"
+    And the card "cx-3" is a "bug" with the priority "Critical"
+
+  @web
+  Scenario: A status outside the default workflow gets a column of its own
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
+    And the workspace folder "chatticus" holds a Kanbus project with these issues
+      | id   | title             | status | priority |
+      | cx-2 | Write the guide   | review | 2        |
+      | cx-3 | Fix the redirect  | open   | 2        |
+    When the member opens the Board tab
+    Then the board column "review" lists "cx-2"
+    And the board column "open" lists "cx-3"
+    And the board column "closed" lists ""
 
   @web
   Scenario: The board says whether it shows the live computer or a saved copy
@@ -95,12 +110,12 @@ Feature: Members see the Kanbus board of the workspace in the Board panel
     And the board read 200 issue files
 
   @web
-  Scenario: A long column shows its first cards and says how many more it holds
+  Scenario: A long column draws every issue it holds
     Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
     And the workspace folder "chatticus" holds 35 Kanbus issues
     When the member opens the Board tab
     Then the board column "open" has a count of 35
-    And the board says "and 5 more"
+    And the board column "open" draws 35 cards
 
   @web
   Scenario: A file that is not an issue is left out and counted
