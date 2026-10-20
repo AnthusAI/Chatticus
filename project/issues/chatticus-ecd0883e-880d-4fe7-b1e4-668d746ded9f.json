@@ -8,13 +8,33 @@
   "assignee": null,
   "creator": null,
   "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
-  "labels": ["web", "ui"],
+  "labels": [
+    "web",
+    "ui"
+  ],
   "dependencies": [],
-  "comments": [],
-  "created_at": "2026-10-19T16:50:00.000000Z",
-  "updated_at": "2026-10-19T16:50:00.000000Z",
+  "comments": [
+    {
+      "id": "b46942bf-124a-4ace-8693-3252c2b9a2c5",
+      "author": "home",
+      "text": "The Board panel now renders with the Kanbus project's own component, IssueCollection from @kanbus/ui 0.3.1, installed from the public ui-v0.3.1 release tarball with the integrity hash in package-lock.json. The hand-built board markup from PR 615 is deleted. PR 618 against develop (not merged, awaiting owner review): https://github.com/AnthusAI/Chatticus/pull/618",
+      "created_at": "2026-10-20T01:58:27.563351Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-kanban-shared"
+      }
+    }
+  ],
+  "created_at": "2026-10-19T16:50:00Z",
+  "updated_at": "2026-10-20T01:58:27.563366Z",
   "closed_at": null,
-  "agent": {"platform": "claude-code", "model": "claude-sonnet-5-5", "name": "Claude (project thread for Ryan)"},
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Claude (project thread for Ryan)"
+  },
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {}
