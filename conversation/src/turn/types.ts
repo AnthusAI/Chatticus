@@ -4,6 +4,7 @@ import type { Context } from "@earendil-works/chord";
 import type { Extension } from "@earendil-works/pi-durable";
 import type { Models } from "@earendil-works/pi-ai/models";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { BotBoardService } from "../board/bot-board-service.ts";
 import type { TurnCostOwnerKind } from "../ledger/turn-cost.ts";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
@@ -89,6 +90,8 @@ export type ExecutorDeps = {
 	readonly runVisibility: TurnRunVisibility;
 	/** The function's remaining time, `context.getRemainingTimeInMillis` in the Lambda; absent when time is unbounded. */
 	readonly remainingMilliseconds?: () => number;
+	/** The bot boards service. Absent where the board capability is not rolled out, and then no board tool is offered. */
+	readonly boards?: BotBoardService;
 	/** The computer handoff: actions, start jobs and the spend ceiling pause. */
 	readonly computer: ComputerHandoffDependencies;
 	/**

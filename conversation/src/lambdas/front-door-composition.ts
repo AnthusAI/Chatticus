@@ -7,6 +7,7 @@ import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { LambdaClient } from "@aws-sdk/client-lambda";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { Hono } from "hono";
+import { botBoardServiceFromEnvironment } from "../board/bot-board-service-factory.ts";
 import { createIdTokenVerifier } from "../auth/cognito.ts";
 import { secretsManagerInvokeKeySource } from "../auth/invoke-key-source.ts";
 import { loadIntegrationTestAuthConfig, seedIntegrationTestOrganization } from "../auth/integration-test.ts";
@@ -218,7 +219,9 @@ export async function composeFrontDoorApp(
 					monthlyModelSpendCeilingUsd: monthlyModelSpendCeilingUsdFrom(environment),
 				};
 	const snapshotBucket = environment[SNAPSHOT_BUCKET_VARIABLE] ?? "";
+	const boards = botBoardServiceFromEnvironment(environment, { credentials: () => client.config.credentials(), memberships: store });
 	return createApp({
+		boards,
 		snapshotFiles: snapshotBucket === "" ? null : new SnapshotFileService(new S3SnapshotStore(snapshotBucket, clients.s3)),
 		editOverlay:
 			snapshotBucket === ""

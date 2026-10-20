@@ -3,13 +3,14 @@ Feature: A bot keeps its own work board through its board tool, without a comput
   I want each bot to track its ongoing work on a board of its own
   So that a bot's commitments survive compaction and restarts, are visible to the people who can see the bot, and are never reported as done without evidence
 
-  DRAFT. Implemented by Milestone 2 (Kanbus epic chatticus-c5f14c) once the Kanbus-side dependencies in
-  docs/BOT_BOARDS.md section 9 have landed. This file is not in features/cucumber-features.txt and no step in
-  conversation/features-support/steps/ implements it yet. The contract is docs/BOT_BOARDS.md. Related drafts:
-  bot_board_access.feature (who may do what), bot_board_task_migration.feature (the cutover from Task items),
-  web_bot_boards.feature (the Board tab). Tags: @server (the board tool and the front door against a fake Kanbus
-  cloud store that honors the Kanbus rules named below), @kanbus-parent-writes (needs kbs-8283b923, parent and
-  dependency writes through the Kanbus API).
+  Implemented by Milestone 2 phase 2a (Kanbus epic chatticus-c5f14c): the board service module, the provisioning at bot
+  creation and the board tool. The contract is docs/BOT_BOARDS.md. Related drafts: bot_board_access.feature (who may do
+  what, over the front door routes), bot_board_task_migration.feature (the cutover from Task items),
+  web_bot_boards.feature (the Board tab). Related real features: bot_board_owner_actions.feature (the owner rules inside
+  the board service module) and bot_board_rollout.feature (the capability exists only where the board service is
+  configured). Tags: @server (the board tool and the board service module against an in-process model of the Kanbus
+  board service, which Chatticus reaches only through the published @kanbus/api-client), @kanbus-parent-writes (parent and
+  dependency writes through the Kanbus API, kbs-8283b923).
 
   A new board is provisioned with Kanbus's own default configuration (kbs-344f42ca): the statuses are backlog, open,
   in_progress, blocked and closed, a new card is open, the hierarchy is initiative, epic, task, sub-task, and the types
@@ -32,6 +33,7 @@ Feature: A bot keeps its own work board through its board tool, without a comput
 
   Background:
     Given an empty control plane
+    And the Kanbus board service is configured for this environment
     And the organization "Anthus Labs" has the bot "Assistant"
     And the bot "Assistant" has an empty board
 
@@ -43,11 +45,30 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     And Chatticus supplied no status list
     And the board of "Researcher" accepts the statuses "backlog", "open", "in_progress", "blocked" and "closed"
 
+  @server
+  Scenario: The front door provisions a new board on behalf of the member who created the bot
+    When the bot "Researcher" is created in "Anthus Labs"
+    Then the board of "Researcher" was provisioned on behalf of the member who created the bot
+
+  @server
+  Scenario: A bot whose board cannot be provisioned is not created
+    Given the board store is unreachable
+    When a member tries to create the bot "Researcher" in "Anthus Labs"
+    Then the creation is answered with 502 saying the board could not be provisioned
+    And the bot "Researcher" was not stored in "Anthus Labs"
+
+  @server
+  Scenario: A bot that cannot be stored after its board was provisioned has that board archived
+    Given storing the next bot fails
+    When the bot "Researcher" is created in "Anthus Labs" and storing it fails
+    Then the bot "Researcher" was not stored in "Anthus Labs"
+    And the board that was provisioned for it is archived
+
   # ---------------------------------------------------------------- the happy path
 
   @server
   Scenario: A bot creates a card on its own board without summoning the computer
-    Given the organization computer is stopped
+    Given the computer of "Anthus Labs" is stopped
     When the bot "Assistant" uses the board tool to create a card titled "Pay the electric bill"
     Then the card is on the board of "Assistant"
     And the card has the status "open"
@@ -168,13 +189,14 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     When the bot "Assistant" uses the board tool to reopen the card
     Then the card has the status "open"
     And the card has no closing time
+    And the card no longer records a closing
 
   @server
   Scenario: Bots close cards and never delete them
     Given the bot "Assistant" has a card titled "Pay the electric bill"
     Then the board tool has no delete action
-    When the bot "Assistant" tries to delete the card through the front door
-    Then the response is forbidden
+    When the bot "Assistant" tries to delete the card through the board service
+    Then the board service refuses it as forbidden
     And the card is still on the board
 
   # ---------------------------------------------------------------- invalid changes
@@ -235,6 +257,23 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     Then the card "Pay the electric bill" lists a dependency on "Receive the statement"
 
   @server @kanbus-parent-writes
+  Scenario: Adding a dependency keeps the dependencies the card already has
+    Given the bot "Assistant" has the cards "Pay the electric bill", "Receive the statement" and "Check the balance"
+    When the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Receive the statement"
+    And the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Check the balance"
+    Then the card "Pay the electric bill" lists a dependency on "Receive the statement"
+    And the card "Pay the electric bill" lists a dependency on "Check the balance"
+
+  @server @kanbus-parent-writes
+  Scenario: Removing a dependency keeps the rest
+    Given the bot "Assistant" has the cards "Pay the electric bill", "Receive the statement" and "Check the balance"
+    And the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Receive the statement"
+    And the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Check the balance"
+    When the bot "Assistant" uses the board tool to remove the dependency of "Pay the electric bill" on "Receive the statement"
+    Then the card "Pay the electric bill" lists no dependency on "Receive the statement"
+    And the card "Pay the electric bill" lists a dependency on "Check the balance"
+
+  @server @kanbus-parent-writes
   Scenario: A dependency on a card that does not exist is refused
     Given the bot "Assistant" has a card titled "Pay the electric bill"
     When the bot "Assistant" uses the board tool to record that the card depends on "no-such-card"
@@ -269,13 +308,6 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     And the card has the status "in_progress"
 
   @server
-  Scenario: Creating a card is conditional on the card not being there already
-    Given the bot "Assistant" has created a card with a chosen identifier
-    When another request creates a card with the same identifier
-    Then the second creation is a conflict
-    And the first card is unchanged
-
-  @server
   Scenario: An owner deleting a card needs the revision the deleter saw
     Given the bot "Assistant" has a card titled "Pay the electric bill" at revision 3
     When an organization owner deletes the card expecting revision 2
@@ -288,11 +320,11 @@ Feature: A bot keeps its own work board through its board tool, without a comput
 
   @server
   Scenario: A retried create does not make a second card
-    Given the bot "Assistant" creates a card titled "Pay the electric bill" with the operation id "op-1"
-    And the network answer to that creation was lost
+    Given the network answer to the next board write is lost
+    And the bot "Assistant" creates a card titled "Pay the electric bill" with the operation id "op-1"
     When the bot "Assistant" repeats the same creation with the operation id "op-1"
     Then the board of "Assistant" has exactly one card titled "Pay the electric bill"
-    And the repeated call returns the same card as the first
+    And the repeated call returns the card the first call stored
 
   @server
   Scenario: A retried move replays the first result
@@ -311,9 +343,59 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     And the card has the status "in_progress"
 
   @server
+  Scenario: A retried change resends the revision it first read even though the card has moved on
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    And the bot "Assistant" moved the card to the status "in_progress" by a tool call that read the revision first, with the operation id "op-3"
+    And an organization owner changes the title of the card to "Pay the water bill" so that it is at revision 3
+    When the worker retries that tool call
+    Then the retry is answered as saved and wrote nothing
+    And the card has the status "in_progress"
+    And the card keeps the title "Pay the water bill"
+
+  @server
+  Scenario: A different revision under the same operation key is refused and reported as not saved
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    And the bot "Assistant" moved the card to the status "in_progress" with the operation id "op-2"
+    When the bot "Assistant" uses operation id "op-2" to move the card to the status "in_progress" expecting revision 2
+    Then the board tool reports that the operation id was used for a different change
+    And the board tool reports that the change was not saved
+    And the board tool says to use a new operation key
+    And the card was written once
+
+  @server
+  Scenario: A move retried exactly as the failed result said is applied once
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    And the network answer to the next board write is lost
+    And the bot "Assistant" uses the board tool to move the card to the status "in_progress" with the operation key "op-4"
+    When the bot "Assistant" repeats that change as its failed result said
+    Then the board tool reports the card as saved
+    And the card has the status "in_progress"
+    And the card was written once
+
+  @server
+  Scenario: A completion retried after the comment was saved and the close failed adds no second comment
+    Given the bot "Assistant" has a card titled "File the return" with the status "in_progress"
+    And the board store cannot close the next card
+    And the bot "Assistant" tries to complete the card with the evidence "confirmation-id:ret-42" using the operation key "op-5"
+    Then the board tool reports that the card was not saved
+    And the card still has the status "in_progress"
+    When the bot "Assistant" repeats that change as its failed result said
+    Then the card has the status "closed"
+    And the card has exactly one closing comment holding the evidence "confirmation-id:ret-42"
+
+  @server
+  Scenario: The same operation key on another card is a different change
+    Given the bot "Assistant" has the cards "Pay the electric bill" and "Renew insurance"
+    When the bot "Assistant" uses the board tool to move the card "Pay the electric bill" to the status "in_progress" with the operation key "op-6"
+    And the bot "Assistant" uses the board tool to move the card "Renew insurance" to the status "in_progress" with the operation key "op-6"
+    Then the board tool reports the card as saved
+    And the card "Pay the electric bill" has the status "in_progress"
+    And the card "Renew insurance" has the status "in_progress"
+
+  @server
   Scenario: A turn that is retried by the worker does not repeat its board writes
     Given the bot "Assistant" runs a turn that creates the card "Pay the electric bill" and then the worker is interrupted
-    When the worker retries the same turn
+    When the worker retries the same tool call of that turn
     Then the board of "Assistant" has exactly one card titled "Pay the electric bill"
 
   # ---------------------------------------------------------------- honest saving and failure
@@ -330,14 +412,14 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     When the bot "Assistant" uses the board tool to create a card titled "Pay the electric bill"
     Then the board tool reports that the card was not saved
     And the board tool says the change may be retried with the same operation id
-    And the bot's reply does not say the card was created
+    And no board tool result in the turn says the card was saved
 
   @server
   Scenario: A change whose answer was lost is checked before it is retried by hand
-    Given the board store saved a creation but its answer was lost
-    When the bot "Assistant" uses the board tool to read its board
-    Then the card is on the board
-    And the board tool reports it as saved
+    Given the network answer to the next board write is lost
+    And the bot "Assistant" uses the board tool to create a card titled "Pay the electric bill"
+    When the bot "Assistant" uses the board tool to list its board
+    Then the board tool lists "Pay the electric bill"
 
   @server
   Scenario: The board store being down does not stall the turn
@@ -345,21 +427,15 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     When the bot "Assistant" receives "add a card to your board titled Pay the electric bill"
     And the bot "Assistant" runs one computerless worker turn
     Then the turn finishes
-    And the bot tells the member that the board is unavailable and the card was not saved
+    And the board tool reports that the card was not saved
+    And the board of "Assistant" has no card titled "Pay the electric bill"
 
   @server
-  Scenario: A saved card that the listing does not show yet is reported as pending
-    Given a card was saved but the board's index has not caught up
-    When the bot "Assistant" uses the board tool to list its board
-    Then the board tool says the listing may be behind
+  Scenario: A card saved before the board's index has caught up is reported as pending
+    Given the board's index has not caught up
+    When the bot "Assistant" uses the board tool to create a card titled "Pay the electric bill"
+    Then the board tool says the card is saved and that the listing may be behind
     And reading that card by its id returns the saved card
-
-  @server
-  Scenario: A listing that is behind is never presented as the card text
-    Given a card was saved but the board's index has not caught up
-    When the bot "Assistant" uses the board tool to list its board
-    Then the saved text of every card shown comes from the saved record
-    And the index is used only to find which cards exist
 
   # ---------------------------------------------------------------- the boundary
 
@@ -367,24 +443,26 @@ Feature: A bot keeps its own work board through its board tool, without a comput
   Scenario: A bot cannot write to the board of another bot in the same organization
     Given the bot "Researcher" in the same organization has a card titled "Read the vendor report"
     When the bot "Assistant" uses the board tool to move the card of "Researcher" to the status "in_progress"
-    Then the board tool is denied
+    Then the board tool reports that the card was not found
     And the card of "Researcher" is unchanged
 
   @server
   Scenario: A bot cannot choose a board by naming it
+    Given the bot "Researcher" in the same organization has a card titled "Read the vendor report"
     When the bot "Assistant" uses the board tool and names the board of "Researcher"
     Then the board tool uses the board of "Assistant" and never the named one
 
   @server
   Scenario: A bot that is not in the organization has no board there
-    Given the bot "Outsider" belongs to the organization "Other House"
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    And the bot "Outsider" belongs to the organization "Other House"
     When the bot "Outsider" uses the board tool to read the card of "Assistant"
-    Then the board tool is denied
+    Then the board tool reports that the card was not found
     And no card content is returned
 
   @server
   Scenario: Bot board tools are available to a computerless worker turn
-    Given the organization computer is stopped
+    Given the computer of "Anthus Labs" is stopped
     When the bot "Assistant" receives "add a card to your board titled Pay the electric bill"
     And the bot "Assistant" runs one computerless worker turn
     Then the card is on the board of "Assistant"

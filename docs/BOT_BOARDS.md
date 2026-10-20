@@ -1,12 +1,15 @@
 # Bot boards (Milestone 2 contract)
 
-> **Status:** CONTRACT, specification only. Nothing on this page is built. It is the contract between Chatticus and
-> the Kanbus cloud store that Chatticus consumes. The behavior is in four draft features:
+> **Status:** CONTRACT, partly built. Phase 2a (the server side of the bot's own board) is built behind a rollout switch:
+> the board service module, provisioning at bot creation and the board tool, described in section 12 and specified by
 > [`bot_board_tool.feature`](../features/bot_board_tool.feature),
+> [`bot_board_owner_actions.feature`](../features/bot_board_owner_actions.feature) and
+> [`bot_board_rollout.feature`](../features/bot_board_rollout.feature), all in `features/cucumber-features.txt`. Not built:
+> the HTTP routes, the web Board tab and the Task migration, which stay in the drafts
 > [`bot_board_access.feature`](../features/bot_board_access.feature),
 > [`bot_board_task_migration.feature`](../features/bot_board_task_migration.feature) and
-> [`web_bot_boards.feature`](../features/web_bot_boards.feature). None is in `features/cucumber-features.txt`; each is
-> registered, with its steps, by the part of Milestone 2 that implements it. The decisions are the owner's, recorded on
+> [`web_bot_boards.feature`](../features/web_bot_boards.feature). The contract is between Chatticus and
+> the Kanbus cloud store that Chatticus consumes. The decisions are the owner's, recorded on
 > Kanbus epic `chatticus-c5f14c`. Where the decisions are silent this page says so in section 10 and does not guess. Decisions made on 2026-10-20 are
 > listed in section 11.
 
@@ -243,6 +246,21 @@ Not decided. Each is a question for the owner, the Kanbus project, or both. None
 11. **Panel copy and gestures.** "Saved to the cloud", "Saving", "Failed to save", "Changed by someone else", dragging on
     iPad and a status menu on a phone are proposals for design review.
 12. **Deployment shape.** Decided, see section 11 (l).
+13. **Bot creation when provisioning fails.** The contract says the board is provisioned when the bot is created and does not
+    say what happens when that fails. Phase 2a lets the error propagate: the board is provisioned before the bot is stored, a
+    failure fails the creation (HTTP 502 with the reason) and nothing is stored, and a bot that fails to store after its board was provisioned has the board archived (best effort). Lazy provisioning on first use is not possible
+    because the turn executor role has no `provision` grant. Decide: fail creation (as now), create the bot and retry
+    provisioning later (needs a retry owner), or grant the executor `provision`.
+14. **Closing as two writes.** Kanbus has no comment inside an update, so a close is a comment and then an update (section 12).
+    A failed second write leaves a closing comment on an open card. Ask Kanbus for an update that carries a closing comment, or
+    accept the two writes.
+15. **`custom.closing` on reopen.** Resolved by Kanbus: null sets the key to null.
+16. **Client surface.** Resolved except one: create takes no id (the server makes `<project_key>-<uuid>`) and list pages never carry `catalog_pending`, so those scenarios stay draft; `dependencies` is typed from client 0.1.1.
+17. **Replay and `If-Match`.** Resolved by Kanbus: `If-Match` is part of the hashed request (section 12).
+18. **Relation writes in the deployed artifact.** Resolved: available in `@kanbus/cdk` 0.2.0 (Kanbus 0.39.0).
+19. **Removing a member.** The membership store has no removal, so "a member who is removed stops reading" cannot be
+    specified yet; the role-change scenarios are real, the removal scenario stays in `bot_board_access.feature`.
+20. **Default card type.** `create` defaults the type to `task` because the client requires a type; confirmed by Kanbus.
 
 ## 11. Decided
 
@@ -276,3 +294,67 @@ Answers from the Kanbus project, 2026-10-20:
   environment's control plane stack, in the production account. Each environment owns separate resources and its API invoke
   grant names only that environment's two roles, so a staging role cannot reach the development API or the reverse. The
   shared-stack rule in AGENTS.md is not extended to it. Rollout: development first (`KANBUS_BOARD_ENVIRONMENTS`).
+
+## 12. Phase 2a: the server side of the bot's own board
+
+Code: `conversation/src/board/` (the board service module and its client wiring) and `conversation/src/pi/bot-board-tool.ts`
+(the `board` tool). Chatticus reaches the board service only through the Kanbus project's published TypeScript client
+`@kanbus/api-client` 0.1.1, installed from its GitHub release tarball with the integrity pinned in the lockfile; the pin is `@kanbus/api-client` 0.1.1 together with `@kanbus/cdk` 0.2.0, as a pair (the same
+pattern as `@kanbus/ui` and `@kanbus/cdk`). It makes no HTTP call of its own to the board service and re-implements none of
+Kanbus's validation: it sends the request and maps the answer.
+
+**Rollout switch.** The whole capability is active only where `CHATTICUS_KANBUS_API_URL` is set, which today is the
+development environment only (`KANBUS_BOARD_ENVIRONMENTS`). Where it is absent no board service is built, bot creation
+provisions nothing, and the `board` tool is not offered to the model. The old `task` tool is untouched in both cases
+([`bot_board_rollout.feature`](../features/bot_board_rollout.feature)).
+
+**Signing and actor.** Each request is signed with SigV4 for `execute-api` using the function role's own credentials
+(`createSigV4SignedFetch`, built on `src/acceptance/sigv4.ts`). The signing is inside the client's `fetch` option, which receives the final URL and the exact body string, as the
+client's README shows; the `headers` hook takes no arguments and runs before the body is serialized, so it is never used to sign. Credentials are read from the role's provider on every request. The request carries `x-amz-content-sha256`, the hash of the exact body, and the signature covers it. A role with `delegate_actor` must send `X-Kanbus-Actor` on every request, reads included, so the
+client is built per acting person or bot with the header in its `headers` hook, and writes also pass `actor`. The actor is
+`chatticus:bot:<botId>` for the bot's tool calls and `chatticus:user:<userId>` for owner actions.
+
+**Who runs what.** The front door role holds `provision` and `delegateActor`; the turn executor role holds only
+`delegateActor`. Provisioning, archive and restore therefore run in the front door; the board tool runs in the turn executor.
+Because the executor cannot provision, a board is provisioned when the bot is created and not lazily on first use.
+
+**Provisioning.** `provisionBotBoard` is `client.board(organizationId, botId).provision()` with no body (Kanbus's default
+configuration). A created board and a 409 `board_exists` both count as provisioned. Its operation id is derived from the
+organization and bot ids alone, so a retry replays.
+
+**Operation ids.** `deriveBoardOperationId` hashes (SHA-256) the board, the action, the card id, the step and an operation key (so a model-chosen key reused on another card is a different change) into a
+UUID. The request body is not an input, so reusing a key for a different change reaches Kanbus unchanged and is refused
+there with `operation_conflict`. The tool's operation key is `<turnId>/<toolCallId>` unless the model passes
+`operation_key`, which a failed (unconfirmed) result hands back, with the `revision_used`, so the same change can be repeated exactly across turns: Kanbus compares `If-Match` as part of the request, so a retry must resend the revision of the first attempt, not a fresh read. Within one tool call the durable tool memo (`api.memo`) holds that revision; across calls the model passes `operation_key` and `revision_used` back, as the tool description tells it. A call that
+is interrupted and run again has the same turn and tool call ids, hence the same operation ids, hence it replays; the tool is
+registered replay-safe for that reason. When the model names no revision the tool reads the card first and remembers the
+revision it read in the durable tool memo, so a replay writes against the revision of the first attempt.
+
+**Replay.** Kanbus hashes method, path, body, actor and `If-Match` for idempotency, so a retry must resend the original `If-Match`. The tool remembers the revision it read (durable tool memo) and resends it; a model-supplied different revision under the same `operation_key` is an `operation_conflict`, reported as not saved with guidance to use a new `operation_key`.
+
+**Types.** The tool never changes a card's type (Kanbus refuses a change to or from a hierarchy type with 409 `type_change_unsupported` until kbs-1a88cdf5); the type is chosen at create, default `task`. The 409 codes `relation_target_missing`, `issue_has_children`, `issue_has_dependents`, `hierarchy_violation` and `type_change_unsupported` are reported as not saved validation failures.
+
+**Dependencies.** `@kanbus/api-client` 0.1.1 types `dependencies` (`KanbusDependencyLink`, type `blocked-by` or `relates-to`). A patch's `dependencies` array replaces the existing links, so adding or removing one reads the card, computes the full new list and sends all of it, against the card's revision like any update. A missing target is reported as not saved with Kanbus's `relation_target_missing`.
+
+**Closing.** Kanbus's API has no comment inside an update, so completing or closing a card is two writes with two derived
+operation ids: a comment holding the evidence or reason (`Completed. Evidence: ...` or `Closed. Reason: ...`), then an update
+to `closed` with `custom.closing`. If the second fails the result says the comment was saved and the card was not closed. A plain status
+change to `closed` is refused before any call. Reopening sets `status` to `open` and `custom.closing` to JSON null: Kanbus merges `custom` shallowly by key and a null sets the key to null, so a reopened card reads as not closed.
+
+**Honest results.** A write is reported `saved` only after the store answered with the record. A response that is an
+error is reported as what it said (denied, not found, conflict with the current revision, validation failure naming the
+field, operation id reused, archived). An unreachable store, a 5xx or an unrecognized answer is `not_saved`: the change
+may or may not be stored. A write answered with `catalog_pending` is reported saved with a note that the listing may be
+behind.
+
+**Owner rules inside the module.** Reads need membership in the organization (a stranger gets not found); writes need an
+owner, or the bot on its own board; a bot never deletes and never touches another bot's board; role is read from the
+membership store at every call. Archive and restore need an owner and the front door's provisioning role. Chatticus never
+calls purge. The HTTP routes that will expose these to members are a later phase.
+
+**Tests.** `conversation/features-support/fakes/fake-kanbus-board-service.ts` models the published Kanbus behavior of
+section 4 and the Kanbus service README in process, as a `fetch` the real client talks to. It verifies the SigV4 signature itself (it recomputes it over the received method, canonical path and query, signed headers and the hash of the received body bytes, with the role's secret) and refuses a body signed as empty, a body or header changed after signing, a missing payload hash and any unsigned header; it also refuses wherever the scenarios
+do not need it to accept: unregistered roles, a missing or malformed actor header for a delegating role, an
+actor header from a non-delegating role, a missing or non-UUID operation id, a missing `If-Match`, unknown fields, wrong
+hierarchy levels, workflow transitions the generated configuration does not allow, and every route of an archived board.
+

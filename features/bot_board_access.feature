@@ -255,3 +255,31 @@ Feature: Who can see and change a bot's board
     Then the audit log has a record for "sam@example.com" with the outcome "refused" for the board of "Assistant"
     And the audit log has a record for "olive@example.org" with the outcome "refused" for the board of "Assistant"
     And no audit record contains card text
+
+
+  # ---------------------------------------------------------------- scenarios moved from bot_board_tool.feature
+  # These stay draft because they cannot be expressed through the published @kanbus/api-client 0.1.0: a create request has
+  # no id field (the store makes the id), and a listing page carries no catalog_pending flag (only a write response does).
+  # Both are behaviors of the Kanbus store itself, so a later phase either asks Kanbus for the client surface or tests them
+  # on the Kanbus side.
+
+  @server
+  Scenario: Creating a card is conditional on the card not being there already
+    Given the bot "Assistant" has created a card with a chosen identifier
+    When another request creates a card with the same identifier
+    Then the second creation is a conflict
+    And the first card is unchanged
+
+  @server
+  Scenario: A saved card that the listing does not show yet is reported as pending
+    Given a card was saved but the board's index has not caught up
+    When the bot "Assistant" uses the board tool to list its board
+    Then the board tool says the listing may be behind
+    And reading that card by its id returns the saved card
+
+  @server
+  Scenario: A listing that is behind is never presented as the card text
+    Given a card was saved but the board's index has not caught up
+    When the bot "Assistant" uses the board tool to list its board
+    Then the saved text of every card shown comes from the saved record
+    And the index is used only to find which cards exist

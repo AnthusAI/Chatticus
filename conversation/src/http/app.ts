@@ -19,6 +19,7 @@ import { submitSelfSetupCrossAccountRoleHandler } from "./routes/self-setup.ts";
 import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
+import type { BotBoardProvisioner } from "../domain/bots.ts";
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
 import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
@@ -171,6 +172,8 @@ export interface AppDeps {
 	 * are registered only when this is given: the secret the tokens are signed with and the credential broker.
 	 */
 	ownerSupervisor?: { readonly signingKey: string; readonly broker: OwnerCredentialBrokerPort; readonly minimumProtocolVersion?: number };
+	/** Provisions a new bot's board. Present only where the board capability is rolled out; absent, bot creation is unchanged. */
+	boards?: BotBoardProvisioner | null;
 }
 
 /**
@@ -321,7 +324,7 @@ export function createApp(deps: AppDeps): Hono {
 	);
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
-		createBotHandler(c, userRoutes),
+		createBotHandler(c, { ...userRoutes, boards: deps.boards ?? null }),
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
 		lookupBotHandler(c, userRoutes),

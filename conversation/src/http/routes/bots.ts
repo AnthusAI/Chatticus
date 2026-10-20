@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { BotNotFoundError, botById, botByName, createBot, listBots } from "../../domain/bots.ts";
-import type { Bot } from "../../domain/bots.ts";
+import { BotBoardProvisioningError, BotNotFoundError, botById, botByName, createBot, listBots } from "../../domain/bots.ts";
+import type { Bot, BotBoardProvisioner } from "../../domain/bots.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import type { IdSource } from "../app.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
@@ -9,6 +9,7 @@ import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDepen
 export interface BotRouteDependencies extends UserPrincipalDependencies {
 	store: MessagingStore;
 	ids: IdSource;
+	boards?: BotBoardProvisioner | null;
 }
 
 /** One bot as the HTTP API renders it. */
@@ -42,13 +43,20 @@ export async function createBotHandler(c: Context, deps: BotRouteDependencies): 
 		return c.json({ detail: "bot name is required" }, 400);
 	}
 	const idempotencyKey = (c.req.header("Idempotency-Key") ?? "").trim() || null;
-	const bot = await createBot(
-		pathParameter(c, "tenant_id"),
-		name,
-		{ creatorUserId: principal.userId, idempotencyKey },
-		deps,
-	);
-	return c.json(botPayload(bot), 200);
+	try {
+		const bot = await createBot(
+			pathParameter(c, "tenant_id"),
+			name,
+			{ creatorUserId: principal.userId, idempotencyKey },
+			deps,
+		);
+		return c.json(botPayload(bot), 200);
+	} catch (error) {
+		if (error instanceof BotBoardProvisioningError) {
+			return c.json({ detail: error.message }, 502);
+		}
+		throw error;
+	}
 }
 
 /** GET /orgs/{tenant_id}/bots?name=: look one bot up by its organization name. */
