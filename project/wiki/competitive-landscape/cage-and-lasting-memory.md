@@ -3,7 +3,7 @@
 **Date:** 2026-09-08  
 **Purpose:** Axes note for how Chatticus’s shared computer + lasting mind line up with Claude Code (phone), Instinct, Cursor Cloud Agents, OpenAI Codex, and Grok Bot. Product dossiers stay on [product pages](index.md). Freeform research memo: `/workspace/research-cage-compare-2026-09-08.md` (outside this tree).
 
-**Chatticus SoT:** `docs/PRODUCT.md`, `docs/COMPUTER_SNAPSHOTS.md`, `docs/COMPUTER_MANIFOLD.md`, `docs/ARCHITECTURE.md`, and README “What is live today” on `develop` (host-disk story closed 2026-09-08; live file-recycle lab UpdateStack still open).
+**Chatticus SoT:** `docs/PRODUCT.md`, `docs/COMPUTER_SNAPSHOTS.md`, `docs/COMPUTER_MANIFOLD.md`, `docs/ARCHITECTURE.md` on `develop` (host-disk story closed 2026-09-08; live file-recycle lab UpdateStack still open).
 
 **External teardown:** [Rohan Adwankar — The box an agent runs in](https://rohanadwankar.github.io/posts/platforms.html) (Claude Code phone + Instinct).
 
