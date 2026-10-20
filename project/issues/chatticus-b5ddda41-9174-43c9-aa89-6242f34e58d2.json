@@ -3,7 +3,7 @@
   "title": "CloudTrail has no trail on development and no S3 or DynamoDB data events in any environment",
   "description": "From PR 551: development has only the 90-day CloudTrail event history, so an investigation can see who got a role session but not what the session did; the Front Door file audit does not cover direct S3 or DynamoDB access by a leaked credential. Decide and build a trail with data events for the snapshot bucket, the PiSessions bucket and the messaging table (cost-aware: data events are billed per event; scope to the sensitive prefixes), in CDK, for development first. Acceptance: a read made by the owner role appears in the trail; cost estimate documented in the ticket; runbook section 9 updated; UNVERIFIED item U10 resolved.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -22,11 +22,23 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-audit-trail"
       }
+    },
+    {
+      "id": "fb332472-8103-45fd-8d07-17ec0a54aca9",
+      "author": "home",
+      "text": "Deployed ChatticusAuditTrail to the production account on 2026-10-20 (diff showed only a new bucket, bucket policy and trail; deploy 27s). Verified: trail chatticus-audit-trail IsLogging true, multi-region true, log file validation true, global service events on, no KMS key, no CloudWatch Logs, no Insights, event selector management events ReadWriteType All with no DataResources. Bucket: block public access all four on, SSE-S3 (AES256), 400 day expiry, 7 day multipart abort, policy allows only cloudtrail.amazonaws.com conditioned on this trail's ARN plus a TLS-only deny. Delivery: first log file landed about 3 minutes after deploy, get-trail-status LatestDeliveryError none. Closing as done for management events: the owner decided NOT to enable S3 and DynamoDB data events for cost, so the acceptance items for data events (an owner-role read appearing in the trail, scoped data events) are intentionally not met. Follow-up note: if data events are ever wanted, open a new ticket with a per-event cost estimate and prefix scoping; U10 is resolved as 'not recorded, by decision'. Docs PR 627 records the deploy date in the revocation runbook.",
+      "created_at": "2026-10-20T20:05:51.829438Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-audit-trail-deploy"
+      }
     }
   ],
   "created_at": "2026-10-14T10:24:45.151566Z",
-  "updated_at": "2026-10-20T19:39:12.817624Z",
-  "closed_at": null,
+  "updated_at": "2026-10-20T20:05:51.900307Z",
+  "closed_at": "2026-10-20T20:05:51.899986Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
