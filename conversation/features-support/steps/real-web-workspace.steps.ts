@@ -524,6 +524,7 @@ Then("the registration is refused as reserved", function (this: ChatticusWorld) 
 
 Then("the Context and Files panels are rendered by their plugin elements", function (this: ChatticusWorld) {
 	assert.equal(scenarioOf(this).result.contextPanelRendered, true);
+	assert.equal(scenarioOf(this).result.filesPanelRendered, true);
 });
 
 When("a plugin manifest points at a module that does not exist", { timeout: 60_000 }, async function (this: ChatticusWorld) {
