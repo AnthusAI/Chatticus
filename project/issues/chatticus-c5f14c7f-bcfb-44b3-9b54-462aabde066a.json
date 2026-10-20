@@ -70,10 +70,22 @@
         "model": "claude-sonnet-5-5",
         "name": "drift-fix"
       }
+    },
+    {
+      "id": "4c0901e8-24e7-43d4-9eb1-d7e653ccede0",
+      "author": "home",
+      "text": "Live proof BLOCKED (nothing run against the model or board). Step 6 passes: staging and production Front Door Lambdas have no CHATTICUS_KANBUS_API_URL (env var names checked), /api/health 200 on both. Steps 1-5 not run: the allowed role (chatticus-github-actions-integration-test-development) trusts only sts:AssumeRoleWithWebIdentity from GitHub OIDC for the development environment, so no local mechanism exists (SSO admin cannot assume it, and per R1 I did not try to bypass); and no existing GitHub workflow runs conversation/bin/acceptance.ts or the smoke test (none in .github/workflows), and I was told not to create workflows. Also at check time development deploys of dec820db were still in progress (Auth success; ControlPlane, ThinTurn, Web, CI running). Needs: a workflow_dispatch acceptance workflow in the development environment (plus a board-proof script exercising the board tool), or an owner decision to add a local assume path.",
+      "created_at": "2026-10-20T21:58:58.132419Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-live-proof"
+      }
     }
   ],
   "created_at": "2026-10-16T20:43:28.709933Z",
-  "updated_at": "2026-10-20T13:17:43.875634Z",
+  "updated_at": "2026-10-20T21:58:58.132446Z",
   "closed_at": null,
   "agent": {
     "platform": "codex",
