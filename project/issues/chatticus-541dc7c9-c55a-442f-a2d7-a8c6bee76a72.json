@@ -10,9 +10,22 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2cfd8616-19e1-469b-a8be-b0c5a6a23ed1",
+      "author": "home",
+      "text": "Referenced by the revocation runbook second read (chatticus-816a1a): section 5 of docs/OWNER_CREDENTIAL_REVOCATION.md now points here. Also settles runbook items U3 and U4's remaining half.",
+      "created_at": "2026-10-20T18:44:17.003739Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-second-reader"
+      }
+    }
+  ],
   "created_at": "2026-10-14T10:24:42.014819Z",
-  "updated_at": "2026-10-14T10:24:42.014856Z",
+  "updated_at": "2026-10-20T18:44:17.003756Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

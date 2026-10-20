@@ -46,10 +46,22 @@
         "model": "claude-sonnet-5-5",
         "name": "drift-fix"
       }
+    },
+    {
+      "id": "ba5daf98-f57a-45e4-a306-f790704293c8",
+      "author": "home",
+      "text": "Second read done 2026-10-20 on development (read-only, nothing deployed, no secret rotated). PR 623 merged. Per step: 0.1 shell setup - CORRECTED (hard-coded role, Lambda and log-group names were from the retired development account; now derived from CloudFormation). 1.1 sts identity with a leaked file - syntax worked with a credential-free file; real leaked credential NOT EXERCISABLE. 1.2 logs start-query - CORRECTED (broker/starter log groups are truncated names; supervisor lines live in the ComputerLogs group; no rows exist, development has no owner lines); ECS cluster selector CORRECTED (old selector matched production ChatticusComputers-Cluster, so stop-task could have hit production). 2.1 suspend - route and gate worked (wrong bearer gives 403), success path NOT EXERCISABLE (mutates). 2.2 stop-task - NOT EXERCISABLE (no development owner task running); text corrected: an ECS stop does not make the owner report stopped, the control plane settles it after the 30 s heartbeat window. 3 deny - CORRECTED (2b is live: impairment lasts until the next scheduled renewal, up to about 40 min, not one failed request); simulator dry run worked (explicitDeny for old session, allowed for new); CDK deny SYNTHESIZED (two AWS::IAM::Policy resources, not deployed); live deny and broker-not-locked-out NOT EXERCISABLE (U1 open). 3.4 list-role-policies and simulate-role-access (42 of 42) worked. 4 tokens - worked (code read). 5 signing key - list-secret-version-ids worked; put command CORRECTED (pipe stored a trailing newline); rotation and recycle NOT EXERCISABLE (destructive); 401 invalid_credential probe with a made-up token worked on development. 6 invoke key dry run worked. 7 removal - list-role-policies worked, delete NOT EXERCISABLE. 9 audit - DynamoDB queries, lookup-events, describe-trails worked (empty: no trail in the account, no rows). 10.1 acceptance runner - CORRECTED (it does not exercise a computer turn). U1-U13 updated: U4, U5, U8, U9, U10, U11, U13 resolved. The two differences resolved: (1) contract S6 says the deny is a CDK change, runbook offered a CLI deny - now the CDK change is documented and synthesized, CLI kept as a recorded exception until the switch is built; (2) contract 12.3 said one failed request per owner, code renews on a clock and the runbook was written around a 2a/2b split - runbook now states 2b only and 12.3 corrected. Gaps filed or linked: chatticus-c06de6 (CDK switch), chatticus-ebf08a (operator stop route), chatticus-541dc7 (signing key rotation script, existing). Acceptance met (document exists, commands run read-only or dry-run, deny synthesized, second reader followed once, this comment); closing.",
+      "created_at": "2026-10-20T18:44:27.626327Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-second-reader"
+      }
     }
   ],
   "created_at": "2026-10-14T09:53:45.127752Z",
-  "updated_at": "2026-10-20T13:17:35.684821Z",
+  "updated_at": "2026-10-20T18:44:27.626353Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
