@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-4ffd0dc4-84e8-47e5-a015-19b7a0ed1e22",
+  "title": "Flaky real_web_workspace scenarios: function timeout and panel-render assertion fail intermittently in CI",
+  "description": "",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "93a564a7-5c8a-4036-8216-b3c4945d424d",
+      "author": "home",
+      "text": "Seen 2026-10-20 on PR 622 (spec-only change, so unrelated): the conversation CI job failed two scenarios in features/real_web_workspace.feature, one with a function timeout and one with a panel-render assertion; rerunning the failed job passed. Also seen locally on 2026-10-19 by the Board-panel worker: one real_web_workspace scenario fails on a Mac whose OS is in dark mode because the scenario reads the OS color scheme. Make the scenarios deterministic (fixed color scheme in the harness, no wall-clock dependence) and find the timeout's cause.",
+      "created_at": "2026-10-20T11:14:34.169007Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5-5",
+        "name": "orchestrator"
+      }
+    }
+  ],
+  "created_at": "2026-10-20T11:14:34.045763Z",
+  "updated_at": "2026-10-20T11:14:34.169025Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5-5",
+    "name": "orchestrator"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
