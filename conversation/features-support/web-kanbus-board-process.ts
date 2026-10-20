@@ -1,0 +1,36 @@
+import { startLongLivedWebHarness } from "./web-harness-runner.ts";
+
+export type KanbusBoardTestElement = { testId: string; text: string };
+
+export type KanbusBoardRequest = {
+	method: string;
+	route: string;
+	query: Record<string, string>;
+};
+
+export type KanbusBoardState = {
+	html: string;
+	text: string;
+	elements: KanbusBoardTestElement[];
+	requests: KanbusBoardRequest[];
+};
+
+/**
+* The real Board panel controller and view and a fake running computer behind the member file routes, in one
+* long-lived tsx process. Steps send it JSON commands; the code under test is the production web code.
+*/
+export class KanbusBoardProcess {
+	private readonly harness = startLongLivedWebHarness("kanbus-board-harness.ts");
+
+	send<T = unknown>(command: Record<string, unknown>): Promise<T> {
+		return this.harness.send<T>(command);
+	}
+
+	state(): Promise<KanbusBoardState> {
+		return this.send<KanbusBoardState>({ op: "state" });
+	}
+
+	close(): void {
+		this.harness.close();
+	}
+}

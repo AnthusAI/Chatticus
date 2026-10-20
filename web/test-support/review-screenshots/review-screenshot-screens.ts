@@ -99,6 +99,28 @@ export const REVIEW_SCREENS: ReadonlyArray<ReviewScreen> = [
     },
   },
   {
+    id: "panel-board",
+    label: "Board panel",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      await page.getByTestId("kanbus-board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
+    id: "panel-board-full",
+    label: "Board panel, full screen",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      const fillsWorkspace = await clickFirstVisible(page, page.getByRole("button", { name: "Full", exact: true }));
+      if (!fillsWorkspace) return false;
+      await page.getByTestId("kanbus-board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
     id: "panel-costs",
     label: "Costs panel",
     signedIn: true,

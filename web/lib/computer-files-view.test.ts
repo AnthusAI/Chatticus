@@ -167,10 +167,11 @@ describe("PanelPluginTabs", () => {
   it("moves between tabs with arrow, Home and End keys", () => {
     assert.equal(nextPanelPlugin("context", "ArrowRight"), "files");
     assert.equal(nextPanelPlugin("files", "ArrowRight"), "costs");
-    assert.equal(nextPanelPlugin("costs", "ArrowRight"), "context");
-    assert.equal(nextPanelPlugin("context", "ArrowLeft"), "costs");
+    assert.equal(nextPanelPlugin("costs", "ArrowRight"), "board");
+    assert.equal(nextPanelPlugin("board", "ArrowRight"), "context");
+    assert.equal(nextPanelPlugin("context", "ArrowLeft"), "board");
     assert.equal(nextPanelPlugin("files", "Home"), CORE_PANEL_PLUGIN_MANIFESTS[0].id);
-    assert.equal(nextPanelPlugin("context", "End"), "costs");
+    assert.equal(nextPanelPlugin("context", "End"), "board");
     assert.equal(nextPanelPlugin("context", "a"), null);
   });
 
