@@ -13,9 +13,11 @@ Feature: Members pick between the project boards of the computer and the interna
   The Board tab has a picker with two sections. Project boards are the Kanbus projects in the files of the organization
   computer's workspace, drawn from the issue files as features/web_kanbus_board.feature already tells. Bot boards are the
   internal boards of the organization's bots, read through the front door from the Kanbus cloud store. Both are drawn by
-  the same component, IssueCollection from @kanbus/ui, with the same themes; the panel supplies only the cards and a
-  configuration. A bot board needs no computer. The panel reads for every member and changes cards only for the people
-  bot_board_access.feature allows.
+  the same component, IssueCollection from @kanbus/ui, with the same themes; the panel supplies only the cards and the
+  configuration the board store holds. A bot board needs no computer. Every member who can see a bot sees its board; the
+  panel changes cards, and deletes them, only for the owners and no one else. A closed card has the one closed status and
+  records whether it was completed or abandoned. A view across all the bots of an organization is wanted later and is
+  not a priority; this file does not specify it. When a bot is deleted its board is archived and leaves the picker.
 
   # ---------------------------------------------------------------- the picker
 
@@ -264,6 +266,7 @@ Feature: Members pick between the project boards of the computer and the interna
     When the member opens the Board tab
     Then the board says "That bot board is no longer there"
     And the picker no longer lists "Assistant"
+    And the board of "Assistant" is archived and not writable
 
   # ---------------------------------------------------------------- who may change
 
@@ -312,6 +315,28 @@ Feature: Members pick between the project boards of the computer and the interna
     And the member chooses closed without giving a reason
     Then the board says a reason is needed to close a card
     And the card is still in the column "open"
+
+  @web
+  Scenario: An owner deletes a card after confirming
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
+    And "ryan@example.com" is an owner
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    When the member picks the bot board "Assistant"
+    And the member opens the card "Pay the electric bill"
+    Then the card offers to delete it
+    When the member chooses to delete the card
+    Then the board asks the member to confirm the deletion
+    When the member confirms
+    Then the board does not show the card "Pay the electric bill"
+
+  @web
+  Scenario: A member who is not an owner cannot delete a card
+    Given the board view for "sam@example.com" in "Anthus Labs" with a running computer
+    And "sam@example.com" is a member and not an owner
+    And the bot "Assistant" has a board with the card "Renew insurance"
+    When the member picks the bot board "Assistant"
+    And the member opens the card "Renew insurance"
+    Then the card does not offer to delete it
 
   @web
   Scenario: The project board of the computer is still read-only

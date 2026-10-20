@@ -15,7 +15,12 @@ Feature: Every existing Task item moves to its bot's board and the Task item is 
   board (bot_board_tool.feature) and the Task item no longer exists. This is a hard cutover: there is one migration, run
   once per environment, and no period in which both exist, no setting that selects one, and no code that reads both. The
   migration is idempotent so an interrupted run can be run again, and it never deletes a Task item until its card is
-  confirmed saved.
+  confirmed saved. A Task item that cannot be placed on a board, because it has no creating bot or that bot is deleted,
+  is reported to the owners of its organization and deleted only after an owner has seen the report; nothing is deleted
+  silently. A new board has the Kanbus default configuration, so the statuses are backlog, open, in_progress, blocked and
+  closed, and there is one closed status. A completed Task item becomes a closed card with a closing comment holding the
+  evidence and the custom field closing set to completed; a closed Task item becomes a closed card with a closing comment
+  holding the reason and closing set to abandoned.
 
   Background:
     Given an empty control plane
@@ -41,16 +46,16 @@ Feature: Every existing Task item moves to its bot's board and the Task item is 
     When the Task items are migrated to the bot boards
     Then the card "A" has the status "open" and is not closed
     And the card "B" has the status "blocked" and is not closed
-    And the card "C" is closed and records the outcome "completed"
-    And the card "D" is closed and records the outcome "closed"
+    And the card "C" has the status "closed" and records the closing "completed"
+    And the card "D" has the status "closed" and records the closing "abandoned"
 
   @migration
   Scenario: Evidence and reasons are carried over word for word
     Given a Task item "File the return" created by "Assistant" with the status "completed" and the evidence "confirmation-id:ret-42"
     And a Task item "Renew insurance" created by "Assistant" with the status "closed" and the reason "household chose another provider"
     When the Task items are migrated to the bot boards
-    Then the card "File the return" records the evidence "confirmation-id:ret-42"
-    And the card "Renew insurance" records the reason "household chose another provider"
+    Then the card "File the return" has a closing comment holding the evidence "confirmation-id:ret-42"
+    And the card "Renew insurance" has a closing comment holding the reason "household chose another provider"
 
   @migration
   Scenario: Provenance is carried over
@@ -117,19 +122,46 @@ Feature: Every existing Task item moves to its bot's board and the Task item is 
     And the board of "Assistant" has no card titled "Pay the electric bill"
 
   @migration
-  Scenario: A Task item that cannot be placed is reported and kept
+  Scenario: A Task item that cannot be placed is reported to the owners and kept
     Given a Task item "Orphan" with no recorded creating bot
     When the Task items are migrated to the bot boards
-    Then the migration reports the Task item "Orphan" as needing a decision
+    Then the migration reports the Task item "Orphan" to the owners of "Anthus Labs"
+    And the report says the Task item cannot be placed on a board
     And the Task item "Orphan" still exists
     And the migration does not guess a bot for it
 
   @migration
-  Scenario: A Task item of a deleted bot is reported and kept
+  Scenario: A Task item of a deleted bot is reported to the owners and kept
     Given a Task item "Old chore" created by a bot that has since been deleted
     When the Task items are migrated to the bot boards
-    Then the migration reports the Task item "Old chore" as needing a decision
+    Then the migration reports the Task item "Old chore" to the owners of "Anthus Labs"
     And the Task item "Old chore" still exists
+
+  @migration
+  Scenario: A reported Task item is deleted after an owner has seen the report
+    Given a Task item "Orphan" with no recorded creating bot
+    And the Task items have been migrated to the bot boards
+    And an owner of "Anthus Labs" has seen the report
+    When the Task records are retired
+    Then the Task item "Orphan" no longer exists
+    And the retirement records that an owner had seen the report
+
+  @migration
+  Scenario: A reported Task item is never deleted before an owner has seen the report
+    Given a Task item "Orphan" with no recorded creating bot
+    And the Task items have been migrated to the bot boards
+    And no owner of "Anthus Labs" has seen the report
+    When the Task records are retired
+    Then retiring is refused because a reported Task item has not been seen by an owner
+    And the Task item "Orphan" still exists
+
+  @migration
+  Scenario: The report of Task items that cannot be placed is shown only to owners
+    Given a Task item "Orphan" with no recorded creating bot
+    When the Task items are migrated to the bot boards
+    Then an owner of "Anthus Labs" can read the report
+    And a member of "Anthus Labs" who is not an owner cannot read the report
+    And a member of another organization cannot read the report
 
   @migration
   Scenario: A dry run changes nothing and says what would happen
@@ -183,14 +215,15 @@ Feature: Every existing Task item moves to its bot's board and the Task item is 
     Given a Task item "Pay the electric bill" created by "Assistant" with the status "open"
     And the Task items have been migrated to the bot boards
     When the migration is verified against the Task items
-    Then the verification says every Task item has a card with the same title, status, evidence and reason
+    Then the verification says every placeable Task item has a card with the same title, status, evidence and reason
     When the Task records are retired
     Then the Task records no longer exist
     And the board of "Assistant" still has the card "Pay the electric bill"
 
   @migration
-  Scenario: Retiring the Task records is refused while a Task item is unmigrated
-    Given a Task item "Orphan" with no recorded creating bot
+  Scenario: Retiring the Task records is refused while a placeable Task item is unmigrated
+    Given a Task item "Pay the electric bill" created by "Assistant" with the status "open"
+    And the board store cannot confirm writes
     When the Task records are retired
     Then retiring is refused because a Task item is not migrated
-    And the Task item "Orphan" still exists
+    And the Task item "Pay the electric bill" still exists

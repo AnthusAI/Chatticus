@@ -12,9 +12,13 @@ Feature: Who can see and change a bot's board
   A bot's board is reached only through the Chatticus front door. The front door resolves the signed-in member, checks
   the membership of the organization that owns the bot, decides read or write from the member's role, and only then asks
   the Kanbus cloud store, naming the organization and the bot itself and never taking either from the request. The
-  computer holds no credential for the store and no route to it. Organization roles today are owner and member; the
-  owner decision also names admins, and whether an admin role is added is an open question in docs/BOT_BOARDS.md. A member who can see a bot can see its board; the bot
-  itself, and the owners of the organization, change it; every other member reads it and cannot change it.
+  computer holds no credential for the store and no route to it. Organization roles today are owner and member, and there
+  is no admin role. Every member of the organization who can see a bot can see its board. Only the owners of the
+  organization and the bot itself change it; every other member reads it and cannot change it. Bots close cards and never
+  delete them; owners may delete cards. The front door calls the Kanbus store as a service principal and names the acting
+  member or bot in the X-Kanbus-Actor header, which the store records as creator, comment author and event actor. A board
+  the principal is not granted answers 403 without revealing that it exists; the front door answers a stranger as not
+  found. When a bot is deleted its board is archived and later purged.
 
   Background:
     Given an empty control plane
@@ -69,6 +73,24 @@ Feature: Who can see and change a bot's board
     Then the card has the comment by "ada@example.com"
 
   @server
+  Scenario: A change is made on behalf of the person or bot who made it
+    When "ryan@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
+    Then the board store was called by the Chatticus service principal
+    And the board store was told the actor is "chatticus:user:" followed by the identifier of "ryan@example.com"
+    When the bot "Assistant" of "Anthus Labs" comments "Started" on the card "Pay the electric bill"
+    Then the board store was told the actor is "chatticus:bot:" followed by the identifier of "Assistant"
+
+  @server
+  Scenario: Owners may delete a card and a bot may not
+    When the bot "Assistant" of "Anthus Labs" tries to delete the card "Pay the electric bill"
+    Then the response is forbidden
+    And the card is still on the board of "Assistant"
+    When "sam@example.com" tries to delete the card "Pay the electric bill" on the board of "Assistant"
+    Then the response is forbidden
+    When "ryan@example.com" deletes the card "Pay the electric bill" on the board of "Assistant"
+    Then the card is no longer on the board of "Assistant"
+
+  @server
   Scenario: A member who is not an owner reads and cannot change
     When "sam@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
     Then the response is forbidden
@@ -85,7 +107,9 @@ Feature: Who can see and change a bot's board
     When "ryan@example.com" tries to complete the card "Pay the electric bill" without evidence
     Then completing the card is refused for missing evidence
     When "ryan@example.com" closes the card "Pay the electric bill" with the reason "paid by another route"
-    Then the card is closed with the reason "paid by another route"
+    Then the card has the status "closed"
+    And the card has a closing comment with the reason "paid by another route"
+    And the card records the closing "abandoned"
 
   @server
   Scenario: The bot changes its own board and no one else's
@@ -159,6 +183,47 @@ Feature: Who can see and change a bot's board
     When "ryan@example.com" changes the role of "sam@example.com" to owner
     And "sam@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
     Then the response is accepted
+
+  # ---------------------------------------------------------------- archive when a bot is deleted
+
+  @server
+  Scenario: The board of a deleted bot is archived and cannot be read or written
+    When "ryan@example.com" deletes the bot "Assistant"
+    Then the board of "Assistant" is archived
+    When "ryan@example.com" lists the board of "Assistant" in "Anthus Labs"
+    Then the response is not found
+    When "ryan@example.com" creates a card titled "Late" on the board of "Assistant"
+    Then the response is not found
+
+  @server
+  Scenario: An owner restores an archived board and a member cannot
+    Given the bot "Assistant" was deleted and its board is archived
+    When "sam@example.com" restores the board of "Assistant"
+    Then the response is forbidden
+    When "ryan@example.com" restores the board of "Assistant"
+    Then the board of "Assistant" lists the card "Pay the electric bill" again
+
+  @server
+  Scenario: An archived board is purged after thirty days
+    Given the bot "Assistant" was deleted and its board is archived
+    When 31 days pass
+    Then the board of "Assistant" is purged
+    And restoring the board of "Assistant" is refused because it is gone
+
+  @server
+  Scenario: An archived board is not purged before thirty days
+    Given the bot "Assistant" was deleted and its board is archived
+    When 29 days pass
+    Then the board of "Assistant" is still archived and restorable
+
+  @server
+  Scenario: An owner may ask for immediate removal of an archived board
+    Given the bot "Assistant" was deleted and its board is archived
+    When "sam@example.com" asks for the immediate removal of the board of "Assistant"
+    Then the response is forbidden
+    And the board of "Assistant" is still archived and restorable
+    When "ryan@example.com" asks for the immediate removal of the board of "Assistant"
+    Then the board of "Assistant" is purged
 
   # ---------------------------------------------------------------- the front door is the only way
 

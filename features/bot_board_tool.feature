@@ -11,6 +11,11 @@ Feature: A bot keeps its own work board through its board tool, without a comput
   cloud store that honors the Kanbus rules named below), @kanbus-parent-writes (needs kbs-8283b923, parent and
   dependency writes through the Kanbus API).
 
+  A new board is provisioned with Kanbus's own default configuration (kbs-344f42ca): the statuses are backlog, open,
+  in_progress, blocked and closed, a new card is open, the hierarchy is initiative, epic, task, sub-task, and the types
+  include bug, story and chore. Chatticus copies no status list. Where a scenario moves a card between statuses it
+  assumes the transitions of the generated configuration; docs/BOT_BOARDS.md lists that as an open question.
+
   Each bot has one board. The board is one Kanbus project that belongs to the bot, inside its organization; the cards are
   Kanbus issues, with the Kanbus issue model unchanged. Chatticus does not store the cards and does not define their
   format. A bot reaches its board only through the board tool, which calls the front door; the front door checks the
@@ -19,13 +24,24 @@ Feature: A bot keeps its own work board through its board tool, without a comput
   Kanbus rules: a card is an issue with an id of the form {project key}-{uuid}; a card is created only if it is not
   already there; an update or a delete names the revision it expects, and a stale revision is a conflict; a retry that
   repeats an operation id with the same body replays the first result, and the same operation id with a different body is
-  refused; a status change must be a move the card type's workflow allows; a card is closed if and only if it has a
-  closing time.
+  refused; a status change must be a move the card type's workflow allows; there is one closed status and a card has it
+  if and only if it has a closing time. A card is completed by closing it with a closing comment that holds the evidence
+  and the custom field closing set to completed; it is abandoned by closing it with a closing comment that holds the
+  reason and closing set to abandoned. A bot closes cards and never deletes them; only an owner deletes. Every call is
+  made by the control plane as a service principal naming the acting bot or member in the X-Kanbus-Actor header.
 
   Background:
     Given an empty control plane
     And the organization "Anthus Labs" has the bot "Assistant"
     And the bot "Assistant" has an empty board
+
+  @server
+  Scenario: A new bot board is provisioned with the Kanbus default configuration
+    When the bot "Researcher" is created in "Anthus Labs"
+    Then the board of "Researcher" was provisioned by an empty-bodied configuration write
+    And the configuration of the board is exactly what Kanbus writes for a new project
+    And Chatticus supplied no status list
+    And the board of "Researcher" accepts the statuses "backlog", "open", "in_progress", "blocked" and "closed"
 
   # ---------------------------------------------------------------- the happy path
 
@@ -36,6 +52,7 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     Then the card is on the board of "Assistant"
     And the card has the status "open"
     And the card records "Assistant" as its creator
+    And the store recorded the actor "chatticus:bot:" followed by the identifier of "Assistant"
     And the board tool reports the card as saved
     And no computer was summoned for the board tool
 
@@ -109,19 +126,19 @@ Feature: A bot keeps its own work board through its board tool, without a comput
   Scenario: A card completes only with evidence from the system acted upon
     Given the bot "Assistant" has a card titled "File the return" with the status "in_progress"
     When the bot "Assistant" completes the card with the evidence "confirmation-id:ret-42"
-    Then the card is closed
+    Then the card has the status "closed"
     And the card has a closing time
-    And the card records the outcome "completed"
-    And the card records the evidence "confirmation-id:ret-42"
+    And the card has a closing comment holding the evidence "confirmation-id:ret-42"
+    And the card records the closing "completed"
 
   @server
   Scenario: A card closes with a recorded reason
     Given the bot "Assistant" has a card titled "Renew insurance" with the status "open"
     When the bot "Assistant" closes the card with the reason "household chose another provider"
-    Then the card is closed
+    Then the card has the status "closed"
     And the card has a closing time
-    And the card records the outcome "closed"
-    And the card records the reason "household chose another provider"
+    And the card has a closing comment holding the reason "household chose another provider"
+    And the card records the closing "abandoned"
 
   @server
   Scenario: A card cannot be closed without a reason
@@ -151,6 +168,14 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     When the bot "Assistant" uses the board tool to reopen the card
     Then the card has the status "open"
     And the card has no closing time
+
+  @server
+  Scenario: Bots close cards and never delete them
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    Then the board tool has no delete action
+    When the bot "Assistant" tries to delete the card through the front door
+    Then the response is forbidden
+    And the card is still on the board
 
   # ---------------------------------------------------------------- invalid changes
 
@@ -251,7 +276,7 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     And the first card is unchanged
 
   @server
-  Scenario: Deleting a card needs the revision the deleter saw
+  Scenario: An owner deleting a card needs the revision the deleter saw
     Given the bot "Assistant" has a card titled "Pay the electric bill" at revision 3
     When an organization owner deletes the card expecting revision 2
     Then the deletion is a conflict
