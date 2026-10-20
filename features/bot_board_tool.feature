@@ -58,6 +58,13 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     And the bot "Researcher" was not stored in "Anthus Labs"
 
   @server
+  Scenario: A bot whose board cannot be provisioned because the gateway has no route says so
+    Given the board gateway has no route for "PUT" requests
+    When a member tries to create the bot "Researcher" in "Anthus Labs"
+    Then the creation is answered with 502 saying the board service answered HTTP 404 without a Kanbus error code
+    And the bot "Researcher" was not stored in "Anthus Labs"
+
+  @server
   Scenario: A bot that cannot be stored after its board was provisioned has that board archived
     Given storing the next bot fails
     When the bot "Researcher" is created in "Anthus Labs" and storing it fails
@@ -223,6 +230,42 @@ Feature: A bot keeps its own work board through its board tool, without a comput
   Scenario: A card that is not on the board is reported as not found
     When the bot "Assistant" uses the board tool to read the card "no-such-card"
     Then the board tool reports that the card was not found
+    And the board tool does not blame the board service or its route
+
+  @server @owner-log
+  Scenario: A gateway 404 without a Kanbus error code is not reported as a missing card
+    Given the board gateway answers every request with HTTP 404 and the body '{"message":"Not Found"}'
+    When the bot "Assistant" uses the board tool to read the card "no-such-card"
+    Then the board tool reports that the board service answered HTTP 404 without a Kanbus error code
+    And the board tool says the request did not reach Kanbus or the route is not deployed
+    And the board tool does not say the card was not found
+    And an error was logged for "GET" on "/{tenant}/{project}/api/issues/no-such-card" with status 404 and the body "Not Found"
+
+  @server @owner-log
+  Scenario: A gateway 403 without a Kanbus error code is reported as a denial before Kanbus
+    Given the board gateway answers every request with HTTP 403 and the body '{"message":"User is not authorized to access this resource"}'
+    When the bot "Assistant" uses the board tool to read the card "no-such-card"
+    Then the board tool reports that the board service answered HTTP 403 without a Kanbus error code
+    And the board tool says the request was denied before it reached Kanbus
+    And the board tool does not say the card was not found
+    And an error was logged for "GET" on "/{tenant}/{project}/api/issues/no-such-card" with status 403 and the body "User is not authorized"
+
+  @server @owner-log
+  Scenario: A gateway 5xx without a Kanbus error code is reported as a write that was not confirmed
+    Given the board gateway answers every request with HTTP 502 and the body '{"message":"Internal server error"}'
+    When the bot "Assistant" uses the board tool to create a card titled "Pay the electric bill"
+    Then the board tool reports that the card was not saved
+    And the board tool says the board service answered HTTP 502 without a Kanbus error code
+    And the board tool says the change may be retried with the same operation id
+    And an error was logged for "POST" on "/{tenant}/{project}/api/issues" with status 502 and the body "Internal server error"
+
+  @server
+  Scenario: A board store that cannot be reached is reported as unreachable
+    Given the board store is unreachable
+    When the bot "Assistant" uses the board tool to create a card titled "Pay the electric bill"
+    Then the board tool reports that the card was not saved
+    And the board tool says the board service could not be reached
+    And the board tool says the change may be retried with the same operation id
 
   @server @kanbus-parent-writes
   Scenario: A bot groups a card under an epic

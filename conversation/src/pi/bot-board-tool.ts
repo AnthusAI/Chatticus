@@ -85,6 +85,8 @@ function describeFailure(failure: BoardFailure): { outcome: string; message: str
 			return { outcome: "archived", message: "This board is archived and cannot be changed." };
 		case "unavailable":
 			return { outcome: "not_saved", message: failure.message };
+		case "service_unreachable_route":
+			return { outcome: "service_unreachable", message: failure.message };
 	}
 }
 

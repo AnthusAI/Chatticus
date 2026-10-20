@@ -122,6 +122,7 @@ export class FakeKanbusBoardService {
 	private cannotConfirmWrites = false;
 	private loseNextWriteAnswer = false;
 	private lagging = false;
+	private gatewayAnswer: { readonly status: number; readonly bodyText: string; readonly method: string | null } | null = null;
 	private failNextUpdateToStatus: string | null = null;
 
 	constructor(now: () => Date) {
@@ -134,6 +135,10 @@ export class FakeKanbusBoardService {
 		const method = (init.method ?? "GET").toUpperCase();
 		const headers = new Headers(init.headers);
 		const bodyText = typeof init.body === "string" ? init.body : "";
+		if (this.gatewayAnswer !== null && (this.gatewayAnswer.method === null || this.gatewayAnswer.method === method)) {
+			this.requests.push({ method, path: `${url.pathname}${url.search}`, accessKeyId: null, actor: headers.get("x-kanbus-actor"), operationId: null, ifMatch: null, bodyText, status: this.gatewayAnswer.status });
+			return new Response(this.gatewayAnswer.bodyText, { status: this.gatewayAnswer.status });
+		}
 		const accessKeyId = /Credential=([^/]+)\//.exec(headers.get("authorization") ?? "")?.[1] ?? null;
 		const record: { -readonly [K in keyof RecordedBoardRequest]: RecordedBoardRequest[K] } = {
 			method,
@@ -164,6 +169,11 @@ export class FakeKanbusBoardService {
 	/** Allow a role's access key to call the service. */
 	registerPrincipal(accessKeyId: string, grants: FakePrincipalGrants): void {
 		this.principals.set(accessKeyId, grants);
+	}
+
+	/** An API Gateway in front of Kanbus answers (all requests, or only those of `method`) with this status and raw body, carrying no Kanbus error code. */
+	setGatewayAnswer(status: number, bodyText: string, method: string | null = null): void {
+		this.gatewayAnswer = { status, bodyText, method };
 	}
 
 	/** Every request fails as an unreachable host would. */
