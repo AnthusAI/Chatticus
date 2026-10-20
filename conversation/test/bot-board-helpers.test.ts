@@ -2,8 +2,8 @@ import { KanbusApiError, createKanbusApiClient, type KanbusIssue } from "@kanbus
 import { describe, expect, it } from "vitest";
 import { botBoardServiceFromEnvironment } from "../src/board/bot-board-service-factory.ts";
 import { deriveBoardOperationId } from "../src/board/board-operation-id.ts";
-import { UNCONFIRMED_WRITE_MESSAGE, failureFromError } from "../src/board/board-failures.ts";
-import { createSigV4SignedFetch, kanbusApiUrlFrom } from "../src/board/kanbus-board-client.ts";
+import { UNCONFIRMED_WRITE_MESSAGE, excerptOfResponseBody, failureFromError } from "../src/board/board-failures.ts";
+import { createSigV4SignedFetch, kanbusApiUrlFrom, maskedRoutePathOf } from "../src/board/kanbus-board-client.ts";
 import { FakeKanbusBoardService } from "../features-support/fakes/fake-kanbus-board-service.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -36,8 +36,17 @@ describe("board failures", () => {
 		for (const error of [new TypeError("fetch failed"), kanbusError(503, "storage_unavailable"), kanbusError(500, "unrecognized_error"), kanbusError(502, "something_new")]) {
 			const failure = failureFromError(error);
 			expect(failure.kind).toBe("unavailable");
-			expect(failure.message).toBe(UNCONFIRMED_WRITE_MESSAGE);
+			expect(failure.message.endsWith(UNCONFIRMED_WRITE_MESSAGE)).toBe(true);
 		}
+	});
+
+	it("keeps a response body excerpt short and a route path free of tenant and project ids", () => {
+		expect(excerptOfResponseBody("x".repeat(500))).toHaveLength(200);
+		expect(excerptOfResponseBody("")).toBe("empty body");
+		expect(excerptOfResponseBody('{"message":\n  "Not Found"}')).toBe('{"message": "Not Found"}');
+		expect(maskedRoutePathOf("https://kanbus.example.com/prod/org-1/bot-1/api/issues/card-9?limit=5")).toBe("/prod/{tenant}/{project}/api/issues/card-9");
+		expect(maskedRoutePathOf("https://kanbus.example.com/org-1/bot-1/api/config")).toBe("/{tenant}/{project}/api/config");
+		expect(maskedRoutePathOf("https://kanbus.example.com/")).toBe("/{unrecognized route}");
 	});
 
 	it("does not reveal whether a forbidden board exists", () => {

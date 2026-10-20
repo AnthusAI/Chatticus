@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { createKanbusApiClient, type KanbusApiClient, type KanbusFetch } from "@kanbus/api-client";
+import { BoardServiceUncodedResponseError, excerptOfResponseBody } from "./board-failures.ts";
+import { formatLogLine } from "../observability/log-line.ts";
 import { signSigV4 } from "../acceptance/sigv4.ts";
 
 /** Names the environment variable that holds the Kanbus board service URL. Present only where the board capability is rolled out. */
@@ -68,6 +70,54 @@ export function createSigV4SignedFetch(options: {
 }
 
 /**
+ * The request path with the tenant and project segments masked, so a log line names the route and not the board. The
+ * tenant and project are the two segments before the first `api` segment; any stage prefix before them is kept.
+ *
+ * @param url The full request URL.
+ * @returns For example `/prod/{tenant}/{project}/api/config`, or `/{unrecognized route}` when the path has no `api` segment.
+ */
+export function maskedRoutePathOf(url: string): string {
+	const segments = new URL(url).pathname.split("/");
+	const apiIndex = segments.findIndex((segment, index) => index >= 3 && segment === "api");
+	if (apiIndex === -1) return "/{unrecognized route}";
+	return [...segments.slice(0, apiIndex - 2), "{tenant}", "{project}", ...segments.slice(apiIndex)].join("/");
+}
+
+/**
+ * A fetch that turns an error response without a Kanbus error `code` into a {@link BoardServiceUncodedResponseError}
+ * and logs it at error level with the method, the masked path, the status and the first 200 characters of the body.
+ * Kanbus always sends a code, so such a response came from something in front of Kanbus.
+ *
+ * @param carrier The fetch that sends the request.
+ * @returns A fetch for `createKanbusApiClient`.
+ */
+export function withUncodedResponseDetection(carrier: KanbusFetch): KanbusFetch {
+	return async (input, init = {}) => {
+		const response = await carrier(input, init);
+		if (response.ok) return response;
+		const text = await response.clone().text();
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(text);
+		} catch {
+			parsed = undefined;
+		}
+		const code = typeof parsed === "object" && parsed !== null ? (parsed as { error?: unknown }).error : undefined;
+		if (typeof code === "string" && code !== "") return response;
+		const excerpt = excerptOfResponseBody(text);
+		console.error(
+			formatLogLine("board_service_uncoded_response", {
+				method: (init.method ?? "GET").toUpperCase(),
+				path: maskedRoutePathOf(input),
+				status: response.status,
+				body: excerpt,
+			}),
+		);
+		throw new BoardServiceUncodedResponseError(response.status, excerpt);
+	};
+}
+
+/**
  * The Kanbus client for one acting person or bot. The actor header travels on every request, reads and provisioning
  * included, because a delegating service principal must send it on all of them; writes also pass the actor to the
  * client as its documentation asks.
@@ -82,7 +132,7 @@ export function createBoardClientForActor(options: {
 }): KanbusApiClient {
 	return createKanbusApiClient({
 		baseUrl: options.baseUrl,
-		fetch: options.fetch,
+		fetch: withUncodedResponseDetection(options.fetch),
 		headers: () => ({ [KANBUS_ACTOR_HEADER]: options.actor }),
 	});
 }

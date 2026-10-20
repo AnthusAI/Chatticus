@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { BOARD_TOOL_ACTIONS, BOARD_TOOL_NAME, runBoardToolCall, type BoardToolArguments } from "../../src/pi/bot-board-tool.ts";
+import { capturedConsoleLines, parseLogLine } from "../log-capture-support.ts";
 import { modelScenarioOf, runBotTurn } from "../executor-harness.ts";
 import {
 	actorString,
@@ -742,6 +743,54 @@ Then("the board tool reports that the card was not found", function (this: Chatt
 	const { parsed } = lastCall(this);
 	assert.equal(parsed.outcome, "not_found", lastCall(this).text);
 });
+
+Then("the board tool does not blame the board service or its route", function (this: ChatticusWorld) {
+	assert.ok(!/without a Kanbus error code|route is not deployed/.test(lastCall(this).text), lastCall(this).text);
+});
+
+Then("the board tool reports that the board service answered HTTP {int} without a Kanbus error code", function (this: ChatticusWorld, status: number) {
+	const { parsed } = lastCall(this);
+	assert.equal(parsed.outcome, "service_unreachable", lastCall(this).text);
+	assert.equal(parsed.saved, false);
+	assert.ok(String(parsed.message).includes(`The board service answered HTTP ${status} without a Kanbus error code`), lastCall(this).text);
+});
+
+Then("the board tool says the board service answered HTTP {int} without a Kanbus error code", function (this: ChatticusWorld, status: number) {
+	assert.ok(String(lastCall(this).parsed.message).includes(`The board service answered HTTP ${status} without a Kanbus error code`), lastCall(this).text);
+});
+
+Then("the board tool says the request did not reach Kanbus or the route is not deployed", function (this: ChatticusWorld) {
+	assert.match(String(lastCall(this).parsed.message), /the request did not reach Kanbus or the route is not deployed/);
+});
+
+Then("the board tool says the request was denied before it reached Kanbus", function (this: ChatticusWorld) {
+	assert.match(String(lastCall(this).parsed.message), /denied before it reached Kanbus/);
+});
+
+Then("the board tool says the board service could not be reached", function (this: ChatticusWorld) {
+	assert.match(String(lastCall(this).parsed.message), /The board service could not be reached/);
+});
+
+Then("the board tool does not say the card was not found", function (this: ChatticusWorld) {
+	assert.notEqual(lastCall(this).parsed.outcome, "not_found", lastCall(this).text);
+	assert.ok(!/was not found|board or the card/.test(String(lastCall(this).parsed.message)), lastCall(this).text);
+});
+
+Then(
+	"an error was logged for {string} on {string} with status {int} and the body {string}",
+	function (this: ChatticusWorld, method: string, path: string, status: number, bodyStart: string) {
+		const logged = capturedConsoleLines(this)
+			.map((line) => parseLogLine(line))
+			.filter((line) => line !== null && line.event === "board_service_uncoded_response");
+		assert.equal(logged.length >= 1, true, capturedConsoleLines(this).join("\n"));
+		const line = logged[0]!;
+		assert.equal(line.fields.get("method"), method);
+		assert.equal(line.fields.get("path"), path);
+		assert.equal(line.fields.get("status"), String(status));
+		assert.ok(line.fields.get("body")!.includes(bodyStart), line.text);
+		assert.ok(line.fields.get("body")!.length <= 200, line.text);
+	},
+);
 
 Then("no card content is returned", function (this: ChatticusWorld) {
 	const { parsed } = lastCall(this);

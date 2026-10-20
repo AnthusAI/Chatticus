@@ -134,6 +134,14 @@ Given("the board store is unreachable", function (this: ChatticusWorld) {
 	boardScenarioOf(this).fake.setUnreachable(true);
 });
 
+Given("the board gateway answers every request with HTTP {int} and the body {string}", function (this: ChatticusWorld, status: number, body: string) {
+	boardScenarioOf(this).fake.setGatewayAnswer(status, body);
+});
+
+Given("the board gateway has no route for {string} requests", function (this: ChatticusWorld, method: string) {
+	boardScenarioOf(this).fake.setGatewayAnswer(404, '{"message":"Not Found"}', method);
+});
+
 Given("the board's index has not caught up", function (this: ChatticusWorld) {
 	boardScenarioOf(this).fake.setCatalogLagging(true);
 });
@@ -187,6 +195,16 @@ Then("the creation is answered with 502 saying the board could not be provisione
 	assert.ok(answer, "No creation was attempted");
 	assert.equal(answer.status, 502, answer.text);
 	assert.match(String(answer.json.detail), /could not be provisioned/);
+});
+
+Then("the creation is answered with 502 saying the board service answered HTTP {int} without a Kanbus error code", function (this: ChatticusWorld, status: number) {
+	const answer = creationAnswers.get(this);
+	assert.ok(answer, "No creation was attempted");
+	assert.equal(answer.status, 502, answer.text);
+	const detail = String(answer.json.detail);
+	assert.match(detail, /could not be provisioned/);
+	assert.ok(detail.includes(`The board service answered HTTP ${status} without a Kanbus error code ({"message":"Not Found"})`), detail);
+	assert.ok(!detail.includes("was not found"), detail);
 });
 
 Then("the bot {string} was not stored in {string}", async function (this: ChatticusWorld, name: string, organization: string) {
