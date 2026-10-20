@@ -18,7 +18,9 @@ Feature: Who can see and change a bot's board
   delete them; owners may delete cards. The front door calls the Kanbus store as a service principal and names the acting
   member or bot in the X-Kanbus-Actor header, which the store records as creator, comment author and event actor. A board
   the principal is not granted answers 403 without revealing that it exists; the front door answers a stranger as not
-  found. When a bot is deleted its board is archived and later purged.
+  found. When a bot is deleted the front door archives its board (POST board/archive, kbs-791a7373, not built yet);
+  Kanbus sets the purge date thirty days later and its own scheduled sweeper purges the board then. Chatticus calls only
+  archive, restore and, when an owner explicitly asks for immediate removal, archive then DELETE of the board.
 
   Background:
     Given an empty control plane
@@ -189,7 +191,8 @@ Feature: Who can see and change a bot's board
   @server
   Scenario: The board of a deleted bot is archived and cannot be read or written
     When "ryan@example.com" deletes the bot "Assistant"
-    Then the board of "Assistant" is archived
+    Then the board of "Assistant" is archived with a purge date 30 days later
+    And the board store refuses every write to it as archived
     When "ryan@example.com" lists the board of "Assistant" in "Anthus Labs"
     Then the response is not found
     When "ryan@example.com" creates a card titled "Late" on the board of "Assistant"
@@ -202,13 +205,17 @@ Feature: Who can see and change a bot's board
     Then the response is forbidden
     When "ryan@example.com" restores the board of "Assistant"
     Then the board of "Assistant" lists the card "Pay the electric bill" again
+    And the board of "Assistant" accepts writes again
+    When "ryan@example.com" restores the board of "Assistant" a second time
+    Then the restore is refused because the board is not archived
 
   @server
-  Scenario: An archived board is purged after thirty days
+  Scenario: An archived board is purged by Kanbus after thirty days and Chatticus does not purge it
     Given the bot "Assistant" was deleted and its board is archived
-    When 31 days pass
+    When 31 days pass and the Kanbus sweeper runs
     Then the board of "Assistant" is purged
-    And restoring the board of "Assistant" is refused because it is gone
+    And Chatticus made no purge call
+    And restoring the board of "Assistant" is refused because it is gone or already purged
 
   @server
   Scenario: An archived board is not purged before thirty days
@@ -223,7 +230,8 @@ Feature: Who can see and change a bot's board
     Then the response is forbidden
     And the board of "Assistant" is still archived and restorable
     When "ryan@example.com" asks for the immediate removal of the board of "Assistant"
-    Then the board of "Assistant" is purged
+    Then the board of "Assistant" is archived and then purged
+    And a bot deletion alone never purges a board
 
   # ---------------------------------------------------------------- the front door is the only way
 

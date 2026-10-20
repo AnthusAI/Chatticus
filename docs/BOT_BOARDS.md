@@ -89,6 +89,9 @@ bot. The board is in the path:
 - `POST /{tenant}/{project}/api/issues/{id}/comments`
 - `GET /{tenant}/{project}/api/issues/{id}/events`
 - `PUT /{tenant}/{project}/api/config` with an empty body provisions a board (`kbs-344f42ca`)
+- `POST /{tenant}/{project}/api/board/archive`, `POST /{tenant}/{project}/api/board/restore` and
+  `DELETE /{tenant}/{project}/api/board` manage the board lifecycle (`kbs-791a7373`, specified by Kanbus, not built yet;
+  details below)
 
 A board that the principal is not granted answers 403 without revealing whether it exists. `X-Operation-Id` idempotency,
 `If-Match` revisions and `catalog_pending` are as in section 4.
@@ -105,7 +108,7 @@ A board that the principal is not granted answers 403 without revealing whether 
 | reopen | update `closed` to `open`, which clears `closed_at` | the bot itself, or an owner |
 | reparent, add a dependency | update parent or dependencies | the bot itself, or an owner; depends on `kbs-8283b923` |
 | delete a card | delete with the expected revision | an owner only; a bot never deletes |
-| archive, restore, purge a board | Kanbus board deletion (`kbs-791a7373`; routes to be defined by Kanbus) | section 6 |
+| archive, restore, purge a board | `board/archive`, `board/restore`, `DELETE board` (`kbs-791a7373`) | section 6 |
 | rebuild the index | Kanbus-owned operation | operator only (question 10) |
 
 The board tool is the bot's view of these calls. Its actions: create, get, list, update (title, description, priority,
@@ -137,9 +140,23 @@ Only organization owners edit a bot's board. There is no admin role today and no
 read at every request, so removal and demotion take effect at the next request. A denied request is not found for a
 stranger and forbidden for a member without write, and is recorded without card text.
 
-When a bot is deleted its board is archived: it is no longer listed or writable, and an owner can restore it. It is purged
-thirty days after the bot is deleted. An owner may ask for immediate removal. The Kanbus routes for archive, restore and
-purge are not yet defined (`kbs-791a7373`).
+When a bot is deleted its board is archived: it is no longer listed or writable, and an owner can restore it within thirty
+days. It is purged thirty days after the bot is deleted. An owner may ask for immediate removal.
+
+Board lifecycle as Kanbus specified it for `kbs-791a7373` (not built yet):
+
+- `POST .../api/board/archive` sets `archived_at` and `purge_after = archived_at + KANBUS_ARCHIVE_RETENTION_DAYS`, a
+  deployment setting that Chatticus sets to 30.
+- `POST .../api/board/restore` restores the board; 409 if it is not archived or is already purged.
+- `DELETE .../api/board` purges, only when archived; otherwise 409 `board_not_archived`. Immediate removal is archive
+  then purge.
+- All three need a provisioning grant on the board, are idempotent by `X-Operation-Id`, and are journaled.
+- While a board is archived, principals without a provisioning grant get 404 `not_found` on every board route, with the
+  same body as a board that does not exist. Provisioning principals can still `GET` config, issues and events. Every write
+  returns 409 `board_archived`.
+- A scheduled sweeper shipped with the deployable artifact (`kbs-4818904b`) purges boards past `purge_after`. Chatticus
+  therefore calls only archive (the bot is deleted), restore (an owner restores within thirty days) and, when an owner
+  explicitly asks for immediate removal, archive then `DELETE`. It never schedules the thirty-day purge itself.
 
 ## 7. The web panel
 
@@ -183,7 +200,7 @@ Chatticus builds no code against `kanbus-api` until these land; the features are
 | a TypeScript client | `kbs-a19d1443` |
 | parent and dependency writes through the API | `kbs-8283b923` |
 | board provisioning (`PUT config` with an empty body) | `kbs-344f42ca` |
-| board deletion: archive, restore, purge (routes to be defined by Kanbus) | `kbs-791a7373` |
+| board deletion: archive, restore, purge (routes in section 6) | `kbs-791a7373` |
 | pure parsers for the offline project view | `kbs-460415fd` |
 
 Scenarios that need parent and dependency writes carry `@kanbus-parent-writes`. Building on Kanbus Preview is accepted,
@@ -202,9 +219,9 @@ Not decided. Each is a question for the owner, the Kanbus project, or both. None
 4. **Delivery of the migration report.** Decided: unplaceable Task items are reported to the owners and deleted after an
    owner has seen the report. Open: where the report is shown, what counts as having seen it, and whether one owner
    suffices.
-5. **Archive details.** Decided: archive, restore, purge after 30 days, immediate removal on an owner's request. Open: the
-   Kanbus routes (`kbs-791a7373`), how an owner finds and restores an archived board, and whether the restored board
-   returns when the same bot id is not reused.
+5. **Archive details.** Decided: archive, restore within 30 days, purge by the Kanbus sweeper, immediate removal only on
+   an owner's explicit request. Open: how an owner finds and restores an archived board in the product, and what happens
+   to the restored board when the bot itself was deleted and not restored.
 6. **Revision for a blind update.** The tool reads then writes when the bot names no revision. Should the revision be
    shown to the model so it can see conflicts it caused itself?
 7. **Operation ids.** Derived from the turn and the step so a retried turn repeats nothing. Confirm the Kanbus replay

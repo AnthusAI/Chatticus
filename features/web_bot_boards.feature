@@ -266,7 +266,7 @@ Feature: Members pick between the project boards of the computer and the interna
     When the member opens the Board tab
     Then the board says "That bot board is no longer there"
     And the picker no longer lists "Assistant"
-    And the board of "Assistant" is archived and not writable
+    And the board of "Assistant" is archived and the board store refuses writes to it
 
   # ---------------------------------------------------------------- who may change
 
