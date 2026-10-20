@@ -254,18 +254,13 @@ Not decided. Each is a question for the owner, the Kanbus project, or both. None
 14. **Closing as two writes.** Kanbus has no comment inside an update, so a close is a comment and then an update (section 12).
     A failed second write leaves a closing comment on an open card. Ask Kanbus for an update that carries a closing comment, or
     accept the two writes.
-15. **`custom.closing` on reopen.** Reopening sends `custom.closing = null` so a reopened card does not look completed.
-    Confirm that Kanbus's merge-by-key keeps or drops a null, and that a UI reading `custom.closing` treats both as absent.
-16. **Client surface.** The client's `KanbusIssuePatch` has no `dependencies` field although the service documents
-    `PATCH` with `dependencies`; Chatticus sends it through a cast. A create request has no id field, and a listing page has no
-    `catalog_pending` flag, so those scenarios stay draft. Ask Kanbus to type them.
-17. **Replay and `If-Match`.** Whether a replay compares `If-Match` as part of "the same request" is not documented. The tool
-    avoids depending on it by remembering the revision it read, and the in-process model treats it as part of the request.
-18. **Relation writes in the deployed artifact.** `@kanbus/cdk` 0.2.0 must carry parent and dependency writes
-    (`kbs-8283b923`) for the `@kanbus-parent-writes` scenarios to hold against the deployed service.
+15. **`custom.closing` on reopen.** Resolved by Kanbus: null sets the key to null.
+16. **Client surface.** Resolved except one: create takes no id (the server makes `<project_key>-<uuid>`) and list pages never carry `catalog_pending`, so those scenarios stay draft; `dependencies` on the patch is typed from client 0.1.1 (kbs-8806acd1).
+17. **Replay and `If-Match`.** Resolved by Kanbus: `If-Match` is part of the hashed request (section 12).
+18. **Relation writes in the deployed artifact.** Resolved: available in `@kanbus/cdk` 0.2.0 (Kanbus 0.39.0).
 19. **Removing a member.** The membership store has no removal, so "a member who is removed stops reading" cannot be
     specified yet; the role-change scenarios are real, the removal scenario stays in `bot_board_access.feature`.
-20. **Default card type.** `create` defaults the type to `task` because the client requires a type. Confirm.
+20. **Default card type.** `create` defaults the type to `task` because the client requires a type; confirmed by Kanbus.
 
 ## 11. Decided
 
@@ -314,8 +309,8 @@ provisions nothing, and the `board` tool is not offered to the model. The old `t
 ([`bot_board_rollout.feature`](../features/bot_board_rollout.feature)).
 
 **Signing and actor.** Each request is signed with SigV4 for `execute-api` using the function role's own credentials
-(`createSigV4SignedFetch`, built on `src/acceptance/sigv4.ts`). The signing is inside the client's `fetch` option, as the
-client's README shows. A role with `delegate_actor` must send `X-Kanbus-Actor` on every request, reads included, so the
+(`createSigV4SignedFetch`, built on `src/acceptance/sigv4.ts`). The signing is inside the client's `fetch` option, which receives the final URL and the exact body string, as the
+client's README shows; the `headers` hook takes no arguments and runs before the body is serialized, so it is never used to sign. Credentials are read from the role's provider on every request. The request carries `x-amz-content-sha256`, the hash of the exact body, and the signature covers it. A role with `delegate_actor` must send `X-Kanbus-Actor` on every request, reads included, so the
 client is built per acting person or bot with the header in its `headers` hook, and writes also pass `actor`. The actor is
 `chatticus:bot:<botId>` for the bot's tool calls and `chatticus:user:<userId>` for owner actions.
 
@@ -335,10 +330,16 @@ is interrupted and run again has the same turn and tool call ids, hence the same
 registered replay-safe for that reason. When the model names no revision the tool reads the card first and remembers the
 revision it read in the durable tool memo, so a replay writes against the revision of the first attempt.
 
+**Replay.** Kanbus hashes method, path, body, actor and `If-Match` for idempotency, so a retry must resend the original `If-Match`. The tool remembers the revision it read (durable tool memo) and resends it; a model-supplied different revision under the same `operation_key` is an `operation_conflict`, reported as not saved with guidance to use a new `operation_key`.
+
+**Types.** The tool never changes a card's type (Kanbus refuses a change to or from a hierarchy type with 409 `type_change_unsupported` until kbs-1a88cdf5); the type is chosen at create, default `task`. The 409 codes `relation_target_missing`, `issue_has_children`, `issue_has_dependents`, `hierarchy_violation` and `type_change_unsupported` are reported as not saved validation failures.
+
+**Dependencies.** `@kanbus/api-client` 0.1.0 does not type `dependencies` on the patch; `patchDependenciesUntilClientTyped` in `kanbus-board-client.ts` is the one place that bridges it, and it goes away with 0.1.1 (kbs-8806acd1).
+
 **Closing.** Kanbus's API has no comment inside an update, so completing or closing a card is two writes with two derived
 operation ids: a comment holding the evidence or reason (`Completed. Evidence: ...` or `Closed. Reason: ...`), then an update
 to `closed` with `custom.closing`. If the second fails the result says the comment was saved and the card was not closed. A plain status
-change to `closed` is refused before any call. Reopening sets `status` to `open` and `custom.closing` to null.
+change to `closed` is refused before any call. Reopening sets `status` to `open` and `custom.closing` to JSON null: Kanbus merges `custom` shallowly by key and a null sets the key to null, so a reopened card reads as not closed.
 
 **Honest results.** A write is reported `saved` only after the store answered with the record. A response that is an
 error is reported as what it said (denied, not found, conflict with the current revision, validation failure naming the
@@ -352,8 +353,8 @@ membership store at every call. Archive and restore need an owner and the front 
 calls purge. The HTTP routes that will expose these to members are a later phase.
 
 **Tests.** `conversation/features-support/fakes/fake-kanbus-board-service.ts` models the published Kanbus behavior of
-section 4 and the Kanbus service README in process, as a `fetch` the real client talks to. It refuses wherever the scenarios
-do not need it to accept: unsigned or unregistered roles, a missing or malformed actor header for a delegating role, an
+section 4 and the Kanbus service README in process, as a `fetch` the real client talks to. It verifies the SigV4 signature itself (it recomputes it over the received method, canonical path and query, signed headers and the hash of the received body bytes, with the role's secret) and refuses a body signed as empty, a body or header changed after signing, a missing payload hash and any unsigned header; it also refuses wherever the scenarios
+do not need it to accept: unregistered roles, a missing or malformed actor header for a delegating role, an
 actor header from a non-delegating role, a missing or non-UUID operation id, a missing `If-Match`, unknown fields, wrong
 hierarchy levels, workflow transitions the generated configuration does not allow, and every route of an archived board.
 

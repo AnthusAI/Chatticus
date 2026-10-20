@@ -1,4 +1,5 @@
-import { createKanbusApiClient, type KanbusApiClient, type KanbusFetch } from "@kanbus/api-client";
+import { createHash } from "node:crypto";
+import { createKanbusApiClient, type KanbusApiClient, type KanbusFetch, type KanbusIssuePatch } from "@kanbus/api-client";
 import { signSigV4 } from "../acceptance/sigv4.ts";
 
 /** Names the environment variable that holds the Kanbus board service URL. Present only where the board capability is rolled out. */
@@ -50,12 +51,13 @@ export function createSigV4SignedFetch(options: {
 }): KanbusFetch {
 	const carrier: KanbusFetch = options.fetch ?? ((input, init) => fetch(input, init));
 	return async (input, init = {}) => {
+		const body = typeof init.body === "string" ? init.body : "";
 		const signedHeaders = await signSigV4(
 			{
 				method: init.method ?? "GET",
 				url: input,
-				headers: headerRecordOf(init.headers),
-				...(typeof init.body === "string" ? { body: init.body } : {}),
+				headers: { ...headerRecordOf(init.headers), "x-amz-content-sha256": createHash("sha256").update(body).digest("hex") },
+				...(body === "" ? {} : { body }),
 			},
 			await options.credentials(),
 			options.region,
@@ -83,4 +85,12 @@ export function createBoardClientForActor(options: {
 		fetch: options.fetch,
 		headers: () => ({ [KANBUS_ACTOR_HEADER]: options.actor }),
 	});
+}
+
+/**
+ * A patch that sets the dependencies of a card. The service documents `dependencies` on PATCH, but `@kanbus/api-client`
+ * 0.1.0 does not type it; this is the one place that gap is bridged, and it goes away with 0.1.1.
+ */
+export function patchDependenciesUntilClientTyped(dependencies: ReadonlyArray<{ target: string; type: string }>): KanbusIssuePatch {
+	return { dependencies } as unknown as KanbusIssuePatch;
 }

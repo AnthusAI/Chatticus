@@ -11,6 +11,7 @@ import type { ChatticusWorld } from "./world.ts";
 export const FRONT_DOOR_ACCESS_KEY_ID = "scenario-front-door-key";
 /** The access key of the role the turn executor runs as in scenarios: it delegates the actor and cannot provision. */
 export const EXECUTOR_ACCESS_KEY_ID = "scenario-executor-key";
+export const SCENARIO_SECRET = "scenario-secret-value";
 const SCENARIO_REGION = "us-east-1";
 const SCENARIO_BASE_URL = "https://kanbus.scenario.invalid";
 
@@ -56,14 +57,14 @@ export function boardScenarioOf(world: ChatticusWorld): BoardScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
 		const fake = new FakeKanbusBoardService(() => world.clock.now());
-		fake.registerPrincipal(FRONT_DOOR_ACCESS_KEY_ID, { provision: true, delegateActor: true, tenants: "*" });
-		fake.registerPrincipal(EXECUTOR_ACCESS_KEY_ID, { provision: false, delegateActor: true, tenants: "*" });
+		fake.registerPrincipal(FRONT_DOOR_ACCESS_KEY_ID, { secretAccessKey: SCENARIO_SECRET, provision: true, delegateActor: true, tenants: "*" });
+		fake.registerPrincipal(EXECUTOR_ACCESS_KEY_ID, { secretAccessKey: SCENARIO_SECRET, provision: false, delegateActor: true, tenants: "*" });
 		const memberships = { getMembership: (tenantId: string, userId: string) => world.messagingStore().getMembership(tenantId, userId) };
 		const serviceFor = (accessKeyId: string): BotBoardService =>
 			new BotBoardService({
 				baseUrl: SCENARIO_BASE_URL,
 				fetch: createSigV4SignedFetch({
-					credentials: async () => ({ accessKeyId, secretAccessKey: "scenario-secret" }),
+					credentials: async () => ({ accessKeyId, secretAccessKey: SCENARIO_SECRET }),
 					region: SCENARIO_REGION,
 					fetch: fake.fetch,
 				}),

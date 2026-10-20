@@ -24,6 +24,20 @@ import { recordResponse } from "../api.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 const HOUSEHOLD_USER = "ryan";
+const memoOfWorld = new WeakMap<ChatticusWorld, Map<string, string>>();
+const replayWritesOfWorld = new WeakMap<ChatticusWorld, number>();
+const REPLAY_TURN = { turnId: "replayed-turn", callId: "replayed-call" };
+
+async function runReplayableUpdate(world: ChatticusWorld, botName: string, args: BoardToolArguments): Promise<Record<string, any>> {
+	const bot = botNamed(world, botName);
+	const memo = memoOfWorld.get(world) ?? new Map<string, string>();
+	memoOfWorld.set(world, memo);
+	const outcome = await runBoardToolCall({ organizationId: bot.tenantId, botId: bot.botId, turnId: REPLAY_TURN.turnId }, boardScenarioOf(world).executor, args, REPLAY_TURN.callId, async (revision) => {
+		if (!memo.has("revision")) memo.set("revision", revision);
+		return memo.get("revision")!;
+	});
+	return JSON.parse(outcome.text) as Record<string, any>;
+}
 const OWNER_USER = "ryan";
 
 async function callBoardTool(world: ChatticusWorld, botName: string, args: Record<string, unknown>): Promise<BoardToolCallRecord> {
@@ -497,12 +511,8 @@ Then("the configuration of the board is exactly what Kanbus writes for a new pro
 	const scenario = boardScenarioOf(this);
 	const write = scenario.fake.requests.filter((request) => request.method === "PUT").at(-1);
 	assert.ok(write, "No configuration was written");
-	const configPath = write.path;
-	const read = await scenario.fake.fetch(`https://kanbus.scenario.invalid${configPath}`, {
-		method: "GET",
-		headers: { authorization: "AWS4-HMAC-SHA256 Credential=scenario-front-door-key/20260101/us-east-1/execute-api/aws4_request", "x-kanbus-actor": "chatticus:system:scenario" },
-	});
-	const configuration = (await read.json()) as Record<string, any>;
+	const [, tenant, project] = write.path.split("/");
+	const configuration = scenario.fake.configurationOf(tenant!, project!);
 	assert.equal(configuration.project_key, "kanbus");
 	assert.deepEqual(configuration.hierarchy, ["initiative", "epic", "task", "sub-task"]);
 	assert.equal(configuration.initial_status, "open");
@@ -521,11 +531,7 @@ Then(
 		const statuses = [first, second, third, fourth, fifth];
 		const bot = botNamed(this, botName);
 		const scenario = boardScenarioOf(this);
-		const read = await scenario.fake.fetch(`https://kanbus.scenario.invalid/${bot.tenantId}/${bot.botId}/api/config`, {
-			method: "GET",
-			headers: { authorization: "AWS4-HMAC-SHA256 Credential=scenario-executor-key/20260101/us-east-1/execute-api/aws4_request", "x-kanbus-actor": `chatticus:bot:${bot.botId}` },
-		});
-		const configuration = (await read.json()) as { statuses: Array<{ key: string }> };
+		const configuration = scenario.fake.configurationOf(bot.tenantId, bot.botId) as { statuses: Array<{ key: string }> };
 		assert.deepEqual(configuration.statuses.map((status) => status.key), statuses);
 	},
 );
@@ -892,4 +898,46 @@ Then("the board tool uses the board of {string} and never the named one", functi
 	const requests = boardScenarioOf(this).fake.requests.slice(call.requestCountBefore);
 	assert.ok(requests.length > 0);
 	for (const request of requests) assert.ok(request.path.startsWith(`/${own.tenantId}/${own.botId}/api/`), request.path);
+});
+
+Given(
+	"the bot {string} moved the card to the status {string} by a tool call that read the revision first, with the operation id {string}",
+	async function (this: ChatticusWorld, botName: string, status: string, operationKey: string) {
+		const card = currentCard(this);
+		const parsed = await runReplayableUpdate(this, botName, { action: "update", card_id: card.id, status, operation_key: operationKey });
+		assert.equal(parsed.outcome, "saved", JSON.stringify(parsed));
+		noteRevision(boardScenarioOf(this), card.id, parsed.card.revision);
+	},
+);
+
+When("the worker retries that tool call", async function (this: ChatticusWorld) {
+	const card = currentCard(this);
+	replayWritesOfWorld.set(this, storedCurrent(this).writes);
+	const parsed = await runReplayableUpdate(this, card.botName, { action: "update", card_id: card.id, status: "in_progress", operation_key: "op-3" });
+	boardScenarioOf(this).lastToolCall = { text: JSON.stringify(parsed), parsed, isError: parsed.saved !== true, turnId: REPLAY_TURN.turnId, callId: REPLAY_TURN.callId, tenantId: "", botId: "", events: [], requestCountBefore: 0 };
+});
+
+When(
+	"the bot {string} uses operation id {string} to move the card to the status {string} expecting revision {int}",
+	async function (this: ChatticusWorld, botName: string, operationKey: string, status: string, ordinal: number) {
+		const card = currentCard(this);
+		await callBoardTool(this, botName, { action: "update", card_id: card.id, status, revision: revisionNumber(this, card.id, ordinal), operation_key: operationKey });
+	},
+);
+
+Then("the retry is answered as saved and wrote nothing", function (this: ChatticusWorld) {
+	assert.equal(lastCall(this).parsed.outcome, "saved", lastCall(this).text);
+	assert.equal(storedCurrent(this).writes, replayWritesOfWorld.get(this));
+});
+
+Then("the board tool says to use a new operation key", function (this: ChatticusWorld) {
+	assert.match(String(lastCall(this).parsed.message), /new operation_key/);
+});
+
+Then("the card no longer records a closing", function (this: ChatticusWorld) {
+	assert.equal(storedCurrent(this).issue.custom.closing, null);
+});
+
+Then("the board tool reports that the change was not saved", function (this: ChatticusWorld) {
+	assert.equal(lastCall(this).parsed.saved, false, lastCall(this).text);
 });

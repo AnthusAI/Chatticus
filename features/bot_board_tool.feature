@@ -170,6 +170,7 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     When the bot "Assistant" uses the board tool to reopen the card
     Then the card has the status "open"
     And the card has no closing time
+    And the card no longer records a closing
 
   @server
   Scenario: Bots close cards and never delete them
@@ -304,6 +305,26 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     When the bot "Assistant" uses operation id "op-2" to move the card to the status "blocked"
     Then the board tool reports that the operation id was used for a different change
     And the card has the status "in_progress"
+
+  @server
+  Scenario: A retried change resends the revision it first read even though the card has moved on
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    And the bot "Assistant" moved the card to the status "in_progress" by a tool call that read the revision first, with the operation id "op-3"
+    And an organization owner changes the title of the card to "Pay the water bill" so that it is at revision 3
+    When the worker retries that tool call
+    Then the retry is answered as saved and wrote nothing
+    And the card has the status "in_progress"
+    And the card keeps the title "Pay the water bill"
+
+  @server
+  Scenario: A different revision under the same operation key is refused and reported as not saved
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    And the bot "Assistant" moved the card to the status "in_progress" with the operation id "op-2"
+    When the bot "Assistant" uses operation id "op-2" to move the card to the status "in_progress" expecting revision 2
+    Then the board tool reports that the operation id was used for a different change
+    And the board tool reports that the change was not saved
+    And the board tool says to use a new operation key
+    And the card was written once
 
   @server
   Scenario: A turn that is retried by the worker does not repeat its board writes

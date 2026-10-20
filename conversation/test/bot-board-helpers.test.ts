@@ -83,7 +83,7 @@ describe("board service client wiring", () => {
 describe("the in-process model of the board service", () => {
 	it("answers the published client with the issue shape the client types promise", async () => {
 		const service = new FakeKanbusBoardService(() => new Date("2026-10-20T12:00:00.000Z"));
-		service.registerPrincipal("provision-key-id", { provision: true, delegateActor: true, tenants: "*" });
+		service.registerPrincipal("provision-key-id", { secretAccessKey: "secret", provision: true, delegateActor: true, tenants: "*" });
 		const signedFetch = createSigV4SignedFetch({
 			credentials: async () => ({ accessKeyId: "provision-key-id", secretAccessKey: "secret" }),
 			region: "us-east-1",
@@ -107,5 +107,78 @@ describe("the in-process model of the board service", () => {
 		const service = new FakeKanbusBoardService(() => new Date());
 		const board = createKanbusApiClient({ baseUrl: "https://kanbus.invalid", fetch: service.fetch }).board("org", "bot");
 		await expect(board.getConfig()).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe("the in-process model verifies the request signature", () => {
+	const EMPTY_BODY_HASH = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+	const url = "https://kanbus.invalid/org/bot/api/issues";
+	const credentials = { accessKeyId: "verify-key-id", secretAccessKey: "verify-secret" };
+
+	const setup = () => {
+		const service = new FakeKanbusBoardService(() => new Date("2026-10-20T12:00:00.000Z"));
+		service.registerPrincipal("verify-key-id", { secretAccessKey: "verify-secret", provision: true, delegateActor: true, tenants: "*" });
+		return service;
+	};
+
+	const signed = async (body: string, overrides: Record<string, string> = {}): Promise<Record<string, string>> => {
+		const { signSigV4 } = await import("../src/acceptance/sigv4.ts");
+		const { createHash } = await import("node:crypto");
+		return signSigV4(
+			{
+				method: "POST",
+				url,
+				headers: {
+					"x-kanbus-actor": "chatticus:bot:b",
+					"x-operation-id": deriveBoardOperationId(["signed-request"]),
+					"x-amz-content-sha256": createHash("sha256").update(body).digest("hex"),
+					...overrides,
+				},
+				body,
+			},
+			credentials,
+			"us-east-1",
+			"execute-api",
+		);
+	};
+
+	const send = async (service: FakeKanbusBoardService, headers: Record<string, string>, body: string): Promise<number> =>
+		(await service.fetch(url, { method: "POST", headers, body })).status;
+
+	it("accepts a request signed over the exact body it sends", async () => {
+		const body = JSON.stringify({ title: "x", type: "task" });
+		expect(await send(setup(), await signed(body), body)).toBe(404);
+	});
+
+	it("refuses a request signed with the hash of an empty body", async () => {
+		const body = JSON.stringify({ title: "x", type: "task" });
+		expect(await send(setup(), await signed(body, { "x-amz-content-sha256": EMPTY_BODY_HASH }), body)).toBe(403);
+	});
+
+	it("refuses a request whose body changed after signing", async () => {
+		const headers = await signed(JSON.stringify({ title: "x", type: "task" }));
+		expect(await send(setup(), headers, JSON.stringify({ title: "y", type: "task" }))).toBe(403);
+	});
+
+	it("refuses a request whose signed header was altered", async () => {
+		const body = JSON.stringify({ title: "x", type: "task" });
+		const headers = { ...(await signed(body)), "x-kanbus-actor": "chatticus:user:someone-else" };
+		expect(await send(setup(), headers, body)).toBe(403);
+	});
+
+	it("refuses a request signed without the payload hash header", async () => {
+		const body = JSON.stringify({ title: "x", type: "task" });
+		const headers = await signed(body);
+		delete headers["x-amz-content-sha256"];
+		expect(await send(setup(), headers, body)).toBe(403);
+	});
+
+	it("refuses a client that signs in its headers hook, which cannot see the method, the url or the body", async () => {
+		const service = setup();
+		const { signSigV4 } = await import("../src/acceptance/sigv4.ts");
+		const headersHook = async (): Promise<Record<string, string>> =>
+			signSigV4({ method: "GET", url: "https://kanbus.invalid/", headers: {} }, credentials, "us-east-1", "execute-api");
+		const board = createKanbusApiClient({ baseUrl: "https://kanbus.invalid", fetch: service.fetch, headers: headersHook }).board("org", "bot");
+		await expect(board.createIssue({ title: "x", type: "task" }, { operationId: deriveBoardOperationId(["h"]), actor: "chatticus:bot:b" })).rejects.toMatchObject({ status: 403 });
 	});
 });

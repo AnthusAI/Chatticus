@@ -10,7 +10,7 @@ import {
 } from "@kanbus/api-client";
 import { deriveBoardOperationId } from "./board-operation-id.ts";
 import { failureFromError, type BoardFailure, type BoardResult } from "./board-failures.ts";
-import { createBoardClientForActor } from "./kanbus-board-client.ts";
+import { createBoardClientForActor, patchDependenciesUntilClientTyped } from "./kanbus-board-client.ts";
 
 /** Whose board: the organization is the Kanbus tenant and the bot is the Kanbus project. */
 export type BoardAddress = { readonly organizationId: string; readonly botId: string };
@@ -372,7 +372,7 @@ export class BotBoardService {
 				(entry): entry is { target: string; type: string } =>
 					typeof entry === "object" && entry !== null && typeof (entry as { target?: unknown }).target === "string",
 			);
-			const patch = { dependencies: change(existing) } as unknown as KanbusIssuePatch;
+			const patch = patchDependenciesUntilClientTyped(change(existing));
 			const written = await board.updateIssue(cardId, patch, {
 				operationId: this.operationId(address, action, "update", context),
 				ifMatch: revision,

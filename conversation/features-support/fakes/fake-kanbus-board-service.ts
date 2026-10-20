@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import type { KanbusFetch } from "@kanbus/api-client";
 
 /**
@@ -43,6 +43,8 @@ const PATCH_FIELDS = CREATE_FIELDS;
 
 /** What a service principal may do, as `KANBUS_SERVICE_PRINCIPALS` configures it. */
 export type FakePrincipalGrants = {
+	/** The secret key the role signs with; the model verifies every signature against it. */
+	readonly secretAccessKey: string;
 	readonly provision: boolean;
 	readonly delegateActor: boolean;
 	readonly tenants: "*" | readonly string[];
@@ -70,6 +72,10 @@ type Board = {
 	purgeAfter: Date | null;
 };
 
+function assert_configured(board: Board | undefined): void {
+	if (board === undefined || !board.configured) throw new Error("The board is not provisioned");
+}
+
 class ServiceError extends Error {
 	readonly status: number;
 	readonly code: string;
@@ -88,6 +94,18 @@ function json(status: number, body: unknown): Response {
 function levelOf(type: string): number {
 	const index = HIERARCHY.indexOf(type);
 	return index >= 0 ? index : HIERARCHY.indexOf("task");
+}
+
+function rfc3986(value: string): string {
+	return encodeURIComponent(value).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function sha256Hex(value: string): string {
+	return createHash("sha256").update(value).digest("hex");
+}
+
+function hmac(key: string | Buffer, value: string): Buffer {
+	return createHmac("sha256", key).update(value).digest();
 }
 
 function isoMilliseconds(date: Date): string {
@@ -175,6 +193,12 @@ export class FakeKanbusBoardService {
 		}
 	}
 
+	/** The configuration the board was provisioned with, for assertions. */
+	configurationOf(tenant: string, project: string): Record<string, any> {
+		assert_configured(this.boards.get(`${tenant}/${project}`));
+		return this.configuration("service");
+	}
+
 	/** The stored card, for assertions. */
 	peek(tenant: string, project: string, id: string): { issue: Record<string, any>; revision: string; writes: number } | null {
 		const stored = this.boards.get(`${tenant}/${project}`)?.issues.get(id);
@@ -203,8 +227,42 @@ export class FakeKanbusBoardService {
 		return principal;
 	}
 
+	private verifySignature(method: string, url: URL, headers: Headers, bodyText: string, principal: FakePrincipalGrants): void {
+		const refuse = (): never => {
+			throw new ServiceError(403, "forbidden", "The request signature does not match");
+		};
+		const authorization = headers.get("authorization") ?? "";
+		const parsed = /^AWS4-HMAC-SHA256 Credential=([^/]+)\/(\d{8})\/([^/]+)\/([^/]+)\/aws4_request, SignedHeaders=([^,]+), Signature=([0-9a-f]{64})$/.exec(authorization);
+		if (parsed === null) return refuse();
+		const [, , day, region, service, signedHeaderList, signature] = parsed as unknown as string[];
+		const amzDate = headers.get("x-amz-date") ?? "";
+		const payloadHash = headers.get("x-amz-content-sha256") ?? "";
+		if (service !== "execute-api" || !amzDate.startsWith(day!) || payloadHash !== sha256Hex(bodyText)) return refuse();
+		const signedNames = signedHeaderList!.split(";");
+		for (const required of ["host", "x-amz-date", "x-amz-content-sha256"]) if (!signedNames.includes(required)) return refuse();
+		let unsigned = false;
+		headers.forEach((_value, name) => {
+			if (name !== "authorization" && !signedNames.includes(name) && name !== "accept" && name !== "content-type" && name !== "content-length") unsigned = true;
+		});
+		if (unsigned) return refuse();
+		const canonicalPath = url.pathname.split("/").map((segment) => rfc3986(segment)).join("/");
+		const canonicalQuery = [...url.searchParams.entries()]
+			.map(([name, value]) => [rfc3986(name), rfc3986(value)] as const)
+			.sort((left, right) => (left[0] < right[0] ? -1 : left[0] > right[0] ? 1 : left[1] < right[1] ? -1 : 1))
+			.map(([name, value]) => `${name}=${value}`)
+			.join("&");
+		const canonicalHeaders = signedNames.map((name) => `${name}:${(headers.get(name) ?? "").trim().replace(/\s+/g, " ")}\n`).join("");
+		const canonicalRequest = [method, canonicalPath, canonicalQuery, canonicalHeaders, signedHeaderList, payloadHash].join("\n");
+		const scope = `${day}/${region}/${service}/aws4_request`;
+		const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonicalRequest)].join("\n");
+		const signingKey = hmac(hmac(hmac(hmac(`AWS4${principal.secretAccessKey}`, day!), region!), service!), "aws4_request");
+		const expected = createHmac("sha256", signingKey).update(stringToSign).digest("hex");
+		if (expected !== signature) refuse();
+	}
+
 	private async handle(method: string, url: URL, headers: Headers, bodyText: string, accessKeyId: string | null): Promise<Response> {
 		const principal = this.principalOf(accessKeyId);
+		this.verifySignature(method, url, headers, bodyText, principal);
 		const match = /^\/([^/]+)\/([^/]+)\/api\/(.+)$/.exec(url.pathname);
 		if (match === null) throw new ServiceError(404, "not_found", "Not found");
 		const tenant = decodeURIComponent(match[1]!);
