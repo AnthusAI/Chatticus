@@ -22,10 +22,22 @@
         "model": "claude-opus-5-5",
         "name": "orchestrator"
       }
+    },
+    {
+      "id": "2c5a0035-c474-45cb-af18-8df230d84527",
+      "author": "home",
+      "text": "Owner decisions on storage, 2026-10-20 (Ryan), after the Kanbus project reported that a Kanbus/Virtuus cloud store already exists in Preview (virtuus-store crate: S3 canonical Kanbus JSON plus a rebuildable DynamoDB catalog, conditional writes by revision, operation ids for idempotent retries, catalog_pending on lag; kanbus-api: axum service and Lambda behind API Gateway, used by Prospectus): (1) Kanbus owns the cloud store and its API; Chatticus consumes it and designs no store of its own. (2) Chatticus deploys Kanbus's own kanbus-api unchanged in the Chatticus production account, one per environment, and the TypeScript control plane calls it. (3) Mapping of one board per bot: the cleanest, most elegant Kanbus-native model; pending the Kanbus project's answer on the 8-project limit (candidate: one Kanbus project per bot, tenant = organization id). (4) Building on Preview is fine, development first. Needs filed with the Kanbus project: deployable artifact with a per-environment layout, service-to-service auth, a TypeScript client, parent and dependency writes through the API, and whatever the per-bot mapping requires.",
+      "created_at": "2026-10-20T03:44:25.912489Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5-5",
+        "name": "orchestrator"
+      }
     }
   ],
   "created_at": "2026-10-16T20:43:28.709933Z",
-  "updated_at": "2026-10-20T03:33:51.040797Z",
+  "updated_at": "2026-10-20T03:44:25.912515Z",
   "closed_at": null,
   "agent": {
     "platform": "codex",
