@@ -96,8 +96,10 @@ describe("ControlPlaneStack", () => {
   it("protects the Conversations table with point in time recovery and deletion protection in every environment", () => {
     for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
       const template = synthControlPlane(environmentName);
-      const tables = Object.values(template.findResources("AWS::DynamoDB::Table"));
-      assert.equal(tables.length, 1, `${environmentName} defines exactly one table`);
+      const tables = Object.entries(template.findResources("AWS::DynamoDB::Table"))
+        .filter(([logicalId]) => !logicalId.startsWith("Kanbus"))
+        .map(([, resource]) => resource);
+      assert.equal(tables.length, 1, `${environmentName} defines exactly one table besides the Kanbus catalog`);
       assert.equal(tables[0].DeletionPolicy, "Retain", `${environmentName} retains the table`);
       assert.equal(tables[0].UpdateReplacePolicy, "Retain", `${environmentName} retains on replacement`);
       template.hasResourceProperties("AWS::DynamoDB::Table", {
