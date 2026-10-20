@@ -30,9 +30,12 @@ export class IdentityNotFoundError extends Error {
 
 /** The user is not a member of the organization. */
 export class MembershipNotFoundError extends Error {
-	constructor(message: string) {
+	readonly userId: string | null;
+
+	constructor(message: string, userId: string | null = null) {
 		super(message);
 		this.name = "MembershipNotFoundError";
+		this.userId = userId;
 	}
 }
 
@@ -41,6 +44,17 @@ export class OrgAccessDeniedError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "OrgAccessDeniedError";
+	}
+}
+
+/** Raised when a signed-in user is not a member of the organization the path names. */
+export class NotAMemberError extends OrgAccessDeniedError {
+	readonly userId: string;
+
+	constructor(message: string, userId: string) {
+		super(message);
+		this.name = "NotAMemberError";
+		this.userId = userId;
 	}
 }
 
@@ -56,11 +70,14 @@ export class PrincipalAudienceDeniedError extends Error {
 export class PrincipalHttpError extends Error {
 	readonly status: number;
 	readonly detail: string;
+	/** The user id of a signed-in caller who is not a member of the organization in the path; null for every other refusal. */
+	readonly nonMemberUserId: string | null;
 
-	constructor(status: number, detail: string) {
+	constructor(status: number, detail: string, nonMemberUserId: string | null = null) {
 		super(detail);
 		this.status = status;
 		this.detail = detail;
+		this.nonMemberUserId = nonMemberUserId;
 		this.name = "PrincipalHttpError";
 	}
 }
@@ -145,6 +162,7 @@ export async function resolveUserPrincipalFromToken(
 		if (membership === null) {
 			throw new MembershipNotFoundError(
 				`User '${identity.userId}' is not a member of organization '${tenantId}'.`,
+				identity.userId,
 			);
 		}
 		const organizationStatus = await dependencies.directory.getOrganizationStatus(tenantId);
@@ -180,8 +198,9 @@ export async function verifyOrgAccess(
 	}
 	const membership = await dependencies.directory.getMembership(pathTenantId, principal.userId);
 	if (membership === null) {
-		throw new OrgAccessDeniedError(
+		throw new NotAMemberError(
 			`User '${principal.userId}' is not a member of organization '${pathTenantId}'.`,
+			principal.userId,
 		);
 	}
 	const status = await dependencies.directory.getOrganizationStatus(pathTenantId);
@@ -234,6 +253,9 @@ export async function resolvePrincipal(
 			error instanceof OrgAccessDeniedError ||
 			error instanceof PrincipalAudienceDeniedError
 		) {
+			if (error instanceof NotAMemberError || error instanceof MembershipNotFoundError) {
+				throw new PrincipalHttpError(403, error.message, error.userId);
+			}
 			throw forbidden(error.message);
 		}
 		throw error;

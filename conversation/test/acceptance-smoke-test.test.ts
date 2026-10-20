@@ -14,6 +14,7 @@ import {
 	runSmokeTest,
 	SmokeAssertionError,
 	SmokeRequestError,
+	SMOKE_BOARD_CHECK_NAMES,
 	SMOKE_CHECK_NAMES,
 	type SmokeTestOptions,
 } from "../src/acceptance/smoke-test.ts";
@@ -21,6 +22,7 @@ import { buildStsGetCallerIdentityHeaders } from "../src/acceptance/sigv4.ts";
 import type { TurnRunJob } from "../src/domain/turn-admission.ts";
 import { executeTurn } from "../src/turn/executor.ts";
 import { defaultScriptedAnswer, executorDepsFor, modelScenarioOf } from "../features-support/executor-harness.ts";
+import { boardScenarioOf } from "../features-support/bot-board-support.ts";
 import { wireFrontDoor, TURN_RUN_QUEUE } from "../features-support/front-door.ts";
 import { dropPiStorage } from "../features-support/pi-storage.ts";
 import { ChatticusWorld } from "../features-support/world.ts";
@@ -215,6 +217,107 @@ describe("the acceptance smoke test against the in-process front door", () => {
 		);
 		await expect(failure).rejects.toThrow(SMOKE_CHECK_NAMES.replyPersisted);
 		expect(checks).not.toContain(SMOKE_CHECK_NAMES.replyPersisted);
+	}, 60_000);
+});
+
+async function enableBoardService(): Promise<void> {
+	boardScenarioOf(world).enabled = true;
+	if (world.frontDoorOptions === null) {
+		throw new Error("front door not wired");
+	}
+	await wireFrontDoor(world, world.frontDoorOptions);
+}
+
+function smokeBotBoard(): { cards: Record<string, any>[]; archived: boolean } {
+	const fake = boardScenarioOf(world).fake;
+	const [key, board] = [...fake.boards.entries()][0] ?? [];
+	if (key === undefined || board === undefined) {
+		throw new Error("no board was provisioned");
+	}
+	const [tenant, project] = key.split("/");
+	return { cards: fake.cardsOf(tenant!, project!), archived: board.archivedAt !== null };
+}
+
+describe("the board checks of the acceptance smoke test", () => {
+	const orderedWithBoard = [
+		SMOKE_CHECK_NAMES.sessionExchanged,
+		SMOKE_CHECK_NAMES.botCreated,
+		...Object.values(SMOKE_BOARD_CHECK_NAMES).filter((name) => name !== SMOKE_BOARD_CHECK_NAMES.boardArchived),
+		...Object.values(SMOKE_CHECK_NAMES).slice(2),
+		SMOKE_BOARD_CHECK_NAMES.boardArchived,
+	];
+
+	it("runs the board checks through the front door as the integration user and archives the board at the end", async () => {
+		await enableBoardService();
+		const checks: string[] = [];
+		await runSmokeTest(options({ expectBoard: true }), checks);
+		expect(checks).toEqual(orderedWithBoard);
+		const board = smokeBotBoard();
+		expect(board.archived).toBe(true);
+		const actor = `chatticus:user:${DEFAULT_INTEGRATION_TEST_USER_ID}`;
+		const closing = board.cards.map((card) => [card["status"], card["custom"]?.closing, card["creator"]]);
+		expect(closing).toEqual([
+			["closed", "completed", actor],
+			["closed", "abandoned", actor],
+			["open", undefined, actor],
+		]);
+		expect(board.cards[0]!["comments"].at(-1).text).toContain("Smoke evidence");
+	}, 60_000);
+
+	it("skips the board checks when the board capability is not expected, even where the deployment has it", async () => {
+		await enableBoardService();
+		const checks: string[] = [];
+		await runSmokeTest(options(), checks);
+		expect(checks).toEqual(Object.values(SMOKE_CHECK_NAMES));
+		const requests = boardScenarioOf(world).fake.requests;
+		expect(requests.every((request) => request.method === "PUT" && request.path.endsWith("/api/config"))).toBe(true);
+		expect(smokeBotBoard()).toEqual({ cards: [], archived: false });
+	}, 60_000);
+
+	it("fails when the board capability is expected and the front door answers board_service_not_enabled", async () => {
+		const checks: string[] = [];
+		const failure = runSmokeTest(options({ expectBoard: true }), checks);
+		await expect(failure).rejects.toBeInstanceOf(SmokeAssertionError);
+		await expect(failure).rejects.toThrow(/board_service_not_enabled/);
+		expect(checks).toEqual([SMOKE_CHECK_NAMES.sessionExchanged, SMOKE_CHECK_NAMES.botCreated]);
+	}, 60_000);
+
+	it("fails when completing a card without evidence is not refused, and still archives the board", async () => {
+		await enableBoardService();
+		const inner = inProcessTransport();
+		const sneaky: Transport = async (input, init) => {
+			const body = typeof init?.body === "string" ? init.body : "";
+			if (init?.method === "POST" && input.endsWith("/complete") && body.includes('"evidence":""')) {
+				return inner(input, { ...init, body: JSON.stringify({ evidence: "slipped through" }) });
+			}
+			return inner(input, init);
+		};
+		const checks: string[] = [];
+		const failure = runSmokeTest(options({ expectBoard: true, fetch: sneaky }), checks);
+		await expect(failure).rejects.toBeInstanceOf(SmokeAssertionError);
+		await expect(failure).rejects.toThrow(SMOKE_BOARD_CHECK_NAMES.completionRefused);
+		expect(checks).not.toContain(SMOKE_BOARD_CHECK_NAMES.completionRefused);
+		expect(checks).not.toContain(SMOKE_BOARD_CHECK_NAMES.boardArchived);
+		expect(smokeBotBoard().archived).toBe(true);
+	}, 60_000);
+
+	it("fails when a card read back is not closed as completed", async () => {
+		await enableBoardService();
+		const inner = inProcessTransport();
+		const dropsClosing: Transport = async (input, init) => {
+			const response = await inner(input, init);
+			if ((init?.method ?? "GET") !== "GET" || !/\/board\/cards\/[^/]+$/.test(input)) {
+				return response;
+			}
+			const answer = (await response.json()) as { issue: Record<string, any>; revision: string };
+			answer.issue["custom"] = {};
+			return new Response(JSON.stringify(answer), { status: 200, headers: { "content-type": "application/json" } });
+		};
+		const checks: string[] = [];
+		const failure = runSmokeTest(options({ expectBoard: true, fetch: dropsClosing }), checks);
+		await expect(failure).rejects.toThrow(/records the closing/);
+		expect(checks).not.toContain(SMOKE_BOARD_CHECK_NAMES.cardCompleted);
+		expect(smokeBotBoard().archived).toBe(true);
 	}, 60_000);
 });
 

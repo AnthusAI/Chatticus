@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { BoardAuditRecord, BoardAuditSink } from "../src/board/board-audit.ts";
 import { BotBoardService, type BoardActor } from "../src/board/bot-board-service.ts";
 import { createSigV4SignedFetch } from "../src/board/kanbus-board-client.ts";
 import { OrganizationsKernelImpl } from "../src/domain/organizations.ts";
@@ -118,11 +119,20 @@ export function botNamed(world: ChatticusWorld, name: string): { botId: string; 
 
 const kernel = new OrganizationsKernelImpl();
 
-/** Make `userId` a member of the organization with `role`, seeding the organization when it does not exist yet. */
-export async function ensureOrganizationUser(world: ChatticusWorld, tenantId: string, userId: string, role: MemberRole): Promise<void> {
+/**
+ * The identity a person named in a feature has: a bare name is the user id and gets a made-up address in the
+ * organization; an email address is the address itself, and the user id is made from the part before the at sign.
+ */
+export function identityOfPerson(tenantId: string, person: string): { userId: string; email: string } {
+	if (person.includes("@")) return { userId: `user-${person.split("@")[0]}`, email: person };
+	return { userId: person, email: `${person}@${tenantId}.test` };
+}
+
+/** Make `person` a member of the organization with `role`, seeding the organization when it does not exist yet. */
+export async function ensureOrganizationUser(world: ChatticusWorld, tenantId: string, person: string, role: MemberRole): Promise<void> {
 	await ensureTestOrganization(world, tenantId);
 	const store = world.messagingStore();
-	const email = `${userId}@${tenantId}.test`;
+	const { userId, email } = identityOfPerson(tenantId, person);
 	if ((await store.getIdentityByEmail(email)) === null) {
 		await store.putIdentity({ userId, email, createdAt: world.clock.now() });
 	}
@@ -185,4 +195,20 @@ export function storedCard(world: ChatticusWorld, card: RememberedCard): { issue
 export function actorString(world: ChatticusWorld, who: { bot?: string; user?: string }): string {
 	if (who.bot !== undefined) return `chatticus:bot:${botNamed(world, who.bot).botId}`;
 	return `chatticus:user:${who.user}`;
+}
+
+const auditRecords = new WeakMap<ChatticusWorld, BoardAuditRecord[]>();
+
+/** The sink the scenario's front door writes denied board requests to. */
+export function boardAuditSinkOf(world: ChatticusWorld): BoardAuditSink {
+	return (record) => {
+		const records = auditRecords.get(world) ?? [];
+		records.push(record);
+		auditRecords.set(world, records);
+	};
+}
+
+/** The denied board requests the scenario's front door recorded. */
+export function auditRecordsOf(world: ChatticusWorld): readonly BoardAuditRecord[] {
+	return auditRecords.get(world) ?? [];
 }

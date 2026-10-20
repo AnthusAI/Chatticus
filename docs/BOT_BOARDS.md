@@ -4,11 +4,12 @@
 > the board service module, provisioning at bot creation and the board tool, described in section 12 and specified by
 > [`bot_board_tool.feature`](../features/bot_board_tool.feature),
 > [`bot_board_owner_actions.feature`](../features/bot_board_owner_actions.feature) and
-> [`bot_board_rollout.feature`](../features/bot_board_rollout.feature), all in `features/cucumber-features.txt`. Not built:
-> the HTTP routes, the web Board tab and the Task migration, which stay in the drafts
-> [`bot_board_access.feature`](../features/bot_board_access.feature),
-> [`bot_board_task_migration.feature`](../features/bot_board_task_migration.feature) and
-> [`web_bot_boards.feature`](../features/web_bot_boards.feature). The contract is between Chatticus and
+> [`bot_board_rollout.feature`](../features/bot_board_rollout.feature), all in `features/cucumber-features.txt`. Phase 2b
+> (the front door HTTP routes of a bot's board) is built behind the same switch, described in section 13 and specified by
+> [`bot_board_routes.feature`](../features/bot_board_routes.feature). Not built: the web Board tab and the Task migration,
+> which stay in the drafts [`bot_board_task_migration.feature`](../features/bot_board_task_migration.feature) and
+> [`web_bot_boards.feature`](../features/web_bot_boards.feature), and the parts of
+> [`bot_board_access.feature`](../features/bot_board_access.feature) that need member removal or bot deletion. The contract is between Chatticus and
 > the Kanbus cloud store that Chatticus consumes. The decisions are the owner's, recorded on
 > Kanbus epic `chatticus-c5f14c`. Where the decisions are silent this page says so in section 10 and does not guess. Decisions made on 2026-10-20 are
 > listed in section 11.
@@ -350,7 +351,7 @@ behind.
 **Owner rules inside the module.** Reads need membership in the organization (a stranger gets not found); writes need an
 owner, or the bot on its own board; a bot never deletes and never touches another bot's board; role is read from the
 membership store at every call. Archive and restore need an owner and the front door's provisioning role. Chatticus never
-calls purge. The HTTP routes that will expose these to members are a later phase.
+calls purge. The HTTP routes that expose these to members are phase 2b (section 13).
 
 **Tests.** `conversation/features-support/fakes/fake-kanbus-board-service.ts` models the published Kanbus behavior of
 section 4 and the Kanbus service README in process, as a `fetch` the real client talks to. It verifies the SigV4 signature itself (it recomputes it over the received method, canonical path and query, signed headers and the hash of the received body bytes, with the role's secret) and refuses a body signed as empty, a body or header changed after signing, a missing payload hash and any unsigned header; it also refuses wherever the scenarios
@@ -358,3 +359,49 @@ do not need it to accept: unregistered roles, a missing or malformed actor heade
 actor header from a non-delegating role, a missing or non-UUID operation id, a missing `If-Match`, unknown fields, wrong
 hierarchy levels, workflow transitions the generated configuration does not allow, and every route of an archived board.
 
+## 13. Phase 2b: the front door routes of a bot's board
+
+Code: `conversation/src/http/routes/bot-boards.ts`, registered from `conversation/src/http/app.ts`. Behavior:
+[`bot_board_routes.feature`](../features/bot_board_routes.feature). The routes call only `BotBoardService` (section 12) with
+the actor `chatticus:user:<userId>`; the computer is never involved, and the bot's own tool path is not HTTP.
+
+| Method | Path under `/orgs/{organization}/bots/{bot}/board` | Who may call |
+| --- | --- | --- |
+| GET | `` (overview: configuration and the first cards) | any member of the organization |
+| GET | `/cards` (query: `status`, `type`, `assignee`, `label`, `parent`, `search`, `sort`, `limit`, `cursor`) | any member |
+| GET | `/cards/{card}` (the card with its comments and revision) | any member |
+| POST | `/cards` (`title`, optional `type`, `description`, `priority`, `labels`, `parent`, `status`) | owners |
+| PATCH | `/cards/{card}` (`title`, `description`, `priority`, `labels`, `status`; a plain move to `closed` is refused) | owners |
+| POST | `/cards/{card}/comments` (`text`) | owners |
+| POST | `/cards/{card}/complete` (`evidence`) | owners |
+| POST | `/cards/{card}/abandon` (`reason`) | owners |
+| POST | `/cards/{card}/reopen` | owners |
+| PUT | `/cards/{card}/parent` (`parent`, a card id or null) | owners |
+| POST | `/cards/{card}/dependencies` (`target`, `type` blocked-by or relates-to) | owners |
+| DELETE | `/cards/{card}/dependencies/{target}` | owners |
+| DELETE | `/cards/{card}` | owners |
+| POST | `/archive`, `/restore` | owners |
+
+Rules. The organization and the bot come from the path only; a request body that names others is ignored. A caller who is
+not a member of the organization, a bot that is not the organization's and an unknown board all answer 404 `not_found` with
+no card content. A member without write answers 403 `forbidden`. Not signed in answers 403 `user credential required`, as
+every `/orgs/...` route does. Every change after a create carries the revision the caller saw in `If-Match` (428
+`revision_required` without it), and an optional `Idempotency-Key` header names the change so a retried request replays;
+without one each request is a new change. Successful card answers are `{ issue, revision, catalog_pending }` with the Kanbus
+issue JSON unchanged; listings are `{ cards, next_cursor }` and the overview adds `tenant_id`, `bot_id`, `bot_name` and
+`configuration`. Errors are `{ detail, code, kind }`: a revision conflict is 409 `revision_conflict` with `current_revision`
+and `current_card`; Chatticus refusals (`evidence_required`, `reason_required`, `closing_needs_evidence_or_reason`) and
+Kanbus validation are 422, or 409 for the state conflicts Kanbus names; an archived board is 409 `board_archived`; a store
+that did not confirm a change is 502 with `saved: false`, meaning the change may or may not be stored. Where
+`CHATTICUS_KANBUS_API_URL` is absent every route answers 404 `board_service_not_enabled`. A denied request (forbidden, or not
+found for a stranger or an unknown bot) is recorded as one structured log line `bot_board_request_refused` with the person,
+the bot, the route and the reason, never card text.
+
+**Live acceptance.** `conversation/bin/acceptance.ts --environment <name> --expect-board` (the reusable workflow input
+`expect-board`, set by the development deploy workflows) runs, through the front door as the integration user and without a
+model, right after the throwaway bot is created: read the empty overview; create a card and check its creator is
+`chatticus:user:<integration user>`; comment; move to `in_progress`; complete with evidence and read back `closed`, the
+closing comment and `custom.closing = completed`; create and abandon a second card with a reason; check that completing a
+third card without evidence is refused with 422; and at the end archive the bot's board, because the product has no bot
+deletion route. A front door that answers `board_service_not_enabled` fails the run when the flag is given. Without the flag
+the board checks are skipped.

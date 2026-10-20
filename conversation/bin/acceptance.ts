@@ -7,6 +7,12 @@
  * bot and a channel, post, read the SSE stream, reload, and steer. The AWS credentials come from the ambient chain
  * (AWS_PROFILE=chatticus-production for a local run: development, staging and production all live in the one production
  * AWS account); the invoke key is read from Secrets Manager at runtime and never printed.
+ *
+ * Usage: `npx tsx bin/acceptance.ts --environment development [--expect-board]`
+ *
+ * `--expect-board` says the environment has the bot board capability (the Front Door and Turn Executor have
+ * CHATTICUS_KANBUS_API_URL). The runner then also exercises the throwaway bot's board through the front door, and a front
+ * door that answers board_service_not_enabled fails the run. Without the flag the board checks are skipped.
  */
 
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
@@ -54,13 +60,13 @@ async function readInvokeKey(environment: string): Promise<string> {
 	return secret;
 }
 
-async function runSmoke(environment: string): Promise<SmokeRunResult> {
+async function runSmoke(environment: string, expectBoard: boolean): Promise<SmokeRunResult> {
 	const checks: string[] = [];
 	try {
 		const baseUrl = await resolveBaseUrl(environment);
 		const credentials = await new STSClient({ region: REGION }).config.credentials();
 		const invokeKey = await readInvokeKey(environment);
-		await runSmokeTest({ baseUrl, invokeKey, credentials }, checks);
+		await runSmokeTest({ baseUrl, invokeKey, credentials, expectBoard }, checks);
 		return { status: "pass", environment, checks, error: null };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
@@ -71,13 +77,20 @@ async function runSmoke(environment: string): Promise<SmokeRunResult> {
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	let environment = "development";
+	let expectBoard = false;
+	if (args.includes("--help")) {
+		console.log("Usage: npx tsx bin/acceptance.ts --environment <development|staging|production> [--expect-board]\n\n--expect-board  the environment has the bot board capability; the board checks run and board_service_not_enabled fails them (without it they are skipped)");
+		process.exit(0);
+	}
 	for (let index = 0; index < args.length; index++) {
 		if (args[index] === "--environment") {
 			environment = args[index + 1] || "development";
 			index++;
+		} else if (args[index] === "--expect-board") {
+			expectBoard = true;
 		}
 	}
-	const result = await runSmoke(environment);
+	const result = await runSmoke(environment, expectBoard);
 	console.log(JSON.stringify(result, null, 2));
 	if (result.status === "pass") {
 		process.exit(0);

@@ -1,6 +1,7 @@
 import {
 	KanbusApiError,
 	type BoardClient,
+	type KanbusBoardConfiguration,
 	type KanbusBoardIssueEntry,
 	type KanbusFetch,
 	type KanbusIssueFields,
@@ -31,6 +32,9 @@ export type BotBoardServiceDependencies = {
 	readonly fetch: KanbusFetch;
 	readonly memberships: BoardMembershipReader;
 };
+
+/** A board as the overview shows it: its configuration and its first page of cards. */
+export type BoardOverview = { readonly configuration: KanbusBoardConfiguration; readonly cards: readonly KanbusBoardIssueEntry[]; readonly nextCursor: string | null };
 
 /** The fields of a new card. Everything but the title is optional; the board's own configuration fills the rest. */
 export type NewCardFields = {
@@ -148,6 +152,20 @@ export class BotBoardService {
 					actor: actorHeaderFor(actor),
 				}),
 			);
+		} catch (error) {
+			return failed(failureFromError(error));
+		}
+	}
+
+	/** Read the configuration of a board and its first page of cards. Every member of the organization may. */
+	async readBoard(address: BoardAddress, actor: BoardActor, query: KanbusIssueQuery = {}): Promise<BoardResult<BoardOverview>> {
+		const denied = await this.authorize(address, actor, "read");
+		if (denied !== null) return failed(denied);
+		try {
+			const board = this.boardFor(address, actor);
+			const configuration = await board.getConfig();
+			const page = await board.listIssues(query);
+			return saved({ configuration, cards: page.issues, nextCursor: page.next_cursor });
 		} catch (error) {
 			return failed(failureFromError(error));
 		}

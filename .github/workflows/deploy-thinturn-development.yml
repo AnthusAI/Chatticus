@@ -53,3 +53,4 @@ jobs:
     uses: ./.github/workflows/acceptance-smoke-test.yml
     with:
       environment: development
+      expect-board: true
