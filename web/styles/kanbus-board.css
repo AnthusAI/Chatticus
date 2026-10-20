@@ -1,0 +1,34 @@
+/*
+ * Styles for the Board panel's Kanbus component (@kanbus/ui). kanban.css is the component's own stylesheet.
+ * The package's tokens.css is deliberately not imported: it sets :root variables that the workspace also uses
+ * (--font-body, --font-mono) and html.dark variables, and every value it holds is set below instead, inside the
+ * board wrapper only. The dark class on the wrapper switches the component's dark Radix palette for the wrapper
+ * alone (the component keys it off a .dark ancestor; the workspace follows prefers-color-scheme).
+ */
+@import "@kanbus/ui/styles/kanban.css";
+
+.chatticus-kanbus-board {
+  --background: var(--surface-0);
+  --frame: var(--surface-0);
+  --column: var(--surface-0);
+  --card: var(--surface-0);
+  --card-muted: var(--surface-2);
+  --card-outline: var(--surface-2);
+  --border: var(--surface-2);
+  --text-foreground: var(--surface-foreground);
+  --text-muted: color-mix(in srgb, var(--surface-foreground) 65%, transparent);
+  --text-selected: var(--cobalt);
+  --shadow-card: none;
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: var(--surface-2);
+  --scrollbar-track: transparent;
+  --kb-board-gap: 0.5rem;
+  --kb-column-width: min(20rem, 85%);
+  --kb-column-radius: 1rem;
+  --kb-card-radius: 0.75rem;
+  --kb-card-gap: 0.5rem;
+  --kb-card-border: 0 solid transparent;
+  --kb-card-shadow: none;
+  font-family: var(--font-body), sans-serif;
+  color: var(--text-foreground);
+}

@@ -25,9 +25,16 @@ function contentRequestCount(state: KanbusBoardState): number {
 	return state.requests.filter((request) => request.route === "/content").length;
 }
 
-function columnCardIds(state: KanbusBoardState, status: string): string[] {
-	assert.ok(elementNamed(state, `kanbus-column-${status}`), `The board has no column "${status}". It shows: ${state.text}`);
-	return state.elements.filter((element) => element.testId === `kanbus-card-id-${status}`).map((element) => element.text);
+function columnOf(state: KanbusBoardState, status: string) {
+	const column = state.columns.find((candidate) => candidate.key === status);
+	assert.ok(column, `The Kanbus board has no column "${status}". It shows: ${state.text}`);
+	return column;
+}
+
+function cardOf(state: KanbusBoardState, id: string) {
+	const card = state.columns.flatMap((column) => column.cards).find((candidate) => candidate.id === id);
+	assert.ok(card, `The Kanbus board has no card "${id}". It shows: ${state.text}`);
+	return card;
 }
 
 Given(
@@ -101,19 +108,31 @@ Then("the board says {string}", async function (this: ChatticusWorld, text: stri
 
 Then("the board column {string} lists {string}", async function (this: ChatticusWorld, status: string, expected: string) {
 	const state = await processOf(this).state();
-	assert.deepEqual(columnCardIds(state, status), expected.split(",").map((id) => id.trim()), `The board shows: ${state.text}`);
+	assert.deepEqual(columnOf(state, status).cards.map((card) => card.id), expected.split(",").map((id) => id.trim()).filter((id) => id !== ""), `The board shows: ${state.text}`);
 });
 
 Then("the board column {string} has a count of {int}", async function (this: ChatticusWorld, status: string, count: number) {
 	const state = await processOf(this).state();
-	assert.equal(elementNamed(state, `kanbus-column-count-${status}`)?.text, String(count));
+	const header = columnOf(state, status).headerText;
+	assert.equal(/(\d+)$/.exec(header)?.[1], String(count), `The column header reads "${header}"`);
+});
+
+Then("the board column {string} draws {int} cards", async function (this: ChatticusWorld, status: string, count: number) {
+	const state = await processOf(this).state();
+	assert.equal(columnOf(state, status).cards.length, count);
 });
 
 Then("the card {string} shows {string}", async function (this: ChatticusWorld, id: string, text: string) {
 	const state = await processOf(this).state();
-	const card = elementNamed(state, `kanbus-card-${id}`);
-	assert.ok(card, `The board has no card "${id}". It shows: ${state.text}`);
+	const card = cardOf(state, id);
 	assert.ok(card.text.includes(text), `The card "${id}" does not show "${text}". It shows: ${card.text}`);
+});
+
+Then("the card {string} is a {string} with the priority {string}", async function (this: ChatticusWorld, id: string, type: string, priority: string) {
+	const state = await processOf(this).state();
+	const card = cardOf(state, id);
+	assert.equal(card.type, type);
+	assert.equal(card.priority, priority);
 });
 
 Then("the board read {int} issue file(s)( again)", async function (this: ChatticusWorld, count: number) {

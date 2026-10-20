@@ -1,16 +1,26 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildKanbusBoardColumns, chooseIssueFilesToRead, parseKanbusIssueFile, priorityName, statusColumnName, type KanbusBoardIssue } from "./kanbus-board";
+import type { KanbanIssue } from "@kanbus/ui";
 
-function issue(overrides: Partial<KanbusBoardIssue>): KanbusBoardIssue {
-  return { id: "a-1", title: "A", type: "task", status: "open", priority: 2, labels: [], parent: null, assignee: null, updatedAt: null, ...overrides };
+import { buildKanbusBoardConfig, chooseIssueFilesToRead, parseKanbusIssueFile, priorityName, statusColumnName } from "./kanbus-board";
+
+function issue(overrides: Partial<KanbanIssue>): KanbanIssue {
+  return { id: "a-1", title: "A", type: "task", status: "open", priority: 2, labels: [], ...overrides };
 }
 
 describe("parseKanbusIssueFile", () => {
   it("reads the fields a card shows and tolerates the rest", () => {
     const parsed = parseKanbusIssueFile(JSON.stringify({ id: "k-1", title: "Fix", type: "bug", status: "in_progress", priority: 0, labels: ["web", 7, ""], parent: "k-0", comments: [], closed_at: null }));
-    assert.deepEqual(parsed, { id: "k-1", title: "Fix", type: "bug", status: "in_progress", priority: 0, labels: ["web"], parent: "k-0", assignee: null, updatedAt: null });
+    assert.deepEqual(parsed, { id: "k-1", title: "Fix", type: "bug", status: "in_progress", priority: 0, labels: ["web"], parent: "k-0" });
+  });
+
+  it("keeps the assignee and the timestamps when the file has them", () => {
+    const parsed = parseKanbusIssueFile(JSON.stringify({ id: "k-4", title: "T", status: "open", assignee: "ryan", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-02T00:00:00Z", closed_at: null }));
+    assert.equal(parsed?.assignee, "ryan");
+    assert.equal(parsed?.created_at, "2026-10-01T00:00:00Z");
+    assert.equal(parsed?.updated_at, "2026-10-02T00:00:00Z");
+    assert.equal(parsed?.closed_at, undefined);
   });
 
   it("defaults the type and the priority", () => {
@@ -26,30 +36,25 @@ describe("parseKanbusIssueFile", () => {
   });
 });
 
-describe("buildKanbusBoardColumns", () => {
-  it("always shows open, in progress and closed, and orders other statuses by the default workflow", () => {
-    const columns = buildKanbusBoardColumns([issue({ id: "x", status: "blocked" }), issue({ id: "y", status: "review" })]);
-    assert.deepEqual(columns.map((column) => column.status), ["open", "in_progress", "blocked", "closed", "review"]);
+describe("buildKanbusBoardConfig", () => {
+  it("always lists open, in progress and closed, and orders other statuses by the default workflow", () => {
+    const config = buildKanbusBoardConfig([issue({ id: "x", status: "blocked" }), issue({ id: "y", status: "review" })]);
+    assert.deepEqual(config.statuses.map((status) => status.key), ["open", "in_progress", "blocked", "closed", "review"]);
+    assert.equal(config.statuses.find((status) => status.key === "in_progress")?.name, "In progress");
   });
 
-  it("sorts cards by priority and then by most recent update, and counts children", () => {
-    const columns = buildKanbusBoardColumns([
-      issue({ id: "low", priority: 3 }),
-      issue({ id: "old", priority: 1, updatedAt: "2026-10-01T00:00:00Z" }),
-      issue({ id: "new", priority: 1, updatedAt: "2026-10-05T00:00:00Z" }),
-      issue({ id: "kid", priority: 2, parent: "new", status: "closed" }),
-    ]);
-    const open = columns.find((column) => column.status === "open");
-    assert.deepEqual(open?.cards.map((card) => card.id), ["new", "old", "low"]);
-    assert.equal(open?.cards[0].childCount, 1);
+  it("lists every priority and type the issues use", () => {
+    const config = buildKanbusBoardConfig([issue({ id: "x", priority: 7, type: "spike" })]);
+    assert.equal(config.priorities[7].name, "Priority 7");
+    assert.equal(config.priorities[0].name, "Critical");
+    assert.equal(config.type_colors.spike, "gray");
+    assert.equal(config.type_colors.bug, "red");
   });
 
-  it("limits the cards of a column and says how many are hidden", () => {
-    const issues = Array.from({ length: 5 }, (_unused, index) => issue({ id: `i-${index}` }));
-    const open = buildKanbusBoardColumns(issues, 3).find((column) => column.status === "open");
-    assert.equal(open?.cards.length, 3);
-    assert.equal(open?.hiddenCount, 2);
-    assert.equal(open?.total, 5);
+  it("puts every status in a category that the configuration lists", () => {
+    const config = buildKanbusBoardConfig([issue({ id: "x", status: "review" })]);
+    const categoryNames = new Set(config.categories.map((category) => category.name));
+    assert.ok(config.statuses.every((status) => categoryNames.has(status.category)));
   });
 });
 

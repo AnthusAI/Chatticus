@@ -1,16 +1,16 @@
+import type { KanbanConfig, KanbanIssue, KanbanStatusDefinition } from "@kanbus/ui";
+
 /**
  * The Kanbus board panel reads a Kanbus project out of the organization's workspace files. A Kanbus project keeps
- * one JSON file per issue under `project/issues/`. This module parses those files and arranges them into columns by
- * status. It has no React, no network and no clock, so it is the same code under the panel and under its tests.
+ * one JSON file per issue under `project/issues/`. This module parses those files into the `KanbanIssue` records
+ * that `@kanbus/ui` renders and derives the `KanbanConfig` it needs. It has no React, no network and no clock, so it
+ * is the same code under the panel and under its tests. Drawing columns and cards is the job of `@kanbus/ui`.
  */
 
 export const KANBUS_ISSUES_DIRECTORY = "project/issues";
 
 /** The most issue files one load reads. The newest by modification time are read first. */
 export const KANBUS_ISSUE_FILE_LIMIT = 200;
-
-/** The most cards one column draws before it says how many more it holds. */
-export const KANBUS_COLUMN_CARD_LIMIT = 30;
 
 const KNOWN_STATUS_ORDER: readonly string[] = ["backlog", "open", "in_progress", "blocked", "closed"];
 const ALWAYS_SHOWN_STATUSES: readonly string[] = ["open", "in_progress", "closed"];
@@ -23,6 +23,16 @@ const STATUS_NAMES: Readonly<Record<string, string>> = {
   closed: "Closed",
 };
 
+const STATUS_CATEGORIES: Readonly<Record<string, string>> = {
+  backlog: "To do",
+  open: "To do",
+  in_progress: "In progress",
+  blocked: "In progress",
+  closed: "Done",
+};
+
+const FALLBACK_STATUS_CATEGORY = "In progress";
+
 const PRIORITY_NAMES: Readonly<Record<number, string>> = {
   0: "Critical",
   1: "High",
@@ -31,31 +41,17 @@ const PRIORITY_NAMES: Readonly<Record<number, string>> = {
   4: "Trivial",
 };
 
-/** One issue as the board needs it: the fields of a Kanbus issue file that a card shows or a column sorts by. */
-export type KanbusBoardIssue = {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-  priority: number;
-  labels: readonly string[];
-  parent: string | null;
-  assignee: string | null;
-  updatedAt: string | null;
+const TYPE_COLORS: Readonly<Record<string, string>> = {
+  initiative: "violet",
+  epic: "purple",
+  story: "green",
+  task: "blue",
+  "sub-task": "sky",
+  bug: "red",
+  chore: "gray",
 };
 
-export type KanbusBoardCard = KanbusBoardIssue & {
-  priorityName: string;
-  childCount: number;
-};
-
-export type KanbusBoardColumn = {
-  status: string;
-  name: string;
-  total: number;
-  cards: readonly KanbusBoardCard[];
-  hiddenCount: number;
-};
+const CATEGORY_NAMES: readonly string[] = ["To do", "In progress", "Done"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -65,8 +61,8 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
-/** The issue a Kanbus issue file holds, or null when the text is not an issue (not JSON, or no id, title and status). */
-export function parseKanbusIssueFile(text: string): KanbusBoardIssue | null {
+/** The issue a Kanbus issue file holds, in the shape `@kanbus/ui` renders, or null when the text is not an issue (not JSON, or no id, title and status). */
+export function parseKanbusIssueFile(text: string): KanbanIssue | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -79,17 +75,26 @@ export function parseKanbusIssueFile(text: string): KanbusBoardIssue | null {
   const status = nonEmptyString(parsed.status);
   if (id === null || title === null || status === null) return null;
   const labels = Array.isArray(parsed.labels) ? parsed.labels.filter((label): label is string => typeof label === "string" && label !== "") : [];
-  return {
+  const issue: KanbanIssue = {
     id,
     title,
     type: nonEmptyString(parsed.type) ?? "task",
     status,
     priority: typeof parsed.priority === "number" && Number.isInteger(parsed.priority) ? parsed.priority : 2,
     labels,
-    parent: nonEmptyString(parsed.parent),
-    assignee: nonEmptyString(parsed.assignee),
-    updatedAt: nonEmptyString(parsed.updated_at),
   };
+  const optionalFields: ReadonlyArray<readonly ["assignee" | "parent" | "created_at" | "updated_at" | "closed_at", unknown]> = [
+    ["assignee", parsed.assignee],
+    ["parent", parsed.parent],
+    ["created_at", parsed.created_at],
+    ["updated_at", parsed.updated_at],
+    ["closed_at", parsed.closed_at],
+  ];
+  for (const [field, value] of optionalFields) {
+    const fieldText = nonEmptyString(value);
+    if (fieldText !== null) issue[field] = fieldText;
+  }
+  return issue;
 }
 
 /** The label a column header shows for a status key. */
@@ -105,14 +110,6 @@ export function priorityName(priority: number): string {
   return PRIORITY_NAMES[priority] ?? `Priority ${priority}`;
 }
 
-function compareCards(left: KanbusBoardIssue, right: KanbusBoardIssue): number {
-  if (left.priority !== right.priority) return left.priority - right.priority;
-  const leftUpdated = left.updatedAt ?? "";
-  const rightUpdated = right.updatedAt ?? "";
-  if (leftUpdated !== rightUpdated) return leftUpdated < rightUpdated ? 1 : -1;
-  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
-}
-
 function compareStatuses(left: string, right: string): number {
   const leftIndex = KNOWN_STATUS_ORDER.indexOf(left);
   const rightIndex = KNOWN_STATUS_ORDER.indexOf(right);
@@ -123,25 +120,35 @@ function compareStatuses(left: string, right: string): number {
 }
 
 /**
- * The board's columns: the open, in progress and closed columns always, any other status that has an issue, in the
- * order of the default Kanbus workflow with unknown statuses last. Cards sort by priority, then most recently updated.
+ * The `KanbanConfig` for a set of issues: the open, in progress and closed statuses always, any other status that has
+ * an issue, in the order of the default Kanbus workflow with unknown statuses last, every priority the issues use, and
+ * a color for every type they use. The component draws only statuses that the configuration lists, so each status in
+ * use must be listed here.
  */
-export function buildKanbusBoardColumns(issues: readonly KanbusBoardIssue[], cardLimit: number = KANBUS_COLUMN_CARD_LIMIT): KanbusBoardColumn[] {
-  const childCountByParent = new Map<string, number>();
+export function buildKanbusBoardConfig(issues: readonly KanbanIssue[]): KanbanConfig {
+  const statusKeys = new Set<string>(ALWAYS_SHOWN_STATUSES);
+  const priorityNumbers = new Set<number>([0, 1, 2, 3, 4]);
+  const typeColors: Record<string, string> = { ...TYPE_COLORS };
   for (const issue of issues) {
-    if (issue.parent !== null) childCountByParent.set(issue.parent, (childCountByParent.get(issue.parent) ?? 0) + 1);
+    statusKeys.add(issue.status);
+    priorityNumbers.add(issue.priority);
+    if (typeColors[issue.type] === undefined) typeColors[issue.type] = "gray";
   }
-  const statuses = new Set<string>(ALWAYS_SHOWN_STATUSES);
-  for (const issue of issues) statuses.add(issue.status);
-  return [...statuses].sort(compareStatuses).map((status) => {
-    const inColumn = issues.filter((issue) => issue.status === status).sort(compareCards);
-    const shown = inColumn.slice(0, cardLimit).map((issue) => ({
-      ...issue,
-      priorityName: priorityName(issue.priority),
-      childCount: childCountByParent.get(issue.id) ?? 0,
-    }));
-    return { status, name: statusColumnName(status), total: inColumn.length, cards: shown, hiddenCount: inColumn.length - shown.length };
-  });
+  const statuses: KanbanStatusDefinition[] = [...statusKeys].sort(compareStatuses).map((key) => ({
+    key,
+    name: statusColumnName(key),
+    category: STATUS_CATEGORIES[key] ?? FALLBACK_STATUS_CATEGORY,
+  }));
+  const priorities: Record<number, { name: string }> = {};
+  for (const priority of [...priorityNumbers].sort((left, right) => left - right)) priorities[priority] = { name: priorityName(priority) };
+  const priorityFirst = { "To do": "priority-first", "In progress": "priority-first", Done: "recently-updated" } as const;
+  return {
+    statuses,
+    categories: CATEGORY_NAMES.map((name) => ({ name })),
+    priorities,
+    type_colors: typeColors,
+    sort_order: { categories: priorityFirst },
+  };
 }
 
 /** The entries of an issues directory the board reads: the JSON files, newest modification first, at most the limit. */

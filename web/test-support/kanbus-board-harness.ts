@@ -7,7 +7,7 @@ import { setIdTokenSourceForTests } from "../lib/api-auth";
 import { computerFilesApiFor } from "../lib/computer-files-api";
 import { KanbusBoardController } from "../lib/kanbus-board-controller";
 import { FakeComputerFiles, type FakeMode } from "./computer-files-fake";
-import { testElementsOfMarkup, textOfMarkup } from "./html-test-elements";
+import { elementsWithClassOfMarkup, testElementsOfMarkup, textOfMarkup } from "./html-test-elements";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -60,11 +60,21 @@ function seedIssues(project: string, rows: IssueRow[]): void {
 }
 
 async function render() {
-  const view = await import("../components/workspace/KanbusBoardPanelView");
+  const frame = await import("../components/workspace/KanbusBoardPanelFrame");
   const html = renderToStaticMarkup(
-    createElement(view.KanbusBoardPanelView, { snapshot: requireController().getSnapshot(), handlers: { onRefresh: () => undefined } }),
+    createElement(frame.KanbusBoardPanelFrame, { snapshot: requireController().getSnapshot(), handlers: { onRefresh: () => undefined }, theme: "light" }),
   );
-  return { html, text: textOfMarkup(html), elements: testElementsOfMarkup(html) };
+  const columns = elementsWithClassOfMarkup(html, "kb-column").map((column) => ({
+    key: column.attributes["data-column-key"] ?? "",
+    headerText: elementsWithClassOfMarkup(column.innerHtml, "kb-column-header")[0]?.text ?? "",
+    cards: elementsWithClassOfMarkup(column.innerHtml, "issue-card").map((card) => ({
+      id: card.attributes["data-issue-id"] ?? "",
+      type: card.attributes["data-type"] ?? "",
+      priority: card.attributes["data-priority"] ?? "",
+      text: card.text,
+    })),
+  }));
+  return { html, text: textOfMarkup(html), elements: testElementsOfMarkup(html), columns };
 }
 
 type Command = { op: string } & Record<string, any>;
