@@ -26,10 +26,22 @@
       "text": "P0 vs P1 on this epic is **Ryan's call** — not absorbed here. Self-setup, grantable `run_terminal`, and cross-account `RunTask` did raise the exposure; the brake is still unbuilt.\n\nNot waiting on that call to start the narrow ask at current P1: `43e64c` (ceiling on the record at provisioning) first; `6a9e97` (stop new computer work) is now `blocked-by` `43e64c` so it does not hide after `43e64c` closes unless we unwire. `b7e2c7` stays queued behind the unattended run.\n",
       "created_at": "2026-09-08T18:49:09.384989Z",
       "comment_type": "default"
+    },
+    {
+      "id": "4a97e58f-c6a0-444c-ab66-11ad15940736",
+      "author": "home",
+      "text": "Status 2026-10-20 (board cleanup): KEEP. Ceiling, stop, owner raise and banner are shipped and closed (43e64c, 6a9e97, 91f8f4, a106ea). Open children: 9ac621 (P0 meter blind spot), 1d68fb (fresh live verify), 39d8f5 (warning alert), 9563cb and 619ba0 (P2). 309a7e and d706d7 were closed today as obsolete after PR 586 replaced tag-based metering for hosted organizations.",
+      "created_at": "2026-10-20T13:57:45.341804Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
     }
   ],
   "created_at": "2026-09-03T13:15:40.991276Z",
-  "updated_at": "2026-09-08T18:49:09.385005Z",
+  "updated_at": "2026-10-20T13:57:45.341829Z",
   "closed_at": null,
   "right_now_summary": "The ceiling is set, but metering bugs still prevent it from limiting real spend.",
   "right_now_updated_at": "2026-10-16T10:44:15.215514Z",

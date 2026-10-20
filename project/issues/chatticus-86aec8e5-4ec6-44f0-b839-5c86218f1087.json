@@ -4,7 +4,7 @@
   "description": "Outcome: chattic.us serves multi-user organizations. People sign in with Google through Cognito, organizations are the unit of enablement and billing, members share channels, bots, and one organization computer, and what a member may approve or see is governed by a delegated authority ceiling modeled on how an office works.\n\nNot included: Apple sign-in, domain-verified auto-join, per-member isolation on the shared computer, billing mechanics.\n\nDesign, rejected alternatives, and explicit non-requirements: **docs/ORGANIZATIONS.md**.\n\n## How to work this initiative\n\nEvery child issue carries a header naming its phase, what blocks it, what it runs in parallel with, and what it unblocks. **Phases run in sequence. Everything inside a phase runs at the same time.** Filter by the phase-N label to see what is workable now.\n\n| Phase | What happens | Items |\n| --- | --- | --- |\n| 1 | Ground work, nothing blocks it | 79ca6a, 7c1382, 0ab02c, 272aea, 1ebc7d |\n| 2 | Cognito and the control plane, two builds that never touch | 0df6cb, b574a6 |\n| 3 | Identity resolves, nothing enforces yet | 5f0c4c, fac2ee, 79578e, 5558db, 41d08d |\n| 4 | The door closes | 22f5bb, then **7b4616**, then e41552, ae51dc |\n| 5 | Collaboration | 14f692, then 6c1a9b, 0814e6, ddf609 |\n| 6 | Delegated authority | 24df70, eef4aa, then ac3b7a, b49a89, 14cf05, then e4053a |\n| 7 | Environments come back | bc830a, then 89a222 |\n\n**Critical path:** 0ab02c to 0df6cb to 5f0c4c to 22f5bb to 7b4616 to 14f692 to ddf609 to 24df70 to eef4aa to e4053a to bc830a to 89a222. Everything off that line has slack; if capacity is short, staff the path first and let the members CLI, invitations, and named roles arrive late.\n\n**One hard join: 7b4616.** Four phase-3 and phase-4 tracks converge on it and nothing in phases 5 to 7 begins before it. Enforcement flips in a single step because a half-enforced front door is a second authentication path, and this repository does not keep two.\n\n**Two serialize-merge hazards.** 79578e reshapes every route and the tenant column in most feature files; give it a clear window and merge it alone. 6c1a9b, 0814e6, and ddf609 are independent in logic but all edit models.py and messaging/store.py; give the set to one agent or merge them one at a time.\n\n## Rules for every item\n\n- Gherkin first. Scenarios must fail for the right reason before production code exists.\n- One correct path. No item ships a second way of doing what it already does.\n- Pull requests target develop, reviewed by the sub-agent loop in AGENTS.md.\n- AWS resources are CDK only. Organization and membership rows are data and may be written by the members CLI.\n- After any deploy-affecting merge, run sh scripts/live_aws_thin_turn.sh development from a logged-in shell. The in-process gates use moto and prove nothing about CloudFront, SQS, or Lambda.\n- Secrets never enter the repository, a CDK template, or an agent transcript.",
   "type": "initiative",
   "status": "open",
-  "priority": 1,
+  "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": null,
@@ -199,10 +199,22 @@
       "text": "Parking: Phase 4 join is live. Remaining children are human Google consent (ac5453) and parked Bedrock meter (f3c786). Not an active coding queue.",
       "created_at": "2026-09-05T19:55:23.078724Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3d51d861-a554-4af2-9709-c08113362bbd",
+      "author": "home",
+      "text": "Lowered to P2 (board cleanup 2026-10-20). Phase 4 is live and parked: 2e3e94 closed today; the remaining children are 20e38b (hardening, only P2/P3 children left) and 71e3e0 (Google sign-in, only the human consent check left). Not an active coding queue.",
+      "created_at": "2026-10-20T13:57:30.566126Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-05T19:55:23.078724Z",
+  "updated_at": "2026-10-20T13:57:30.644279Z",
   "closed_at": null,
   "right_now_summary": "Phase 4 is live; Google consent remains, while the Bedrock meter waits for Bedrock.",
   "right_now_updated_at": "2026-09-09T19:59:06.773453Z",

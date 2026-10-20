@@ -12,9 +12,22 @@
     "web"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "94568a9e-ea71-4eb0-875a-8e793547bf08",
+      "author": "home",
+      "text": "Status 2026-10-20 (board cleanup): KEEP, still true on develop. web/lib/invitations.ts exists but no component imports an invite panel (InviteMemberPanel is gone), and NoOrganizationPanel still says 'Ask an operator to invite you before using the workspace.' With signup invitation_only in staging and production (PR 581) there is still no in-app way for an owner to invite a member.",
+      "created_at": "2026-10-20T13:57:44.980727Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
+    }
+  ],
   "created_at": "2026-09-16T18:38:26.569369Z",
-  "updated_at": "2026-09-16T18:38:26.569409Z",
+  "updated_at": "2026-10-20T13:57:44.980746Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

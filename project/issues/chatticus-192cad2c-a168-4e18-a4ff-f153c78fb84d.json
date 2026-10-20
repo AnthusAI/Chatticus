@@ -3,7 +3,7 @@
   "title": "Plan the marketing site's DNS records and certificate validation after the zone move",
   "description": "The chattic.us apex and www records, and the two ACM validation CNAMEs, belong to the marketing site: the private repo AnthusAI/Chattic.us-web, stack ChatticusMarketing in the legacy account. This repo cannot change it. The zone stack (#376, deployed 2026-09-30) reproduces those records in the management-account zone as static copies, verified identical to legacy.\n\nThe risk starts once the registrar points at the new zone (4e4819 step 4): ChatticusMarketing still owns four record sets in the OLD zone and a CloudFormation update that replaces its CloudFront distribution would change the alias only in a zone nobody queries, so the apex and www would silently keep pointing at a removed or stale distribution. Its ACM certificates renew through the two validation CNAMEs, which now also must exist in the new zone (they do: verified). Decide with Ryan, in that repo: (a) how the marketing stack writes its records into a zone in another account (a cross-account record role, or delegating the two names), or (b) treat the four records as static in the management zone and freeze distribution replacement, or (c) move the marketing stack to the management account. Needs to be settled before the marketing site next deploys with a distribution change; not needed for the registrar switch itself.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,10 +12,23 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "19d45b85-de8f-4bc6-9b3f-980de1df269d",
+      "author": "home",
+      "text": "Closed as obsolete (board cleanup 2026-10-20). The premise was ChatticusMarketing in the legacy account writing records into the old zone. The marketing site moved to the private repo's CodePipeline deploy in the production account (AnthusAI/Chattic.us-web PR 24 and PR 28, live since 2026-10-15), and https://chattic.us currently answers 200. Any DNS question for that stack is now tracked in the private repo.",
+      "created_at": "2026-10-20T13:57:17.347210Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
+    }
+  ],
   "created_at": "2026-09-30T21:52:19.519147Z",
-  "updated_at": "2026-09-30T21:52:19.519186Z",
-  "closed_at": null,
+  "updated_at": "2026-10-20T13:57:17.422923Z",
+  "closed_at": "2026-10-20T13:57:17.422889Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
