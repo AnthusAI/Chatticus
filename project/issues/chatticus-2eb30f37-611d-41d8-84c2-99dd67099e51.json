@@ -10,9 +10,22 @@
   "parent": "chatticus-9eeed991-501f-4edf-8548-27fb4a83aba3",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e649b188-4bad-4fff-9d2b-98892edad254",
+      "author": "home",
+      "text": "Audit 2026-10-20: docs/PROMOTE_TO_MAIN.md is stale beyond sections 4 and 9. Promotion to main is done (PR #619), yet the page is still published on the chattic.us wiki (generated from Chatticus docs/). Consider retiring or rewriting it as a short current-process page when fixing this issue. Source: Anthus repo audit, 2026-10-20.",
+      "created_at": "2026-10-20T04:27:48.397089Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "audit-filer"
+      }
+    }
+  ],
   "created_at": "2026-10-15T17:21:34.707246Z",
-  "updated_at": "2026-10-15T17:21:34.707294Z",
+  "updated_at": "2026-10-20T04:27:48.397107Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-00050a01-acdc-4d3f-9a07-da006ac61506",
+  "title": "Public Chatticus wiki mirrors internal planning docs with Kanbus ticket IDs and \"name TBD\"",
+  "description": "**Problem**\nAbout 20 pages under chattic.us/wiki are generated from internal planning documents and expose Kanbus ticket IDs, 'name TBD' placeholders and planning scratch. The wiki pages are generated from Chatticus docs/, so the fix belongs in the docs/wiki publishing selection.\n\n**Evidence**\nExamples of mirrored internal docs: python-retirement-scenarios, owner-credential-* pages, FEASIBILITY_TESTS.md, spec-coverage-baseline.md (all under docs/). Pages contain ticket IDs such as TS-61 and the text 'name TBD'.\n\n**Fix**\nAdd an allowlist (or exclude list) to the wiki generator so only user-facing docs publish; scrub ticket IDs and TBD placeholders from anything that stays public.\n\n**How to verify**\nCrawl https://chattic.us/wiki: no page contains a Kanbus ticket ID pattern (e.g. TS-[0-9]+) or the string 'name TBD', and the internal planning pages above return 404.\n\nSource: Anthus repo audit, 2026-10-20.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-20T04:27:28.100840Z",
+  "updated_at": "2026-10-20T04:27:28.100894Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "audit-filer"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
