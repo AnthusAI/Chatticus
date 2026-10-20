@@ -169,6 +169,18 @@ bootstrap and model gateway tokens, and the token signing key) have a bounded bl
 [Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md) 12.2. What to do when one is suspected leaked, in order and with the
 cost of each step, is the [emergency revocation runbook](OWNER_CREDENTIAL_REVOCATION.md).
 
+## Audit trail of the AWS account
+
+The account that holds development, staging and production has one CloudTrail trail, `chatticus-audit-trail`, built by the
+`ChatticusAuditTrail` CDK stack (production's stack set). It records management events only, reads and writes, in every
+region and for global services, into a private S3 bucket with S3-managed encryption, log file validation and 400 day expiry.
+That answers who obtained a role session, read a secret or changed a policy, beyond the 90 days of Event history.
+
+What it does not cover, on purpose, because data events are billed per event: S3 object access (snapshots, Pi sessions) and
+DynamoDB item access. A leaked credential's reads of those are visible only through the Front Door file audit. There is no
+CloudWatch Logs integration, no Insights and no KMS key. Use is described in the
+[emergency revocation runbook](OWNER_CREDENTIAL_REVOCATION.md) 9.3.
+
 ## What a reviewer should attack
 
 Whether rule 1 is achievable at all with current models, and what the
