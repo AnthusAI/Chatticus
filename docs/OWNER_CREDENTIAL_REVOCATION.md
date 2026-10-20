@@ -673,7 +673,7 @@ ones from triage; a call whose `owner_id` was not the claimant at the time is th
 ### 9.3 CloudTrail (who obtained credentials, and what changed)
 
 Management events are the only ones recorded, and they are recorded in two places. The 90 day Event history
-(`lookup-events`) always exists. From the day the `ChatticusAuditTrail` stack is deployed (production stack set; `sh
+(`lookup-events`) always exists. From 2026-10-20, the day the `ChatticusAuditTrail` stack was deployed (production stack set; `sh
 infra/deploy-chatticus-dedicated-account.sh production audit-trail`) one multi-region trail, `chatticus-audit-trail`, also
 delivers management events, reads and writes, global services such as IAM and STS included, to a private S3 bucket for 400
 days. Before that day there is no trail and only the Event history exists: `aws cloudtrail describe-trails --query
