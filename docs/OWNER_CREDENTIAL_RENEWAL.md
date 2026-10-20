@@ -700,7 +700,9 @@ backstop, not the plan.
 ### 12.3 Emergency revocation
 
 A role session is revoked for all tenants at once by a deny on `aws:TokenIssueTime` older than a time, attached to the role
-through CDK. Because every owner renews, the cost is one failed request for each live owner; it renews and goes on.
+through CDK. Because every owner renews, every live owner recovers on its own at its next scheduled renewal, which is at most about
+40 minutes away (renewal is on a clock, not on a failed request); until then its S3 and DynamoDB requests fail. The CDK switch for the
+deny is not built yet (`chatticus-c06de6`); until it is, the runbook allows a recorded break-glass CLI deny as an exception.
 **Decided (S6):** this is written as a runbook, [`docs/OWNER_CREDENTIAL_REVOCATION.md`](OWNER_CREDENTIAL_REVOCATION.md), by Part R (section 17): what to do when a
 supervisor or a turn credential leaks (revoke the role session with an inline deny carrying an `aws:TokenIssueTime` condition,
 through CDK; stop the task; rotate the signing key), in the order to do it, with the cost and the verification of each step.
