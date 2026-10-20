@@ -20,6 +20,8 @@ import { ensureTestOrganization, memberPost } from "../org-user-client.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 const CREATING_USER = "ryan";
+const storeFailures = new WeakSet<ChatticusWorld>();
+const creationAnswers = new WeakMap<ChatticusWorld, Awaited<ReturnType<typeof recordResponse>>>();
 
 /** Create a bot with the scenario's board provisioning, remember it, and make its organization the scenario's default. */
 export async function createBotWithBoard(world: ChatticusWorld, tenantId: string, name: string): Promise<{ botId: string; name: string; tenantId: string }> {
@@ -151,6 +153,61 @@ When("the bot {string} is created in {string}", async function (this: ChatticusW
 	this.botsById.set(bot.botId, bot);
 	this.botsByName.set(name, bot);
 	boardScenarioOf(this).defaultTenantId = tenantId;
+});
+
+Given("storing the next bot fails", function (this: ChatticusWorld) {
+	storeFailures.add(this);
+});
+
+When("a member tries to create the bot {string} in {string}", async function (this: ChatticusWorld, name: string, organization: string) {
+	const tenantId = tenantIdOfOrganization(organization);
+	await ensureTestOrganization(this, tenantId);
+	creationAnswers.set(this, await recordResponse(await memberPost(this, `/orgs/${tenantId}/bots`, { name })));
+});
+
+When("the bot {string} is created in {string} and storing it fails", async function (this: ChatticusWorld, name: string, organization: string) {
+	const tenantId = tenantIdOfOrganization(organization);
+	await ensureTestOrganization(this, tenantId);
+	assert.ok(storeFailures.has(this), "The scenario did not arm a storage failure");
+	const store = this.messagingStore();
+	const failing = new Proxy(store, {
+		get(target, property, receiver) {
+			if (property === "putBot") return async () => { throw new Error("the bot could not be stored"); };
+			return Reflect.get(target, property, receiver);
+		},
+	});
+	await assert.rejects(
+		createBot(tenantId, name, { creatorUserId: CREATING_USER }, { store: failing, ids: this.ids, boards: boardProvisionerFor(this) ?? null }),
+		/could not be stored/,
+	);
+});
+
+Then("the creation is answered with 502 saying the board could not be provisioned", function (this: ChatticusWorld) {
+	const answer = creationAnswers.get(this);
+	assert.ok(answer, "No creation was attempted");
+	assert.equal(answer.status, 502, answer.text);
+	assert.match(String(answer.json.detail), /could not be provisioned/);
+});
+
+Then("the bot {string} was not stored in {string}", async function (this: ChatticusWorld, name: string, organization: string) {
+	assert.equal(await this.messagingStore().getBotByName(tenantIdOfOrganization(organization), name), null);
+});
+
+Then("the board that was provisioned for it is archived", function (this: ChatticusWorld) {
+	const assistant = botNamed(this, "Assistant");
+	const archived = [...boardScenarioOf(this).fake.boards.entries()].filter(([, board]) => board.archivedAt !== null);
+	assert.equal(archived.length, 1, "Exactly the orphan board should be archived");
+	assert.notEqual(archived[0]![0], `${assistant.tenantId}/${assistant.botId}`);
+});
+
+Then("the board of {string} was provisioned on behalf of the member who created the bot", async function (this: ChatticusWorld, name: string) {
+	const bot = botNamed(this, name);
+	const write = boardScenarioOf(this).fake.requests.find((request) => request.method === "PUT" && request.path === `/${bot.tenantId}/${bot.botId}/api/config`);
+	assert.ok(write);
+	const ownerEmail = await ensureTestOrganization(this, bot.tenantId);
+	const owner = await this.messagingStore().getIdentityByEmail(ownerEmail);
+	assert.equal(write.actor, `chatticus:user:${owner!.userId}`);
+	assert.equal(write.accessKeyId, "scenario-front-door-key");
 });
 
 Then("the board of {string} was provisioned by an empty-bodied configuration write", function (this: ChatticusWorld, name: string) {

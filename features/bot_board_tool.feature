@@ -45,6 +45,25 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     And Chatticus supplied no status list
     And the board of "Researcher" accepts the statuses "backlog", "open", "in_progress", "blocked" and "closed"
 
+  @server
+  Scenario: The front door provisions a new board on behalf of the member who created the bot
+    When the bot "Researcher" is created in "Anthus Labs"
+    Then the board of "Researcher" was provisioned on behalf of the member who created the bot
+
+  @server
+  Scenario: A bot whose board cannot be provisioned is not created
+    Given the board store is unreachable
+    When a member tries to create the bot "Researcher" in "Anthus Labs"
+    Then the creation is answered with 502 saying the board could not be provisioned
+    And the bot "Researcher" was not stored in "Anthus Labs"
+
+  @server
+  Scenario: A bot that cannot be stored after its board was provisioned has that board archived
+    Given storing the next bot fails
+    When the bot "Researcher" is created in "Anthus Labs" and storing it fails
+    Then the bot "Researcher" was not stored in "Anthus Labs"
+    And the board that was provisioned for it is archived
+
   # ---------------------------------------------------------------- the happy path
 
   @server
@@ -238,6 +257,23 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     Then the card "Pay the electric bill" lists a dependency on "Receive the statement"
 
   @server @kanbus-parent-writes
+  Scenario: Adding a dependency keeps the dependencies the card already has
+    Given the bot "Assistant" has the cards "Pay the electric bill", "Receive the statement" and "Check the balance"
+    When the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Receive the statement"
+    And the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Check the balance"
+    Then the card "Pay the electric bill" lists a dependency on "Receive the statement"
+    And the card "Pay the electric bill" lists a dependency on "Check the balance"
+
+  @server @kanbus-parent-writes
+  Scenario: Removing a dependency keeps the rest
+    Given the bot "Assistant" has the cards "Pay the electric bill", "Receive the statement" and "Check the balance"
+    And the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Receive the statement"
+    And the bot "Assistant" uses the board tool to record that "Pay the electric bill" depends on "Check the balance"
+    When the bot "Assistant" uses the board tool to remove the dependency of "Pay the electric bill" on "Receive the statement"
+    Then the card "Pay the electric bill" lists no dependency on "Receive the statement"
+    And the card "Pay the electric bill" lists a dependency on "Check the balance"
+
+  @server @kanbus-parent-writes
   Scenario: A dependency on a card that does not exist is refused
     Given the bot "Assistant" has a card titled "Pay the electric bill"
     When the bot "Assistant" uses the board tool to record that the card depends on "no-such-card"
@@ -325,6 +361,36 @@ Feature: A bot keeps its own work board through its board tool, without a comput
     And the board tool reports that the change was not saved
     And the board tool says to use a new operation key
     And the card was written once
+
+  @server
+  Scenario: A move retried exactly as the failed result said is applied once
+    Given the bot "Assistant" has a card titled "Pay the electric bill"
+    And the network answer to the next board write is lost
+    And the bot "Assistant" uses the board tool to move the card to the status "in_progress" with the operation key "op-4"
+    When the bot "Assistant" repeats that change as its failed result said
+    Then the board tool reports the card as saved
+    And the card has the status "in_progress"
+    And the card was written once
+
+  @server
+  Scenario: A completion retried after the comment was saved and the close failed adds no second comment
+    Given the bot "Assistant" has a card titled "File the return" with the status "in_progress"
+    And the board store cannot close the next card
+    And the bot "Assistant" tries to complete the card with the evidence "confirmation-id:ret-42" using the operation key "op-5"
+    Then the board tool reports that the card was not saved
+    And the card still has the status "in_progress"
+    When the bot "Assistant" repeats that change as its failed result said
+    Then the card has the status "closed"
+    And the card has exactly one closing comment holding the evidence "confirmation-id:ret-42"
+
+  @server
+  Scenario: The same operation key on another card is a different change
+    Given the bot "Assistant" has the cards "Pay the electric bill" and "Renew insurance"
+    When the bot "Assistant" uses the board tool to move the card "Pay the electric bill" to the status "in_progress" with the operation key "op-6"
+    And the bot "Assistant" uses the board tool to move the card "Renew insurance" to the status "in_progress" with the operation key "op-6"
+    Then the board tool reports the card as saved
+    And the card "Pay the electric bill" has the status "in_progress"
+    And the card "Renew insurance" has the status "in_progress"
 
   @server
   Scenario: A turn that is retried by the worker does not repeat its board writes

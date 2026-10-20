@@ -76,7 +76,7 @@ function describeFailure(failure: BoardFailure): { outcome: string; message: str
 		case "conflict":
 			return { outcome: "conflict", message: `Someone else changed the card first, so your change was not applied. ${failure.message}` };
 		case "operation_conflict":
-			return { outcome: "operation_conflict", message: "That operation_key was already used for a different change, so nothing was applied. Use a new operation_key." };
+			return { outcome: "operation_conflict", message: "An earlier attempt with this operation_key may already have been applied, and this call differs from it (for example it names another revision), so nothing more was applied. Read the card again before deciding; to repeat the earlier change exactly pass its revision_used, otherwise use a new operation_key." };
 		case "invalid":
 			return { outcome: "validation_failed", message: failure.message };
 		case "refused":
@@ -88,7 +88,7 @@ function describeFailure(failure: BoardFailure): { outcome: string; message: str
 	}
 }
 
-function failureOutcome(failure: BoardFailure, operationKey: string): BoardToolOutcome {
+function failureOutcome(failure: BoardFailure, operationKey: string, revisionUsed?: string): BoardToolOutcome {
 	const { outcome, message } = describeFailure(failure);
 	const body: Record<string, unknown> = { outcome, saved: false, message };
 	if (failure.code !== undefined) body.code = failure.code;
@@ -96,12 +96,15 @@ function failureOutcome(failure: BoardFailure, operationKey: string): BoardToolO
 		body.current_revision = failure.currentCard.revision;
 		body.current_card = cardOf(failure.currentCard);
 	}
-	if (failure.kind === "unavailable") body.operation_key = operationKey;
+	if (failure.kind === "unavailable" || failure.message.includes("saved but")) {
+		body.operation_key = operationKey;
+		if (revisionUsed !== undefined) body.revision_used = revisionUsed;
+	}
 	return { text: JSON.stringify(body), isError: true };
 }
 
-function writeOutcome(result: BoardResult<KanbusIssueWithRevision>, operationKey: string): BoardToolOutcome {
-	if (!result.ok) return failureOutcome(result.failure, operationKey);
+function writeOutcome(result: BoardResult<KanbusIssueWithRevision>, operationKey: string, revisionUsed?: string): BoardToolOutcome {
+	if (!result.ok) return failureOutcome(result.failure, operationKey, revisionUsed);
 	const message = result.listingMayBeBehind
 		? "The change is saved: the board store confirmed the record. The listing of the board may be behind and may not show it yet; reading the card by its id returns it."
 		: "The change is saved: the board store confirmed the record.";
@@ -211,26 +214,28 @@ export async function runBoardToolCall(
 					context,
 				),
 				operationKey,
+				revision,
 			);
 		case "comment":
-			return writeOutcome(await service.commentOnCard(address, actor, cardId!, args.text ?? "", context), operationKey);
+			return writeOutcome(await service.commentOnCard(address, actor, cardId!, args.text ?? "", context), operationKey, revision);
 		case "complete":
-			return writeOutcome(await service.completeCard(address, actor, cardId!, args.evidence ?? "", context), operationKey);
+			return writeOutcome(await service.completeCard(address, actor, cardId!, args.evidence ?? "", context), operationKey, revision);
 		case "close":
-			return writeOutcome(await service.closeCard(address, actor, cardId!, args.reason ?? "", context), operationKey);
+			return writeOutcome(await service.closeCard(address, actor, cardId!, args.reason ?? "", context), operationKey, revision);
 		case "reopen":
-			return writeOutcome(await service.reopenCard(address, actor, cardId!, context), operationKey);
+			return writeOutcome(await service.reopenCard(address, actor, cardId!, context), operationKey, revision);
 		case "set_parent":
-			return writeOutcome(await service.setParent(address, actor, cardId!, args.parent_id ?? null, context), operationKey);
+			return writeOutcome(await service.setParent(address, actor, cardId!, args.parent_id ?? null, context), operationKey, revision);
 		case "add_dependency":
 			if (args.depends_on_id === undefined) return refusalOutcome("depends_on_id is required for add_dependency.");
 			return writeOutcome(
 				await service.addDependency(address, actor, cardId!, args.depends_on_id, args.dependency_type ?? "blocked-by", context),
 				operationKey,
+				revision,
 			);
 		case "remove_dependency":
 			if (args.depends_on_id === undefined) return refusalOutcome("depends_on_id is required for remove_dependency.");
-			return writeOutcome(await service.removeDependency(address, actor, cardId!, args.depends_on_id, context), operationKey);
+			return writeOutcome(await service.removeDependency(address, actor, cardId!, args.depends_on_id, context), operationKey, revision);
 		default:
 			return refusalOutcome(`The action ${String(args.action)} is not a board action.`);
 	}
@@ -249,7 +254,7 @@ export function botBoardToolExtensions(scope: BoardToolScope, service: BotBoardS
 	const boardTool = defineTool({
 		name: BOARD_TOOL_NAME,
 		description:
-			"Keep your own work board: create, read, list, update, comment on, complete, close and reopen cards, set a card's parent and record dependencies. A card completes only with evidence from the system you acted on and closes only with a reason. You never delete cards. The result says saved only after the board store confirmed the change; anything else was not saved. Works without summoning the computer.",
+			"Keep your own work board: create, read, list, update, comment on, complete, close and reopen cards, set a card's parent and record dependencies. A card completes only with evidence from the system you acted on and closes only with a reason. You never delete cards. The result says saved only after the board store confirmed the change; anything else was not saved. A change that was not confirmed may still have been applied: its result gives operation_key and revision_used, and the only safe retry is the same call with that operation_key and revision. Works without summoning the computer.",
 		parameters: Type.Object({
 			action: Type.Union(BOARD_TOOL_ACTIONS.map((action) => Type.Literal(action))),
 			card_id: Type.Optional(Type.String({ description: "The card's id. Required for every action except create and list." })),

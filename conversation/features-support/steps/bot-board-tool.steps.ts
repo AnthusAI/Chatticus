@@ -24,6 +24,7 @@ import { recordResponse } from "../api.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 const HOUSEHOLD_USER = "ryan";
+const lastArgumentsOfWorld = new WeakMap<ChatticusWorld, { botName: string; args: Record<string, unknown> }>();
 const memoOfWorld = new WeakMap<ChatticusWorld, Map<string, string>>();
 const replayWritesOfWorld = new WeakMap<ChatticusWorld, number>();
 const REPLAY_TURN = { turnId: "replayed-turn", callId: "replayed-call" };
@@ -50,6 +51,7 @@ async function callBoardTool(world: ChatticusWorld, botName: string, args: Recor
 		body: `Please use the board tool to ${String(args.action)}.`,
 		addressedToBotId: bot.botId,
 	});
+	lastArgumentsOfWorld.set(world, { botName, args });
 	const requestCountBefore = scenario.fake.requests.length;
 	modelScenarioOf(world).scripted.toolCall(BOARD_TOOL_NAME, args).reply("The board tool has answered.");
 	assert.equal(await runBotTurn(world, botName), "done");
@@ -940,4 +942,70 @@ Then("the card no longer records a closing", function (this: ChatticusWorld) {
 
 Then("the board tool reports that the change was not saved", function (this: ChatticusWorld) {
 	assert.equal(lastCall(this).parsed.saved, false, lastCall(this).text);
+});
+
+Given("the board store cannot close the next card", function (this: ChatticusWorld) {
+	boardScenarioOf(this).fake.failNextUpdateTo("closed");
+});
+
+When(
+	"the bot {string} uses the board tool to move the card to the status {string} with the operation key {string}",
+	async function (this: ChatticusWorld, botName: string, status: string, operationKey: string) {
+		await callBoardTool(this, botName, { action: "update", card_id: currentCard(this).id, status, operation_key: operationKey });
+		boardScenarioOf(this).writesBeforeRepeat = storedCurrent(this).writes;
+	},
+);
+
+When(
+	"the bot {string} uses the board tool to move the card {string} to the status {string} with the operation key {string}",
+	async function (this: ChatticusWorld, botName: string, title: string, status: string, operationKey: string) {
+		const scenario = boardScenarioOf(this);
+		scenario.currentCard = cardNamed(scenario, botName, title);
+		await callBoardTool(this, botName, { action: "update", card_id: scenario.currentCard.id, status, operation_key: operationKey });
+	},
+);
+
+When(
+	"the bot {string} tries to complete the card with the evidence {string} using the operation key {string}",
+	async function (this: ChatticusWorld, botName: string, evidence: string, operationKey: string) {
+		await callBoardTool(this, botName, { action: "complete", card_id: currentCard(this).id, evidence, operation_key: operationKey });
+	},
+);
+
+When("the bot {string} repeats that change as its failed result said", async function (this: ChatticusWorld, botName: string) {
+	const previous = lastArgumentsOfWorld.get(this);
+	assert.ok(previous, "No board tool call to repeat");
+	const { parsed } = lastCall(this);
+	assert.ok(parsed.operation_key && parsed.revision_used, `The failed result gave no operation_key and revision_used: ${lastCall(this).text}`);
+	await callBoardTool(this, botName, { ...previous.args, operation_key: parsed.operation_key, revision: parsed.revision_used });
+});
+
+Then("the card has exactly one closing comment holding the evidence {string}", function (this: ChatticusWorld, evidence: string) {
+	const comments = storedCurrent(this).issue.comments as Array<{ text: string }>;
+	assert.equal(comments.filter((comment) => comment.text.includes(evidence)).length, 1, JSON.stringify(comments));
+});
+
+Given("the bot {string} has the cards {string}, {string} and {string}", async function (this: ChatticusWorld, botName: string, first: string, second: string, third: string) {
+	await giveBotCard(this, botName, first);
+	await giveBotCard(this, botName, second);
+	await giveBotCard(this, botName, third);
+});
+
+When(
+	"the bot {string} uses the board tool to remove the dependency of {string} on {string}",
+	async function (this: ChatticusWorld, botName: string, title: string, targetTitle: string) {
+		const scenario = boardScenarioOf(this);
+		await callBoardTool(this, botName, {
+			action: "remove_dependency",
+			card_id: cardNamed(scenario, botName, title).id,
+			depends_on_id: cardNamed(scenario, botName, targetTitle).id,
+		});
+	},
+);
+
+Then("the card {string} lists no dependency on {string}", function (this: ChatticusWorld, title: string, targetTitle: string) {
+	const scenario = boardScenarioOf(this);
+	const botName = currentCard(this).botName;
+	const dependencies = storedCard(this, cardNamed(scenario, botName, title)).issue.dependencies as Array<{ target: string }>;
+	assert.ok(!dependencies.some((entry) => entry.target === cardNamed(scenario, botName, targetTitle).id), JSON.stringify(dependencies));
 });

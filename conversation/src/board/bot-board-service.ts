@@ -4,13 +4,14 @@ import {
 	type KanbusBoardIssueEntry,
 	type KanbusFetch,
 	type KanbusIssueFields,
+	type KanbusDependencyLink,
 	type KanbusIssuePatch,
 	type KanbusIssueQuery,
 	type KanbusIssueWithRevision,
 } from "@kanbus/api-client";
 import { deriveBoardOperationId } from "./board-operation-id.ts";
 import { failureFromError, type BoardFailure, type BoardResult } from "./board-failures.ts";
-import { createBoardClientForActor, patchDependenciesUntilClientTyped } from "./kanbus-board-client.ts";
+import { createBoardClientForActor } from "./kanbus-board-client.ts";
 
 /** Whose board: the organization is the Kanbus tenant and the bot is the Kanbus project. */
 export type BoardAddress = { readonly organizationId: string; readonly botId: string };
@@ -134,6 +135,24 @@ export class BotBoardService {
 		return this.lifecycle(address, actor, "restore", operationKey);
 	}
 
+	/**
+	 * Archive the board of a bot that was never stored because bot creation failed after the board was provisioned. This
+	 * is a compensation made by the front door for the person who was creating the bot, so it needs no owner check;
+	 * archiving is reversible for the retention period and Kanbus purges the board after it.
+	 */
+	async archiveBoardOfUnstoredBot(address: BoardAddress, actor: BoardActor): Promise<BoardResult<Record<string, unknown>>> {
+		try {
+			return saved(
+				await this.boardFor(address, actor).archive({
+					operationId: deriveBoardOperationId(["bot-board", address.organizationId, address.botId, "archive-unstored-bot"]),
+					actor: actorHeaderFor(actor),
+				}),
+			);
+		} catch (error) {
+			return failed(failureFromError(error));
+		}
+	}
+
 	/** List the cards of a board. */
 	async listCards(address: BoardAddress, actor: BoardActor, query: KanbusIssueQuery = {}): Promise<BoardResult<CardListing>> {
 		const denied = await this.authorize(address, actor, "read");
@@ -172,7 +191,7 @@ export class BotBoardService {
 		};
 		try {
 			const written = await this.boardFor(address, actor).createIssue(body, {
-				operationId: this.operationId(address, "create", "create", context),
+				operationId: this.operationId(address, "create", "", "create", context),
 				actor: actorHeaderFor(actor),
 			});
 			return saved({ issue: written.issue, revision: written.revision }, written.catalog_pending);
@@ -209,7 +228,7 @@ export class BotBoardService {
 		if (isBlank(text)) return refusal("A comment needs text.", "comment_text_required");
 		return this.writeAgainstRevision(address, actor, cardId, context, async (board, revision) => {
 			const written = await board.addComment(cardId, text, {
-				operationId: this.operationId(address, "comment", "comment", context),
+				operationId: this.operationId(address, "comment", cardId, "comment", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -275,7 +294,7 @@ export class BotBoardService {
 		if (denied !== null) return failed(denied);
 		try {
 			const result = await this.boardFor(address, actor).deleteIssue(cardId, {
-				operationId: this.operationId(address, "delete", "delete", context),
+				operationId: this.operationId(address, "delete", cardId, "delete", context),
 				ifMatch: context.revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -293,8 +312,8 @@ export class BotBoardService {
 		}).board(address.organizationId, address.botId);
 	}
 
-	private operationId(address: BoardAddress, action: string, step: string, context: WriteContext): string {
-		return deriveBoardOperationId(["bot-board", address.organizationId, address.botId, action, step, context.operationKey]);
+	private operationId(address: BoardAddress, action: string, cardId: string, step: string, context: WriteContext): string {
+		return deriveBoardOperationId(["bot-board", address.organizationId, address.botId, action, cardId, step, context.operationKey]);
 	}
 
 	private async authorize(address: BoardAddress, actor: BoardActor, access: Access): Promise<BoardFailure | null> {
@@ -315,7 +334,7 @@ export class BotBoardService {
 		if (actor.kind === "bot") return failed({ kind: "forbidden", code: "forbidden", message: "A bot does not manage board lifecycle." });
 		const denied = await this.authorize(address, actor, "write");
 		if (denied !== null) return failed(denied);
-		const operationId = deriveBoardOperationId(["bot-board", address.organizationId, address.botId, route, route, operationKey]);
+		const operationId = deriveBoardOperationId(["bot-board", address.organizationId, address.botId, route, "", route, operationKey]);
 		try {
 			const board = this.boardFor(address, actor);
 			const options = { operationId, actor: actorHeaderFor(actor) };
@@ -350,7 +369,7 @@ export class BotBoardService {
 	private async patchCard(address: BoardAddress, actor: BoardActor, cardId: string, patch: KanbusIssuePatch, action: string, context: WriteContext): Promise<BoardResult<KanbusIssueWithRevision>> {
 		return this.writeAgainstRevision(address, actor, cardId, context, async (board, revision) => {
 			const written = await board.updateIssue(cardId, patch, {
-				operationId: this.operationId(address, action, "update", context),
+				operationId: this.operationId(address, action, cardId, "update", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -364,17 +383,13 @@ export class BotBoardService {
 		cardId: string,
 		context: WriteContext,
 		action: string,
-		change: (existing: ReadonlyArray<{ target: string; type: string }>) => Array<{ target: string; type: string }>,
+		change: (existing: readonly KanbusDependencyLink[]) => KanbusDependencyLink[],
 	): Promise<BoardResult<KanbusIssueWithRevision>> {
 		return this.writeAgainstRevision(address, actor, cardId, context, async (board, revision) => {
 			const current = await board.getIssue(cardId);
-			const existing = (current.issue.dependencies ?? []).filter(
-				(entry): entry is { target: string; type: string } =>
-					typeof entry === "object" && entry !== null && typeof (entry as { target?: unknown }).target === "string",
-			);
-			const patch = patchDependenciesUntilClientTyped(change(existing));
+			const patch: KanbusIssuePatch = { dependencies: change(current.issue.dependencies ?? []) };
 			const written = await board.updateIssue(cardId, patch, {
-				operationId: this.operationId(address, action, "update", context),
+				operationId: this.operationId(address, action, cardId, "update", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -396,7 +411,7 @@ export class BotBoardService {
 		try {
 			const revision = await this.resolveRevision(board, cardId, context);
 			const written = await board.addComment(cardId, commentText, {
-				operationId: this.operationId(address, action, "closing-comment", context),
+				operationId: this.operationId(address, action, cardId, "closing-comment", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -409,7 +424,7 @@ export class BotBoardService {
 				cardId,
 				{ status: "closed", custom: { closing } },
 				{
-					operationId: this.operationId(address, action, "close", context),
+					operationId: this.operationId(address, action, cardId, "close", context),
 					ifMatch: commented.revision,
 					actor: actorHeaderFor(actor),
 				},

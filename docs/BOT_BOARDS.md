@@ -248,14 +248,14 @@ Not decided. Each is a question for the owner, the Kanbus project, or both. None
 12. **Deployment shape.** Decided, see section 11 (l).
 13. **Bot creation when provisioning fails.** The contract says the board is provisioned when the bot is created and does not
     say what happens when that fails. Phase 2a lets the error propagate: the board is provisioned before the bot is stored, a
-    failure fails the creation (HTTP 500 today) and nothing is stored. Lazy provisioning on first use is not possible
+    failure fails the creation (HTTP 502 with the reason) and nothing is stored, and a bot that fails to store after its board was provisioned has the board archived (best effort). Lazy provisioning on first use is not possible
     because the turn executor role has no `provision` grant. Decide: fail creation (as now), create the bot and retry
     provisioning later (needs a retry owner), or grant the executor `provision`.
 14. **Closing as two writes.** Kanbus has no comment inside an update, so a close is a comment and then an update (section 12).
     A failed second write leaves a closing comment on an open card. Ask Kanbus for an update that carries a closing comment, or
     accept the two writes.
 15. **`custom.closing` on reopen.** Resolved by Kanbus: null sets the key to null.
-16. **Client surface.** Resolved except one: create takes no id (the server makes `<project_key>-<uuid>`) and list pages never carry `catalog_pending`, so those scenarios stay draft; `dependencies` on the patch is typed from client 0.1.1 (kbs-8806acd1).
+16. **Client surface.** Resolved except one: create takes no id (the server makes `<project_key>-<uuid>`) and list pages never carry `catalog_pending`, so those scenarios stay draft; `dependencies` is typed from client 0.1.1.
 17. **Replay and `If-Match`.** Resolved by Kanbus: `If-Match` is part of the hashed request (section 12).
 18. **Relation writes in the deployed artifact.** Resolved: available in `@kanbus/cdk` 0.2.0 (Kanbus 0.39.0).
 19. **Removing a member.** The membership store has no removal, so "a member who is removed stops reading" cannot be
@@ -299,7 +299,7 @@ Answers from the Kanbus project, 2026-10-20:
 
 Code: `conversation/src/board/` (the board service module and its client wiring) and `conversation/src/pi/bot-board-tool.ts`
 (the `board` tool). Chatticus reaches the board service only through the Kanbus project's published TypeScript client
-`@kanbus/api-client` 0.1.0, installed from its GitHub release tarball with the integrity pinned in the lockfile (the same
+`@kanbus/api-client` 0.1.1, installed from its GitHub release tarball with the integrity pinned in the lockfile; the pin is `@kanbus/api-client` 0.1.1 together with `@kanbus/cdk` 0.2.0, as a pair (the same
 pattern as `@kanbus/ui` and `@kanbus/cdk`). It makes no HTTP call of its own to the board service and re-implements none of
 Kanbus's validation: it sends the request and maps the answer.
 
@@ -322,10 +322,10 @@ Because the executor cannot provision, a board is provisioned when the bot is cr
 configuration). A created board and a 409 `board_exists` both count as provisioned. Its operation id is derived from the
 organization and bot ids alone, so a retry replays.
 
-**Operation ids.** `deriveBoardOperationId` hashes (SHA-256) the board, the action, the step and an operation key into a
+**Operation ids.** `deriveBoardOperationId` hashes (SHA-256) the board, the action, the card id, the step and an operation key (so a model-chosen key reused on another card is a different change) into a
 UUID. The request body is not an input, so reusing a key for a different change reaches Kanbus unchanged and is refused
 there with `operation_conflict`. The tool's operation key is `<turnId>/<toolCallId>` unless the model passes
-`operation_key`, which a failed (unconfirmed) result hands back so the same change can be repeated across turns. A call that
+`operation_key`, which a failed (unconfirmed) result hands back, with the `revision_used`, so the same change can be repeated exactly across turns: Kanbus compares `If-Match` as part of the request, so a retry must resend the revision of the first attempt, not a fresh read. Within one tool call the durable tool memo (`api.memo`) holds that revision; across calls the model passes `operation_key` and `revision_used` back, as the tool description tells it. A call that
 is interrupted and run again has the same turn and tool call ids, hence the same operation ids, hence it replays; the tool is
 registered replay-safe for that reason. When the model names no revision the tool reads the card first and remembers the
 revision it read in the durable tool memo, so a replay writes against the revision of the first attempt.
@@ -334,7 +334,7 @@ revision it read in the durable tool memo, so a replay writes against the revisi
 
 **Types.** The tool never changes a card's type (Kanbus refuses a change to or from a hierarchy type with 409 `type_change_unsupported` until kbs-1a88cdf5); the type is chosen at create, default `task`. The 409 codes `relation_target_missing`, `issue_has_children`, `issue_has_dependents`, `hierarchy_violation` and `type_change_unsupported` are reported as not saved validation failures.
 
-**Dependencies.** `@kanbus/api-client` 0.1.0 does not type `dependencies` on the patch; `patchDependenciesUntilClientTyped` in `kanbus-board-client.ts` is the one place that bridges it, and it goes away with 0.1.1 (kbs-8806acd1).
+**Dependencies.** `@kanbus/api-client` 0.1.1 types `dependencies` (`KanbusDependencyLink`, type `blocked-by` or `relates-to`). A patch's `dependencies` array replaces the existing links, so adding or removing one reads the card, computes the full new list and sends all of it, against the card's revision like any update. A missing target is reported as not saved with Kanbus's `relation_target_missing`.
 
 **Closing.** Kanbus's API has no comment inside an update, so completing or closing a card is two writes with two derived
 operation ids: a comment holding the evidence or reason (`Completed. Evidence: ...` or `Closed. Reason: ...`), then an update

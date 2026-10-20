@@ -122,6 +122,7 @@ export class FakeKanbusBoardService {
 	private cannotConfirmWrites = false;
 	private loseNextWriteAnswer = false;
 	private lagging = false;
+	private failNextUpdateToStatus: string | null = null;
 
 	constructor(now: () => Date) {
 		this.now = now;
@@ -178,6 +179,11 @@ export class FakeKanbusBoardService {
 	/** The next successful write is stored but its answer is lost. */
 	loseAnswerOfNextWrite(): void {
 		this.loseNextWriteAnswer = true;
+	}
+
+	/** The next update that sets this status is answered 503 and stores nothing. */
+	failNextUpdateTo(status: string): void {
+		this.failNextUpdateToStatus = status;
 	}
 
 	/** While lagging, writes answer `catalog_pending` and new cards stay out of the listing. */
@@ -296,6 +302,10 @@ export class FakeKanbusBoardService {
 			if (!principal.provision) throw new ServiceError(404, "not_found", "Not found");
 			if (isWrite) throw new ServiceError(409, "board_archived", "The board is archived");
 		}
+		if (method === "PATCH" && this.failNextUpdateToStatus !== null && body?.status === this.failNextUpdateToStatus) {
+			this.failNextUpdateToStatus = null;
+			throw new ServiceError(503, "storage_unavailable", "The store could not confirm the write");
+		}
 		if (isWrite && this.cannotConfirmWrites) throw new ServiceError(503, "storage_unavailable", "The store could not confirm the write");
 
 		if (rest === "config" && method === "GET") return json(200, this.configuration(creator));
@@ -368,6 +378,7 @@ export class FakeKanbusBoardService {
 
 	private provision(principal: FakePrincipalGrants, key: string, board: Board | undefined, operationId: string, bodyText: string, actor: string | null): Response {
 		this.requireProvisioning(principal);
+		if (actor === null || !actor.startsWith("chatticus:user:")) throw new ServiceError(400, "invalid_request", "Provisioning in this deployment is made on behalf of a user");
 		if (bodyText !== "") throw new ServiceError(422, "invalid_configuration", "This fake provisions only the default configuration");
 		const fingerprint = `PUT ${key}|${actor}`;
 		if (board !== undefined) {
@@ -464,7 +475,7 @@ export class FakeKanbusBoardService {
 			if (typeof entry !== "object" || entry === null || typeof entry.target !== "string" || !["blocked-by", "relates-to"].includes(entry.type)) {
 				throw new ServiceError(400, "invalid_request", "a dependency needs a target and a type of blocked-by or relates-to");
 			}
-			if (!board.issues.has(entry.target)) throw new ServiceError(400, "invalid_request", `the dependency target ${entry.target} does not exist`);
+			if (!board.issues.has(entry.target)) throw new ServiceError(409, "relation_target_missing", `the dependency target ${entry.target} does not exist`);
 		}
 	}
 

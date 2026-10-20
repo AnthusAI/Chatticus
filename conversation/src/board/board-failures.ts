@@ -28,7 +28,7 @@ export type BoardResult<Value> =
 
 /** The message that tells a caller a write was not confirmed and may or may not be stored. */
 export const UNCONFIRMED_WRITE_MESSAGE =
-	"The board store did not confirm the change, so it is reported as not saved. It may or may not have been stored: read the card or the board before repeating it, or repeat the call with the same operation_key.";
+	"The board store did not confirm the change, so it is reported as not saved. It may or may not have been stored: read the card or the board before repeating it, or repeat the call exactly, with the same operation_key and the revision_used the result names.";
 
 const VALIDATION_CODES: ReadonlySet<string> = new Set([
 	"invalid_request",

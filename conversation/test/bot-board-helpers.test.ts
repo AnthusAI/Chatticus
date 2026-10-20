@@ -182,3 +182,20 @@ describe("the in-process model verifies the request signature", () => {
 		await expect(board.createIssue({ title: "x", type: "task" }, { operationId: deriveBoardOperationId(["h"]), actor: "chatticus:bot:b" })).rejects.toMatchObject({ status: 403 });
 	});
 });
+
+describe("the signed query is the query that is sent", () => {
+	it("verifies a listing whose query holds characters that URI encodings treat differently", async () => {
+		const service = new FakeKanbusBoardService(() => new Date("2026-10-20T12:00:00.000Z"));
+		service.registerPrincipal("query-key-id", { secretAccessKey: "query-secret", provision: true, delegateActor: true, tenants: "*" });
+		const signedFetch = createSigV4SignedFetch({
+			credentials: async () => ({ accessKeyId: "query-key-id", secretAccessKey: "query-secret" }),
+			region: "us-east-1",
+			fetch: service.fetch,
+		});
+		const board = createKanbusApiClient({ baseUrl: "https://kanbus.invalid", fetch: signedFetch, headers: () => ({ "X-Kanbus-Actor": "chatticus:user:u1" }) }).board("org", "bot");
+		await board.provision({ operationId: deriveBoardOperationId(["q"]) });
+		for (const search of ["a*b", "a!b", "a'b", "a(b)", "a b", "a+b&c=d", "ü~._-"]) {
+			await expect(board.listIssues({ search, status: "open" })).resolves.toMatchObject({ issues: [] });
+		}
+	});
+});
