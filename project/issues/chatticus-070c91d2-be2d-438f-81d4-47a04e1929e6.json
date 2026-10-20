@@ -3,7 +3,7 @@
   "title": "Fork Moonshine: WASM thread-pool size and no-spin option",
   "description": "Moonshine's WASM build sizes its pthread pool to navigator.hardwareConcurrency and ONNX Runtime workers spin between passes (spike chatticus-a2000f: 16% of a core in silence at 10 threads vs 4% at 2). Implement a clean, upstreamable feature in our own fork: a load-time option for pool size and for disabling intra-op spinning. Do NOT open a PR to moonshine-ai; upstreaming waits on an explicit human decision.",
   "type": "task",
-  "status": "in_progress",
+  "status": "blocked",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -46,10 +46,22 @@
         "model": "claude-sonnet-5-5",
         "name": "drift-fix"
       }
+    },
+    {
+      "id": "50024ddd-a01b-49a8-a71b-64a7c332e968",
+      "author": "home",
+      "text": "Triage 2026-10-20: not actively worked; moving to blocked. Waits for (1) an emscripten (emcc) build of AnthusAI/moonshine branch feature/wasm-thread-count-and-no-spin (head bd33d068), which proves the CMake PTHREAD_POOL_SIZE expression and Module.pthreadPoolSize at runtime, and then (2) a CPU measurement of the built WASM (silence CPU at 2 vs 10 threads, spike chatticus-a2000f baseline 16 percent vs 4 percent). No upstream PR to moonshine-ai may be opened without the owner's explicit decision. The web/lib/voice-session.ts core-count workaround stays until then.",
+      "created_at": "2026-10-20T13:37:17.745894Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-triage"
+      }
     }
   ],
   "created_at": "2026-10-04T13:27:17.686750Z",
-  "updated_at": "2026-10-20T13:17:35.632833Z",
+  "updated_at": "2026-10-20T13:37:18.078508Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",

@@ -58,10 +58,22 @@
         "model": "claude-sonnet-5-5",
         "name": "drift-fix"
       }
+    },
+    {
+      "id": "0dbb7acb-4651-4166-bb86-272806586fb4",
+      "author": "home",
+      "text": "Triage 2026-10-20: all children are closed with evidence (P0, A1, A2, B1, B2, C, D, E, closed 2026-10-14) except chatticus-816a1a (2b-R revocation runbook, second-reader pass), which another worker is doing now. This epic waits only on 816a1a (plus the owner's call on whether follow-ups 146c73, 1625c5, dd1539, ef581f block closing) and closes when 816a1a closes. Leaving in_progress.",
+      "created_at": "2026-10-20T13:37:17.594853Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-triage"
+      }
     }
   ],
   "created_at": "2026-10-12T13:18:55.826042Z",
-  "updated_at": "2026-10-20T13:17:35.738421Z",
+  "updated_at": "2026-10-20T13:37:17.594877Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
