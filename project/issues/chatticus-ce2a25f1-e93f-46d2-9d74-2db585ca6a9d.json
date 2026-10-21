@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-ce2a25f1-e93f-46d2-9d74-2db585ca6a9d",
+  "title": "Model gateway signing key moves to SSM SecureString (development only)",
+  "description": "Part of story chatticus-a170754a (Secrets and generated keys live in SSM Parameter Store SecureString, created by infrastructure code); read its description for the full plan, order and hazards. ModelGatewaySigningKey in infra/lib/control-plane-stack.ts (isDevelopment only) becomes /chatticus/development/model-gateway/signing-key via the construct. Readers: FrontDoor, ComputerStarter, OwnerCredentialBroker (conversation/src/lambdas, 15 s cache in the broker). Rotate rather than copy (development only, no customers; rotation stops running owners, the documented last-resort cost) or a one-off owner-run pipe from secretsmanager to ssm before deploy, never printed. Old construct has removalPolicy DESTROY: remove it in a later deploy than the consumer switch. Add negative rows to role-access-manifest.json and simulate-role-access so owner supervisor and per-turn roles are denied the parameter. Rewrite docs/OWNER_CREDENTIAL_REVOCATION.md section 5 and the rotation story chatticus-541dc7; SSM history keeps old versions readable (deny GetParameterHistory or delete and recreate).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-21T15:52:39.579537Z",
+  "updated_at": "2026-10-21T15:52:39.579574Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-secrets-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

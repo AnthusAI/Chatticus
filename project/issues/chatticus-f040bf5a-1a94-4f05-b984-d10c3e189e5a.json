@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-f040bf5a-1a94-4f05-b984-d10c3e189e5a",
+  "title": "Marketing intake origin key (private repo AnthusAI/Chattic.us-web)",
+  "description": "Part of story chatticus-a170754a (Secrets and generated keys live in SSM Parameter Store SecureString, created by infrastructure code); read its description for the full plan, order and hazards. IntakeOriginKey lives in the private website repo, stack ChatticusMarketing, infra/lib/marketing-stack.ts (generateSecretString 48 characters). It is resolved at deploy into the intake Lambda environment and the CloudFront origin header x-intake-origin-key through unsafeUnwrap; ssm-secure is unsupported for both, so it stays in Secrets Manager. Work in that repo, not this one; only record the decision there. Keep the public/private boundary (chatticus-3926bc).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-21T15:52:39.783938Z",
+  "updated_at": "2026-10-21T15:52:39.783967Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-secrets-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
