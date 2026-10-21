@@ -219,7 +219,7 @@ export async function composeFrontDoorApp(
 					monthlyModelSpendCeilingUsd: monthlyModelSpendCeilingUsdFrom(environment),
 				};
 	const snapshotBucket = environment[SNAPSHOT_BUCKET_VARIABLE] ?? "";
-	const boards = botBoardServiceFromEnvironment(environment, { credentials: () => client.config.credentials(), memberships: store });
+	const boards = botBoardServiceFromEnvironment(environment, { credentials: () => client.config.credentials(), memberships: store, bots: store });
 	return createApp({
 		boards,
 		snapshotFiles: snapshotBucket === "" ? null : new SnapshotFileService(new S3SnapshotStore(snapshotBucket, clients.s3)),

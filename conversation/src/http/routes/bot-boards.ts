@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Context, Hono } from "hono";
 import type { KanbusIssueQuery } from "@kanbus/api-client";
+import { formatLogLine } from "../../observability/log-line.ts";
 import type { BoardAuditSink, BoardDenialReason } from "../../board/board-audit.ts";
 import type { BoardFailure, BoardResult } from "../../board/board-failures.ts";
 import type {
@@ -40,6 +41,22 @@ const ERROR_STATUS_OF_CODE: Readonly<Record<string, number>> = {
 	revision_required: 428,
 };
 
+/** The pattern every identifier in a board path must match; anything else is answered as not found before any store or board call. */
+export const BOARD_PATH_IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+/** The largest request body a board route reads, in bytes. */
+export const MAXIMUM_BODY_BYTES = 64 * 1024;
+
+const MAXIMUM_TITLE_LENGTH = 300;
+const MAXIMUM_DESCRIPTION_LENGTH = 20_000;
+const MAXIMUM_LABEL_LENGTH = 64;
+const MAXIMUM_LABEL_COUNT = 20;
+const MAXIMUM_TEXT_LENGTH = 10_000;
+const MAXIMUM_SHORT_FIELD_LENGTH = 64;
+
+/** What a board route tells the client when the board service failed; the detail of the failure goes to the log only. */
+export const BOARD_SERVICE_FAILURE_DETAIL = "The board service did not confirm the request. A change may or may not have been stored: read the board before repeating it.";
+
 const DEPENDENCY_TYPES: readonly DependencyType[] = ["blocked-by", "relates-to"];
 const SORT_ORDERS = ["priority", "updated_at"] as const;
 
@@ -70,10 +87,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function optionalString(body: Record<string, unknown>, name: string): string | undefined | Rejection {
+function tooLong(name: string, limit: number): Rejection {
+	return { status: 422, code: "field_too_long", detail: `${name} is longer than ${limit} characters` };
+}
+
+function optionalString(body: Record<string, unknown>, name: string, limit: number): string | undefined | Rejection {
 	const value = body[name];
 	if (value === undefined) return undefined;
 	if (typeof value !== "string") return { status: 422, code: "invalid_request", detail: `${name} must be a string` };
+	if (value.length > limit) return tooLong(name, limit);
+	return value;
+}
+
+function cardIdentifier(value: unknown, name: string): string | Rejection {
+	if (typeof value !== "string" || !BOARD_PATH_IDENTIFIER_PATTERN.test(value)) {
+		return { status: 422, code: "invalid_request", detail: `${name} must be a card identifier` };
+	}
 	return value;
 }
 
@@ -85,10 +114,10 @@ function rejectionResponse(c: Context, rejection: Rejection): Response {
 	return c.json({ detail: rejection.detail, code: rejection.code }, rejection.status as 422);
 }
 
-function fieldsOf(body: Record<string, unknown>, names: readonly string[]): Record<string, string | undefined> | Rejection {
+function fieldsOf(body: Record<string, unknown>, limits: Readonly<Record<string, number>>): Record<string, string | undefined> | Rejection {
 	const fields: Record<string, string | undefined> = {};
-	for (const name of names) {
-		const value = optionalString(body, name);
+	for (const [name, limit] of Object.entries(limits)) {
+		const value = optionalString(body, name, limit);
 		if (isRejection(value)) return value;
 		fields[name] = value;
 	}
@@ -96,7 +125,7 @@ function fieldsOf(body: Record<string, unknown>, names: readonly string[]): Reco
 }
 
 function changesOf(body: Record<string, unknown>): CardChanges | Rejection {
-	const texts = fieldsOf(body, ["title", "description", "status"]);
+	const texts = fieldsOf(body, { title: MAXIMUM_TITLE_LENGTH, description: MAXIMUM_DESCRIPTION_LENGTH, status: MAXIMUM_SHORT_FIELD_LENGTH });
 	if (isRejection(texts)) return texts;
 	const priority = body["priority"];
 	if (priority !== undefined && !Number.isInteger(priority)) return { status: 422, code: "invalid_request", detail: "priority must be an integer" };
@@ -104,6 +133,8 @@ function changesOf(body: Record<string, unknown>): CardChanges | Rejection {
 	if (labels !== undefined && !(Array.isArray(labels) && labels.every((label) => typeof label === "string"))) {
 		return { status: 422, code: "invalid_request", detail: "labels must be a list of strings" };
 	}
+	if (Array.isArray(labels) && labels.length > MAXIMUM_LABEL_COUNT) return tooLong("labels", MAXIMUM_LABEL_COUNT);
+	if (Array.isArray(labels) && labels.some((label) => (label as string).length > MAXIMUM_LABEL_LENGTH)) return tooLong("each label", MAXIMUM_LABEL_LENGTH);
 	return {
 		...(texts["title"] === undefined ? {} : { title: texts["title"] }),
 		...(texts["description"] === undefined ? {} : { description: texts["description"] }),
@@ -116,8 +147,12 @@ function changesOf(body: Record<string, unknown>): CardChanges | Rejection {
 function newCardOf(body: Record<string, unknown>): NewCardFields | Rejection {
 	const changes = changesOf(body);
 	if (isRejection(changes)) return changes;
-	const extra = fieldsOf(body, ["type", "parent"]);
+	const extra = fieldsOf(body, { type: MAXIMUM_SHORT_FIELD_LENGTH, parent: 128 });
 	if (isRejection(extra)) return extra;
+	if (extra["parent"] !== undefined) {
+		const parent = cardIdentifier(extra["parent"], "parent");
+		if (isRejection(parent)) return parent;
+	}
 	if (changes.title === undefined || changes.title.trim() === "") return { status: 422, code: "title_required", detail: "A card needs a title." };
 	return {
 		...changes,
@@ -169,10 +204,22 @@ function statusOfFailure(failure: BoardFailure): number {
 function failureResponse(c: Context, failure: BoardFailure, writes: boolean): Response {
 	const status = statusOfFailure(failure);
 	const unconfirmed = failure.kind === "unavailable" || failure.kind === "service_unreachable_route";
+	if (unconfirmed) {
+		console.error(
+			formatLogLine("bot_board_service_failure", {
+				tenant_id: c.req.param("tenant_id"),
+				bot_id: c.req.param("bot_id"),
+				method: c.req.method,
+				kind: failure.kind,
+				code: failure.code,
+				detail: failure.message,
+			}),
+		);
+	}
 	return c.json(
 		{
-			detail: failure.message,
-			code: failure.code ?? (unconfirmed ? "board_service_unavailable" : failure.kind),
+			detail: unconfirmed ? BOARD_SERVICE_FAILURE_DETAIL : failure.message,
+			code: unconfirmed ? "board_service_unavailable" : (failure.code ?? failure.kind),
 			kind: failure.kind,
 			...(unconfirmed && writes ? { saved: false } : {}),
 			...(failure.currentCard === undefined ? {} : { current_revision: failure.currentCard.revision, current_card: failure.currentCard }),
@@ -201,7 +248,11 @@ function cardIdOf(call: BoardCall): string {
 
 async function bodyOf(c: Context): Promise<Record<string, unknown> | Rejection> {
 	if (!["POST", "PUT", "PATCH"].includes(c.req.method)) return {};
+	const tooLarge: Rejection = { status: 413, code: "body_too_large", detail: `The request body is larger than ${MAXIMUM_BODY_BYTES} bytes.` };
+	const declared = Number(c.req.header("Content-Length") ?? "0");
+	if (Number.isFinite(declared) && declared > MAXIMUM_BODY_BYTES) return tooLarge;
 	const text = await c.req.text();
+	if (Buffer.byteLength(text, "utf8") > MAXIMUM_BODY_BYTES) return tooLarge;
 	if (text.trim() === "") return {};
 	let parsed: unknown;
 	try {
@@ -216,6 +267,7 @@ function textFieldOf(call: BoardCall, name: string): string | Rejection {
 	const value = call.body[name];
 	if (value === undefined) return "";
 	if (typeof value !== "string") return { status: 422, code: "invalid_request", detail: `${name} must be a string` };
+	if (value.length > MAXIMUM_TEXT_LENGTH) return tooLong(name, MAXIMUM_TEXT_LENGTH);
 	return value;
 }
 
@@ -315,8 +367,9 @@ const ROUTES: readonly RouteSpecification[] = [
 		path: `${CARD_PATH}/parent`,
 		run: async (call) => {
 			const parent = call.body["parent"];
-			if (parent !== null && typeof parent !== "string") return rejectionResponse(call.context, { status: 422, code: "invalid_request", detail: "parent must be a card identifier or null" });
-			return resultResponse(call.context, await call.service.setParent(call.address, call.actor, cardIdOf(call), parent, call.write), true, cardShape);
+			const checked = parent === null ? null : cardIdentifier(parent, "parent");
+			if (isRejection(checked)) return rejectionResponse(call.context, checked);
+			return resultResponse(call.context, await call.service.setParent(call.address, call.actor, cardIdOf(call), checked, call.write), true, cardShape);
 		},
 	}),
 	routeOf("add_dependency", true, {
@@ -325,9 +378,10 @@ const ROUTES: readonly RouteSpecification[] = [
 		run: async (call) => {
 			const target = call.body["target"];
 			const type = call.body["type"] ?? "blocked-by";
-			if (typeof target !== "string" || target === "") return rejectionResponse(call.context, { status: 422, code: "invalid_request", detail: "target must be a card identifier" });
+			const checkedTarget = cardIdentifier(target, "target");
+			if (isRejection(checkedTarget)) return rejectionResponse(call.context, checkedTarget);
 			if (!(DEPENDENCY_TYPES as readonly unknown[]).includes(type)) return rejectionResponse(call.context, { status: 422, code: "invalid_request", detail: "type must be blocked-by or relates-to" });
-			return resultResponse(call.context, await call.service.addDependency(call.address, call.actor, cardIdOf(call), target, type as DependencyType, call.write), true, cardShape);
+			return resultResponse(call.context, await call.service.addDependency(call.address, call.actor, cardIdOf(call), checkedTarget, type as DependencyType, call.write), true, cardShape);
 		},
 	}),
 	routeOf("remove_dependency", true, {
@@ -375,6 +429,10 @@ function notFound(c: Context): Response {
 }
 
 async function handle(c: Context, deps: BotBoardRouteDependencies, route: RouteSpecification): Promise<Response> {
+	for (const name of ["tenant_id", "bot_id", "card_id", "target_id"]) {
+		const value = c.req.param(name);
+		if (value !== undefined && !BOARD_PATH_IDENTIFIER_PATTERN.test(value)) return notFound(c);
+	}
 	const tenantId = pathParameter(c, "tenant_id");
 	const botId = pathParameter(c, "bot_id");
 	let principal: Principal | Response;
@@ -439,5 +497,8 @@ async function handle(c: Context, deps: BotBoardRouteDependencies, route: RouteS
 export function registerBotBoardRoutes(app: Hono, deps: BotBoardRouteDependencies): void {
 	for (const route of ROUTES) {
 		declareRoute(app, { method: route.method, path: route.path, audience: "user" }, (c) => handle(c, deps, route));
+	}
+	for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
+		declareRoute(app, { method, path: `${BOARD_PATH}/*`, audience: "user" }, (c) => notFound(c));
 	}
 }

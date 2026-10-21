@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { DeleteItemCommand } from "@aws-sdk/client-dynamodb";
 import { Given, Then, When } from "@cucumber/cucumber";
+import { membershipKey } from "../../src/store/keys.ts";
 import { createBot } from "../../src/domain/bots.ts";
 import { OrganizationsKernelImpl, type MemberRole } from "../../src/domain/organizations.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
+import { capturedConsoleLines } from "../log-capture-support.ts";
 import {
 	auditRecordsOf,
 	botActor,
@@ -24,6 +27,8 @@ const kernel = new OrganizationsKernelImpl();
 type RouteBot = { readonly botId: string; readonly tenantId: string; readonly name: string };
 
 type RouteScenario = {
+	snapshot: string | null;
+	otherBotCard: { bot: RouteBot; id: string; revision: string } | null;
 	readonly bots: Map<string, RouteBot>;
 	readonly firstTenantOfBot: Map<string, string>;
 	response: RecordedResponse | null;
@@ -38,7 +43,7 @@ const scenarios = new WeakMap<ChatticusWorld, RouteScenario>();
 function routeScenarioOf(world: ChatticusWorld): RouteScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { bots: new Map(), firstTenantOfBot: new Map(), response: null, lastBot: null, baseline: null, conflict: null, unchanged: null };
+		scenario = { bots: new Map(), firstTenantOfBot: new Map(), snapshot: null, otherBotCard: null, response: null, lastBot: null, baseline: null, conflict: null, unchanged: null };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -123,12 +128,13 @@ async function changeCard(
 	suffix: string,
 	body: unknown,
 	choice: RevisionChoice = "current",
+	extraHeaders: Record<string, string> = {},
 ): Promise<RecordedResponse> {
 	const bot = botIn(world, botName);
 	const id = cardId(world, bot, title);
 	remember(world, bot, title, id);
 	routeScenarioOf(world).lastBot = bot;
-	const response = await call(world, who, method, boardPath(bot, `/cards/${id}${suffix}`), { ...(body === undefined ? {} : { body }), headers: revisionHeader(world, bot, id, choice) });
+	const response = await call(world, who, method, boardPath(bot, `/cards/${id}${suffix}`), { ...(body === undefined ? {} : { body }), headers: { ...revisionHeader(world, bot, id, choice), ...extraHeaders } });
 	if (response.status === 409 && response.json?.current_card !== undefined) routeScenarioOf(world).conflict = response.json;
 	return response;
 }
@@ -606,4 +612,185 @@ Then("no audit record contains card text", function (this: ChatticusWorld) {
 	const text = JSON.stringify(auditRecordsOf(this));
 	assert.ok(auditRecordsOf(this).length > 0);
 	for (const fragment of ["Pay the electric bill", "in_progress", "Water the plants"]) assert.ok(!text.includes(fragment), text);
+});
+
+When(
+	"{string} comments {string} on the card {string} on the board of {string} with the Idempotency-Key {string}",
+	async function (this: ChatticusWorld, who: string, text: string, title: string, botName: string, key: string) {
+		await changeCard(this, who, title, botName, "POST", "/comments", { text }, "current", { "Idempotency-Key": key });
+	},
+);
+
+When("{string} creates a card titled {string} on the board of {string} with the status {string}", async function (this: ChatticusWorld, who: string, title: string, botName: string, status: string) {
+	const bot = botIn(this, botName);
+	const response = await call(this, who, "POST", boardPath(bot, "/cards"), { body: { title, status } });
+	if (response.status === 200) remember(this, bot, title, response.json.issue.id);
+});
+
+Given("{string} has archived the board of {string} in {string}", async function (this: ChatticusWorld, who: string, botName: string, organization: string) {
+	const bot = botIn(this, botName, organization);
+	const response = await call(this, who, "POST", boardPath(bot, "/archive"), { body: {} });
+	assert.equal(response.status, 200, response.text);
+});
+
+Given("the bot {string} recorded that the card {string} is blocked by the card {string}", async function (this: ChatticusWorld, botName: string, title: string, targetTitle: string) {
+	const bot = botIn(this, botName);
+	const id = cardId(this, bot, title);
+	const scenario = boardScenarioOf(this);
+	const done = await scenario.executor.addDependency({ organizationId: bot.tenantId, botId: bot.botId }, botActor(this, bot.name), id, cardId(this, bot, targetTitle), "blocked-by", { operationKey: `given-dependency/${title}`, revision: revisionOf(this, bot, id) });
+	assert.ok(done.ok, JSON.stringify(done));
+});
+
+Then("the response is refused because a closed card is only reopened", function (this: ChatticusWorld) {
+	const response = responseOf(this);
+	assert.equal(response.status, 422, response.text);
+	assert.equal(response.json?.code, "closed_card_needs_reopen");
+});
+
+Then("the response says the board service did not confirm the request", function (this: ChatticusWorld) {
+	const response = responseOf(this);
+	assert.equal(response.status, 502, response.text);
+	assert.equal(response.json?.code, "board_service_unavailable");
+	assert.match(String(response.json?.detail), /did not confirm the request/);
+});
+
+Then("the board response does not contain {string}", function (this: ChatticusWorld, text: string) {
+	assert.ok(!responseOf(this).text.includes(text), responseOf(this).text);
+});
+
+Then("the error log holds {string}", function (this: ChatticusWorld, text: string) {
+	assert.ok(capturedConsoleLines(this).some((line) => line.startsWith("bot_board_service_failure") && line.includes(text)), capturedConsoleLines(this).join("\n"));
+});
+
+Then("the response is refused as too long", function (this: ChatticusWorld) {
+	const response = responseOf(this);
+	assert.equal(response.status, 422, response.text);
+	assert.equal(response.json?.code, "field_too_long");
+});
+
+Then("the response is refused as too large", function (this: ChatticusWorld) {
+	const response = responseOf(this);
+	assert.equal(response.status, 413, response.text);
+	assert.equal(response.json?.code, "body_too_large");
+});
+
+Then("the board store received no change", function (this: ChatticusWorld) {
+	const baseline = routeScenarioOf(this).baseline;
+	assert.ok(baseline !== null, "The scenario made no board request");
+	const changes = boardScenarioOf(this).fake.requests.slice(baseline).filter((request) => request.method !== "GET");
+	assert.deepEqual(changes, []);
+});
+
+function expandIdentifier(token: string): string {
+	return token === "129 letters" ? "a".repeat(129) : token;
+}
+
+When("{string} requests the card path {string} on the board of {string}", async function (this: ChatticusWorld, who: string, token: string, botName: string) {
+	const bot = botIn(this, botName);
+	await call(this, who, "GET", boardPath(bot, `/cards/${expandIdentifier(token)}`));
+});
+
+When("{string} requests the removal of the dependency {string} of a card on the board of {string}", async function (this: ChatticusWorld, who: string, token: string, botName: string) {
+	const bot = botIn(this, botName);
+	const id = cardId(this, bot, "Pay the electric bill");
+	await call(this, who, "DELETE", boardPath(bot, `/cards/${id}/dependencies/${expandIdentifier(token)}`), { headers: { "If-Match": revisionOf(this, bot, id) } });
+});
+
+When("{string} requests the board of the bot {string} in {string}", async function (this: ChatticusWorld, who: string, token: string, organization: string) {
+	await call(this, who, "GET", `/orgs/${tenantIdOfOrganization(organization)}/bots/${expandIdentifier(token)}/board`);
+});
+
+When("{string} reads the card {string} of the bot {string} on the board of {string}", async function (this: ChatticusWorld, who: string, title: string, otherBot: string, botName: string) {
+	const other = botIn(this, otherBot);
+	const id = cardId(this, other, title);
+	routeScenarioOf(this).otherBotCard = { bot: other, id, revision: revisionOf(this, other, id) };
+	await call(this, who, "GET", boardPath(botIn(this, botName), `/cards/${id}`));
+});
+
+When("{string} moves the card {string} of the bot {string} on the board of {string} to the status {string}", async function (this: ChatticusWorld, who: string, title: string, otherBot: string, botName: string, status: string) {
+	const other = botIn(this, otherBot);
+	const id = cardId(this, other, title);
+	routeScenarioOf(this).otherBotCard = { bot: other, id, revision: revisionOf(this, other, id) };
+	await call(this, who, "PATCH", boardPath(botIn(this, botName), `/cards/${id}`), { body: { status }, headers: { "If-Match": revisionOf(this, other, id) } });
+});
+
+Then("the card of the bot {string} is unchanged", function (this: ChatticusWorld, otherBot: string) {
+	const guarded = routeScenarioOf(this).otherBotCard;
+	assert.ok(guarded && guarded.bot.name === otherBot);
+	assert.equal(revisionOf(this, guarded.bot, guarded.id), guarded.revision);
+});
+
+type RouteRequest = { method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; path: string; body?: unknown; withRevision?: string };
+
+function routeRequestFor(world: ChatticusWorld, name: string, bot: RouteBot): RouteRequest {
+	const pay = (): { id: string } => ({ id: cardId(world, bot, "Pay the electric bill") });
+	const lookup = (title: string): string => cardId(world, bot, title);
+	switch (name) {
+		case "overview": return { method: "GET", path: boardPath(bot) };
+		case "list": return { method: "GET", path: boardPath(bot, "/cards") };
+		case "get": return { method: "GET", path: boardPath(bot, `/cards/${pay().id}`) };
+		case "create": return { method: "POST", path: boardPath(bot, "/cards"), body: { title: "Ask about the late fee again" } };
+		case "update": return { method: "PATCH", path: boardPath(bot, `/cards/${pay().id}`), body: { status: "in_progress" }, withRevision: pay().id };
+		case "comment": return { method: "POST", path: boardPath(bot, `/cards/${pay().id}/comments`), body: { text: "hello" }, withRevision: pay().id };
+		case "complete": return { method: "POST", path: boardPath(bot, `/cards/${pay().id}/complete`), body: { evidence: "done" }, withRevision: pay().id };
+		case "abandon": return { method: "POST", path: boardPath(bot, `/cards/${pay().id}/abandon`), body: { reason: "no longer needed" }, withRevision: pay().id };
+		case "reopen": return { method: "POST", path: boardPath(bot, `/cards/${pay().id}/reopen`), body: {}, withRevision: pay().id };
+		case "parent": return { method: "PUT", path: boardPath(bot, `/cards/${pay().id}/parent`), body: { parent: lookup("Household money") }, withRevision: pay().id };
+		case "add dependency": return { method: "POST", path: boardPath(bot, `/cards/${pay().id}/dependencies`), body: { target: lookup("Ask about the late fee"), type: "blocked-by" }, withRevision: pay().id };
+		case "remove dependency": return { method: "DELETE", path: boardPath(bot, `/cards/${pay().id}/dependencies/${lookup("Ask about the late fee")}`), withRevision: pay().id };
+		case "delete": return { method: "DELETE", path: boardPath(bot, `/cards/${pay().id}`), withRevision: pay().id };
+		case "archive": return { method: "POST", path: boardPath(bot, "/archive"), body: {} };
+		case "restore": return { method: "POST", path: boardPath(bot, "/restore"), body: {} };
+		default: throw new Error(`Unknown route ${name}`);
+	}
+}
+
+function boardSnapshot(world: ChatticusWorld, bot: RouteBot): string {
+	const fake = boardScenarioOf(world).fake;
+	const board = fake.boards.get(`${bot.tenantId}/${bot.botId}`);
+	return JSON.stringify({ cards: fake.cardsOf(bot.tenantId, bot.botId), archived: board?.archivedAt ?? null, changes: fake.requests.filter((request) => request.method !== "GET").length });
+}
+
+When("{string} calls the route {string} on the board of {string}", async function (this: ChatticusWorld, who: string, name: string, botName: string) {
+	const bot = botIn(this, botName);
+	routeScenarioOf(this).lastBot = bot;
+	routeScenarioOf(this).snapshot = boardSnapshot(this, bot);
+	const request = routeRequestFor(this, name, bot);
+	await call(this, who, request.method, request.path, {
+		...(request.body === undefined ? {} : { body: request.body }),
+		...(request.withRevision === undefined ? {} : { headers: { "If-Match": revisionOf(this, bot, request.withRevision) } }),
+	});
+});
+
+Then("nothing changed on the board of {string}", function (this: ChatticusWorld, botName: string) {
+	const before = routeScenarioOf(this).snapshot;
+	assert.ok(before, "The scenario took no snapshot");
+	assert.equal(boardSnapshot(this, botIn(this, botName)), before);
+});
+
+const WRITE_BODIES: Readonly<Record<string, { method: "POST" | "PATCH"; suffix: string; body: Record<string, unknown> }>> = {
+	create: { method: "POST", suffix: "/cards", body: { title: "t" } },
+	update: { method: "PATCH", suffix: "CARD", body: { title: "t" } },
+	comment: { method: "POST", suffix: "CARD/comments", body: { text: "t" } },
+	complete: { method: "POST", suffix: "CARD/complete", body: { evidence: "t" } },
+	abandon: { method: "POST", suffix: "CARD/abandon", body: { reason: "t" } },
+};
+
+When("{string} sends the {string} write with the field {string} of {int} characters", async function (this: ChatticusWorld, who: string, write: string, field: string, length: number) {
+	const bot = botIn(this, "Assistant");
+	const spec = WRITE_BODIES[write];
+	assert.ok(spec, `Unknown write ${write}`);
+	const body: Record<string, unknown> = { ...spec.body };
+	if (field === "label") body["labels"] = ["x".repeat(length)];
+	else if (field === "labels") body["labels"] = Array.from({ length }, (_, index) => `l${index}`);
+	else if (field === "padding") body["padding"] = "x".repeat(length);
+	else body[field] = "x".repeat(length);
+	const id = cardId(this, bot, "Pay the electric bill");
+	const path = write === "create" ? boardPath(bot, "/cards") : boardPath(bot, `/cards/${id}${spec.suffix.replace("CARD", "")}`);
+	await call(this, who, spec.method, path, { body, ...(write === "create" ? {} : { headers: { "If-Match": revisionOf(this, bot, id) } }) });
+});
+
+When("the membership of {string} in {string} is deleted from the store", async function (this: ChatticusWorld, email: string, organization: string) {
+	const key = membershipKey(tenantIdOfOrganization(organization), await userIdOf(this, email));
+	await this.messagingTable.client.send(new DeleteItemCommand({ TableName: this.messagingTable.tableName, Key: { pk: { S: key.pk }, sk: { S: key.sk } } }));
 });

@@ -70,6 +70,8 @@ export function boardScenarioOf(world: ChatticusWorld): BoardScenario {
 					fetch: fake.fetch,
 				}),
 				memberships,
+				bots: { getBot: (tenantId: string, botId: string) => world.messagingStore().getBot(tenantId, botId), putBot: (bot, reserveName) => world.messagingStore().putBot(bot, reserveName) },
+				now: () => world.clock.now(),
 			});
 		scenario = {
 			enabled: false,

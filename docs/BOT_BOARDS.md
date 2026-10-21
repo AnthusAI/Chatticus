@@ -397,11 +397,34 @@ that did not confirm a change is 502 with `saved: false`, meaning the change may
 found for a stranger or an unknown bot) is recorded as one structured log line `bot_board_request_refused` with the person,
 the bot, the route and the reason, never card text.
 
+**Hardening rules (security review of the routes).**
+- A card is never created closed, and a plain status change to `closed` is refused (422 `closing_needs_evidence_or_reason`);
+  a closed card changes status only through the reopen route (422 `closed_card_needs_reopen` otherwise), which clears
+  `custom.closing`.
+- Archived boards. The bot record carries `board_archived_at`, set by the archive route (before the Kanbus call, so a failure
+  fails closed and is undone) and cleared by restore (after the Kanbus call). While it is set, the board service answers 404
+  `not_found` to every non-owner and to the bot itself for every read and write; owners still read, restore, and get 409
+  `board_archived` on writes.
+- Service failures. The client sees one constant message and code (`board_service_unavailable`, 502) with no gateway body
+  excerpt and no transport error text; the detail goes only to the error log line `bot_board_service_failure`.
+- Operation ids. The acting person or bot (`chatticus:user:<id>` or `chatticus:bot:<id>`) is part of every derived operation
+  id, including archive and restore, so two callers using the same `Idempotency-Key` never replay each other.
+- Path identifiers (organization, bot, card, dependency target) must match `^[A-Za-z0-9_-]{1,128}$`; anything else, and any
+  unknown path under `/board/`, is the uniform 404 before any store or board call. (Dot segments such as `%2e%2e` are resolved
+  by URL parsing before routing, so they reach a route that names a different resource or none.) `parent` and `target` in
+  bodies are validated the same way.
+- Caps: request body 64 KiB (413 `body_too_large`); title 300 characters; description 20000; at most 20 labels of at most 64
+  characters; comment, evidence and reason text 10000 (422 `field_too_long`).
+- Role and membership are read at every request: the principal layer reads the membership row on every request (only the role
+  and organization status are cached), and the board service reads it again, so a deleted membership or a demotion applies
+  at the next request.
+
 **Live acceptance.** `conversation/bin/acceptance.ts --environment <name> --expect-board` (the reusable workflow input
-`expect-board`, set by the development deploy workflows) runs, through the front door as the integration user and without a
-model, right after the throwaway bot is created: read the empty overview; create a card and check its creator is
-`chatticus:user:<integration user>`; comment; move to `in_progress`; complete with evidence and read back `closed`, the
-closing comment and `custom.closing = completed`; create and abandon a second card with a reason; check that completing a
-third card without evidence is refused with 422; and at the end archive the bot's board, because the product has no bot
-deletion route. A front door that answers `board_service_not_enabled` fails the run when the flag is given. Without the flag
-the board checks are skipped.
+`expect-board`, set by the development deploy workflows) runs after all the core chat checks, so a board failure cannot mask
+them, on a dedicated throwaway bot, through the front door as the integration user and without a model: read the empty
+overview; create a card and check its creator is `chatticus:user:<integration user>`; comment; move to `in_progress`; complete
+with evidence and read back `closed`, the closing comment and `custom.closing = completed`; create and abandon a second card
+with a reason; check that completing a third card without evidence is refused with 422; and in a finally archive both boards
+(the board bot's and the chat bot's), because the product has no bot deletion route. Every failure, including a cleanup
+failure, is collected and the run reports all of them. A front door that answers `board_service_not_enabled` fails the run
+when the flag is given. Without the flag the board checks are skipped.

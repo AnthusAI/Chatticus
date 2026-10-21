@@ -13,6 +13,7 @@ import {
 import {
 	runSmokeTest,
 	SmokeAssertionError,
+	SmokeCombinedError,
 	SmokeRequestError,
 	SMOKE_BOARD_CHECK_NAMES,
 	SMOKE_CHECK_NAMES,
@@ -228,24 +229,25 @@ async function enableBoardService(): Promise<void> {
 	await wireFrontDoor(world, world.frontDoorOptions);
 }
 
-function smokeBotBoard(): { cards: Record<string, any>[]; archived: boolean } {
+function smokeBoards(): Array<{ cards: Record<string, any>[]; archived: boolean }> {
 	const fake = boardScenarioOf(world).fake;
-	const [key, board] = [...fake.boards.entries()][0] ?? [];
-	if (key === undefined || board === undefined) {
+	return [...fake.boards.entries()].map(([key, board]) => {
+		const [tenant, project] = key.split("/");
+		return { cards: fake.cardsOf(tenant!, project!), archived: board.archivedAt !== null };
+	});
+}
+
+function smokeBotBoard(): { cards: Record<string, any>[]; archived: boolean } {
+	const boards = smokeBoards();
+	const board = boards[boards.length - 1];
+	if (board === undefined) {
 		throw new Error("no board was provisioned");
 	}
-	const [tenant, project] = key.split("/");
-	return { cards: fake.cardsOf(tenant!, project!), archived: board.archivedAt !== null };
+	return board;
 }
 
 describe("the board checks of the acceptance smoke test", () => {
-	const orderedWithBoard = [
-		SMOKE_CHECK_NAMES.sessionExchanged,
-		SMOKE_CHECK_NAMES.botCreated,
-		...Object.values(SMOKE_BOARD_CHECK_NAMES).filter((name) => name !== SMOKE_BOARD_CHECK_NAMES.boardArchived),
-		...Object.values(SMOKE_CHECK_NAMES).slice(2),
-		SMOKE_BOARD_CHECK_NAMES.boardArchived,
-	];
+	const orderedWithBoard = [...Object.values(SMOKE_CHECK_NAMES), ...Object.values(SMOKE_BOARD_CHECK_NAMES)];
 
 	it("runs the board checks through the front door as the integration user and archives the board at the end", async () => {
 		await enableBoardService();
@@ -253,7 +255,7 @@ describe("the board checks of the acceptance smoke test", () => {
 		await runSmokeTest(options({ expectBoard: true }), checks);
 		expect(checks).toEqual(orderedWithBoard);
 		const board = smokeBotBoard();
-		expect(board.archived).toBe(true);
+		expect(smokeBoards().map((each) => each.archived)).toEqual([true, true]);
 		const actor = `chatticus:user:${DEFAULT_INTEGRATION_TEST_USER_ID}`;
 		const closing = board.cards.map((card) => [card["status"], card["custom"]?.closing, card["creator"]]);
 		expect(closing).toEqual([
@@ -271,7 +273,7 @@ describe("the board checks of the acceptance smoke test", () => {
 		expect(checks).toEqual(Object.values(SMOKE_CHECK_NAMES));
 		const requests = boardScenarioOf(world).fake.requests;
 		expect(requests.every((request) => request.method === "PUT" && request.path.endsWith("/api/config"))).toBe(true);
-		expect(smokeBotBoard()).toEqual({ cards: [], archived: false });
+		expect(smokeBoards()).toEqual([{ cards: [], archived: false }]);
 	}, 60_000);
 
 	it("fails when the board capability is expected and the front door answers board_service_not_enabled", async () => {
@@ -279,7 +281,31 @@ describe("the board checks of the acceptance smoke test", () => {
 		const failure = runSmokeTest(options({ expectBoard: true }), checks);
 		await expect(failure).rejects.toBeInstanceOf(SmokeAssertionError);
 		await expect(failure).rejects.toThrow(/board_service_not_enabled/);
-		expect(checks).toEqual([SMOKE_CHECK_NAMES.sessionExchanged, SMOKE_CHECK_NAMES.botCreated]);
+		expect(checks).toEqual([...Object.values(SMOKE_CHECK_NAMES), SMOKE_BOARD_CHECK_NAMES.botCreated]);
+	}, 60_000);
+
+	it("reports a board failure without masking the core results", async () => {
+		await enableBoardService();
+		const inner = inProcessTransport();
+		const breaksMoves: Transport = async (input, init) => (init?.method === "PATCH" ? new Response("{}", { status: 500 }) : inner(input, init));
+		const checks: string[] = [];
+		const failure = runSmokeTest(options({ expectBoard: true, fetch: breaksMoves }), checks);
+		await expect(failure).rejects.toThrow(SMOKE_BOARD_CHECK_NAMES.cardMoved);
+		expect(checks).toEqual(expect.arrayContaining(Object.values(SMOKE_CHECK_NAMES)));
+		expect(smokeBoards().map((each) => each.archived)).toEqual([true, true]);
+	}, 60_000);
+
+	it("reports both a core failure and a board failure, and a cleanup failure as well", async () => {
+		await enableBoardService();
+		pumping = false;
+		await pump;
+		const inner = inProcessTransport();
+		const breaks: Transport = async (input, init) =>
+			init?.method === "PATCH" || input.endsWith("/archive") ? new Response("{}", { status: 500 }) : inner(input, init);
+		const checks: string[] = [];
+		const failure = runSmokeTest(options({ expectBoard: true, turnTimeoutSeconds: 1, fetch: breaks }), checks);
+		await expect(failure).rejects.toBeInstanceOf(SmokeCombinedError);
+		await expect(failure).rejects.toThrow(/did not complete[\s\S]*also[\s\S]*board card moved to in_progress[\s\S]*also[\s\S]*board archived at cleanup/);
 	}, 60_000);
 
 	it("fails when completing a card without evidence is not refused, and still archives the board", async () => {

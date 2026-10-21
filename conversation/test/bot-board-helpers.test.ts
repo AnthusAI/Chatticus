@@ -59,7 +59,7 @@ describe("board service client wiring", () => {
 		expect(kanbusApiUrlFrom({})).toBeNull();
 		expect(kanbusApiUrlFrom({ CHATTICUS_KANBUS_API_URL: "" })).toBeNull();
 		expect(kanbusApiUrlFrom({ CHATTICUS_KANBUS_API_URL: "https://kanbus.example.com" })).toBe("https://kanbus.example.com");
-		const options = { credentials: async () => ({ accessKeyId: "a", secretAccessKey: "b" }), memberships: { getMembership: async () => null } };
+		const options = { credentials: async () => ({ accessKeyId: "a", secretAccessKey: "b" }), memberships: { getMembership: async () => null }, bots: { getBot: async () => null, putBot: async () => undefined } };
 		expect(botBoardServiceFromEnvironment({}, options)).toBeNull();
 		expect(() => botBoardServiceFromEnvironment({ CHATTICUS_KANBUS_API_URL: "https://kanbus.example.com" }, options)).toThrow(/AWS_REGION/);
 		expect(botBoardServiceFromEnvironment({ CHATTICUS_KANBUS_API_URL: "https://kanbus.example.com", AWS_REGION: "us-east-1" }, options)).not.toBeNull();

@@ -28,8 +28,9 @@ Feature: A bot's board over the front door
   Idempotency-Key makes a retried request replay instead of repeating. The front door sends the Kanbus card JSON
   through; it does not reshape it. A stranger, an unknown bot and a bot of another organization all look the same: not
   found, with no card content. Where the deployment has no board service the routes answer 404 board_service_not_enabled.
-  Scenarios that need member removal, bot deletion, the bot's own tool path or the purge of a board stay in
-  bot_board_access.feature as drafts.
+  Scenarios that need member removal (the membership store has none), bot deletion, the bot's own tool path or the
+  purge of a board stay in bot_board_access.feature as drafts. An archived board is hidden from non-owners: they get not
+  found for every read and write, owners still read and restore it, and a write on it is refused as archived.
 
   Background:
     Given an empty control plane
@@ -126,16 +127,35 @@ Feature: A bot's board over the front door
     Then the response is ok
     And the card "Pay the electric bill" depends on no card
 
-  Scenario: A member who is not an owner reads and cannot change
-    When "sam@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
+  Scenario Outline: A member who is not an owner cannot use any write route
+    Given the bot "Assistant" has an epic titled "Household money"
+    And the bot "Assistant" has a card titled "Ask about the late fee"
+    And the bot "Assistant" recorded that the card "Pay the electric bill" is blocked by the card "Ask about the late fee"
+    When "sam@example.com" calls the route "<route>" on the board of "Assistant"
     Then the response is forbidden
-    And the card has the status "open"
-    When "sam@example.com" creates a card titled "Sneaky" on the board of "Assistant"
-    Then the response is forbidden
-    And the board of "Assistant" in "Anthus Labs" has no card titled "Sneaky"
-    When "sam@example.com" comments "hello" on the card "Pay the electric bill" on the board of "Assistant"
-    Then the response is forbidden
-    And the card has no comments
+    And nothing changed on the board of "Assistant"
+
+    Examples:
+      | route             |
+      | create            |
+      | update            |
+      | comment           |
+      | complete          |
+      | abandon           |
+      | reopen            |
+      | parent            |
+      | add dependency    |
+      | remove dependency |
+      | delete            |
+      | archive           |
+      | restore           |
+
+  Scenario: A card cannot be created already closed
+    When "ryan@example.com" creates a card titled "Closed on arrival" on the board of "Assistant" with the status "closed"
+    Then the response is refused as needing evidence or a reason
+    And the board of "Assistant" in "Anthus Labs" has no card titled "Closed on arrival"
+    When "ryan@example.com" creates a card titled "Started at once" on the board of "Assistant" with the status "in_progress"
+    Then the response is ok
 
   # ---------------------------------------------------------------- closing
 
@@ -169,6 +189,14 @@ Feature: A bot's board over the front door
     Then the response is ok
     And the card has the status "open"
     And the card has no closing time
+
+  Scenario: A closed card changes status only by being reopened
+    Given the bot "Assistant" has a closed card titled "Pay the electric bill again"
+    When "ryan@example.com" moves the card "Pay the electric bill again" on the board of "Assistant" to the status "in_progress"
+    Then the response is refused because a closed card is only reopened
+    And the card has the status "closed"
+    When "ryan@example.com" moves the card "Pay the electric bill again" on the board of "Assistant" to the status "closed"
+    Then the response is refused as needing evidence or a reason
 
   # ---------------------------------------------------------------- deleting
 
@@ -273,6 +301,18 @@ Feature: A bot's board over the front door
     And "sam@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
     Then the response is ok
 
+  Scenario: A member whose membership is gone is not found at the next request even while the sign-in cache is warm
+    When "sam@example.com" lists the board of "Assistant" in "Anthus Labs"
+    Then the response lists the card "Pay the electric bill"
+    When the membership of "sam@example.com" in "Anthus Labs" is deleted from the store
+    And "sam@example.com" lists the board of "Assistant" in "Anthus Labs"
+    Then the response is not found
+    When "ada@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
+    Then the response is ok
+    When the membership of "ada@example.com" in "Anthus Labs" is deleted from the store
+    And "ada@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "blocked"
+    Then the response is not found
+
   # ---------------------------------------------------------------- archive and restore
 
   Scenario: An owner archives a bot's board and restores it, and a member cannot
@@ -284,17 +324,136 @@ Feature: A bot's board over the front door
     When "ryan@example.com" creates a card titled "Late" on the board of "Assistant"
     Then the response says the board is archived
     When "sam@example.com" restores the board of "Assistant" in "Anthus Labs"
-    Then the response is forbidden
+    Then the response is not found
     When "ryan@example.com" restores the board of "Assistant" in "Anthus Labs"
     Then the response is ok
     And the card "Pay the electric bill" is on the board of "Assistant"
     When "ryan@example.com" restores the board of "Assistant" in "Anthus Labs"
     Then the response refuses the restore because the board is not archived
 
+  Scenario: A member cannot see an archived board
+    Given "ryan@example.com" has archived the board of "Assistant" in "Anthus Labs"
+    When "sam@example.com" lists the board of "Assistant" in "Anthus Labs"
+    Then the response is not found
+    And the response carries no card content
+    When "sam@example.com" opens the board of "Assistant" in "Anthus Labs"
+    Then the response is not found
+    When "sam@example.com" reads the card "Pay the electric bill" on the board of "Assistant"
+    Then the response is not found
+    When "sam@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
+    Then the response is not found
+
+  Scenario: An owner still reads an archived board and restores it, and members read it again
+    Given "ryan@example.com" has archived the board of "Assistant" in "Anthus Labs"
+    When "ryan@example.com" lists the board of "Assistant" in "Anthus Labs"
+    Then the response lists the card "Pay the electric bill"
+    When "ryan@example.com" restores the board of "Assistant" in "Anthus Labs"
+    Then the response is ok
+    When "sam@example.com" lists the board of "Assistant" in "Anthus Labs"
+    Then the response lists the card "Pay the electric bill"
+
+  Scenario: A write on an archived board is refused as archived for an owner
+    Given "ryan@example.com" has archived the board of "Assistant" in "Anthus Labs"
+    When "ryan@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
+    Then the response says the board is archived
+
   Scenario: Chatticus never purges a board through the routes
     When "ryan@example.com" archives the board of "Assistant" in "Anthus Labs"
     Then the response is ok
     And Chatticus made no purge call
+
+  Scenario: A card of another bot's board used on this bot's routes is not found and changes nothing
+    Given the organization "Anthus Labs" has a bot named "Researcher" with a card titled "Read the vendor report"
+    When "ryan@example.com" reads the card "Read the vendor report" of the bot "Researcher" on the board of "Assistant"
+    Then the response is not found
+    When "ryan@example.com" moves the card "Read the vendor report" of the bot "Researcher" on the board of "Assistant" to the status "in_progress"
+    Then the response is not found
+    And the card of the bot "Researcher" is unchanged
+
+  Scenario Outline: A path identifier that is not an identifier is not found before anything is called
+    When "ryan@example.com" requests the card path "<identifier>" on the board of "Assistant"
+    Then the response is not found
+    And the board store was not called
+    When "ryan@example.com" requests the removal of the dependency "<identifier>" of a card on the board of "Assistant"
+    Then the response is not found
+    And the board store was not called
+
+    Examples:
+      | identifier  |
+      | %2e%2e      |
+      | a%2Fb       |
+      | 129 letters |
+
+  Scenario Outline: A bot identifier that is not an identifier is not found before anything is called
+    When "ryan@example.com" requests the board of the bot "<identifier>" in "Anthus Labs"
+    Then the response is not found
+    And the board store was not called
+
+    Examples:
+      | identifier  |
+      | a%2Fb       |
+      | 129 letters |
+
+  # ---------------------------------------------------------------- limits
+
+  Scenario Outline: A field that is too long is refused before it reaches the board
+    When "ryan@example.com" sends the "<write>" write with the field "<field>" of <length> characters
+    Then the response is refused as too long
+    And the board store received no change
+
+    Examples:
+      | write    | field       | length |
+      | create   | title       | 301    |
+      | update   | title       | 301    |
+      | create   | description | 20001  |
+      | update   | description | 20001  |
+      | create   | label       | 65     |
+      | update   | labels      | 21     |
+      | comment  | text        | 10001  |
+      | complete | evidence    | 10001  |
+      | abandon  | reason      | 10001  |
+
+  Scenario: A request body that is too large is refused
+    When "ryan@example.com" sends the "create" write with the field "padding" of 70000 characters
+    Then the response is refused as too large
+    And the board store received no change
+
+  Scenario Outline: A field at the limit is accepted
+    When "ryan@example.com" sends the "<write>" write with the field "<field>" of <length> characters
+    Then the response is ok
+
+    Examples:
+      | write   | field | length |
+      | create  | title | 300    |
+      | comment | text  | 10000  |
+
+  # ---------------------------------------------------------------- one owner's retry key is not another's
+
+  Scenario: Two owners using the same Idempotency-Key for the same action do not collide
+    When "ryan@example.com" comments "First owner" on the card "Pay the electric bill" on the board of "Assistant" with the Idempotency-Key "shared-1"
+    Then the response is ok
+    When "ada@example.com" comments "Second owner" on the card "Pay the electric bill" on the board of "Assistant" with the Idempotency-Key "shared-1"
+    Then the response is ok
+    And the card has the comment "First owner" by "ryan@example.com"
+    And the card has the comment "Second owner" by "ada@example.com"
+
+  # ---------------------------------------------------------------- a service failure tells the client nothing about the service
+
+  @owner-log
+  Scenario: A gateway failure is reported with a constant message and logged in full
+    Given the board gateway answers every request with HTTP 500 and the body "internal gateway detail zx81"
+    When "ryan@example.com" lists the board of "Assistant" in "Anthus Labs"
+    Then the response says the board service did not confirm the request
+    And the board response does not contain "zx81"
+    And the error log holds "zx81"
+
+  @owner-log
+  Scenario: An unreachable board service is reported with a constant message
+    Given the board store is unreachable
+    When "ryan@example.com" moves the card "Pay the electric bill" on the board of "Assistant" to the status "in_progress"
+    Then the response says the board service did not confirm the request
+    And the board response does not contain "fetch failed"
+    And the error log holds "fetch failed"
 
   # ---------------------------------------------------------------- the front door is the only way
 
@@ -313,8 +472,28 @@ Feature: A bot's board over the front door
 
   # ---------------------------------------------------------------- a deployment without the capability
 
-  Scenario: Where the deployment has no board service the routes say so
-    Given the deployment has no board service
-    When "ryan@example.com" opens the board of "Assistant" in "Anthus Labs"
+  Scenario Outline: Where the deployment has no board service every route says so
+    Given the bot "Assistant" has an epic titled "Household money"
+    And the bot "Assistant" has a card titled "Ask about the late fee"
+    And the deployment has no board service
+    When "ryan@example.com" calls the route "<route>" on the board of "Assistant"
     Then the response is not found with the code "board_service_not_enabled"
     And the board store was not called
+
+    Examples:
+      | route             |
+      | overview          |
+      | list              |
+      | get               |
+      | create            |
+      | update            |
+      | comment           |
+      | complete          |
+      | abandon           |
+      | reopen            |
+      | parent            |
+      | add dependency    |
+      | remove dependency |
+      | delete            |
+      | archive           |
+      | restore           |

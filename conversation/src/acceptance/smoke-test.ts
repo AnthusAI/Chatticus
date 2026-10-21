@@ -5,10 +5,11 @@
  * bot and a channel, posts a message, steers a second post to the same bot, reads each turn's server-sent event stream
  * until the turn completes, then reloads the channel and checks the bot's reply is persisted after the human message.
  *
- * Where the environment is expected to have the bot board capability (`expectBoard`), it also exercises the bot's board
- * through the front door as the integration user, without a model: it reads the empty overview, creates, comments on,
- * moves and completes a card with evidence, abandons a second card with a reason, checks that completing a third card
- * without evidence is refused, and archives the throwaway bot's board at the end.
+ * Where the environment is expected to have the bot board capability (`expectBoard`), it also exercises a bot's board
+ * through the front door as the integration user, without a model, after all the core checks and on a dedicated
+ * throwaway bot: it reads the empty overview, creates, comments on, moves and completes a card with evidence, abandons a
+ * second card with a reason, checks that completing a third card without evidence is refused, and archives the boards at
+ * the end. A board failure never masks the core results: every failure is collected and reported.
  */
 
 import { DEFAULT_INTEGRATION_TEST_TENANT_ID, DEFAULT_INTEGRATION_TEST_USER_ID, INTEGRATION_TEST_SESSION_PATH } from "../auth/integration-test.ts";
@@ -33,6 +34,7 @@ export const SMOKE_CHECK_NAMES = {
 
 /** Every check name the board part of the smoke test records, in order. They are recorded only when the board capability is expected. */
 export const SMOKE_BOARD_CHECK_NAMES = {
+	botCreated: "board bot created",
 	overviewEmpty: "board overview of the new bot is empty",
 	cardCreated: "board card created with the integration user as its creator",
 	commentAdded: "board card comment recorded under the integration user",
@@ -192,6 +194,48 @@ async function runBoardChecksOnReachedBoard(client: HttpClient, boardPath: strin
 /** Whether the board of the throwaway bot was reached, so that cleanup knows to archive it. */
 type BoardReach = { reached: boolean };
 
+/** Several checks failed in one run: the core chat checks, the board checks, or the cleanup. Every failure is reported. */
+export class SmokeCombinedError extends SmokeTestError {
+	readonly failures: readonly unknown[];
+
+	constructor(failures: readonly unknown[]) {
+		const first = failures[0];
+		super(first instanceof SmokeTestError ? first.check : "smoke test", failures.map((failure) => (failure instanceof Error ? failure.message : String(failure))).join(" | and also: "));
+		this.failures = failures;
+	}
+}
+
+async function runBoardPhase(client: HttpClient, organizationPath: string, userId: string, chatBoardPath: string, checks: string[]): Promise<unknown[]> {
+	const failures: unknown[] = [];
+	const reach: BoardReach = { reached: false };
+	const boardBotName = `smoke-board-${Date.now().toString(36)}`;
+	let boardPath: string | null = null;
+	try {
+		const created = await jsonOf(SMOKE_BOARD_CHECK_NAMES.botCreated, await client.post(`${organizationPath}/bots`, { name: boardBotName }));
+		const boardBotId = requireString(SMOKE_BOARD_CHECK_NAMES.botCreated, created["bot_id"], "bot_id");
+		checks.push(SMOKE_BOARD_CHECK_NAMES.botCreated);
+		boardPath = `${organizationPath}/bots/${boardBotId}/board`;
+		await runBoardChecks(client, boardPath, boardBotId, userId, checks, reach);
+	} catch (error) {
+		failures.push(error);
+	} finally {
+		if (reach.reached && boardPath !== null) {
+			try {
+				await archiveBoard(client, boardPath);
+				if (failures.length === 0) checks.push(SMOKE_BOARD_CHECK_NAMES.boardArchived);
+			} catch (error) {
+				failures.push(error);
+			}
+			try {
+				await archiveBoard(client, chatBoardPath);
+			} catch (error) {
+				failures.push(error);
+			}
+		}
+	}
+	return failures;
+}
+
 async function runBoardChecks(client: HttpClient, boardPath: string, botId: string, userId: string, checks: string[], reach: BoardReach): Promise<void> {
 	const names = SMOKE_BOARD_CHECK_NAMES;
 	const actor = `chatticus:user:${userId}`;
@@ -247,13 +291,8 @@ export async function runSmokeTest(options: SmokeTestOptions, checks: string[]):
 	const botId = requireString(SMOKE_CHECK_NAMES.botCreated, bot["bot_id"], "bot_id");
 	checks.push(SMOKE_CHECK_NAMES.botCreated);
 
-	const boardPath = `${organizationPath}/bots/${botId}/board`;
-	const reach: BoardReach = { reached: false };
-	let failure: unknown = null;
+	const failures: unknown[] = [];
 	try {
-		if (options.expectBoard === true) {
-			await runBoardChecks(client, boardPath, botId, userId, checks, reach);
-		}
 		const channel = await jsonOf(
 			SMOKE_CHECK_NAMES.channelCreated,
 			await client.post(`${organizationPath}/channels`, { user_id: userId, bot_ids: [botId], kind: "direct", name: null }),
@@ -331,15 +370,11 @@ export async function runSmokeTest(options: SmokeTestOptions, checks: string[]):
 		);
 		checks.push(SMOKE_CHECK_NAMES.steerPersisted);
 	} catch (error) {
-		failure = error;
+		failures.push(error);
 	}
-	if (reach.reached) {
-		try {
-			await archiveBoard(client, boardPath);
-			if (failure === null) checks.push(SMOKE_BOARD_CHECK_NAMES.boardArchived);
-		} catch (error) {
-			if (failure === null) failure = error;
-		}
+	if (options.expectBoard === true) {
+		failures.push(...(await runBoardPhase(client, organizationPath, userId, `${organizationPath}/bots/${botId}/board`, checks)));
 	}
-	if (failure !== null) throw failure;
+	if (failures.length === 1) throw failures[0];
+	if (failures.length > 1) throw new SmokeCombinedError(failures);
 }

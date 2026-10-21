@@ -1,4 +1,4 @@
-import { BotBoardService, type BoardMembershipReader } from "./bot-board-service.ts";
+import { BotBoardService, type BoardBotStore, type BoardMembershipReader } from "./bot-board-service.ts";
 import { createSigV4SignedFetch, kanbusApiUrlFrom, type BoardServiceCredentials } from "./kanbus-board-client.ts";
 
 /**
@@ -12,7 +12,7 @@ import { createSigV4SignedFetch, kanbusApiUrlFrom, type BoardServiceCredentials 
  */
 export function botBoardServiceFromEnvironment(
 	environment: Record<string, string | undefined>,
-	options: { readonly credentials: () => Promise<BoardServiceCredentials>; readonly memberships: BoardMembershipReader },
+	options: { readonly credentials: () => Promise<BoardServiceCredentials>; readonly memberships: BoardMembershipReader; readonly bots: BoardBotStore },
 ): BotBoardService | null {
 	const baseUrl = kanbusApiUrlFrom(environment);
 	if (baseUrl === null) return null;
@@ -22,5 +22,6 @@ export function botBoardServiceFromEnvironment(
 		baseUrl,
 		fetch: createSigV4SignedFetch({ credentials: options.credentials, region }),
 		memberships: options.memberships,
+		bots: options.bots,
 	});
 }
