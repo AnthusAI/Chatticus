@@ -67,6 +67,27 @@ export class HttpClient {
 		});
 	}
 
+	/**
+	 * Send a request with any method and extra headers. A JSON body is sent when one is given.
+	 *
+	 * @param method The HTTP method.
+	 * @param path The path under the base URL.
+	 * @param body The JSON body, or undefined for none.
+	 * @param headers Headers added to the client's own for this request.
+	 */
+	async send(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Response> {
+		const requestHeaders: Record<string, string> = { ...this.headers, ...headers };
+		if (body !== undefined) {
+			requestHeaders["content-type"] = "application/json";
+		}
+		return this.transport(this.resolvePath(path), {
+			method,
+			headers: requestHeaders,
+			...(body === undefined ? {} : { body: JSON.stringify(body) }),
+			signal: AbortSignal.timeout(this.timeout),
+		});
+	}
+
 	async stream(path: string, init?: RequestInit): Promise<Response> {
 		const url = this.resolvePath(path);
 		return this.transport(url, {

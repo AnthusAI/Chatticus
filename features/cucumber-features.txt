@@ -177,3 +177,4 @@ features/member_identity_binding.feature
 features/bot_board_tool.feature
 features/bot_board_owner_actions.feature
 features/bot_board_rollout.feature
+features/bot_board_routes.feature

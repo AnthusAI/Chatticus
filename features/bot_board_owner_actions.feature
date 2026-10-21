@@ -123,7 +123,7 @@ Feature: Only the bot itself and the owners of the organization change a bot's b
     When "ryan" creates a card titled "Late" on the board of "Assistant" through the board service
     Then the board service reports that the board is archived
     When "sam" restores the board of "Assistant" through the board service
-    Then the board service refuses it as forbidden
+    Then the board service reports that the board was not found
     When "ryan" restores the board of "Assistant" through the board service
     Then the board service accepts the change
     And the board service lists the card "Pay the electric bill" for the bot "Assistant"

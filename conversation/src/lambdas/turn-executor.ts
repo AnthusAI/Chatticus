@@ -44,7 +44,7 @@ async function executorDeps(): Promise<SharedDeps> {
 	cachedRunsQueueUrl = requiredEnvironment("CHATTICUS_TURN_RUNS_QUEUE_URL");
 	const messagingTableName = requiredEnvironment("CHATTICUS_MESSAGING_TABLE");
 	const messaging = new DynamoMessagingStore(client, messagingTableName);
-	const boards = botBoardServiceFromEnvironment(process.env, { credentials: () => client.config.credentials(), memberships: messaging });
+	const boards = botBoardServiceFromEnvironment(process.env, { credentials: () => client.config.credentials(), memberships: messaging, bots: messaging });
 	cachedDeps = {
 		turns: {
 			store: new DynamoTurnControlStore(client, messagingTableName),

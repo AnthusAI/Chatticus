@@ -1,6 +1,7 @@
 import {
 	KanbusApiError,
 	type BoardClient,
+	type KanbusBoardConfiguration,
 	type KanbusBoardIssueEntry,
 	type KanbusFetch,
 	type KanbusIssueFields,
@@ -24,13 +25,25 @@ export type BoardMembershipReader = {
 	getMembership(tenantId: string, userId: string): Promise<{ readonly role: string } | null>;
 };
 
+/** The part of the bot roster the board rules read and write: the bot record carries whether its board is archived. */
+export type BoardBotStore = {
+	getBot(tenantId: string, botId: string): Promise<{ readonly tenantId: string; readonly boardArchivedAt?: Date } | null>;
+	putBot(bot: any, reserveName: boolean): Promise<void>;
+};
+
 /** What the board service needs. */
 export type BotBoardServiceDependencies = {
 	readonly baseUrl: string;
 	/** The fetch that signs and sends each request; see `createSigV4SignedFetch`. */
 	readonly fetch: KanbusFetch;
 	readonly memberships: BoardMembershipReader;
+	readonly bots: BoardBotStore;
+	/** The clock that stamps the archive marker on the bot record; defaults to the system clock. */
+	readonly now?: () => Date;
 };
+
+/** A board as the overview shows it: its configuration and its first page of cards. */
+export type BoardOverview = { readonly configuration: KanbusBoardConfiguration; readonly cards: readonly KanbusBoardIssueEntry[]; readonly nextCursor: string | null };
 
 /** The fields of a new card. Everything but the title is optional; the board's own configuration fills the rest. */
 export type NewCardFields = {
@@ -75,6 +88,8 @@ const DEFAULT_CARD_TYPE = "task";
 const COMPLETED_CLOSING = "completed";
 const ABANDONED_CLOSING = "abandoned";
 const OWNER_ROLE = "owner";
+const CLOSING_REFUSAL_MESSAGE = "A closed card needs evidence (complete) or a reason (close); a plain status change to closed is refused.";
+const REOPEN_REFUSAL_MESSAGE = "A closed card changes status only by reopening it; reopen it first.";
 
 type Access = "read" | "write" | "delete";
 
@@ -144,10 +159,24 @@ export class BotBoardService {
 		try {
 			return saved(
 				await this.boardFor(address, actor).archive({
-					operationId: deriveBoardOperationId(["bot-board", address.organizationId, address.botId, "archive-unstored-bot"]),
+					operationId: deriveBoardOperationId(["bot-board", address.organizationId, address.botId, actorHeaderFor(actor), "archive-unstored-bot"]),
 					actor: actorHeaderFor(actor),
 				}),
 			);
+		} catch (error) {
+			return failed(failureFromError(error));
+		}
+	}
+
+	/** Read the configuration of a board and its first page of cards. Every member of the organization may. */
+	async readBoard(address: BoardAddress, actor: BoardActor, query: KanbusIssueQuery = {}): Promise<BoardResult<BoardOverview>> {
+		const denied = await this.authorize(address, actor, "read");
+		if (denied !== null) return failed(denied);
+		try {
+			const board = this.boardFor(address, actor);
+			const configuration = await board.getConfig();
+			const page = await board.listIssues(query);
+			return saved({ configuration, cards: page.issues, nextCursor: page.next_cursor });
 		} catch (error) {
 			return failed(failureFromError(error));
 		}
@@ -180,6 +209,7 @@ export class BotBoardService {
 	async createCard(address: BoardAddress, actor: BoardActor, fields: NewCardFields, context: WriteContext): Promise<BoardResult<KanbusIssueWithRevision>> {
 		const denied = await this.authorize(address, actor, "write");
 		if (denied !== null) return failed(denied);
+		if (fields.status === "closed") return refusal(CLOSING_REFUSAL_MESSAGE, "closing_needs_evidence_or_reason");
 		const body: KanbusIssueFields = {
 			title: fields.title,
 			type: fields.type ?? DEFAULT_CARD_TYPE,
@@ -191,7 +221,7 @@ export class BotBoardService {
 		};
 		try {
 			const written = await this.boardFor(address, actor).createIssue(body, {
-				operationId: this.operationId(address, "create", "", "create", context),
+				operationId: this.operationId(address, actor, "create", "", "create", context),
 				actor: actorHeaderFor(actor),
 			});
 			return saved({ issue: written.issue, revision: written.revision }, written.catalog_pending);
@@ -207,9 +237,7 @@ export class BotBoardService {
 	async updateCard(address: BoardAddress, actor: BoardActor, cardId: string, changes: CardChanges, context: WriteContext): Promise<BoardResult<KanbusIssueWithRevision>> {
 		const denied = await this.authorize(address, actor, "write");
 		if (denied !== null) return failed(denied);
-		if (changes.status === "closed") {
-			return refusal("A closed card needs evidence (complete) or a reason (close); a plain status change to closed is refused.", "closing_needs_evidence_or_reason");
-		}
+		if (changes.status === "closed") return refusal(CLOSING_REFUSAL_MESSAGE, "closing_needs_evidence_or_reason");
 		const patch: KanbusIssuePatch = {
 			...(changes.title === undefined ? {} : { title: changes.title }),
 			...(changes.description === undefined ? {} : { description: changes.description }),
@@ -218,6 +246,14 @@ export class BotBoardService {
 			...(changes.status === undefined ? {} : { status: changes.status }),
 		};
 		if (Object.keys(patch).length === 0) return refusal("There is nothing to change: name at least one field.", "nothing_to_change");
+		if (changes.status !== undefined) {
+			try {
+				const current = await this.boardFor(address, actor).getIssue(cardId);
+				if (current.issue.status === "closed") return refusal(REOPEN_REFUSAL_MESSAGE, "closed_card_needs_reopen");
+			} catch (error) {
+				return failed(failureFromError(error));
+			}
+		}
 		return this.patchCard(address, actor, cardId, patch, "update", context);
 	}
 
@@ -228,7 +264,7 @@ export class BotBoardService {
 		if (isBlank(text)) return refusal("A comment needs text.", "comment_text_required");
 		return this.writeAgainstRevision(address, actor, cardId, context, async (board, revision) => {
 			const written = await board.addComment(cardId, text, {
-				operationId: this.operationId(address, "comment", cardId, "comment", context),
+				operationId: this.operationId(address, actor, "comment", cardId, "comment", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -294,7 +330,7 @@ export class BotBoardService {
 		if (denied !== null) return failed(denied);
 		try {
 			const result = await this.boardFor(address, actor).deleteIssue(cardId, {
-				operationId: this.operationId(address, "delete", cardId, "delete", context),
+				operationId: this.operationId(address, actor, "delete", cardId, "delete", context),
 				ifMatch: context.revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -312,18 +348,24 @@ export class BotBoardService {
 		}).board(address.organizationId, address.botId);
 	}
 
-	private operationId(address: BoardAddress, action: string, cardId: string, step: string, context: WriteContext): string {
-		return deriveBoardOperationId(["bot-board", address.organizationId, address.botId, action, cardId, step, context.operationKey]);
+	private operationId(address: BoardAddress, actor: BoardActor, action: string, cardId: string, step: string, context: WriteContext): string {
+		return deriveBoardOperationId(["bot-board", address.organizationId, address.botId, actorHeaderFor(actor), action, cardId, step, context.operationKey]);
 	}
 
 	private async authorize(address: BoardAddress, actor: BoardActor, access: Access): Promise<BoardFailure | null> {
+		const notFound: BoardFailure = { kind: "not_found", code: "not_found", message: "The board was not found." };
+		const bot = await this.dependencies.bots.getBot(address.organizationId, address.botId);
+		if (bot === null) return notFound;
+		const archived = bot.boardArchivedAt !== undefined;
 		if (actor.kind === "bot") {
+			if (archived && actor.botId === address.botId) return notFound;
 			if (actor.botId !== address.botId) return { kind: "forbidden", code: "forbidden", message: "A bot reaches only its own board." };
 			if (access === "delete") return { kind: "forbidden", code: "forbidden", message: "A bot closes cards and never deletes them." };
 			return null;
 		}
 		const membership = await this.dependencies.memberships.getMembership(address.organizationId, actor.userId);
-		if (membership === null) return { kind: "not_found", code: "not_found", message: "The board was not found." };
+		if (membership === null) return notFound;
+		if (archived && membership.role !== OWNER_ROLE) return notFound;
 		if (access !== "read" && membership.role !== OWNER_ROLE) {
 			return { kind: "forbidden", code: "forbidden", message: "Only an owner of the organization changes a bot's board." };
 		}
@@ -334,12 +376,26 @@ export class BotBoardService {
 		if (actor.kind === "bot") return failed({ kind: "forbidden", code: "forbidden", message: "A bot does not manage board lifecycle." });
 		const denied = await this.authorize(address, actor, "write");
 		if (denied !== null) return failed(denied);
-		const operationId = deriveBoardOperationId(["bot-board", address.organizationId, address.botId, route, "", route, operationKey]);
+		const operationId = this.operationId(address, actor, route, "", route, { operationKey });
+		const bots = this.dependencies.bots;
+		const now = this.dependencies.now ?? (() => new Date());
+		const bot = await bots.getBot(address.organizationId, address.botId);
+		if (bot === null) return failed({ kind: "not_found", code: "not_found", message: "The board was not found." });
+		if (route === "archive") await bots.putBot({ ...bot, boardArchivedAt: now() }, false);
 		try {
 			const board = this.boardFor(address, actor);
 			const options = { operationId, actor: actorHeaderFor(actor) };
-			return saved(route === "archive" ? await board.archive(options) : await board.restore(options));
+			const result = route === "archive" ? await board.archive(options) : await board.restore(options);
+			if (route === "restore") {
+				const { boardArchivedAt: _cleared, ...restored } = bot as { boardArchivedAt?: Date } & Record<string, unknown>;
+				await bots.putBot(restored, false);
+			}
+			return saved(result);
 		} catch (error) {
+			if (route === "archive") {
+				const { boardArchivedAt: _unchanged, ...live } = bot as { boardArchivedAt?: Date } & Record<string, unknown>;
+				await bots.putBot(bot.boardArchivedAt === undefined ? live : bot, false).catch(() => undefined);
+			}
 			return failed(failureFromError(error));
 		}
 	}
@@ -369,7 +425,7 @@ export class BotBoardService {
 	private async patchCard(address: BoardAddress, actor: BoardActor, cardId: string, patch: KanbusIssuePatch, action: string, context: WriteContext): Promise<BoardResult<KanbusIssueWithRevision>> {
 		return this.writeAgainstRevision(address, actor, cardId, context, async (board, revision) => {
 			const written = await board.updateIssue(cardId, patch, {
-				operationId: this.operationId(address, action, cardId, "update", context),
+				operationId: this.operationId(address, actor, action, cardId, "update", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -389,7 +445,7 @@ export class BotBoardService {
 			const current = await board.getIssue(cardId);
 			const patch: KanbusIssuePatch = { dependencies: change(current.issue.dependencies ?? []) };
 			const written = await board.updateIssue(cardId, patch, {
-				operationId: this.operationId(address, action, cardId, "update", context),
+				operationId: this.operationId(address, actor, action, cardId, "update", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -411,7 +467,7 @@ export class BotBoardService {
 		try {
 			const revision = await this.resolveRevision(board, cardId, context);
 			const written = await board.addComment(cardId, commentText, {
-				operationId: this.operationId(address, action, cardId, "closing-comment", context),
+				operationId: this.operationId(address, actor, action, cardId, "closing-comment", context),
 				ifMatch: revision,
 				actor: actorHeaderFor(actor),
 			});
@@ -424,7 +480,7 @@ export class BotBoardService {
 				cardId,
 				{ status: "closed", custom: { closing } },
 				{
-					operationId: this.operationId(address, action, cardId, "close", context),
+					operationId: this.operationId(address, actor, action, cardId, "close", context),
 					ifMatch: commented.revision,
 					actor: actorHeaderFor(actor),
 				},
