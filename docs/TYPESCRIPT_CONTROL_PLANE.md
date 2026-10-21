@@ -844,7 +844,7 @@ no longer exists: the loop is "claim, execute, report".
 | Operator | `Authorization: Bearer <operator key>` constant-time compare on `/operator/orgs/{t}/{enable,suspend,reinstate}`. |
 | Invoke key | CloudFront-to-Lambda gate, as today (`X-Chatticus-Invoke-Key`), except `/health`. |
 | Integration-test auth | Development-only IAM-role session exchange (`POST /integration-test/session`) and integration bearer tokens, ported from `http/integration_test_auth.py` and `integration_test/sigv4.py`; registered only when `CHATTICUS_INTEGRATION_TEST_ENABLED`, never in production. |
-| Secrets | Invoke and operator keys stay injected as today (out of scope); the OpenAI key is fetched from SSM at cold start into `OPENAI_API_KEY` as in the spike. |
+| Secrets | The invoke key stays a Secrets Manager secret injected as today (out of scope); the operator key and the model gateway signing key are SSM SecureStrings read by name; the OpenAI key is fetched from SSM at cold start into `OPENAI_API_KEY` as in the spike. |
 
 ## 6. Test strategy
 

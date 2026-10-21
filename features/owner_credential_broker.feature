@@ -24,6 +24,12 @@ Feature: The credential broker issues owner credentials only for the owner a val
     And the answer holds a supervisor token for the audience "computer-owner" that names no turn
     And the credentials, the token and the token's expiry end at the same moment
 
+  Scenario: The broker reads the signing key from its SSM parameter with decryption and never from Secrets Manager
+    Given the broker holds the signing key
+    When the broker is asked for supervisor credentials with a valid bootstrap token
+    Then the broker read the signing key from the SSM parameter "/chatticus/development/model-gateway/signing-key" with decryption
+    And the broker made no other read
+
   Scenario: The broker issues turn credentials with the five tags and a gateway token
     Given the broker holds the signing key
     When the broker is asked for turn credentials for bot "bot-1", channel "channel-1" and turn "turn-1" with a valid supervisor token

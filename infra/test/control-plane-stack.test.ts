@@ -279,7 +279,7 @@ describe("ControlPlaneStack", () => {
       "CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER",
       "CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER",
       "CHATTICUS_INVOKE_KEY_SECRET_ARN",
-      "CHATTICUS_OPERATOR_KEY_SECRET_ARN",
+      "CHATTICUS_OPERATOR_KEY_PARAMETER_NAME",
       "OPENAI_API_KEY_PARAMETER",
     ]) {
       assert.ok(variables[name] !== undefined, `the FrontDoor sets ${name}`);
@@ -308,10 +308,10 @@ describe("ControlPlaneStack", () => {
     for (const fragment of ["TurnRuns consumer", "TurnProbes consumer"]) {
       const variables = functionByDescription(development, fragment).Environment.Variables;
       assert.equal(variables.CHATTICUS_INVOKE_KEY_SECRET_ARN, undefined);
-      assert.equal(variables.CHATTICUS_OPERATOR_KEY_SECRET_ARN, undefined);
+      assert.equal(variables.CHATTICUS_OPERATOR_KEY_PARAMETER_NAME, undefined);
     }
     const starter = functionByDescription(development, "ComputerStartJobs consumer").Environment.Variables;
-    assert.equal(starter.CHATTICUS_OPERATOR_KEY_SECRET_ARN, undefined);
+    assert.equal(starter.CHATTICUS_OPERATOR_KEY_PARAMETER_NAME, undefined);
     assert.equal(starter.CHATTICUS_INVOKE_KEY, undefined);
   });
 
@@ -332,10 +332,8 @@ describe("ControlPlaneStack", () => {
       assert.equal(starter.CHATTICUS_INVOKE_KEY, undefined);
     });
 
-    it("lets the starter read exactly the invoke key secret and the model gateway signing key", () => {
-      const grants = secretGrants(development)
-        .filter((grant) => /ComputerStarterServiceRole/.test(grant.roles))
-        .filter((grant) => !JSON.stringify(grant.resource).includes("ModelGatewaySigningKey"));
+    it("lets the starter read exactly the invoke key secret from Secrets Manager", () => {
+      const grants = secretGrants(development).filter((grant) => /ComputerStarterServiceRole/.test(grant.roles));
       assert.equal(grants.length, 1);
       const resources = [].concat(grants[0]!.resource);
       assert.equal(resources.length, 1);
@@ -348,10 +346,9 @@ describe("ControlPlaneStack", () => {
   describe("shared key secrets", () => {
     const parameterNames = {
       invoke: "/chatticus/development/thin-turn/invoke-key-secret-arn",
-      operator: "/chatticus/development/thin-turn/operator-key-secret-arn",
     };
 
-    it("resolves the two secret ARNs from the SSM parameters the thin-turn stack publishes", () => {
+    it("resolves the invoke key secret ARN from the SSM parameter the thin-turn stack publishes, and nothing for the operator key", () => {
       const parameters = Object.values(development.toJSON().Parameters ?? {}) as Record<string, any>[];
       for (const name of Object.values(parameterNames)) {
         assert.ok(
@@ -359,28 +356,45 @@ describe("ControlPlaneStack", () => {
           `a deploy-time SSM parameter reads ${name}`,
         );
       }
+      assert.equal(
+        parameters.some((parameter) => String(parameter.Default).includes("operator-key")),
+        false,
+        "the operator key parameter name is a constant, so no deploy-time SSM lookup names it",
+      );
     });
 
-    it("puts only the secret ARNs, never a secret value, in the FrontDoor environment", () => {
+    it("puts the invoke secret ARN and the operator key parameter name, never a key value, in the FrontDoor environment", () => {
       const variables = functionByDescription(development, "TypeScript front door").Environment.Variables;
       assert.equal(variables.CHATTICUS_INVOKE_KEY, undefined);
       assert.equal(variables.CHATTICUS_OPERATOR_KEY, undefined);
-      for (const name of ["CHATTICUS_INVOKE_KEY_SECRET_ARN", "CHATTICUS_OPERATOR_KEY_SECRET_ARN"]) {
-        assert.match(JSON.stringify(variables[name]), /"Ref":"SsmParameterValue/);
-      }
+      assert.match(JSON.stringify(variables.CHATTICUS_INVOKE_KEY_SECRET_ARN), /"Ref":"SsmParameterValue/);
+      assert.equal(variables.CHATTICUS_OPERATOR_KEY_PARAMETER_NAME, "/chatticus/development/thin-turn/operator-key");
       assert.doesNotMatch(JSON.stringify(development.toJSON()), /resolve:secretsmanager/);
+      assert.doesNotMatch(JSON.stringify(development.toJSON()), /resolve:ssm-secure/);
     });
 
-    it("lets only the FrontDoor read both secrets and the ComputerStarter read the invoke secret alone", () => {
+    it("lets the FrontDoor read the operator key parameter on its exact ARN, with no other principal and no wildcard", () => {
+      const grants = Object.values(development.findResources("AWS::IAM::Policy")).flatMap((policy) =>
+        (policy.Properties.PolicyDocument.Statement as Record<string, any>[])
+          .filter((statement) => JSON.stringify(statement.Resource).includes("thin-turn/operator-key"))
+          .map((statement) => ({ roles: JSON.stringify(policy.Properties.Roles), statement })),
+      );
+      assert.equal(grants.length, 1);
+      assert.match(grants[0]!.roles, /FrontDoorServiceRole/);
+      assert.deepEqual(grants[0]!.statement.Action, "ssm:GetParameter");
+      assert.equal(JSON.stringify(grants[0]!.statement.Resource).includes("*"), false);
+    });
+
+    it("lets the FrontDoor and the ComputerStarter each read the invoke secret alone and never the operator key through Secrets Manager", () => {
       const grants = Object.values(development.findResources("AWS::IAM::Policy")).flatMap((policy) =>
         (policy.Properties.PolicyDocument.Statement as Record<string, any>[])
           .filter((statement) => [].concat(statement.Action).includes("secretsmanager:GetSecretValue"))
           .map((statement) => ({ roles: JSON.stringify(policy.Properties.Roles), resource: statement.Resource })),
-      ).filter((grant) => !JSON.stringify(grant.resource).includes("ModelGatewaySigningKey"));
+      );
       assert.equal(grants.length, 2);
       const frontDoorGrant = grants.find((grant) => /FrontDoorServiceRole/.test(grant.roles));
       const starterGrant = grants.find((grant) => /ComputerStarterServiceRole/.test(grant.roles));
-      assert.equal((frontDoorGrant!.resource as unknown[]).length, 2);
+      assert.equal([].concat(frontDoorGrant!.resource).length, 1);
       assert.equal([].concat(starterGrant!.resource).length, 1);
     });
 

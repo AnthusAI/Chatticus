@@ -18,7 +18,7 @@ operations.
 | `ChatticusEnvironmentZones`, `ChatticusEnvironmentCertificates` (and `...Development`, `...Staging`) | Per environment: the two delegated zones for that environment's web and auth names, and one certificate per name validated inside its own zone. Production's keep their existing unsuffixed ids: renaming them would replace the zones and change their name servers |
 | `ChatticusBudgets` | Account-level, one copy. It already exists in the production account, is tagged `production`, and its monthly limit is the combined limit of all three environments; only production deploys it (the deploy script refuses it for development and staging) |
 | `ChatticusManagementDns` | In the management account only: the `chattic.us` public hosted zone and its records (retained on stack deletion, termination-protected). Deployed once with `sh deploy-chatticus-management-dns.sh`; instantiated only with `-c managementDns=true` |
-| `ChatticusThinTurnDevelopment` | **Development** permanent data stack: Messaging table, invoke and operator secrets (all retained) and the Node budget jobs. No request compute |
+| `ChatticusThinTurnDevelopment` | **Development** permanent data stack: Messaging table, invoke secret, operator key SecureString (all retained) and the Node budget jobs. No request compute |
 | `ChatticusThinTurnStaging` | Staging data stack (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production data stack (gated deploy of a staging-proven release; never implied by a git branch) |
 | `ChatticusWebDevelopment` | **Development** Next.js on S3 + CloudFront at `develop.chattic.us` with same-origin `/api/*` |
@@ -29,12 +29,28 @@ operations.
 | `ChatticusAuthProduction` | Production Cognito auth at `auth.chattic.us` |
 
 Each thin-turn stack exports its Messaging table and invoke key to the
-control-plane and web stacks, plus the invoke and operator secret ARNs. The web
+control-plane and web stacks, plus the invoke and (retired) operator secret ARNs. The web
 stack publishes:
 
 - `/chatticus/{environment}/web/site-url` — `https://{hostname}`
 - `/chatticus/{environment}/thin-turn/cloudfront-url` — `https://{hostname}/api` (same-origin API base for workers and acceptance)
 - `/chatticus/{environment}/provisioning/customer-role-template-url` — `https://{hostname}/provisioning/customer-role.yml` (customer cross-account IAM setup; source file is `infra/customer-role.yml`, deployed by the same `DeployWebsite` `BucketDeployment` as the SPA)
+
+**Generated runtime keys are SSM SecureStrings.** The operator key
+(`/chatticus/<env>/thin-turn/operator-key`, thin-turn stack) and the development
+model gateway signing key (`/chatticus/development/model-gateway/signing-key`,
+control-plane stack) are standard SecureStrings under the default `aws/ssm` key,
+created once by the `GeneratedSecureString` construct (a Provider-framework
+custom resource; the value never enters a template, a log or a response).
+Invoke keys, the intake origin key and the Google OAuth secrets stay in Secrets
+Manager because CloudFront headers, Cognito provider details and Lambda
+environment values cannot take an SSM SecureString at deploy time. **Deploy
+order: thin-turn before control-plane**, because the control-plane Front Door
+reads the operator key parameter that the thin-turn stack creates. The retired
+Secrets Manager `OperatorKey` and `ModelGatewaySigningKey` secrets are retained
+and read by nothing; delete them in a later deploy after the switch is verified
+(run `aws cloudformation list-imports` against the thin-turn operator key secret
+ARN export first).
 
 **Customer cross-account template:** `infra/customer-role.yml` is the only
 template. Each `ChatticusWeb*` stack publishes it at

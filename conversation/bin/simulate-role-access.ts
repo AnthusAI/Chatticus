@@ -11,7 +11,8 @@
  *
  *   AWS_PROFILE=chatticus-production npx tsx bin/simulate-role-access.ts --environment development
  *
- * It prints one summary line, naming each denied case, and exits 1 when any case is denied. The offline
+ * It also asks whether the owner and supervisor roles may read the operator key and signing key parameters (the manifest's
+ * denial rows) and expects a denial. It prints one summary line, naming each case answered wrongly, and exits 1 when any is. The offline
  * guard (role_access_manifest.feature and infra/test/role-access-policy.test.ts) is what gates a merge; this is the check
  * that the account really holds what the guard proved.
  */
@@ -20,8 +21,10 @@ import { CloudFormationClient, DescribeStackResourcesCommand } from "@aws-sdk/cl
 import { IAMClient, SimulatePrincipalPolicyCommand } from "@aws-sdk/client-iam";
 import { GetFunctionConfigurationCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
-import { loadRoleAccessManifest, type AccessRole, type StoreArns } from "../src/gateway/role-access-manifest.ts";
+import { loadRoleAccessDenials, loadRoleAccessManifest, secretParameterArnsOf, type AccessRole, type StoreArns } from "../src/gateway/role-access-manifest.ts";
 import {
+	denialSimulationCasesOf,
+	resultAsRequired,
 	simulationCasesOf,
 	simulationGroupsOf,
 	simulationResultsOf,
@@ -100,7 +103,10 @@ async function main(): Promise<void> {
 	};
 
 	const iam = new IAMClient({ region: REGION, maxAttempts: IAM_MAX_ATTEMPTS, retryMode: "adaptive" });
-	const groups = simulationGroupsOf(simulationCasesOf(loadRoleAccessManifest(), arns));
+	const groups = simulationGroupsOf([
+		...simulationCasesOf(loadRoleAccessManifest(), arns),
+		...denialSimulationCasesOf(loadRoleAccessDenials(), secretParameterArnsOf(REGION, account ?? "", environment)),
+	]);
 	const delayMilliseconds = delayMillisecondsOf(process.env);
 	const results: SimulationResult[] = [];
 	for (const [index, group] of groups.entries()) {
@@ -125,7 +131,7 @@ async function main(): Promise<void> {
 	}
 
 	console.info(simulationSummaryOf(environment, results));
-	if (results.some((result) => result.decision !== "allowed")) process.exitCode = 1;
+	if (results.some((result) => !resultAsRequired(result))) process.exitCode = 1;
 }
 
 main().catch((error: unknown) => {

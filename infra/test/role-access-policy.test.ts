@@ -5,11 +5,14 @@ import { Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
 import { ownerTaskDefinitionFamily } from "../lib/computer-stack";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
-import type { PolicyStatement } from "../../conversation/features-support/iam-policy-evaluator";
+import { policyAllows, type PolicyStatement } from "../../conversation/features-support/iam-policy-evaluator";
 import {
   ACCESS_ROLES,
   ACCESS_STORES,
+  exampleTagsOf,
+  loadRoleAccessDenials,
   loadRoleAccessManifest,
+  secretParameterArnsOf,
   type AccessRole,
   type StoreArns,
 } from "../../conversation/src/gateway/role-access-manifest";
@@ -141,5 +144,37 @@ describe("the role access manifest against the policies the ControlPlane stack s
 
   it("lists no row for a store the role's policy cannot name", () => {
     for (const row of rows) assert.ok(ACCESS_STORES.includes(row.store), `${row.role} ${row.action} names the unknown store ${row.store}`);
+  });
+});
+
+describe("the secret parameters against the policies the ControlPlane stack synthesizes", () => {
+  const { statements } = synthesize();
+  const denials = loadRoleAccessDenials();
+  const parameterArns = secretParameterArnsOf(ENV.region, ENV.account, "development");
+
+  it("lists a denial for every action and secret parameter of the owner and supervisor roles", () => {
+    assert.equal(denials.length, 2 * 2 * 3);
+  });
+
+  for (const denial of denials) {
+    it(`${denial.role} is denied ${denial.action} on ${denial.parameter}`, () => {
+      const allowed = policyAllows(statements[denial.role], exampleTagsOf(denial.role), {
+        action: denial.action,
+        resourceArn: parameterArns[denial.parameter],
+        contextKeys: {},
+      });
+      assert.equal(allowed, false);
+    });
+  }
+
+  it("grants ssm:GetParameterHistory on neither secret parameter to any role, because history keeps old versions readable", () => {
+    for (const role of ACCESS_ROLES) {
+      for (const statement of statements[role]) {
+        const actions = JSON.stringify(statement.Action ?? []);
+        if (!actions.includes("GetParameterHistory") && !actions.includes("ssm:*")) continue;
+        const resources = JSON.stringify(statement.Resource);
+        assert.equal(/operator-key|model-gateway\/signing-key/.test(resources), false, `${role} may read the history of a secret parameter`);
+      }
+    }
   });
 });

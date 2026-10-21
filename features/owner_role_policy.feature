@@ -204,6 +204,18 @@ Feature: The computer owner role reaches one conversation session and nothing el
       | pi-sessions |                                             | denies  |
       | snapshots   | tenants/anthus/computers/computer-1/        | denies  |
 
+  Scenario Outline: The owner takes no action outside S3 and DynamoDB and cannot read a key parameter or its history
+    When the owner requests "<action>" on the resource "<resource>"
+    Then the owner role denies the request
+
+    Examples:
+      | action                         | resource                                                                                      |
+      | secretsmanager:GetSecretValue  | arn:aws:secretsmanager:us-east-1:111111111111:secret:signing-key                              |
+      | ssm:GetParameter               | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/model-gateway/signing-key |
+      | ssm:GetParameterHistory        | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/model-gateway/signing-key |
+      | ssm:GetParameter               | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/thin-turn/operator-key    |
+      | ssm:GetParameterHistory        | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/thin-turn/operator-key    |
+
   Scenario: The policy file the stack deploys holds no tenant-wide wildcard, no Scan and no unnamed resource
     Then the owner role statements hold no action that carries no key
     And the owner role statements hold no key pattern that ends in a bare tenant wildcard

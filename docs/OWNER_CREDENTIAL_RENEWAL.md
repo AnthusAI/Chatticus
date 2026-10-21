@@ -747,7 +747,7 @@ limited to 60 renewals an hour by the rate limit. No new resource exists.
 **Roles and policies: no change.** `ComputerSupervisorRole` and `ComputerOwnerScopedRole` keep their trust (the broker's
 execution role, the exact tag keys with the `Null` and `ForAllValues:StringEquals aws:TagKeys` pair), their permission
 documents (`supervisor-role-policy.json`, `owner-role-policy.json`) and `maxSessionDuration` 3600. The broker's own role keeps
-`GetSecretValue` on the signing key and `AssumeRole` plus `TagSession` on the two roles, and nothing else. The Front Door keeps
+`ssm:GetParameter` on the signing key parameter and `AssumeRole` plus `TagSession` on the two roles, and nothing else. The Front Door keeps
 `InvokeFunction` on the broker. A renewal assumes the same role, with the same tags, as the call that created the first
 credentials; `DurationSeconds` between 900 and 3600 is inside the role's limit.
 
@@ -765,7 +765,7 @@ What is not covered by the guard and is covered by the live proof instead: the t
 broker's `AssumeRole` for a renewal (the manifest simulates data-plane actions; the proof reads CloudTrail), and the
 behavior of S3 when a multipart upload spans two sessions (A5).
 
-**CDK tests** (`infra/test/computer-owner-stack.test.ts`): assert the broker role has no permission beyond the secret and the
+**CDK tests** (`infra/test/computer-owner-stack.test.ts`): assert the broker role has no permission beyond the parameter and the
 two role ARNs (no DynamoDB, no S3, no SQS); both roles' trust and `maxSessionDuration` are unchanged; the development fault
 switch (R22) sets the broker environment in development and fails synthesis for staging and production (gates G1 and G2),
 and the staging and production templates hold neither fault variable and do hold `CHATTICUS_ENVIRONMENT` on the broker.
@@ -937,7 +937,7 @@ Decided S6. Contract: this page, 12.3 and 7.1.
   the control plane then refuses its token because the owner is no longer the live owner); (2) revoke the role session with an
   inline deny on `ComputerSupervisorRole` and `ComputerOwnerScopedRole` carrying an `aws:TokenIssueTime` condition (a CDK
   change deployed by the normal path, never by hand in the console; it affects every tenant's sessions of that role, and live
-  owners recover at their next renewal because a new session has a later issue time); (3) rotate the signing key secret (it
+  owners recover at their next renewal because a new session has a later issue time); (3) recreate the signing key parameter (SSM has no previous-version stage; it
   invalidates every supervisor, bootstrap and gateway token at once; owners then exit 5 and publish nothing, so it is the last
   resort and the document says what unpublished work is lost); (4) after the incident, remove the deny, and check CloudTrail
   `AssumeRole` events and the `owner_credentials_refreshed` lines to bound what was reachable. It cites the blast-radius analysis of

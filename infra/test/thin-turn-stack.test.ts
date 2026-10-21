@@ -130,9 +130,14 @@ describe("ThinTurnStack data retention", () => {
 });
 
 describe("ThinTurnStack without budget context", () => {
-  it("has no Lambda function at all", () => {
+  it("has no Lambda function but the two that create the operator key", () => {
     const template = synthThinTurnStack("development");
-    template.resourceCountIs("AWS::Lambda::Function", 0);
+    const functionIds = Object.keys(template.findResources("AWS::Lambda::Function"));
+    assert.deepEqual(
+      functionIds.filter((logicalId) => !logicalId.startsWith("OperatorKeyParameter") && !logicalId.startsWith("LogRetention")),
+      [],
+    );
+    assert.equal(functionIds.filter((logicalId) => logicalId.startsWith("OperatorKeyParameter")).length, 2);
     template.resourceCountIs("AWS::SNS::Subscription", 0);
     template.resourceCountIs("AWS::Scheduler::ScheduleGroup", 0);
   });
@@ -223,9 +228,11 @@ describe("ThinTurnStack shrunk to its data and budget jobs", () => {
         }
       });
 
-      it("has only the two Node budget Lambda functions plus the CDK log retention helper", () => {
+      it("has only the two Node budget Lambda functions, the two that create the operator key and the CDK log retention helper", () => {
         const functions = Object.entries(template.findResources("AWS::Lambda::Function"));
-        const own = functions.filter(([logicalId]) => !logicalId.startsWith("LogRetention"));
+        const own = functions.filter(
+          ([logicalId]) => !logicalId.startsWith("LogRetention") && !logicalId.startsWith("OperatorKeyParameter"),
+        );
         assert.deepEqual(
           own.map(([logicalId]) => logicalId).sort(),
           ["BudgetAlertRecorder40165C31", "DailyBudgetRollup1695A8BE"],
@@ -233,7 +240,7 @@ describe("ThinTurnStack shrunk to its data and budget jobs", () => {
         for (const [, lambdaFunction] of own) {
           assert.equal(lambdaFunction.Properties.Runtime, "nodejs22.x");
         }
-        assert.equal(functions.length, 3);
+        assert.equal(functions.length, 5);
         assert.equal(/python/i.test(JSON.stringify(template.toJSON())), false);
       });
 
@@ -261,6 +268,36 @@ describe("ThinTurnStack shrunk to its data and budget jobs", () => {
           `Chatticus-${environmentName}-thin-turn-invoke-key-secret-arn`,
           `Chatticus-${environmentName}-thin-turn-operator-key-secret-arn`,
         ]);
+      });
+    });
+  }
+});
+
+describe("ThinTurnStack operator key", () => {
+  for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+    describe(environmentName, () => {
+      const template = synthThinTurnStack(environmentName);
+      const serialized = JSON.stringify(template.toJSON());
+
+      it("creates the operator key as a retained generated SecureString named for the environment", () => {
+        const resources = Object.values(template.findResources("Custom::GeneratedSecureString"));
+        assert.equal(resources.length, 1);
+        assert.equal(resources[0].Properties.ParameterName, `/chatticus/${environmentName}/thin-turn/operator-key`);
+        assert.equal(resources[0].Properties.ValueLength, 32);
+        assert.equal(resources[0].DeletionPolicy, "Retain");
+        assert.equal(resources[0].UpdateReplacePolicy, "Retain");
+      });
+
+      it("keeps the retired operator secret, retained, until a later deploy removes it", () => {
+        const secrets = template.findResources("AWS::SecretsManager::Secret");
+        const operator = Object.entries(secrets).find(([logicalId]) => logicalId.startsWith("OperatorKey"));
+        assert.ok(operator);
+        assert.equal(operator[1].DeletionPolicy, "Retain");
+      });
+
+      it("never writes a generated value or uses an AwsCustomResource", () => {
+        assert.equal(serialized.includes("Custom::AWS"), false);
+        assert.equal(serialized.includes('"Type":"SecureString"'), false);
       });
     });
   }

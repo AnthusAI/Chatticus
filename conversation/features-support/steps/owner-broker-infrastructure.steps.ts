@@ -68,10 +68,11 @@ Then("the broker's role holds the permission to read the signing key and to assu
 	const result = synthesized(this);
 	const statements = result.brokerStatements ?? [];
 	assert.equal(statements.length, 2);
-	const secret = statements.find((statement) => actionsOf(statement).includes("secretsmanager:GetSecretValue"));
-	assert.ok(secret);
-	assert.deepEqual(actionsOf(secret), ["secretsmanager:GetSecretValue"]);
-	assert.match(JSON.stringify(secret.Resource), /ModelGatewaySigningKey/);
+	const parameter = statements.find((statement) => actionsOf(statement).includes("ssm:GetParameter"));
+	assert.ok(parameter);
+	assert.deepEqual(actionsOf(parameter), ["ssm:GetParameter"]);
+	assert.match(JSON.stringify(parameter.Resource), /parameter\/chatticus\/development\/model-gateway\/signing-key/);
+	assert.equal(statements.some((statement) => actionsOf(statement).some((action) => action.startsWith("secretsmanager:"))), false);
 	const assume = statements.find((statement) => actionsOf(statement).includes("sts:AssumeRole"));
 	assert.ok(assume);
 	assert.deepEqual(actionsOf(assume).sort(), ["sts:AssumeRole", "sts:TagSession"]);

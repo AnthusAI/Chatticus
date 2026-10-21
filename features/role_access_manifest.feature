@@ -64,3 +64,21 @@ Feature: A role cannot reach a store path that the role access manifest and its 
       | ownerTurn | s3:GetObject | piSessionsBucket | ^conversations/[^/]+/.+$ | conversations/{tenantId}%23{botId}%23{channelId}/commits/1.json | true            |
     When the role "ownerTurn" reads the missing key "conversations/anthus%23bot-1%23channel-1/commits/1.json" of the "piSessionsBucket"
     Then the access check fails with "ownerTurn read a key that did not exist"
+
+  Scenario Outline: The owner and the supervisor are denied every read of the secret parameters, history included
+    Given the role access manifest
+    Then the "<role>" role policy file denies "<action>" on every secret parameter the manifest lists
+
+    Examples:
+      | role       | action                   |
+      | ownerTurn  | ssm:GetParameter         |
+      | ownerTurn  | ssm:GetParameters        |
+      | ownerTurn  | ssm:GetParameterHistory  |
+      | supervisor | ssm:GetParameter         |
+      | supervisor | ssm:GetParameters        |
+      | supervisor | ssm:GetParameterHistory  |
+
+  Scenario: The manifest lists the operator key and the signing key as parameters no per-turn role may read
+    Given the role access manifest
+    Then the manifest denies the roles "ownerTurn" and "supervisor" the parameters "operatorKeyParameter" and "signingKeyParameter"
+    And the manifest denies the actions "ssm:GetParameter", "ssm:GetParameters" and "ssm:GetParameterHistory"
