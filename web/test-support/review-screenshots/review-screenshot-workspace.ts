@@ -1,5 +1,6 @@
 import type { Bot, Channel, Computer, Message, Task, ToolActivityItem, Turn } from "../../lib/api";
 import type { MeResponse } from "../../lib/me";
+import { FakeBotBoards, type FakeBotBoardRow } from "../bot-boards-fake";
 import { FakeComputerFiles } from "../computer-files-fake";
 import { FakeCostApi, type FakeTurn } from "../costs-fake";
 
@@ -306,6 +307,22 @@ const seededKanbusIssues: SeededKanbusIssue[] = [
   { id: "chatticus-b9d6e2", title: "Resizable sidebar and panel", type: "task", status: "closed", priority: 2, labels: ["web", "ui"], parent: "chatticus-daa715", updated_at: "2026-10-11T10:00:00Z" },
 ];
 
+const seededBotBoardCards: Record<string, FakeBotBoardRow[]> = {
+  "bot-pi": [
+    { id: "pi-1", title: "Draft the Kanbus panel plan", type: "task", status: "in_progress", priority: "1", labels: "web" },
+    { id: "pi-2", title: "Check the test suite after the merge", type: "task", status: "open", priority: "2", labels: "ci" },
+    { id: "pi-3", title: "Renew the domain certificate", type: "task", status: "open", priority: "0", labels: "ops" },
+    { id: "pi-4", title: "Wait for the vendor key rotation", type: "task", status: "blocked", priority: "2", labels: "ops" },
+    { id: "pi-5", title: "Summarize last week's cost records", type: "task", status: "backlog", priority: "3" },
+    { id: "pi-6", title: "Tidy the planning channel", type: "chore", status: "closed", priority: "3" },
+    { id: "pi-7", title: "Send the weekly status note", type: "task", status: "closed", priority: "2" },
+  ],
+  "bot-scout": [
+    { id: "sc-1", title: "Read the vendor report", type: "task", status: "open", priority: "2", labels: "research" },
+    { id: "sc-2", title: "Compare two hosting quotes", type: "task", status: "in_progress", priority: "1", labels: "research" },
+  ],
+};
+
 /**
  * The seeded organization the review screenshots are taken in: one signed-in owner, two bots, a named channel with
  * a worked conversation, a direct channel, a running computer with files, and the cost history behind the replies.
@@ -315,10 +332,15 @@ const seededKanbusIssues: SeededKanbusIssue[] = [
 export class ReviewScreenshotWorkspace {
   readonly costs = new FakeCostApi();
   readonly files = new FakeComputerFiles();
+  readonly botBoards = new FakeBotBoards();
   readonly unansweredRoutes: string[] = [];
 
   constructor() {
     this.costs.seed(seededCostTurns);
+    for (const bot of seededBots) {
+      this.botBoards.addBot(bot.bot_id, bot.name);
+      this.botBoards.addCards(bot.bot_id, seededBotBoardCards[bot.bot_id] ?? []);
+    }
     this.files.userEmail = REVIEW_SCREENSHOT_USER_EMAIL;
     this.files.seed("live", "/workspace/README.md", "# Chatticus\n\nA serverless platform that runs Pi agents as a software factory.\n");
     this.files.seed("live", "/workspace/src/panel-plugins.ts", "export const CORE_PANEL_PLUGINS = [\"context\", \"files\", \"costs\"];\n");
@@ -338,6 +360,9 @@ export class ReviewScreenshotWorkspace {
 
     if (/^\/orgs\/[^/]+\/computer\/files/.test(path)) {
       return answerOfResponse(await this.files.fetch(request.url, fetchInit));
+    }
+    if (/^\/orgs\/[^/]+\/bots\/[^/]+\/board/.test(path)) {
+      return answerOfResponse(await this.botBoards.fetch(request.url, fetchInit));
     }
     if (/^\/orgs\/[^/]+\/(costs|channels\/[^/]+\/cost$|turns\/[^/]+\/cost$)/.test(path)) {
       return answerOfResponse(await this.costs.fetch(request.url, fetchInit));
