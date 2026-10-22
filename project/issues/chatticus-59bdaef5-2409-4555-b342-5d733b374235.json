@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
+  "title": "M5: SMS",
+  "description": "SMS through AWS End User Messaging SMS with a toll-free number (Amazon Connect rejected as overkill; Twilio kept as fallback). Carrier registration has a lead time of weeks, so the owner-run registration task is started at the beginning of M2 even though the adapter ships last. Adds phone verification, opt-out handling, segment-aware rendering with a link to the full answer, and the only recurring floor in the design (a rented number, about 2 USD per month, created only when an organization enables SMS).\n\nDepends on M2 for code; the registration task has no code dependency.",
+  "type": "epic",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b10a407e-b5bd-4f5b-90a9-af1de587a11b",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:48.157437Z",
+  "updated_at": "2026-10-22T03:58:09.568492Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

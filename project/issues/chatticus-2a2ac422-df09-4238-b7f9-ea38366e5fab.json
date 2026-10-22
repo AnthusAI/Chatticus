@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-2a2ac422-df09-4238-b7f9-ea38366e5fab",
+  "title": "M3.6: Slack identity linking",
+  "description": "Member links a Slack user via Sign in with Slack from the web app; the provider user id is stored against the member; owner can confirm an email-match suggestion. Unlink and member removal take effect at the next message.\n\nAcceptance criteria:\n- Only the member who completes the sign-in gets linked; a different Slack user cannot claim the link\n- Removed members' Slack messages are quarantined\n- Email match alone never links without owner confirmation\n\nGherkin: features/slack_identity_linking.feature\n\nDepends on: M3.3, M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-58823c41-ef08-4ac0-9df5-20e3ae004dd6",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-8c6e2181-aec6-467f-9ee5-9896766bddb5",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:56.712468Z",
+  "updated_at": "2026-10-22T03:58:15.870314Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

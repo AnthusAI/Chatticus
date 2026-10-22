@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-780c3128-2af1-451a-a20f-b5272a8bcdf1",
+  "title": "M4.3: Teams adapter inbound and outbound",
+  "description": "Normalize message activities (personal chats to the member's direct channel, channel messages by mention to external channels per reply chain), store conversation references per binding, render replies via Bot Connector REST with a client-credentials token, honor throttling.\n\nAcceptance criteria:\n- Personal chat and channel mention round trips with the fake transport and recorded activities\n- Replies use the stored conversation reference; no proactive send outside the origin without a gated send\n\nGherkin: features/teams_conversations.feature\n\nDepends on: M4.2, M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-f58b4fe2-1584-4d30-bf28-cd2285c1a389",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-ae3a0018-a01b-4f2d-b361-63351a33151d",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:58.007477Z",
+  "updated_at": "2026-10-22T03:58:16.533360Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

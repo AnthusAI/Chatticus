@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-31fe71e4-4d9c-4683-b9cd-e055d399ce59",
+  "title": "M2.12: Guests: admitted outsiders and the guest grant",
+  "description": "Implement guest admission records, the guest channel participant (author kind external), the guest grant (reply-only on the same thread, no computer, no consequential class, smaller budget), per-binding guest toggle default off, and the one-polite-notice behavior when over budget. Recommended to ship last in M2 because it is the riskiest part.\n\nAcceptance criteria:\n- An admitted guest gets answers on its own thread only; the guest cannot see other channels\n- Guest cannot cause a computer start or an approval-class action\n- Disabling guests mid-thread stops further turns and keeps history\n- Guest personal data is purged with the admission\n\nGherkin: features/external_guest_access.feature\n\nDepends on: M2.3, M2.5, M2.6\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-b9866bbe-614a-4a27-bbfb-7a8bfe823df6",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:54.627842Z",
+  "updated_at": "2026-10-22T03:58:14.493136Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

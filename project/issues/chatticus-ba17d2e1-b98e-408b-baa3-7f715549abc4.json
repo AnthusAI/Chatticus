@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-ba17d2e1-b98e-408b-baa3-7f715549abc4",
+  "title": "M2.11: Web: channel bindings settings, quarantine inbox and linked addresses",
+  "description": "Owner settings panel for bindings (address, default bot, enabled, limits, daily budget), quarantine inbox with admit, reject, block, member panel for linked addresses and external channels in the sidebar with an origin badge. Frontend work is done by the owner/orchestrator on the Mac dev server, not delegated to cloud threads; no merge before the owner reviews. Follow docs/BRAND_GUIDELINES.md.\n\nAcceptance criteria:\n- Owner can create a binding and see the derived address; members see read-only\n- Quarantine decisions call the M2.3 routes and reflect results\n- Phone and iPad layouts per existing web features\n- Screenshots attached for owner review\n\nGherkin: features/web_external_channels.feature\n\nDepends on: M1.1, M2.3\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels",
+    "frontend"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-f8f4364f-2e86-4131-a9af-fa4fff7d6be0",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:54.082372Z",
+  "updated_at": "2026-10-22T03:58:14.283012Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

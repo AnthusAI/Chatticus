@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-52840045-23e3-4088-bee9-e8dbcf4cb17f",
+  "title": "M1.9: Sandbox live proof, acceptance check and runbook",
+  "description": "Owner verifies one test address as an SES identity (verification email from SES, no Amazon request). In development: send a real email to a bot address, see the turn and the threaded reply arrive; send replies from the verified address; run the simulator success and bounce sends. Add the external-email check to conversation/bin/acceptance.ts (recorded raw message through the ingress test entry point under a dedicated test tenant, success simulator send expects sent, bounce simulator expects bounced). Write the runbook with read-only AWS commands that never print account ids or secret values.\n\nAcceptance criteria:\n- The live round trip is demonstrated and recorded on the Kanbus task with message ids but no addresses of third parties\n- Acceptance runner check passes against development\n- Runbook lists sandbox limits, what production access would unlock and the owner-gated request\n- No request was filed with Amazon; no GitHub settings changed\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: M1.8; owner action: verify the test address\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-5cbab606-fe83-407e-bf6b-3f97791cab78",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:50.875339Z",
+  "updated_at": "2026-10-22T03:58:11.598208Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-b9866bbe-614a-4a27-bbfb-7a8bfe823df6",
+  "title": "M2.6: External-origin authority: data not instruction, no approvals over channels, reply in kind",
+  "description": "Encode contract section 6. External-origin turns get the grant of their trust class; the message origin and sender are placed in the model input as data about the source; no external text can approve, create a rule or change a ceiling; an approval.required during an external-origin turn sends only a deep-link notice (no token); reply in kind is not a consequential send under the stated conditions, everything else is a send gated by exact operation approval; unattended external-origin turns stop visibly or run only against an exact human-created rule.\n\nAcceptance criteria:\n- A message that says the user already approved changes nothing\n- An approval-class action proposed from an email turn creates an approval card and waits; the email receives only a link\n- Reply to the same participants with no attachments needs no approval; adding a Cc or a new recipient needs approval\n- Guest grant forbids computer and consequential classes\n\nGherkin: features/external_origin_authority.feature\n\nDepends on: M2.1, M1.4\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-6433384a-512f-4c9f-bbe7-dda551045375",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:52.614232Z",
+  "updated_at": "2026-10-22T03:58:12.920283Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

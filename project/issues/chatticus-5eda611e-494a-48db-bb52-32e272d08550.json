@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-5eda611e-494a-48db-bb52-32e272d08550",
+  "title": "M3.4: Slack inbound adapter: threads, direct messages and mentions",
+  "description": "Normalize message.im, app_mention and thread replies: conversation key team:channel:thread_ts (or ts for a new thread), direct messages to the member's direct channel, bot selection by binding default, mention or leading name, ignoring the app's own messages and bot_id messages (loop prevention), edited and deleted subtypes ignored in v1.\n\nAcceptance criteria:\n- A thread reply lands in the same Chatticus channel as its root\n- A new top-level mention opens a new external channel\n- Messages from the app itself and other bots do not start turns\n- A message from an unlinked Slack user is quarantined\n\nGherkin: features/slack_inbound.feature\n\nDepends on: M3.2, M3.3, M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-58823c41-ef08-4ac0-9df5-20e3ae004dd6",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-8c6e2181-aec6-467f-9ee5-9896766bddb5",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:56.179269Z",
+  "updated_at": "2026-10-22T03:58:15.428587Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

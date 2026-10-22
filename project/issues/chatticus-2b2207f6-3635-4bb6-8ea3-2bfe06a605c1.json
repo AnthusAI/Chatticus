@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "title": "M2: Identity, authorization and abuse controls; production-ready email",
+  "description": "Make email safe to open to real people. Adds the trust model (member, guest, unknown, blocked), email authentication policy from SES verdicts, quarantine with owner decisions, loop and automated-mail prevention, rate limits and a per-binding external budget under the organization spend ceiling, the rule that external messages are data and never approvals, bot-initiated external sends as gated consequential actions, deliverability handling (bounce, complaint, suppression, kill switch), attachments and retention, observability, the owner web panel, and the readiness gate for asking Amazon for SES production access.\n\nExit criteria: a stranger mail costs no model call; a spoofed From is not treated as a member; a looping auto-responder cannot cause more than the per-thread cap; a bounce and a complaint suppress future sends; an owner can see, admit and block senders in the web app; the production-access request text is drafted and the owner decides when to file it.\n\nDepends on M1.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b10a407e-b5bd-4f5b-90a9-af1de587a11b",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:47.188945Z",
+  "updated_at": "2026-10-22T03:58:08.775783Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

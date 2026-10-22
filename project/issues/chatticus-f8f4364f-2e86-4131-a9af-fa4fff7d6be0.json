@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-f8f4364f-2e86-4131-a9af-fa4fff7d6be0",
+  "title": "M2.3: Quarantine and owner admit, reject and block decisions",
+  "description": "Store inbound from unknown senders in a quarantine item with a bounded retention (14 days) and a daily cap per binding. Owner routes list quarantine (sender, first lines, verdicts, counts), admit (becomes guest on that binding and replays the first message through admission), reject, or block. Decisions are audited. No model call occurs for quarantined mail.\n\nAcceptance criteria:\n- A stranger's message creates a quarantine record and no turn, no spend and no reply\n- Owner admit replays the stored message once; admit twice does not duplicate\n- Members who are not owners get 404; other organizations get 404\n- Quarantine expires and is purged; over-cap mail is dropped and counted\n\nGherkin: features/external_quarantine.feature\n\nDepends on: M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-6433384a-512f-4c9f-bbe7-dda551045375",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:51.644011Z",
+  "updated_at": "2026-10-22T03:58:12.345104Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

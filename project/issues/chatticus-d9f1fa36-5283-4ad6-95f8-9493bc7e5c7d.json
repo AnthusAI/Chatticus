@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-d9f1fa36-5283-4ad6-95f8-9493bc7e5c7d",
+  "title": "M5.1: Owner task: start toll-free number purchase, verification and SMS sandbox exit",
+  "description": "OWNER-RUN, requires an Amazon request and a recurring cost, so it needs the owner's explicit yes (open question). Purchase one toll-free number in the chatticus-production account for the development environment through the console or CLI by the owner, submit toll-free verification (use case: replies from a named assistant to people who texted first), and request SMS production access when the sandbox limit blocks testing. Record lead times observed. This task never files anything on its own.\n\nAcceptance criteria:\n- Owner decision recorded\n- Number status and verification status recorded on the task (no account ids)\n- Observed lead times recorded to correct the contract\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: owner approval; ideally started at the beginning of M2\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:59.267241Z",
+  "updated_at": "2026-10-22T03:57:59.267417Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

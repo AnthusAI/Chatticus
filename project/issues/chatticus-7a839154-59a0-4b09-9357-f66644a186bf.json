@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-7a839154-59a0-4b09-9357-f66644a186bf",
+  "title": "M2.13: Production readiness gate and the SES production-access request draft",
+  "description": "Checklist and rehearsal for moving email beyond the sandbox: custom MAIL FROM and DMARC in place, bounce and complaint handling proven with the simulator, rate limits and kill switch proven, unsubscribe path, staging and production mail stacks deployed through the normal pipeline, and a written request draft (use case, opt-in basis, bounce and complaint handling, volume forecast). The task produces text only. The OWNER decides when to file the Amazon request; this task never files it.\n\nAcceptance criteria:\n- Checklist items each point to a passing feature or acceptance check\n- Request draft is stored as a Kanbus comment and reviewed by the owner\n- Owner decision recorded: ask now or wait for approved test users and activity\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: M2.1 through M2.10; owner decision\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-3e1518d4-de38-49b3-a8c8-10f6fe5fe749",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:55.013383Z",
+  "updated_at": "2026-10-22T03:58:14.714868Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

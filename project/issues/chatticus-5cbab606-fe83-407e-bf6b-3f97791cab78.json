@@ -1,0 +1,36 @@
+{
+  "id": "chatticus-5cbab606-fe83-407e-bf6b-3f97791cab78",
+  "title": "M1.8: SES ingress Lambda, event Lambda and SES transport adapter",
+  "description": "Implement the SES adapter behind the port with injected AWS clients: ingress Lambda (receipt rule invocation: read verdicts, fetch raw MIME from S3, produce RawInbound, call admitInbound; idempotent on SES message id), SES SendEmail delivery with configuration set and raw headers, and the event Lambda that maps SES bounce, complaint, delivery and reject events to delivery status events (suppression handling is completed in M2.8). Ingress composes the same dependencies as the front door composition; it does not call the front door over HTTP.\n\nAcceptance criteria:\n- Fake SES and S3 clients drive the full path in cucumber-js: raw mail in, turn, reply out, status in\n- Lambda retries do not duplicate messages or turns\n- SES verdict fields are carried into the sender assertion (consumed by M2.2)\n- Unknown recipient domains and unknown routes drop silently with a counted metric\n- Bounce and complaint events from the mailbox simulator payload shapes are parsed\n\nGherkin: features/email_ses_ingress.feature\n\nDepends on: M1.5, M1.6, M1.7\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-32bbbdd8-c8cc-4c7e-9a8a-4d6d77f187e9",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-a2be22c6-5fa9-4fa9-b18e-39147e4b72c4",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:50.630104Z",
+  "updated_at": "2026-10-22T03:58:11.409Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

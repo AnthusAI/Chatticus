@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-3ff27dfe-497f-4be4-9117-c56ea5197d48",
+  "title": "M2.9: Attachments, retention and organization purge",
+  "description": "Implement section 7: attachment type and size policy (10 MB each, 25 MB per message), storage under tenant-scoped S3 prefixes, lifecycle expiry for raw mail and attachments, references in messages, tool to save an attachment into the workspace (ordinary computer action), outbound workspace attachments as gated sends, purge of all external data on organization deletion or member removal, hashed addresses in logs.\n\nAcceptance criteria:\n- Executables and archives are refused and noted in the thread\n- Attachment never reaches the computer without a tool call\n- Purge removes bindings, identities, quarantine, raw objects and attachments for a tenant and nothing else\n- Logs contain no bodies and no full addresses (structural test)\n\nGherkin: features/external_attachments_and_retention.feature\n\nDepends on: M1.8\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-5cbab606-fe83-407e-bf6b-3f97791cab78",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:53.584989Z",
+  "updated_at": "2026-10-22T03:58:13.550900Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

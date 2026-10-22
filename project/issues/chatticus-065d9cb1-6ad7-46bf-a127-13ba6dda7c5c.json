@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-065d9cb1-6ad7-46bf-a127-13ba6dda7c5c",
+  "title": "M2.4: Loop and automated-mail prevention",
+  "description": "Implement the automation filter of contract section 5: null return path, Auto-Submitted, Precedence bulk/list/junk, auto-reply headers, List-Id, delivery-status reports, mailer-daemon style senders, own X-Chatticus-Origin, hop counter above 3, per-thread cap of 5 consecutive bot replies without a human message, and bot-to-bot-by-email treated as an external guest send.\n\nAcceptance criteria:\n- Each header case drops the message from the turn path and is counted by reason\n- Bounce reports are routed to delivery status, not to a turn\n- Two simulated deployments answering each other stop at the hop limit\n- A thread with five unanswered bot replies sends no sixth\n\nGherkin: features/external_loop_prevention.feature\n\nDepends on: M1.8\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-5cbab606-fe83-407e-bf6b-3f97791cab78",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:51.892461Z",
+  "updated_at": "2026-10-22T03:58:12.539566Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

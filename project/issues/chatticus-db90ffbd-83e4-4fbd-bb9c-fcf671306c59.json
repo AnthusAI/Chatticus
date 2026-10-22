@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-db90ffbd-83e4-4fbd-bb9c-fcf671306c59",
+  "title": "M5.2: SMS verification spike: End User Messaging versus Twilio",
+  "description": "Verify and record: current End User Messaging SMS two-way flow (inbound to SNS, event destinations, opt-out list behavior, keyword handling), CloudFormation coverage for opt-out list, configuration set, pool and phone number, sandbox limits, segment pricing, number rent and any registration fees; compare Twilio on setup time, webhook signature, cost and secrets; confirm Amazon Connect is out. Output: decision comment and corrections to contract section 10.2.\n\nAcceptance criteria:\n- Table of verified prices and lead times\n- Go decision on one provider with a stated fallback\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:59.520543Z",
+  "updated_at": "2026-10-22T03:57:59.520674Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

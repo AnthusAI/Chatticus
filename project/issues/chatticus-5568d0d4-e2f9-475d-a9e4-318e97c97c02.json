@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-5568d0d4-e2f9-475d-a9e4-318e97c97c02",
+  "title": "M1.3: Transport port, in-memory fake transport and the inbound admission pipeline",
+  "description": "Define ChannelTransport and the neutral InboundEvent in conversation/src (names in the contract section 2.2) and implement admitInbound: route lookup (unknown route is a counted silent drop that returns the provider's normal success), dedupe by (binding, external message id), automation hook (stub allowing everything until M2), sender resolution for a single linked test member, gates for enabled organization and binding, conversation mapping from M1.2, then the existing postMessage with the right author kind, origin and addressed bot. Provide FakeChannelTransport that records deliveries and can inject inbound events, used by every later feature.\n\nAcceptance criteria:\n- A linked member's inbound event to a bot address starts a turn for that bot exactly once, even if delivered three times\n- Cc'd bot addresses are read but not addressed: the message is in the channel and no turn starts for them\n- An event for an unknown route stores nothing and reveals nothing\n- A disabled binding or suspended organization admits nothing\n- The pipeline reuses postMessage, steering and turn admission; no parallel admission code exists\n\nGherkin: features/external_inbound_admission.feature\n\nDepends on: M1.1, M1.2\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-de368e48-1bec-4cdb-bd11-5e18b1bfe5d5",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:49.134588Z",
+  "updated_at": "2026-10-22T03:58:10.102790Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

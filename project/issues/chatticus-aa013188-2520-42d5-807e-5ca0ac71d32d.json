@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-aa013188-2520-42d5-807e-5ca0ac71d32d",
+  "title": "M5.6: Opt-out, keywords and compliance",
+  "description": "Honor STOP and HELP at the carrier and in our own opt-out list; never message an opted-out number from that binding; START restores; audit; no marketing content.\n\nAcceptance criteria:\n- Opted-out number receives nothing and the delivery is recorded as opted_out\n- HELP returns the configured help text\n\nGherkin: features/sms_opt_out.feature\n\nDepends on: M5.4\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-6f07a158-c114-4a26-87c2-12cc3340ae75",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:58:00.802381Z",
+  "updated_at": "2026-10-22T03:58:18.094135Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

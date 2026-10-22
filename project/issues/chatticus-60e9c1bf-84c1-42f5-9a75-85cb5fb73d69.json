@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-60e9c1bf-84c1-42f5-9a75-85cb5fb73d69",
+  "title": "M3.1: Slack verification spike and decisions",
+  "description": "Verify and record: current Slack app creation and distribution rules without Marketplace listing, required scopes (chat:write, chat:write.customize, app_mentions:read, im:history, im:read, users:read), Events API retry behavior and the 3 second acknowledgement, OAuth v2 install redirect on the same-origin front door, rate limits per method, behavior of per-message username override, and token storage in SSM SecureString at a path scoped role. Output: a comment with decisions and any corrections to contract section 10.3. Owner creates the Slack app (outside AWS) from the manifest the spike drafts.\n\nAcceptance criteria:\n- Manifest drafted and reviewed\n- Findings that change the contract are recorded and the draft updated\n- Owner question list for the Slack app creation is short and concrete\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-58823c41-ef08-4ac0-9df5-20e3ae004dd6",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:55.296468Z",
+  "updated_at": "2026-10-22T03:57:55.296716Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

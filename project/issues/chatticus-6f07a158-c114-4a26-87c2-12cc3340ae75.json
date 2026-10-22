@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-6f07a158-c114-4a26-87c2-12cc3340ae75",
+  "title": "M5.4: SMS adapter inbound and outbound",
+  "description": "Normalize inbound SMS (pair granularity to the member's direct channel), verify the SNS signature and topic, render replies segment-aware (GSM-7 versus UCS-2 counting, cap 3 segments, short link to the full answer in the web app), deliver through the send API with delivery receipts mapped to status events.\n\nAcceptance criteria:\n- A linked member's text starts a turn and receives a capped reply\n- Long answers produce a link, not ten segments\n- Delivery receipt updates the delivery item\n\nGherkin: features/sms_conversations.feature\n\nDepends on: M5.3, M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-64350712-ad77-4e77-8693-b463719297e4",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:58:00.231796Z",
+  "updated_at": "2026-10-22T03:58:17.270586Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

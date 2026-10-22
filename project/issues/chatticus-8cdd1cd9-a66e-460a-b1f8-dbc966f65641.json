@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-8cdd1cd9-a66e-460a-b1f8-dbc966f65641",
+  "title": "M2.5: Rate limits, daily external budget and spend ceiling gates",
+  "description": "Implement the limits table of contract section 5 (per identity, binding and organization windows) with DynamoDB counters, and the per-binding daily external turn budget (turn count and dollars from the cost ledger) checked together with the existing organization admission and spend ceiling before every external turn. Over budget sends at most one unavailable notice per day and stores the message for the owner. Sandbox outbound cap of 100 per day per binding is configurable.\n\nAcceptance criteria:\n- Over-limit messages are stored, counted and not turned into model calls\n- The organization spend ceiling still refuses external turns exactly like web turns\n- Counters are tenant scoped; one organization cannot exhaust another's allowance\n- Owner can lower but not exceed deployment maxima\n\nGherkin: features/external_rate_and_spend.feature\n\nDepends on: M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-6433384a-512f-4c9f-bbe7-dda551045375",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:52.206198Z",
+  "updated_at": "2026-10-22T03:58:12.716303Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

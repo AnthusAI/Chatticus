@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-887f402b-3688-4b87-9bb7-9f58ed51a878",
+  "title": "M2.2: Email sender authentication policy",
+  "description": "Apply the policy of contract section 4.3 to SES verdicts: spam and virus not FAIL; DMARC PASS or aligned DKIM PASS; From address (not display name, not Reply-To) matches the identity; automated mail excluded. A failure demotes the sender to unknown for that message. Domain allowlists only when an owner sets them and the domain publishes DMARC quarantine or reject (checked at set time and periodically).\n\nAcceptance criteria:\n- Spoofed From with failing DMARC is quarantined even if the address belongs to a member\n- Display name spoofing and Reply-To tricks do not change the sender\n- Forwarded mail with aligned DKIM still passes; SPF-only pass does not\n- Verdict absence is treated as fail\n\nGherkin: features/email_sender_authentication.feature\n\nDepends on: M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-6433384a-512f-4c9f-bbe7-dda551045375",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:51.385589Z",
+  "updated_at": "2026-10-22T03:58:12.107818Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

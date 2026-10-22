@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-7a3417dd-ef93-4bcf-acaa-6bfebfa0d325",
+  "title": "M1.0: Land the contract doc and register the narrative",
+  "description": "Decide with the owner how docs/EXTERNAL_CHANNELS.draft.md lands (docs/EXTERNAL_CHANNELS.md, cross-links from MESSAGING.md, ORGANIZATIONS.md and APPROVAL.md) and add a features/external_channels_narrative note listing the planned features in reading order. Docs are product and land by pull request into develop, not with the board.\n\nAcceptance criteria:\n- docs/EXTERNAL_CHANNELS.md exists and matches the owner's answers to the open questions\n- MESSAGING.md links to it from the section on bot to bot and the HTTP surface\n- No third-party agent product is named as a model\n- README untouched (no status section)\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: owner answers to the open questions on the initiative\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:48.341244Z",
+  "updated_at": "2026-10-22T03:57:48.342494Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
