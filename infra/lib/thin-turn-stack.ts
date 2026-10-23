@@ -12,18 +12,25 @@ import * as path from "path";
 import { Construct } from "constructs";
 import {
   ChatticusCloudEnvironment,
+  operatorKeyParameterName,
   thinTurnExportName,
   thinTurnParameterPrefix,
 } from "./environments";
+import { GeneratedSecureString } from "./generated-secure-string";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 /**
- * Permanent data-owning stack: the Messaging table, the invoke and operator
- * secrets with their SSM parameters, and the Node budget jobs.
+ * Permanent data-owning stack: the Messaging table, the invoke secret with its
+ * SSM parameter, the operator key SecureString, and the Node budget jobs.
+ * The retired operator secret and its SSM and export names stay until a later
+ * deploy removes them, after the control plane reads the SecureString.
  *
  * Every data resource is retained. The conversation compute lives in the
  * control-plane stack; nothing here serves a request.
  */
+/** Characters of the generated operator key. */
+export const OPERATOR_KEY_LENGTH = 32;
+
 export interface ThinTurnStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
   /** When set, budget alert recorder and rollup threshold SNS use this topic. */
@@ -35,7 +42,10 @@ export interface ThinTurnStackProps extends cdk.StackProps {
 export class ThinTurnStack extends cdk.Stack {
   readonly messagingTable: dynamodb.ITable;
   readonly invokeSecret: secretsmanager.ISecret;
+  /** Retired: nothing reads it any more; it stays until a later deploy removes it. */
   readonly operatorSecret: secretsmanager.ISecret;
+  /** The generated operator key, an SSM SecureString the front door reads by name. */
+  readonly operatorKey: GeneratedSecureString;
 
   constructor(scope: Construct, id: string, props: ThinTurnStackProps) {
     super(scope, id, props);
@@ -74,6 +84,12 @@ export class ThinTurnStack extends cdk.Stack {
       },
     });
     this.operatorSecret = operatorSecret;
+
+    this.operatorKey = new GeneratedSecureString(this, "OperatorKeyParameter", {
+      parameterName: operatorKeyParameterName(environmentName),
+      valueLength: OPERATOR_KEY_LENGTH,
+      description: `Operator bearer credential for the Chatticus ${environmentName} thin-turn front door.`,
+    });
 
     if (props.budgetsMonthlyLimitUsd !== undefined) {
       const budgetsAlertsTopicArn = props.budgetsAlertsTopicArn;

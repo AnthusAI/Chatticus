@@ -186,6 +186,20 @@ export function invokeKeySecretArnParameterName(
   return `${thinTurnParameterPrefix(environment)}/invoke-key-secret-arn`;
 }
 
+/** The SSM SecureString parameter that holds the generated operator key of one environment. */
+export function operatorKeyParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `${thinTurnParameterPrefix(environment)}/operator-key`;
+}
+
+/** The SSM SecureString parameter that holds the generated model gateway signing key of one environment. */
+export function modelGatewaySigningKeyParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `/chatticus/${environment}/model-gateway/signing-key`;
+}
+
 export function operatorKeySecretArnParameterName(
   environment: ChatticusCloudEnvironment,
 ): string {

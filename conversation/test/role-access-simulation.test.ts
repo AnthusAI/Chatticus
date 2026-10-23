@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AccessRow, StoreArns } from "../src/gateway/role-access-manifest.ts";
-import { simulationCasesOf, simulationGroupsOf, simulationResultsOf, simulationSummaryOf, type SimulationCase } from "../src/gateway/role-access-simulation.ts";
+import { secretParameterArnsOf, type AccessDenialRow, type AccessRow, type StoreArns } from "../src/gateway/role-access-manifest.ts";
+import { denialSimulationCasesOf, simulationCasesOf, simulationGroupsOf, simulationResultsOf, simulationSummaryOf, type SimulationCase } from "../src/gateway/role-access-simulation.ts";
 
 const ARNS: StoreArns = {
 	messagingTable: "arn:aws:dynamodb:us-east-1:111122223333:table/messaging",
@@ -115,5 +115,28 @@ describe("grouping the cases into few policy simulator calls", () => {
 	it("fails loudly when an action has no evaluation", () => {
 		const [group] = simulationGroupsOf([baseCase({ action: "s3:GetObject" }), baseCase({ action: "s3:PutObject" })]);
 		expect(() => simulationResultsOf(group!, [{ EvalActionName: "s3:GetObject", EvalDecision: "allowed" }])).toThrow(/s3:PutObject/);
+	});
+});
+
+describe("the denial cases put to the IAM policy simulator", () => {
+	const denial: AccessDenialRow = { role: "supervisor", action: "ssm:GetParameter", parameter: "signingKeyParameter" };
+	const arns = secretParameterArnsOf("us-east-1", "111122223333", "development");
+
+	it("names the parameter ARN of the environment and expects a denial", () => {
+		expect(arns.operatorKeyParameter).toBe("arn:aws:ssm:us-east-1:111122223333:parameter/chatticus/development/thin-turn/operator-key");
+		expect(arns.signingKeyParameter).toBe("arn:aws:ssm:us-east-1:111122223333:parameter/chatticus/development/model-gateway/signing-key");
+		const [only] = denialSimulationCasesOf([denial], arns);
+		expect(only!.resourceArn).toBe(arns.signingKeyParameter);
+		expect(only!.expectation).toBe("denied");
+	});
+
+	it("passes a denial that was denied and fails one that was allowed", () => {
+		const [only] = denialSimulationCasesOf([denial], arns);
+		expect(simulationSummaryOf("development", [{ simulationCase: only!, decision: "implicitDeny" }])).toBe(
+			"PASS role access development: 0 of 0 allowed, 1 of 1 denied as required (frontDoor 0, ownerTurn 0, supervisor 1)",
+		);
+		const line = simulationSummaryOf("development", [{ simulationCase: only!, decision: "allowed" }]);
+		expect(line.startsWith("FAIL role access development")).toBe(true);
+		expect(line).toContain("wrongly allowed: supervisor must be denied ssm:GetParameter on signingKeyParameter");
 	});
 });

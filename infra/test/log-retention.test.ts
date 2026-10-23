@@ -63,7 +63,7 @@ describe("ComputerStack log retention", () => {
 describe("ThinTurnStack log retention", () => {
   it("sets RetentionInDays on every Lambda log-retention resource", () => {
     const template = synthThinTurnStack();
-    template.resourceCountIs("Custom::LogRetention", 2);
+    template.resourceCountIs("Custom::LogRetention", 4);
     template.allResourcesProperties("Custom::LogRetention", {
       RetentionInDays: RETENTION_DAYS,
     });

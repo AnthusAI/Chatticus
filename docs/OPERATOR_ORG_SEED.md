@@ -176,9 +176,13 @@ POST /operator/orgs/{tenant_id}/reinstate
 Authorization: Bearer <operator-key>
 ```
 
-The operator bearer is deployment-wide. It is stored in Secrets Manager as
-`OperatorKey` and injected into the thin-turn Lambda as
-`CHATTICUS_OPERATOR_KEY`. The CloudFront invoke key is still required at the
+The operator bearer is deployment-wide. It is an SSM Parameter Store
+SecureString named `/chatticus/<environment>/thin-turn/operator-key`, created
+once by infrastructure code and read by the Front Door by name
+(`CHATTICUS_OPERATOR_KEY_PARAMETER_NAME`) at cold start. Read it into a
+protected stream, never print it: `aws ssm get-parameter --with-decryption
+--query Parameter.Value --output text`, piped, as in
+`docs/OWNER_CREDENTIAL_REVOCATION.md` section 2.1. The CloudFront invoke key is still required at the
 edge when configured; it is not operator identity.
 
 Self-hosters with AWS credentials and `CHATTICUS_MESSAGING_TABLE` can keep

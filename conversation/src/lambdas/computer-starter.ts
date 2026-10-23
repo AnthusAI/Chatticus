@@ -2,6 +2,7 @@ import { INVOKE_KEY_CACHE_SECONDS } from "../auth/invoke-key-source.ts";
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
 import { defaultEcsClient } from "../computer/aws-clients.ts";
@@ -35,22 +36,33 @@ export type ComputerStartsBatchResponse = { readonly batchItemFailures: { itemId
 /** The one Secrets Manager operation the starter uses; a real client or a fake satisfies it. */
 export type StarterSecretReader = Pick<SecretsManagerClient, "send">;
 
+/** The one SSM operation the starter uses; a real client or a fake satisfies it. */
+export type StarterParameterReader = Pick<SSMClient, "send">;
+
 /** The AWS clients the starter is composed from; tests inject fakes or emulator-backed clients. */
 export type ComputerStarterAwsClients = {
 	readonly dynamo: DynamoDBClient;
 	readonly sqs: SQSClient;
 	readonly secrets: StarterSecretReader;
+	readonly parameters: StarterParameterReader;
 };
 
 /** The AWS clients a deployed starter uses, built from the Lambda's own role. */
 export function defaultComputerStarterAwsClients(): ComputerStarterAwsClients {
-	return { dynamo: new DynamoDBClient({}), sqs: new SQSClient({}), secrets: new SecretsManagerClient({}) };
+	return { dynamo: new DynamoDBClient({}), sqs: new SQSClient({}), secrets: new SecretsManagerClient({}), parameters: new SSMClient({}) };
 }
 
 async function readSecretValue(secrets: StarterSecretReader, secretArn: string): Promise<string> {
 	const response = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
 	const value = response.SecretString ?? "";
 	if (value === "") throw new Error(`The secret ${secretArn} has no value.`);
+	return value;
+}
+
+async function readParameterValue(parameters: StarterParameterReader, parameterName: string): Promise<string> {
+	const response = await parameters.send(new GetParameterCommand({ Name: parameterName, WithDecryption: true }));
+	const value = response.Parameter?.Value ?? "";
+	if (value === "") throw new Error(`The parameter ${parameterName} has no value.`);
 	return value;
 }
 
@@ -69,7 +81,7 @@ let cachedDependenciesComposedAtMilliseconds = 0;
  * @param hostStarterOptions What replaces the real ECS and STS clients in the host starter, for tests.
  * @param ownerPorts What replaces the real ECS, ids and clock of the owner start, for tests.
  * @throws Error If a required environment variable is missing (the owner settings included, whenever the ECS starter is
- * selected), or the invoke key or signing key secret cannot be read or is empty.
+ * selected), or the invoke key secret or the signing key parameter cannot be read or is empty.
  */
 export async function composeComputerStarterDependencies(
 	processEnvironment: Record<string, string | undefined> = process.env,
@@ -115,7 +127,7 @@ export async function composeComputerStarterDependencies(
 	const hostWorkerDriver = hostStartDriverFor(hostStarterFromEnvironment(organizationOf, hostEnvironment, hostStarterOptions));
 	let driver = hostWorkerDriver;
 	if (isEcsHostStarterSelected(processEnvironment)) {
-		const signingKey = await readSecretValue(clients.secrets, requiredEnvironment("CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN"));
+		const signingKey = await readParameterValue(clients.parameters, requiredEnvironment("CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME"));
 		const config = ownerStartConfigFromEnvironment(processEnvironment, { signingKey });
 		const ownerDriver = new OwnerStartDriver(config, {
 			ecs: ownerPorts.ecs ?? defaultEcsClient(null),

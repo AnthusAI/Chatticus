@@ -34,6 +34,48 @@ export type AccessRow = {
 	readonly note?: string;
 };
 
+/** The SSM parameters that hold a generated runtime key; the roles that run a turn or a supervisor must never read them. */
+export const SECRET_PARAMETERS = ["operatorKeyParameter", "signingKeyParameter"] as const;
+
+/** One of the SSM parameters that hold a generated runtime key. */
+export type SecretParameter = (typeof SECRET_PARAMETERS)[number];
+
+/**
+ * One request a role must never be allowed: the only way a secret parameter becomes readable by a per-turn role is by
+ * deleting a row here, which the manifest scenarios and the post-deploy simulation both notice. SSM keeps old versions
+ * of a parameter readable by name and version, so the history reads are listed beside the plain reads.
+ */
+export type AccessDenialRow = {
+	readonly role: Exclude<AccessRole, "frontDoor">;
+	readonly action: string;
+	readonly parameter: SecretParameter;
+	/** Why the role is denied, in a sentence. */
+	readonly note?: string;
+};
+
+/** The parameter path of each secret parameter, with `{environment}` standing for the environment the stack belongs to. */
+export const SECRET_PARAMETER_PATHS: Readonly<Record<SecretParameter, string>> = {
+	operatorKeyParameter: "/chatticus/{environment}/thin-turn/operator-key",
+	signingKeyParameter: "/chatticus/development/model-gateway/signing-key",
+};
+
+/** The ARN of each secret parameter in one account and region. */
+export type SecretParameterArns = Readonly<Record<SecretParameter, string>>;
+
+/**
+ * The ARNs of the secret parameters of one environment.
+ *
+ * @param region The AWS region.
+ * @param account The AWS account id.
+ * @param environment The Chatticus environment name.
+ * @returns One ARN per secret parameter.
+ */
+export function secretParameterArnsOf(region: string, account: string, environment: string): SecretParameterArns {
+	const arnOf = (parameter: SecretParameter): string =>
+		`arn:aws:ssm:${region}:${account}:parameter${SECRET_PARAMETER_PATHS[parameter].replace("{environment}", environment)}`;
+	return { operatorKeyParameter: arnOf("operatorKeyParameter"), signingKeyParameter: arnOf("signingKeyParameter") };
+}
+
 /** The file of the role access manifest; the infra stack tests and the post-deploy simulation read this same file. */
 export const ROLE_ACCESS_MANIFEST_FILE = new URL("./role-access-manifest.json", import.meta.url);
 
@@ -45,6 +87,16 @@ export const ROLE_ACCESS_MANIFEST_FILE = new URL("./role-access-manifest.json", 
  */
 export function loadRoleAccessManifest(file: URL = ROLE_ACCESS_MANIFEST_FILE): AccessRow[] {
 	return (JSON.parse(readFileSync(file, "utf8")) as { rows: AccessRow[] }).rows;
+}
+
+/**
+ * The requests the manifest says a role must never be allowed.
+ *
+ * @param file The manifest file; the deployed one by default.
+ * @returns The denial rows, in file order.
+ */
+export function loadRoleAccessDenials(file: URL = ROLE_ACCESS_MANIFEST_FILE): AccessDenialRow[] {
+	return (JSON.parse(readFileSync(file, "utf8")) as { deniedRows?: AccessDenialRow[] }).deniedRows ?? [];
 }
 
 /** The ids the example keys and the example session tags stand for. */

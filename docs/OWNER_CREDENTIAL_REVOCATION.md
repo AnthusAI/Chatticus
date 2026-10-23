@@ -19,10 +19,17 @@ Rules for the whole page:
   `Staging` and `Production`, and **production's own stacks have no suffix at all** (`ChatticusComputers`, not
   `ChatticusComputersProduction`). A name that matches "by prefix" can therefore match production while you meant development;
   the shell setup in 0.1 selects every name exactly, and every command below uses those variables. Do not retype a name.
-- Staging and production have no owner path yet: the signing key secret is created in the development ControlPlane stack only
+- Staging and production have no owner path yet: the signing key parameter is created in the development ControlPlane stack only
   (`control-plane-stack.ts`: `if (isDevelopment)`), there is no broker in the staging or production ControlPlane stack, and
-  `aws secretsmanager list-secrets` shows exactly one `ModelGatewaySigningKey...` secret in the account. When they get one,
-  the commands change by the stack suffix and by the variables in 0.1.
+  `aws ssm describe-parameters --parameter-filters Key=Name,Values=/chatticus/staging/model-gateway/signing-key` (and the
+  production name) finds nothing. When they get one, the commands change by the stack suffix and by the variables in 0.1.
+- **The generated keys live in SSM Parameter Store, not Secrets Manager.** The signing key and the operator key are standard
+  SecureStrings under the default `aws/ssm` key, created once by infrastructure code (`infra/lib/generated-secure-string.ts`).
+  SSM has no `AWSPREVIOUS` stage and keeps up to 100 old versions of a parameter readable by anyone with
+  `ssm:GetParameterHistory` or a `name:version` read. So a key is never "rotated in place" on this page: it is **recreated**
+  (delete the parameter, which drops every version, then put a new one). No role in the stack holds `GetParameterHistory` on
+  either parameter, and the role access manifest (`deniedRows`) and its post-deploy simulation check that the per-turn and
+  supervisor roles are denied every read of both.
 - Anything this page could not verify is marked **UNVERIFIED**, with the way to verify it. Section 12 lists them.
 
 ## 0. What exists, in one table
@@ -32,12 +39,13 @@ Rules for the whole page:
 | Supervisor role | `ComputerSupervisorRole` (CDK construct id; the physical name is generated, `ChatticusControlPlaneDeve-ComputerSupervisorRoleE30-<suffix>`, and changes when the stack is recreated) | `infra/lib/computer-host-start.ts` | sessions of at most 3600 s | only the broker's execution role may assume it, with exactly two session tags |
 | Per-turn role | `ComputerOwnerScopedRole` (same pattern) | the same file | sessions of at most 3600 s | only the broker, with exactly five session tags |
 | Credential broker | Lambda with logical id `OwnerCredentialBroker...` (physical name `ChatticusControlPlaneDeve-OwnerCredentialBroker9BE-<suffix>`, its log group is `/aws/lambda/<physical name>`) | `conversation/src/lambdas/owner-credential-broker.ts` | | invoked by the Front Door only |
-| Signing key | Secrets Manager secret, CDK construct id `ModelGatewaySigningKey`, physical name `ModelGatewaySigningKey<hash>-<suffix>`; its ARN is in `CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN` on the Front Door, the ComputerStarter and the broker | `infra/lib/control-plane-stack.ts` | until rotated | those three functions only |
+| Signing key | SSM SecureString `/chatticus/development/model-gateway/signing-key` (CDK construct id `ModelGatewaySigningKeyParameter`); its name is in `CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME` on the Front Door, the ComputerStarter and the broker, each with `ssm:GetParameter` on that exact ARN | `infra/lib/control-plane-stack.ts` | until recreated | those three functions only |
 | Bootstrap token | signed with the key; audience `owner-bootstrap` | minted by the ComputerStarter, held in the owner task's container override | 300 s, single use | the supervisor, once |
 | Supervisor token | signed with the key; audience `computer-owner` | supervisor memory | 3600 s each, renewed about every 40 minutes for up to 8 hours | the owner routes of one computer |
 | Model gateway token | signed with the key; audience `model-gateway` | supervisor memory, child over the socket | at most 3600 s | model calls of one turn |
 | Invoke key | secret `InvokeKey...`, SSM `/chatticus/<environment>/thin-turn/invoke-key-secret-arn` | CloudFront origin header | until rotated | CloudFront, then the Front Door |
-| Operator key | secret `OperatorKey...`, SSM `/chatticus/<environment>/thin-turn/operator-key-secret-arn` | Front Door | until rotated | `POST /operator/orgs/{tenant_id}/{enable,suspend,reinstate}` |
+| Operator key | SSM SecureString `/chatticus/<environment>/thin-turn/operator-key` (CDK construct id `OperatorKeyParameter`, thin-turn stack); its name is in `CHATTICUS_OPERATOR_KEY_PARAMETER_NAME` on the Front Door, which holds `ssm:GetParameter` on that exact ARN | `infra/lib/thin-turn-stack.ts` | until recreated | `POST /operator/orgs/{tenant_id}/{enable,suspend,reinstate}` |
+| Retired secrets | Secrets Manager `ModelGatewaySigningKey...` (development ControlPlane stack) and `OperatorKey...` (each thin-turn stack), both retained | the same stacks | until deleted | nothing reads them; they hold the **old** values, so a leak of an old value is still a leak until they are deleted after the deploy is verified (follow-up ticket) |
 
 ### 0.1 Set up the shell once (READ-ONLY)
 
@@ -57,7 +65,7 @@ SUPERVISOR_ROLE=$(stack_resource AWS::IAM::Role ComputerSupervisorRole)
 SCOPED_ROLE=$(stack_resource AWS::IAM::Role ComputerOwnerScopedRole)
 CLUSTER=$(aws ecs list-clusters --query 'clusterArns[?contains(@, `/ChatticusComputersDevelopment-Cluster`)] | [0]' --output text)
 COMPUTER_LOGS=$(aws cloudformation describe-stack-resources --stack-name ChatticusComputersDevelopment --query "StackResources[?ResourceType=='AWS::Logs::LogGroup'].PhysicalResourceId | [0]" --output text)
-SECRET_ARN=$(aws lambda get-function-configuration --function-name "$FRONT_DOOR" --query Environment.Variables.CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN --output text)
+SIGNING_KEY_PARAMETER=$(aws lambda get-function-configuration --function-name "$FRONT_DOOR" --query Environment.Variables.CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME --output text)
 TABLE=$(aws lambda get-function-configuration --function-name "$FRONT_DOOR" --query Environment.Variables.CHATTICUS_MESSAGING_TABLE --output text)
 BUCKET=$(aws lambda get-function-configuration --function-name "$FRONT_DOOR" --query Environment.Variables.CHATTICUS_SNAPSHOT_BUCKET --output text)
 ```
@@ -94,7 +102,7 @@ live (an attacker is acting): go to section 2 first, then come back.
 | --- | --- | --- |
 | An access key id starting `ASIA`, a secret key and a session token, in a log, a ticket or a paste | an AWS role session (supervisor or per-turn). `aws sts get-caller-identity` with it names the role and the session name (see below) | A or B |
 | A string `ct1.<claims>.<signature>` (two dot-separated parts after the `ct1.` marker), used as `Authorization: Bearer` | a token (bootstrap, supervisor or model gateway); the claims are base64url JSON in the first part, never decode it into a ticket | C, D or E |
-| The value of the secret `ModelGatewaySigningKey...`, or a way to read it (`secretsmanager:GetSecretValue` on it, a log line that contains it, a Lambda environment dump) | the signing key | F |
+| The value of the parameter `/chatticus/development/model-gateway/signing-key`, or a way to read it (`ssm:GetParameter` or `ssm:GetParameterHistory` on it, a log line that contains it, a Lambda environment dump; also the value of the retired `ModelGatewaySigningKey...` secret, which is the previous key) | the signing key | F |
 | The CloudFront invoke key, the operator key | not part of the owner path | G |
 
 To tell the role of an AWS credential without acting as it (this uses the leaked credential once, only to ask who it is;
@@ -201,12 +209,11 @@ node conversation/bin/members.ts suspend TENANT_ID --yes
 
 needs `CHATTICUS_MESSAGING_TABLE="$TABLE"` exported and AWS credentials for the environment (read it first, READ-ONLY:
 `node conversation/bin/members.ts show TENANT_ID`, run from the repository root after `npm ci`); or the operator route, with the
-operator bearer read from the secret into a protected stream (the bearer never touches the command line or the terminal):
+operator bearer read from its SSM parameter into a protected stream (the bearer never touches the command line or the terminal):
 
 ```sh
 BASE=$(aws ssm get-parameter --name /chatticus/development/thin-turn/cloudfront-url --query Parameter.Value --output text)
-OPERATOR_ARN=$(aws ssm get-parameter --name /chatticus/development/thin-turn/operator-key-secret-arn --query Parameter.Value --output text)
-aws secretsmanager get-secret-value --secret-id "$OPERATOR_ARN" --query SecretString --output text \
+aws ssm get-parameter --name /chatticus/development/thin-turn/operator-key --with-decryption --query Parameter.Value --output text \
   | { read -r OPERATOR_KEY; printf 'header = "Authorization: Bearer %s"\n' "$OPERATOR_KEY" | curl -sS --config - -X POST "$BASE/operator/orgs/TENANT_ID/suspend" -o /dev/null -w '%{http_code}\n'; }
 ```
 
@@ -449,9 +456,10 @@ not help against a leaked key, because the attacker mints new tokens. Rotate the
 kill whatever the forged tokens already obtained.
 
 **There is no signing-key rotation script** (story `chatticus-541dc7`). `infra/rotate-invoke-key.sh` rotates the invoke key only (section 6). The
-signing key has no `AWSPREVIOUS` fallback: the Front Door, the ComputerStarter and the broker each read one secret value and
-verify and sign with it, so unlike the invoke key there is no overlap window, and a rotation invalidates every token at once.
-The steps below are manual.
+signing key has no `AWSPREVIOUS` fallback, and neither does an SSM parameter: the Front Door, the ComputerStarter and the broker each read one
+parameter value and verify and sign with it, so unlike the invoke key there is no overlap window, and a rotation invalidates every token at
+once. The key is **recreated**, not overwritten: an overwrite would leave the old value readable as version 1 by name and version (and through
+`GetParameterHistory`) for as long as SSM keeps it, and the old value is the leaked one. The steps below are manual.
 
 ### 5.1 What it costs, before you do it
 
@@ -479,26 +487,30 @@ Do not rotate the key to contain a leak of one supervisor credential or one gate
 ### 5.2 Steps (DESTRUCTIVE)
 
 ```sh
-aws secretsmanager list-secret-version-ids --secret-id "$SECRET_ARN" --query 'Versions[].[VersionId,VersionStages[0]]' --output text
+aws ssm describe-parameters --parameter-filters "Key=Name,Values=$SIGNING_KEY_PARAMETER" --query 'Parameters[].[Name,Version,Type,Tier]' --output text
 ```
 
-(READ-ONLY; `SECRET_ARN` is set in 0.1. Note the current version id; it becomes `AWSPREVIOUS` after step 1. On a fresh
-development it printed one version, staged `AWSCURRENT`.)
+(READ-ONLY; `SIGNING_KEY_PARAMETER` is set in 0.1. `describe-parameters` never returns the value. Note the version: after step 1 it is `1`
+again, because the parameter is a new one. Expect `SecureString` and `Standard`.)
 
-1. Put a new value. 64 characters without punctuation is what the stack generates (`MODEL_GATEWAY_SIGNING_KEY_LENGTH`; the
-   code refuses a key under 32). The value never appears on a command line or in the terminal, the pattern of
-   `infra/rotate-invoke-key.sh`. Use `printf '%s'`, not a pipe straight from `--output text`: the CLI ends its text output with a
-   newline (`get-random-password` printed 65 characters for a 64 character password), and every reader takes the secret
-   verbatim, so a newline would become part of the key:
+1. Recreate the parameter with a new value. 64 characters of letters and digits is what the stack generates (`MODEL_GATEWAY_SIGNING_KEY_LENGTH`; the
+   code refuses a key under 32). The value never appears on a command line or in the terminal. Use `printf '%s'`, not `echo` and not a
+   pipe straight from a command that ends its output with a newline, because every reader takes the parameter verbatim and a newline
+   would become part of the key. Deleting the parameter drops every version, which is what retires the leaked value; between the two
+   commands the readers see `ParameterNotFound` and the ComputerStarter and the broker refuse, which is acceptable because step 5
+   stops every owner anyway. Do not use `--overwrite`:
    ```sh
-   NEW_VALUE=$(aws secretsmanager get-random-password --password-length 64 --exclude-punctuation --query RandomPassword --output text)
-   printf '%s' "$NEW_VALUE" | aws secretsmanager put-secret-value --secret-id "$SECRET_ARN" --secret-string file:///dev/stdin --query VersionId --output text
+   aws ssm delete-parameter --name "$SIGNING_KEY_PARAMETER"
+   NEW_VALUE=$(openssl rand -base64 96 | tr -dc 'A-Za-z0-9' | head -c 64)
+   printf '%s' "$NEW_VALUE" | aws ssm put-parameter --name "$SIGNING_KEY_PARAMETER" --type SecureString --tier Standard --no-overwrite --value file:///dev/stdin --query Version --output text
    NEW_VALUE=
    ```
-2. Make the three readers re-read it. The Front Door and the ComputerStarter read the secret once when their code first
+   The CloudFormation custom resource that first created the parameter is retained and does nothing on later deploys (Update and Delete are
+   no-ops), so a deploy never touches the recreated parameter.
+2. Make the three readers re-read it. The Front Door and the ComputerStarter read the parameter once when their code first
    composes in a container (`front-door-composition.ts`, `computer-starter.ts`), and keep it for the life of the container, so
    a warm container keeps the old key for hours. The broker caches it for 300 s (`BROKER_SIGNING_KEY_CACHE_SECONDS`). A
-   configuration change makes new invocations start new execution environments, which re-read the secret. Change the
+   configuration change makes new invocations start new execution environments, which re-read the parameter. Change the
    description to a timestamp (the one setting nothing depends on):
    ```sh
    for FUNCTION in "$FRONT_DOOR" "$STARTER" "$BROKER"; do
@@ -509,18 +521,15 @@ development it printed one version, staged `AWSCURRENT`.)
    That a description change recycles warm execution environments is how Lambda treats any configuration update;
    it is **UNVERIFIED** on this deployment. Verify as in 5.4. The next normal deploy resets the description (harmless drift).
    Updating the configuration does not change the environment variables; never pass `--environment` here, it replaces them all.
-3. Retire the old value so it can no longer be read by stage label (the old key is the leaked one):
-   ```sh
-   aws secretsmanager update-secret-version-stage --secret-id "$SECRET_ARN" --version-stage AWSPREVIOUS --remove-from-version-id OLD_VERSION_ID_FROM_ABOVE
-   ```
-   A version with no stage is deleted by Secrets Manager in due course, but it can still be read by version id until then by
-   anyone with `GetSecretValue`: if the leak was access to the secret itself, also fix who has that permission (section 11).
+3. Confirm no old version is left. The delete in step 1 removed them; if the leak was access to the parameter itself, also fix who has
+   `ssm:GetParameter`, `ssm:GetParameters` and above all `ssm:GetParameterHistory` on it (section 11): only the Front Door, the
+   ComputerStarter and the broker may read it, and nothing may read its history.
 4. Revoke the sessions (section 3). Tokens signed with the leaked key may already have been exchanged for AWS credentials; the
    deny ends them. Use the time `T` of the moment after step 2 completed.
 5. Stop every running owner task (2.2) rather than waiting for their 401: they would exit by themselves within one poll
    interval, but a stopped task is certain. List them all with `aws ecs list-tasks --cluster "$CLUSTER" --desired-status RUNNING`.
 
-**Who:** the operator profile with `secretsmanager:PutSecretValue` and `lambda:UpdateFunctionConfiguration`.
+**Who:** the operator profile with `ssm:DeleteParameter`, `ssm:PutParameter` and `lambda:UpdateFunctionConfiguration`.
 **Undo:** none that is useful. Putting the old value back re-validates every token minted under it, including a forged one;
 never do it.
 
@@ -533,8 +542,9 @@ never do it.
 
 ### 5.4 Verify the key is rotated (READ-ONLY)
 
-- The secret has a new `AWSCURRENT` and no `AWSPREVIOUS`:
-  `aws secretsmanager list-secret-version-ids --secret-id "$SECRET_ARN" --query 'Versions[].[VersionId,VersionStages]' --output json`.
+- The parameter is a new one at version 1 and has no other version:
+  `aws ssm describe-parameters --parameter-filters "Key=Name,Values=$SIGNING_KEY_PARAMETER" --query 'Parameters[].[Version,LastModifiedDate]' --output text`
+  (the value is never shown). SSM has no `AWSPREVIOUS`, so there is nothing to retire.
 - The functions are new: each shows a new `Last modified` (`aws lambda get-function-configuration --function-name F --query '[LastModified,Description,LastUpdateStatus]' --output text`),
   and the first invocation after that logs an `INIT_START` / `Init Duration` in its log group (a cold start).
 - An old token is dead. The honest proof without minting a token: the owners' own behaviour. For every owner task you stopped or
@@ -582,9 +592,12 @@ It does not touch the owner path: owner routes and the model gateway are authent
 key. If it stops halfway, `--resume --yes` finishes. If it is suspected leaked, do not stop between "put" and "retire"
 (AWS_AUTH.md, "The window").
 
-**Operator key** (`OperatorKey...`): a leaked key lets someone suspend or reinstate organizations. There is no rotation script
-and no runbook yet; the manual shape is the invoke key's without the CloudFront step (`put-secret-value`, then force the Front
-Door to re-read it as in 5.2 step 2, which reads it at composition, `front-door-composition.ts`). Out of scope here.
+**Operator key** (`/chatticus/<environment>/thin-turn/operator-key`): a leaked key lets someone suspend or reinstate organizations. There is no
+rotation script; the manual shape is the signing key's section 5.2 without the sessions and the owners: recreate the parameter
+(`delete-parameter`, then `put-parameter --type SecureString --tier Standard --no-overwrite --value file:///dev/stdin` fed by `printf '%s'`;
+never `--overwrite`, which leaves the leaked value readable as version 1), then force the Front Door to re-read it as in 5.2 step 2 (it reads
+the key at composition, `front-door-composition.ts`). Only a human operator uses this key, so nothing else stops. SSM has no `AWSPREVIOUS`,
+so there is no overlap window: the old key stops working when the Front Door re-reads.
 
 ## 7. After containment: remove the deny
 
@@ -620,7 +633,7 @@ Cheapest sufficient action first. "Then" means in this order.
 | C | One **supervisor token** (no AWS keys) | owner routes of one computer; poll as the owner and obtain per-turn credentials for parked turns | 2.2 stop the task (the token is refused at once because the owner is no longer live). Then section 3 if credentials may already have been obtained (look for unexplained `owner_broker_issued` lines with `purpose=turn` or `supervisor_renewal` for that owner in triage: a stolen token renews the supervisor credentials while the owner is live) | one tenant restarts | operator |
 | D | One **model gateway token** | model calls of one turn | end the turn; if you cannot, 2.2 | one turn lost | operator |
 | E | A **bootstrap token** before use | one owner start | 2.2 stop that task; the generation moves on | one start retried | operator |
-| F | The **signing key** (or the right to read the secret) | everything: any token for any tenant | section 5 steps 1 to 5 (rotate, make the functions re-read, retire the old value, revoke sessions, stop all owners) | every owner stops, unpublished work is lost, every turn in flight fails | operator with `secretsmanager:PutSecretValue` |
+| F | The **signing key** (or the right to read the parameter or its history) | everything: any token for any tenant | section 5 steps 1 to 5 (recreate the parameter, make the functions re-read, confirm no old version, revoke sessions, stop all owners) | every owner stops, unpublished work is lost, every turn in flight fails | operator with `ssm:DeleteParameter` and `ssm:PutParameter` |
 | G | The **invoke key** | bypass of CloudFront on non-owner routes | `rotate-invoke-key.sh` (section 6) | minutes; customer host workers (staging, production) need a restart | operator |
 | H | **Unknown** which credential, but a session is acting from outside the task | possibly several | section 3 (both roles; 3.2 if it cannot wait for a deploy) immediately, then triage with the CloudTrail queries (9.3) while the sessions die; escalate to F if `AssumeRole` calls come from a principal other than the broker | environment-wide owner interruption | operator |
 | I | **Proof of misuse by a member** (not a leak) | not a credential problem | out of scope; use the audit trail (section 9.1) and the organization lifecycle (2.1) | | operator |
@@ -681,8 +694,8 @@ days. Before that day there is no trail and only the Event history exists: `aws 
 account holds development, staging and production, so the trail covers all three.
 
 **S3 and DynamoDB data events are not recorded, by decision (cost).** CloudTrail can tell you who was issued a session, who
-read a secret and what changed, never which snapshot objects or table items a session read. `GetSecretValue` is a management
-event and is recorded.
+read a secret and what changed, never which snapshot objects or table items a session read. `GetSecretValue` and SSM `GetParameter` are management
+events and are recorded.
 
 Query the last 90 days with `aws cloudtrail lookup-events` (below). For older events, or to read in bulk, take the bucket from
 the stack output (`aws cloudformation describe-stacks --stack-name ChatticusAuditTrail --query
@@ -696,10 +709,10 @@ Event names to look for:
 | `eventName` | Why | Suspicious when |
 | --- | --- | --- |
 | `AssumeRole` on the two roles | a session was issued; `userIdentity.arn` is the caller, `requestParameters.roleSessionName` is `supervisor-<ownerId>` or `turn-<ownerId>` | the caller is not the broker's execution role (the trust policy forbids it, so this would mean the trust policy changed); a session name with an owner id the control plane never started; a burst |
-| `GetSecretValue` on the signing key | who read the key | any principal other than the Front Door, the ComputerStarter and the broker execution roles |
-| `PutSecretValue`, `UpdateSecretVersionStage` | the key or its stages changed | not you |
+| `GetParameter` (and `GetParameters`, `GetParameterHistory`) on the signing key or operator key parameter | who read a key; CloudTrail records the parameter name and never the value | any principal other than the Front Door, the ComputerStarter and the broker execution roles for the signing key, the Front Door for the operator key; any `GetParameterHistory` at all |
+| `PutParameter`, `DeleteParameter`, `LabelParameterVersion` on those parameters | a key was created, recreated or relabelled | not you, not the creator Lambda on first deploy |
 | `PutRolePolicy`, `AttachRolePolicy`, `UpdateAssumeRolePolicy`, `DeleteRolePolicy` on the two roles | the roles' permissions or trust changed | not the deploy role, not you |
-| `UpdateFunctionConfiguration`, `UpdateFunctionCode` on the broker | its environment, including the role ARNs and the secret ARN, changed | not the deploy role |
+| `UpdateFunctionConfiguration`, `UpdateFunctionCode` on the broker | its environment, including the role ARNs and the parameter name, changed | not the deploy role |
 | `RunTask`, `StopTask` on the computers cluster | owner tasks | not the starter or you |
 
 ```sh
@@ -759,19 +772,20 @@ the environment:
       secrets, no tokens).
 - [ ] The deny is removed (section 7) and `list-role-policies` shows only the CDK policies.
 - [ ] Every suspended organization is reinstated and the members were told.
-- [ ] The leaked credential's source is found and closed (a log that printed it, a dump, an overly broad `GetSecretValue`,
+- [ ] The leaked credential's source is found and closed (a log that printed it, a dump, an overly broad `ssm:GetParameter`,
       a shared terminal). A token in a log is also a lesson for the log line: none of the owner log lines carries a token, a
       key or a credential by design (renewal contract section 13), so find what did.
 - [ ] CloudTrail was reconciled with the broker log (9.3); the first and last `AssumeRole` for each affected owner are written
       down; the span from the first to the last is the reachable window (at most 8 hours for a supervisor token).
 - [ ] The Front Door file audit records of every affected tenant were read for the window (9.1), and the ledger rows (9.2)
       for unexplained model spend; anything found is reported to the organization's owner.
-- [ ] If the key was rotated, `AWSPREVIOUS` is gone and `GetSecretValue` on the secret is limited to the Front Door,
-      the ComputerStarter and the broker (`aws iam` review of who else can read it).
+- [ ] If the key was recreated, the parameter is at version 1 and `ssm:GetParameter` on it is limited to the Front Door,
+      the ComputerStarter and the broker (`aws iam` review of who else can read it), and no principal can call `GetParameterHistory`
+      on it. The retired Secrets Manager secrets (section 0) are deleted once the deploy is verified, because they hold old key values.
 - [ ] Unpublished work lost by stopped computers was listed per tenant and the owners told.
 - [ ] A live computer turn works (10.1) and the revoked credential is dead (10.2).
 - [ ] The follow-ups are Kanbus issues. Three exist and are the gaps of this runbook: the CDK switch for the deny
-      (`chatticus-c06de6`, 3.1), the signing-key rotation script with an `AWSPREVIOUS` overlap (`chatticus-541dc7`, section 5),
+      (`chatticus-c06de6`, 3.1), the signing-key rotation script, written for SSM recreate semantics with no `AWSPREVIOUS` overlap (`chatticus-541dc7`, section 5),
       and an operator route to stop a computer (`chatticus-ebf08a`, 2.2). File the others the incident showed: S3 data events on
       the snapshot bucket if the audit gap in 9.1 hurt, and a Logs Insights saved query set for the owner lines of section 1.2.
 - [ ] This runbook was corrected for everything that surprised you, and the list in section 12 is shorter.
@@ -786,15 +800,15 @@ resolved or narrowed most of the earlier list. What is left, and what was resolv
 | U1 | The session-revoking deny does not stop the broker from issuing new sessions of the roles | Open. No deny was attached to a live role. 3.4 step 4 on a quiet moment on development, or the live proof of `chatticus-c06de6` |
 | U2 | A hand-attached inline policy survives a CDK deploy of the ControlPlane stack | Open. The synthesized roles carry no `Policies` property (checked), which is the favourable case. After the next deploy `aws iam list-role-policies` still lists `AWSRevokeOlderSessions` (or does not) |
 | U3 | An `update-function-configuration` description change recycles warm execution environments of the three functions | Open (writes). 5.4: a new `INIT_START` in each log group after the update, and a token minted under the old key being refused. `chatticus-541dc7` settles it |
-| U4 | The Front Door and the ComputerStarter keep the signing key for the container's lifetime | Resolved by reading the code: `front-door.ts` keeps `composed` in a module variable, `computer-starter.ts` keeps `cachedDependencies`; both read the secret while composing |
-| U5 | Staging and production have no owner path | Resolved: `list-secrets` shows exactly one `ModelGatewaySigningKey...` secret in the account and the staging and production ControlPlane stacks have no `OwnerCredentialBroker` resource |
+| U4 | The Front Door and the ComputerStarter keep the signing key for the container's lifetime | Resolved by reading the code: `front-door.ts` keeps `composed` in a module variable, `computer-starter.ts` keeps `cachedDependencies`; both read the parameter while composing |
+| U5 | Staging and production have no owner path | Resolved: the signing key parameter exists in development only (the staging and production names are not found) and the staging and production ControlPlane stacks have no `OwnerCredentialBroker` resource |
 | U6 | The exact message members see when a turn dies because the key rotated or the owner was lost, and the cold start time | Open. Do the rotation drill on development (5.2) with a member turn in flight, and read the web app |
 | U7 | The shape of the `AssumeRole` row on a real match, and the populated-tenant audit query projection | Open. Development has no owner log lines and no audit rows to match; run 9.1 and 9.3 after any normal computer turn on development |
 | U8 | Whether `bin/acceptance.ts` exercises a computer turn | Resolved: it does not (10.1 step 4) |
 | U9 | Whether a 401 for a bad signature precedes body validation on the owner routes | Resolved: it does; a made-up `ct1.` token and an empty body answered 401 `invalid_credential` on development (5.4) |
 | U10 | S3 and DynamoDB data events in staging and production | Resolved: data events are not recorded in any environment, by decision; management events are kept by `chatticus-audit-trail` once its stack is deployed (9.3) |
 | U11 | The reach and timing of every "after 2b" statement | Resolved: 2b is live; the page now states the 2b behaviour only. Re-read the numbers (40 minutes, 8 hours) when the constants in `host-protocol/src/supervisor.ts` change |
-| U12 | The commands of 1.2 beyond what was run | Narrowed. Ran as written on development (against the 0.1 variables): the stack lookups, the function configuration reads, `logs start-query` on the broker, the Front Door and the supervisor groups (no rows), `ecs list-tasks` (no task running), `iam simulate-principal-policy`, `simulate-role-access.ts`, the DynamoDB queries, `lookup-events`, `list-secret-version-ids`, `get-random-password`, `rotate-invoke-key.sh --dry-run`, the forged-token probe. Not run because they change something or need a live owner: 1.1 against a real leaked credential, `ecs describe-tasks --include TAGS` on a real task, 2.1 success path, 2.2, 3.2, 5.2, 7 |
+| U12 | The commands of 1.2 beyond what was run | Narrowed. Ran as written on development (against the 0.1 variables): the stack lookups, the function configuration reads, `logs start-query` on the broker, the Front Door and the supervisor groups (no rows), `ecs list-tasks` (no task running), `iam simulate-principal-policy`, `simulate-role-access.ts`, the DynamoDB queries, `lookup-events`, `describe-parameters`, `rotate-invoke-key.sh --dry-run`, the forged-token probe. Not run because they change something or need a live owner: 1.1 against a real leaked credential, `ecs describe-tasks --include TAGS` on a real task, 2.1 success path, 2.2, 3.2, 5.2, 7 |
 | U13 | A second reader following this page once | Done 2026-10-20 (the corrections above are the result). A third reader should repeat 2.2 and 3 on the first development owner that exists |
 
 Related: [Owner credential renewal](OWNER_CREDENTIAL_RENEWAL.md) 12.1 to 12.3, [Owner supervisor protocol](OWNER_SUPERVISOR_PROTOCOL.md)

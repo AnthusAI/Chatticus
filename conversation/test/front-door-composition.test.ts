@@ -21,10 +21,13 @@ const credentials = { accessKeyId: "test", secretAccessKey: "test" };
 const dynamo = new DynamoDBClient({ endpoint, region: "us-east-1", credentials, maxAttempts: 1 });
 const tableName = `front-door-composition-${randomUUID()}`;
 
+const OPERATOR_KEY_PARAMETER_NAME = "/chatticus/test/thin-turn/operator-key";
+
 const PARAMETER_VALUES: Record<string, string> = {
 	"/chatticus/test/web/cognito-user-pool-id": "us-east-1_example",
 	"/chatticus/test/web/cognito-app-client-id": "exampleclientid",
 	"/chatticus/test/integration-test/allowed-role-arn": "arn:aws:iam::111122223333:role/runner",
+	[OPERATOR_KEY_PARAMETER_NAME]: "operator-key-value",
 };
 
 function fakeParameters(values: Record<string, string>, requested: string[] = [], failures: Record<string, string> = {}) {
@@ -41,10 +44,8 @@ function fakeParameters(values: Record<string, string>, requested: string[] = []
 }
 
 const INVOKE_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:invoke-AbCdEf";
-const OPERATOR_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:operator-GhIjKl";
 const SECRET_VALUES: Record<string, string> = {
 	[INVOKE_SECRET_ARN]: "invoke-key-value",
-	[OPERATOR_SECRET_ARN]: "operator-key-value",
 };
 
 function fakeSecrets(values: Record<string, string> = SECRET_VALUES, requested: string[] = []) {
@@ -83,7 +84,7 @@ function environmentFor(overrides: Record<string, string | undefined> = {}): Rec
 		CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER: "/chatticus/test/web/cognito-user-pool-id",
 		CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER: "/chatticus/test/web/cognito-app-client-id",
 		CHATTICUS_INVOKE_KEY_SECRET_ARN: INVOKE_SECRET_ARN,
-		CHATTICUS_OPERATOR_KEY_SECRET_ARN: OPERATOR_SECRET_ARN,
+		CHATTICUS_OPERATOR_KEY_PARAMETER_NAME: OPERATOR_KEY_PARAMETER_NAME,
 		CHATTICUS_INTEGRATION_TEST_ENABLED: "true",
 		CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: "123456789012",
 		OPENAI_API_KEY: "sk-test",
@@ -106,7 +107,7 @@ describe("front door composition", () => {
 				"CHATTICUS_ENVIRONMENT",
 				"CHATTICUS_INVOKE_KEY_SECRET_ARN",
 				"CHATTICUS_MESSAGING_TABLE",
-				"CHATTICUS_OPERATOR_KEY_SECRET_ARN",
+				"CHATTICUS_OPERATOR_KEY_PARAMETER_NAME",
 				"CHATTICUS_PI_SESSIONS_BUCKET",
 				"CHATTICUS_SIGNUP_MODE",
 				"CHATTICUS_TURN_PROBES_QUEUE_URL",
@@ -126,11 +127,13 @@ describe("front door composition", () => {
 		}
 	});
 
-	it("reads the invoke key and the operator key from Secrets Manager by ARN and never from the environment", async () => {
+	it("reads the invoke key from Secrets Manager by ARN and the operator key from SSM by name, never from the environment", async () => {
 		const requested: string[] = [];
+		const requestedParameters: string[] = [];
 		const environment = environmentFor({ CHATTICUS_INVOKE_KEY: "ignored", CHATTICUS_OPERATOR_KEY: "ignored" });
-		const app = await composeFrontDoorApp(environment, clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets(SECRET_VALUES, requested)));
-		expect(requested).toEqual([INVOKE_SECRET_ARN, INVOKE_SECRET_ARN, OPERATOR_SECRET_ARN]);
+		const app = await composeFrontDoorApp(environment, clientsWith(fakeParameters(PARAMETER_VALUES, requestedParameters), fakeSecrets(SECRET_VALUES, requested)));
+		expect(requested).toEqual([INVOKE_SECRET_ARN, INVOKE_SECRET_ARN]);
+		expect(requestedParameters).toContain(OPERATOR_KEY_PARAMETER_NAME);
 		const response = await app.request("http://front-door.test/operator/orgs/nobody/enable", {
 			method: "POST",
 			headers: { "X-Chatticus-Invoke-Key": "invoke-key-value", Authorization: "Bearer operator-key-value" },
@@ -138,15 +141,21 @@ describe("front door composition", () => {
 		expect(response.status).toBe(404);
 	});
 
-	it("fails clearly when a key secret has no value", async () => {
-		for (const arn of [INVOKE_SECRET_ARN, OPERATOR_SECRET_ARN]) {
-			await expect(
-				composeFrontDoorApp(
-					environmentFor(),
-					clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets({ ...SECRET_VALUES, [arn]: "" })),
-				),
-			).rejects.toThrow(`The secret ${arn} has no value.`);
-		}
+	it("fails clearly when the invoke key secret has no value", async () => {
+		await expect(
+			composeFrontDoorApp(
+				environmentFor(),
+				clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets({ ...SECRET_VALUES, [INVOKE_SECRET_ARN]: "" })),
+			),
+		).rejects.toThrow(`The secret ${INVOKE_SECRET_ARN} has no value.`);
+	});
+
+	it("fails clearly when the operator key parameter has no value", async () => {
+		const without = { ...PARAMETER_VALUES };
+		delete without[OPERATOR_KEY_PARAMETER_NAME];
+		await expect(composeFrontDoorApp(environmentFor(), clientsWith(fakeParameters(without)))).rejects.toThrow(
+			`The SSM parameter ${OPERATOR_KEY_PARAMETER_NAME} has no value.`,
+		);
 	});
 
 	it("fails clearly when a Cognito parameter has no value", async () => {
@@ -157,16 +166,17 @@ describe("front door composition", () => {
 		);
 	});
 
-	it("reads the Cognito pool, the Cognito client and the integration role from SSM", async () => {
+	it("reads the Cognito pool, the Cognito client, the integration role and the operator key from SSM", async () => {
 		const requested: string[] = [];
 		await composeFrontDoorApp(environmentFor(), clientsWith(fakeParameters(PARAMETER_VALUES, requested)));
-		expect(requested).toEqual([
+		expect(requested.filter((name) => name !== OPERATOR_KEY_PARAMETER_NAME)).toEqual([
 			"/chatticus/test/web/cognito-user-pool-id",
 			"/chatticus/test/web/cognito-app-client-id",
 			"/chatticus/test/integration-test/allowed-role-arn",
 			"/chatticus/test/integration-test/tenant-id",
 			"/chatticus/test/integration-test/user-id",
 		]);
+		expect(requested.filter((name) => name === OPERATOR_KEY_PARAMETER_NAME)).toHaveLength(1);
 	});
 
 	const integrationNames = [
@@ -333,8 +343,8 @@ describe("front door write gate", () => {
 });
 
 describe("front door composition of the owner routes", () => {
-	const GATEWAY_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:gateway-signing-MnOpQr";
-	const secrets = fakeSecrets({ ...SECRET_VALUES, [GATEWAY_SECRET_ARN]: "gateway-signing-key-for-the-composition-test" });
+	const GATEWAY_PARAMETER_NAME = "/chatticus/test/model-gateway/signing-key";
+	const parameters = fakeParameters({ ...PARAMETER_VALUES, [GATEWAY_PARAMETER_NAME]: "gateway-signing-key-for-the-composition-test" });
 	const lambda = {
 		async send() {
 			throw new Error("the broker must not be called by an unauthenticated request");
@@ -349,8 +359,8 @@ describe("front door composition of the owner routes", () => {
 
 	it("serves the owner routes when the signing key and the broker function are set", async () => {
 		const app = await composeFrontDoorApp(
-			environmentFor({ CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: GATEWAY_SECRET_ARN, CHATTICUS_OWNER_CREDENTIAL_BROKER_FUNCTION_NAME: "owner-credential-broker" }),
-			{ ...clientsWith(fakeParameters(PARAMETER_VALUES), secrets), lambda },
+			environmentFor({ CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME: GATEWAY_PARAMETER_NAME, CHATTICUS_OWNER_CREDENTIAL_BROKER_FUNCTION_NAME: "owner-credential-broker" }),
+			{ ...clientsWith(parameters), lambda },
 		);
 		const response = await pollWithInvokeKey(app);
 		expect(response.status).toBe(403);
@@ -390,11 +400,11 @@ describe("front door composition of the owner routes", () => {
 		const composeWith = (extra: Record<string, string | undefined>) =>
 			composeFrontDoorApp(
 				environmentFor({
-					CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: GATEWAY_SECRET_ARN,
+					CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME: GATEWAY_PARAMETER_NAME,
 					CHATTICUS_OWNER_CREDENTIAL_BROKER_FUNCTION_NAME: "owner-credential-broker",
 					...extra,
 				}),
-				{ ...clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets({ ...SECRET_VALUES, [GATEWAY_SECRET_ARN]: SIGNING_KEY })), s3, lambda },
+				{ ...clientsWith(fakeParameters({ ...PARAMETER_VALUES, [GATEWAY_PARAMETER_NAME]: SIGNING_KEY })), s3, lambda },
 			);
 
 		it("lets an owner seal the overlay in the snapshot bucket when the deployment names one", async () => {
@@ -416,8 +426,8 @@ describe("front door composition of the owner routes", () => {
 
 	it("serves no owner route when the broker function is not set", async () => {
 		const app = await composeFrontDoorApp(
-			environmentFor({ CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: GATEWAY_SECRET_ARN }),
-			clientsWith(fakeParameters(PARAMETER_VALUES), secrets),
+			environmentFor({ CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME: GATEWAY_PARAMETER_NAME }),
+			clientsWith(parameters),
 		);
 		expect((await pollWithInvokeKey(app)).status).toBe(404);
 	});
