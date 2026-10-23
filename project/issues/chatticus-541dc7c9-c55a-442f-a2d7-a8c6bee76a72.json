@@ -22,10 +22,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-second-reader"
       }
+    },
+    {
+      "id": "99b1d8f2-4f34-43f3-9328-b59d116c56a5",
+      "author": "home",
+      "text": "SSM has no AWSPREVIOUS stage. After the SSM move, rotation of the generated keys is delete-parameter then put-parameter --no-overwrite (never --overwrite), and GetParameterHistory is denied to owner roles. The runbook docs/OWNER_CREDENTIAL_REVOCATION.md was updated in PR 634.",
+      "created_at": "2026-10-23T04:13:21.046759Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-followups"
+      }
     }
   ],
   "created_at": "2026-10-14T10:24:42.014819Z",
-  "updated_at": "2026-10-20T18:44:17.003756Z",
+  "updated_at": "2026-10-23T04:13:21.046783Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

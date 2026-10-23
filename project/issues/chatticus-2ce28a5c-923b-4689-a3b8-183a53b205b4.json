@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-2ce28a5c-923b-4689-a3b8-183a53b205b4",
+  "title": "Website: record the Hosted or Dedicated tier on the beta waitlist survey",
+  "description": "The Hosted and Dedicated Request access buttons on chattic.us now link to /beta?tier=hosted and /beta?tier=dedicated (private repo AnthusAI/Chattic.us-web, PR 45), but the survey form has no tier question and nothing records the value. Add one multiple-choice question (Hosted, Dedicated, Not sure) preselected from the tier query parameter, store it with the intake record, and send it as a GA4 sign_up parameter if the analytics conventions allow. This needs a survey and intake backend change in that repo. Acceptance: a lead arriving from the Dedicated button submits and the stored record says dedicated. Gherkin first.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-23T04:13:17.397140Z",
+  "updated_at": "2026-10-23T04:13:17.397170Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-followups"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
