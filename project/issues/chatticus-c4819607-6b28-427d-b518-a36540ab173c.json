@@ -12,9 +12,22 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "04d65083-8c96-4c4f-a7d9-1007d7f219a0",
+      "author": "home",
+      "text": "Owner approved; executed 2026-10-23. OLD STAGING account: scheduled for deletion with a 30-day recovery window (recovery deadline 2026-11-21): OperatorKeyD7C0C4F2-3Fvk..., InvokeKey581783BE-YvSy..., chatticus/staging/oauth/google. Verified before deleting: names and stack tags match, no Chatticus stack or Lambda exists in that account, none of its 25 stack templates reference them. LEGACY account: all seven SKIPPED under rule D2 because live references exist: InvokeKey581783BE-wdTS... (imported by stack ChatticusWeb via ChatticusThinTurn export, plus live ChatticusThinTurn Lambdas); OperatorKeyD7C0C4F2-IUHi... (resolved into CHATTICUS_OPERATOR_KEY of the live ChatticusThinTurn FrontDoor Lambda); InvokeKey581783BE-P6oU... and -YdDX... (resolved into live ThinTurnStaging and ThinTurnProduction Lambdas and stack resources); chatticus/{development,staging,production}/oauth/google (resolved by live stacks ChatticusAuth, ChatticusAuthStaging, ChatticusAuthProduction; a stack update would fail without them). These wait on the legacy stack retirement under chatticus-2e4d79; delete after those stacks are gone. Restore within the window: aws secretsmanager restore-secret --secret-id NAME --profile chatticus-staging --region us-east-1. No force-delete, no values read, nothing else touched.",
+      "created_at": "2026-10-23T04:32:56.634405Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-orphans"
+      }
+    }
+  ],
   "created_at": "2026-10-21T15:52:06.781608Z",
-  "updated_at": "2026-10-21T15:52:06.781643Z",
+  "updated_at": "2026-10-23T04:32:56.634425Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
