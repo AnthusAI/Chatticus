@@ -1,8 +1,9 @@
 import { Given, When, Then } from "@cucumber/cucumber";
+import { require as tsxRequire } from "tsx/cjs/api";
 import { strict as assert } from "node:assert";
 
 Given("a host prepares one message with a stable admission key", async function () {
-  const shared = await import("../../../chat/client/index.ts");
+  const shared = tsxRequire("../../../chat/client/index.ts", import.meta.url);
   this.postSharedMessage = shared.postChatMessage;
   this.admissionRequests = [];
   this.admissionAuthCalls = 0;
