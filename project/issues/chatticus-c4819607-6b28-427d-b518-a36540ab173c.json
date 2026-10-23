@@ -3,7 +3,7 @@
   "title": "Retire orphaned secrets in the old staging and legacy accounts",
   "description": "DELETE NOTHING WITHOUT THE OWNER'S APPROVAL. Names and last-accessed dates verified 2026-10-21 (no values read). Old staging account (no Chatticus stack exists there any more; secrets were left by RETAIN): OperatorKeyD7C0C4F2-3Fvk... (last accessed Oct 14), InvokeKey581783BE-YvSy... (Oct 14), chatticus/staging/oauth/google (Oct 14). Legacy account, Chatticus secrets still owned by stale stacks: InvokeKey581783BE-wdTS... (stack ChatticusThinTurn, Oct 1), OperatorKeyD7C0C4F2-IUHi... (ChatticusThinTurn, Sep 30), InvokeKey581783BE-P6oU... (ChatticusThinTurnStaging, Oct 2), InvokeKey581783BE-YdDX... (ChatticusThinTurnProduction, Oct 12), chatticus/development/oauth/google (Oct 1), chatticus/staging/oauth/google (Oct 2), chatticus/production/oauth/google (Oct 2). The secrets have RETAIN, so deleting their stacks does not delete them; the stacks themselves (ChatticusThinTurn*, ChatticusAuth*, ChatticusWeb, ChatticusMarketing in legacy, still UPDATE_COMPLETE or CREATE_COMPLETE) belong to the legacy retirement under chatticus-2e4d79. Do not delete other projects secrets in the legacy account (kanbus, b0rd, amplify, sierrendipity, SessionKey, GoogleOAuthSecret of AuritusBackend are not Chatticus). Method when approved: scheduled deletion with a 30-day recovery window (not force delete), after confirming no Lambda or stack in that account references the ARN. Saves 4.00 USD per month for 10 secrets.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-orphans"
       }
+    },
+    {
+      "id": "1fc3cd49-efda-4da9-9783-f685457222db",
+      "author": "home",
+      "text": "Status 2026-10-23: three old-staging secrets scheduled for deletion 2026-11-21 (restorable until then). Seven legacy secrets skipped: live legacy stacks still use them. Left: legacy half waits on retiring the legacy stacks (chatticus-2e4d79), owner decision.",
+      "created_at": "2026-10-23T13:24:40.775274Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator-wrap"
+      }
     }
   ],
   "created_at": "2026-10-21T15:52:06.781608Z",
-  "updated_at": "2026-10-23T04:32:56.634425Z",
+  "updated_at": "2026-10-23T13:24:45.007510Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
