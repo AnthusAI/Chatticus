@@ -28,16 +28,30 @@ type SynthesisResult = {
 	readonly roleLogicalIds?: { scoped: string | null; supervisor: string | null };
 };
 
-const results = new WeakMap<ChatticusWorld, SynthesisResult>();
+const SYNTHESIS_STEP_TIMEOUT_MILLISECONDS = 120_000;
 
-async function synthesize(world: ChatticusWorld, environment: string, withSwitch: boolean): Promise<void> {
+const results = new WeakMap<ChatticusWorld, SynthesisResult>();
+const synthesisByVariant = new Map<string, Promise<SynthesisResult>>();
+
+async function runHarness(environment: string, withSwitch: boolean): Promise<SynthesisResult> {
 	const { stdout } = await execFileAsync(TSX_PATH, [HARNESS_PATH, environment, withSwitch ? "with-switch" : "without-switch"], {
 		cwd: INFRA_DIRECTORY,
 		maxBuffer: 128 * 1024 * 1024,
 	});
 	const line = stdout.split("\n").find((candidate) => candidate.startsWith(RESULT_MARKER));
 	assert.ok(line, "The infra harness printed no result.");
-	results.set(world, JSON.parse(line.slice(RESULT_MARKER.length)) as SynthesisResult);
+	return JSON.parse(line.slice(RESULT_MARKER.length)) as SynthesisResult;
+}
+
+async function synthesize(world: ChatticusWorld, environment: string, withSwitch: boolean): Promise<void> {
+	const variant = `${environment}:${withSwitch}`;
+	let synthesis = synthesisByVariant.get(variant);
+	if (!synthesis) {
+		synthesis = runHarness(environment, withSwitch);
+		synthesisByVariant.set(variant, synthesis);
+		synthesis.catch(() => synthesisByVariant.delete(variant));
+	}
+	results.set(world, await synthesis);
 }
 
 function synthesized(world: ChatticusWorld): SynthesisResult {
@@ -50,17 +64,17 @@ function actionsOf(statement: Statement): string[] {
 	return Array.isArray(statement.Action) ? statement.Action : [statement.Action];
 }
 
-Given("the synthesized control plane stack", async function (this: ChatticusWorld) {
+Given("the synthesized control plane stack", { timeout: SYNTHESIS_STEP_TIMEOUT_MILLISECONDS }, async function (this: ChatticusWorld) {
 	await synthesize(this, "development", false);
 	assert.equal(synthesized(this).outcome, "synthesized", synthesized(this).message);
 });
 
-Given("the control plane stack synthesized for {word}", async function (this: ChatticusWorld, environment: string) {
+Given("the control plane stack synthesized for {word}", { timeout: SYNTHESIS_STEP_TIMEOUT_MILLISECONDS }, async function (this: ChatticusWorld, environment: string) {
 	await synthesize(this, environment, false);
 	assert.equal(synthesized(this).outcome, "synthesized", synthesized(this).message);
 });
 
-Given("the control plane stack synthesized for {word} with the broker fault switch set", async function (this: ChatticusWorld, environment: string) {
+Given("the control plane stack synthesized for {word} with the broker fault switch set", { timeout: SYNTHESIS_STEP_TIMEOUT_MILLISECONDS }, async function (this: ChatticusWorld, environment: string) {
 	await synthesize(this, environment, true);
 });
 
