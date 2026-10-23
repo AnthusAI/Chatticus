@@ -1,0 +1,5 @@
+.chatticus-chat { display: flex; min-height: 0; flex: 1; flex-direction: column; isolation: isolate; color: var(--chatticus-chat-foreground, CanvasText); }
+.chatticus-chat *, .chatticus-chat ::before, .chatticus-chat ::after { box-sizing: border-box; }
+.chatticus-chat button, .chatticus-chat textarea { font: inherit; border: 0; }
+.chatticus-chat :where(p, h1, h2, h3, h4, h5, h6, pre, ul, ol, blockquote) { margin: 0; }
+@tailwind utilities;

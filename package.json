@@ -16,7 +16,8 @@
     "typecheck": "npm run typecheck --workspace=web",
     "dev": "npm run dev --workspace=web",
     "synth": "npm run synth --workspace=infra",
-    "moto:start": "docker run --rm -p 5555:5000 motoserver/moto:5.2.3"
+    "moto:start": "docker run --rm -p 5555:5000 motoserver/moto:5.2.3",
+    "build:chat-styles": "node chat/build-styles.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -35,7 +36,10 @@
     "./lib/utils": "./web/lib/utils.ts",
     "./lib/ogImage": "./web/lib/ogImage.tsx",
     "./styles/shared.css": "./web/styles/shared.css",
-    "./tailwind-preset": "./web/tailwind-preset.ts"
+    "./tailwind-preset": "./web/tailwind-preset.ts",
+    "./chat-client": "./chat/client/index.ts",
+    "./chat-react": "./chat/react/index.ts",
+    "./chat.css": "./chat/styles.css"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.11",
@@ -45,7 +49,10 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "@assistant-ui/react": "0.15.19",
+    "react-markdown": "9.1.0",
+    "remark-gfm": "4.0.1"
   },
   "devDependencies": {
     "@semantic-release/changelog": "7.0.0",

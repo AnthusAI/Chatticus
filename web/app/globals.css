@@ -239,3 +239,13 @@
     padding: 0.75rem;
   }
 }
+
+.chatticus-chat {
+  --chatticus-chat-surface: var(--surface-0);
+  --chatticus-chat-raised: var(--surface-1);
+  --chatticus-chat-foreground: var(--surface-foreground);
+  --chatticus-chat-accent: var(--cobalt);
+  --chatticus-chat-error: var(--clay);
+  --chatticus-chat-action: var(--signal);
+  --chatticus-chat-action-text: var(--ink);
+}
