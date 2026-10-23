@@ -3,7 +3,7 @@
   "title": "Embed chat presentation and turn replay through shared packages",
   "description": "As an application developer, I want to consume Chatticus chat presentation and turn-stream handling as dependencies so that embedded chat shares one implementation.\n\nFeature: Embed shared Chatticus chat\n  Scenario: Render and send in another application\n    Given a standalone application supplies messages, state and send callbacks\n    When its editor sends a message through the shared chat surface\n    Then the host receives the message once\n    And the surface renders host-supplied messages without Chatticus login, roster or computer state\n  Scenario: Replay one observed turn\n    Given a transport disconnects after a stored event\n    When the shared client reconnects\n    Then it requests events after the last seen sequence\n    And duplicate sequences are not delivered twice\n  Scenario: Preserve the Chatticus application\n    Given the product consumes its shared chat dependencies\n    When a member reads or sends a message\n    Then its existing chat and activity behavior remains available\n\nLinks: Papyrus PPY-a438d0 and PPY-7962e3. Server Python migration is a later independent phase. No deployment or package publication in this task.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -25,10 +25,40 @@
           "reasoning_effort": "medium"
         }
       }
+    },
+    {
+      "id": "ed1e8526-0a17-4e13-a676-4adc37e02964",
+      "author": "home",
+      "text": "Implementation resumed on BlackbookM1 after user direction. Feature branch feature/chatticus-080b0e-shared-chat extends the existing root UI-kit exports with chat-client, chat-react and scoped styles; Papyrus will pin the implementation commit. No Python migration, workers, registry publication, merge or deployment. Preserve planning records here; product changes remain in the separate feature branch. Initial standalone-consumer and replay Gherkin scenarios fail because the public chat exports do not yet exist.",
+      "created_at": "2026-10-23T18:45:43.680987Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "Shared chat extraction",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
+    },
+    {
+      "id": "351ccea5-632b-49ef-9106-d61085b78fe3",
+      "author": "home",
+      "text": "Shared chat extraction pushed at f94ece3f; draft implementation https://github.com/AnthusAI/Chatticus/pull/636. Existing root UI-kit gains chat-react, chat-client and scoped chat.css exports; workspace consumes them through its host adapter. Papyrus draft https://github.com/AnthusAI/Papyrus/pull/662 pins that exact commit. BlackbookM1: 396 web tests, 3 Gherkin scenarios / 12 steps, web/conversation typechecks, relevant lint and web production build pass. Papyrus exact-archive consumer: 2 browser scenarios / 7 steps, typecheck, lint, consumer transpilation and production build pass. Backend Moto/live AWS/model flows and private marketing consumer not tested. No Python migration; existing TypeScript Pi Durable remains unchanged. Server extraction, permissions, isolation and continuation work remain later gates. Story remains in_progress pending review/landing. Board records stay on handoff branch to respect explicit no develop/main push. No merge, deployment or registry publication performed.",
+      "created_at": "2026-10-23T19:11:27.600774Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "Shared chat integration",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
     }
   ],
   "created_at": "2026-10-23T18:30:00.865926Z",
-  "updated_at": "2026-10-23T18:37:50.592362Z",
+  "updated_at": "2026-10-23T19:11:27.600815Z",
   "closed_at": null,
   "agent": {
     "platform": "codex",
