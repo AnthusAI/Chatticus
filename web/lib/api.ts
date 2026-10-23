@@ -1,5 +1,5 @@
-import type { Message, Turn } from "../../chat/client";
-export type { Message, Turn, TurnEvent, ToolActivityItem } from "../../chat/client";
+import { postChatMessage, type Message, type Turn, type PostMessageResponse } from "../../chat/client";
+export type { Message, Turn, TurnEvent, ToolActivityItem, PostMessageResponse } from "../../chat/client";
 import { apiBase } from "./config";
 import { authorizedHeaders } from "./api-auth";
 import { orgApiPath } from "./paths";
@@ -26,11 +26,6 @@ export type Channel = {
   name: string | null;
   participants: Array<{ kind: "human" | "bot"; actor_id: string }>;
   next_seq?: number;
-};
-
-export type PostMessageResponse = {
-  message: Message;
-  turn_id: string | null;
 };
 
 export type Computer = {
@@ -170,28 +165,23 @@ export async function getComputer(org: ActiveOrg): Promise<Computer> {
   return readJson<Computer>(response);
 }
 
+/** A retry of the same submission may supply its original admission key. */
 export async function postMessage(
   org: ActiveOrg,
   channelId: string,
   body: string,
   addressedToBotId: string,
+  idempotencyKey: string = crypto.randomUUID(),
 ): Promise<PostMessageResponse> {
-  const response = await fetch(
-    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
-    {
-      method: "POST",
-      headers: await authorizedHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        author_kind: "human",
-        author_id: org.userId,
-        body,
-        addressed_to_bot_id: addressedToBotId,
-      }),
-    },
-  );
-  return readJson<PostMessageResponse>(response);
+  return postChatMessage({
+    url: `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
+    headers: () => authorizedHeaders(),
+  }, {
+    author_kind: "human",
+    author_id: org.userId,
+    body,
+    addressed_to_bot_id: addressedToBotId,
+  }, idempotencyKey);
 }
 
 export type VoiceMessageResponse = {
