@@ -7,3 +7,6 @@ export type { TurnStreamHandlers, TurnStreamTransport } from "./sse";
 export * from "./turn-activity";
 export * from "./committed-activity";
 export * from "./turn-presentation";
+export { postChatMessage } from "./admission";
+export type { ChatMessageSubmission, PostMessageResponse } from "./admission";
+export type { ChatHttpTransport } from "./transport";

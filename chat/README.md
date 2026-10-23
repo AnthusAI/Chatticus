@@ -52,3 +52,15 @@ node --import tsx ../node_modules/@cucumber/cucumber/bin/cucumber.js --config cu
 This increment does not extract the durable server runner, change backend
 permissions or migrate Papyrus transcripts. Those remain separate gates in the
 reviewed plan (PPY-de11ec / PPY-a438d0 / chatticus-080b0e).
+
+Message admission is also available through `postChatMessage(transport, submission,
+idempotencyKey)`. The host supplies the exact channel URL and wire submission,
+creates one key per logical message, and retains that key with the unchanged body
+if it retries a lost response. Authorization headers are resolved on each call;
+failures propagate without a request or anonymous fallback. The helper never
+retries automatically. The existing server enforces idempotency and author/channel
+access; the client is not an authorization boundary. Chatticus's `postMessage`
+adapter uses this shared implementation and accepts an optional original key for
+an explicit retry. Its current composer does not automatically retry failed sends.
+Papyrus can adopt admission/SSE only after its shared server and identity adapter
+are implemented; its current AppSync writer remains unchanged.

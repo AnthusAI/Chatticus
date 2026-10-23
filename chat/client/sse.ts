@@ -1,4 +1,5 @@
 import type { TurnEvent } from "./protocol";
+import type { ChatHttpTransport } from "./transport";
 import { isTerminalTurnEvent, parseSseFrames } from "./sse-parse";
 
 /** Callbacks for one observed turn; closing the observer does not cancel server work. */
@@ -9,11 +10,7 @@ export type TurnStreamHandlers = {
 };
 
 /** The host owns the endpoint and fresh authentication headers for every attempt. */
-export type TurnStreamTransport = {
-  url: string;
-  headers: () => Promise<Record<string, string>>;
-  fetch?: typeof globalThis.fetch;
-};
+export type TurnStreamTransport = ChatHttpTransport;
 
 /** Observe persisted events from one turn through an authenticated HTTP response. */
 export function openTurnEventStream(transport: TurnStreamTransport, handlers: TurnStreamHandlers, lastEventId?: number): () => void {
