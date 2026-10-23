@@ -10,9 +10,25 @@
   "parent": "chatticus-abde29c3-4496-429c-a275-2acf2969e15f",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5440052f-b9db-4a94-acb9-3b530f3dedda",
+      "author": "home",
+      "text": "Implementation paused at user request. Planning is filed in docs/papyrus-chat-integration-handoff.md and the Papyrus docs/PPY-eeb023-chatticus-chat-plan branch. No production code was changed. UI/client extraction is independent of server language; later server work should reuse existing TypeScript Pi Durable, not assume a Python migration. Coordinate papyrus-console-shell changes with the loading UX owner. No merge, package publication, deployment or security-access changes are authorized. Planning records remain open on a non-deploying handoff branch because pushing develop would trigger deployments.",
+      "created_at": "2026-10-23T18:37:50.592330Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "Papyrus chat planning handoff",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
+    }
+  ],
   "created_at": "2026-10-23T18:30:00.865926Z",
-  "updated_at": "2026-10-23T18:30:00.865960Z",
+  "updated_at": "2026-10-23T18:37:50.592362Z",
   "closed_at": null,
   "agent": {
     "platform": "codex",
