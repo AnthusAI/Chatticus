@@ -1,4 +1,5 @@
 import { Given, When, Then } from "@cucumber/cucumber";
+import { require as tsxRequire } from "tsx/cjs/api";
 import { strict as assert } from "node:assert";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -16,7 +17,7 @@ Then("no Chatticus account, roster or computer is required", function () {
 });
 
 Given("an application observes stored events for one turn", async function () {
-  const { createResumableTurnStream } = await import("../../../chat/client/index.ts");
+  const { createResumableTurnStream } = tsxRequire("../../../chat/client/index.ts", import.meta.url);
   this.createEmbeddedStream = createResumableTurnStream;
   this.embeddedEvents = [];
   this.embeddedCursors = [];
@@ -55,7 +56,7 @@ Then("replayed events are delivered once", function () {
 });
 
 Given("the host cannot provide current authentication headers", async function () {
-  const { openTurnEventStream } = await import("../../../chat/client/index.ts");
+  const { openTurnEventStream } = tsxRequire("../../../chat/client/index.ts", import.meta.url);
   this.openEmbeddedStream = openTurnEventStream;
   this.embeddedFetchCalls = 0;
 });
