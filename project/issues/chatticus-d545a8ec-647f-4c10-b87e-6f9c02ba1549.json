@@ -1,0 +1,44 @@
+{
+  "id": "chatticus-d545a8ec-647f-4c10-b87e-6f9c02ba1549",
+  "title": "Share idempotent message admission transport",
+  "description": "As an application host, I want shared message admission with a caller-owned stable request key and fresh authorization so that retrying a lost response reuses server admission without coupling to product login.\n\nFeature: Shared message admission\n  Scenario: Retry a lost admission response\n    Given a host prepares one message and a stable key\n    When it retries after a lost response\n    Then both requests carry that key and fresh authorization\n    And the host receives the canonical message and turn\n  Scenario: Refuse expired authorization\n    Given the host cannot authorize\n    When it submits a message\n    Then no request is sent\n  Scenario: Surface server refusal\n    Given the server refuses a request\n    When the host submits\n    Then the refusal is surfaced without fallback or automatic retry\n  Scenario: Require a stable key\n    Given a host prepares a message without a stable key\n    When it submits\n    Then the missing key is reported before authorization or network access\n\nScope: shared client transport and Chatticus adapter only. Papyrus endpoint adoption waits for the shared server phase. No new server, permissions, runtime switch, deployment or package publication. Completion requires review and landing, not merely local tests.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-abde29c3-4496-429c-a275-2acf2969e15f",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "a7975a22-d03b-4e13-b0d2-1cf7f995960f",
+      "author": "home",
+      "text": "Implemented on BlackbookM1: draft https://github.com/AnthusAI/Chatticus/pull/637 at 01de9d828c8214f69e53943d20321dcdbf9bdb1e, stacked on unmerged extraction PR636. Shared postChatMessage uses caller-owned stable key, fresh host auth, no automatic retry/fallback; Chatticus postMessage consumes it and optionally accepts an original retry key. Expected red states observed before implementation. Four admission scenarios / 15 steps pass, three prior embedded scenarios / 12 steps pass, 396 web tests, web/conversation typechecks, relevant lint and production build pass. Full feature dry-run resolves 2081 scenarios without undefined/ambiguous steps. Client fixture tests do not prove backend idempotency or live identity. Papyrus PR662 remains pinned to PR636 and cannot adopt this helper until a shared endpoint exists. CI running at exact head; no merge, publication, deployment or access changes.",
+      "created_at": "2026-10-23T19:22:47.932477Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "codex",
+        "model": "gpt-6.1-sol",
+        "name": "Shared chat admission",
+        "settings": {
+          "reasoning_effort": "medium"
+        }
+      }
+    }
+  ],
+  "created_at": "2026-10-23T19:15:35.968226Z",
+  "updated_at": "2026-10-23T19:23:11.918801Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Shared chat admission",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
