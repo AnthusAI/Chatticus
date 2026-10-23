@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-080b0e3b-a4a8-465f-afdb-2f8d8018bdcc",
+  "title": "Embed chat presentation and turn replay through shared packages",
+  "description": "As an application developer, I want to consume Chatticus chat presentation and turn-stream handling as dependencies so that embedded chat shares one implementation.\n\nFeature: Embed shared Chatticus chat\n  Scenario: Render and send in another application\n    Given a standalone application supplies messages, state and send callbacks\n    When its editor sends a message through the shared chat surface\n    Then the host receives the message once\n    And the surface renders host-supplied messages without Chatticus login, roster or computer state\n  Scenario: Replay one observed turn\n    Given a transport disconnects after a stored event\n    When the shared client reconnects\n    Then it requests events after the last seen sequence\n    And duplicate sequences are not delivered twice\n  Scenario: Preserve the Chatticus application\n    Given the product consumes its shared chat dependencies\n    When a member reads or sends a message\n    Then its existing chat and activity behavior remains available\n\nLinks: Papyrus PPY-a438d0 and PPY-7962e3. Server Python migration is a later independent phase. No deployment or package publication in this task.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-abde29c3-4496-429c-a275-2acf2969e15f",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-23T18:30:00.865926Z",
+  "updated_at": "2026-10-23T18:30:00.865960Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "codex",
+    "model": "gpt-6.1-sol",
+    "name": "Papyrus chat integration",
+    "settings": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
