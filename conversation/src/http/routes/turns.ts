@@ -11,6 +11,7 @@ import {
 	type TurnEvent,
 } from "../../domain/turns.ts";
 import { pythonRepr } from "../../domain/bots.ts";
+import { assertHumanParticipantOfChannel } from "../acting-user.ts";
 import { ChannelNotFoundError, TurnAccessDeniedError, TurnNotFoundError } from "../errors.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
 
@@ -150,10 +151,14 @@ export async function readableTurn(c: Context, deps: TurnRouteDependencies): Pro
 	if (isRefusal(principal)) {
 		return principal;
 	}
-	const tenantId = pathParameter(c, "tenant_id");
+	const tenantId = deps.tenantIdForPrincipal?.(principal) ?? pathParameter(c, "tenant_id");
+	if (!tenantId.trim()) throw new Error("The host principal did not provide a tenant scope.");
 	const turnId = pathParameter(c, "turn_id");
 	try {
-		return await getTurn(deps.turns, tenantId, turnId);
+		const turn = await getTurn(deps.turns, tenantId, turnId);
+		const channel = await getChannel(tenantId, turn.channelId, deps);
+		assertHumanParticipantOfChannel(principal, channel);
+		return turn;
 	} catch (error) {
 		if (error instanceof TurnNotFoundError) {
 			throw new TurnAccessDeniedError(`Tenant ${pythonRepr(tenantId)} cannot read turn ${pythonRepr(turnId)}.`);

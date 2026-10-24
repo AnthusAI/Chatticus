@@ -9,6 +9,20 @@ import type { LiveFileOperation, LiveFileOperationStatus } from "./codecs/live-f
 import type { Channel, ChannelMessageRecord } from "../domain/channels.ts";
 import type { Identity, Organization, Membership, Invitation, OrganizationStatus } from "../domain/organizations.ts";
 
+export type PostIdempotencyReservation = {
+	ownerId: string;
+	messageId: string;
+	createdAt: Date;
+	leaseExpiresAt: Date;
+	seq: number | null;
+};
+
+export type PostIdempotencyReservationResult =
+	| { state: "owner"; reservation: PostIdempotencyReservation }
+	| { state: "busy" }
+	| { state: "conflict" }
+	| { state: "completed"; result: { message: ChannelMessageRecord; turnId: string | null } };
+
 /** MessagingStore provides storage operations for organizations, identities, and memberships. */
 export interface MessagingStore {
 	getIdentityByEmail(email: string): Promise<Identity | null>;
@@ -73,6 +87,25 @@ export interface MessagingStore {
 		message: ChannelMessageRecord,
 		turnId: string | null,
 	): Promise<void>;
+	/** Atomically claim or inspect one durable message admission reservation. */
+	reservePostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		fingerprint: string,
+		candidate: Omit<PostIdempotencyReservation, "seq">,
+		now: Date,
+	): Promise<PostIdempotencyReservationResult>;
+	/** Persist the sequence once so a reclaimed reservation can repeat downstream writes idempotently. */
+	setPostIdempotencySequence(tenantId: string, idempotencyKey: string, ownerId: string, seq: number, now: Date): Promise<number | null>;
+	/** Store the finished result under the reservation owner fence. */
+	completePostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		ownerId: string,
+		message: ChannelMessageRecord,
+		turnId: string | null,
+		now: Date,
+	): Promise<boolean>;
 	/** Committed messages of one channel with a sequence greater than afterSeq. */
 	listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]>;
 	/** Persist one committed channel message. */

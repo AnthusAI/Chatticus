@@ -95,6 +95,12 @@ export class IdempotencyKeyReuseError extends DomainError {
 	}
 }
 
+export class IdempotencyReservationBusyError extends DomainError {
+	constructor(message: string) {
+		super("idempotency_reservation_busy", message);
+	}
+}
+
 export class TurnNotFoundError extends DomainError {
 	constructor(message: string) {
 		super("turn_not_found", message);
@@ -404,6 +410,9 @@ export function statusFor(error: unknown): number {
 		return 409;
 	}
 	if (error instanceof IdempotencyKeyReuseError) {
+		return 409;
+	}
+	if (error instanceof IdempotencyReservationBusyError) {
 		return 409;
 	}
 	if (error instanceof StaleAttemptError ||

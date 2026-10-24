@@ -1,10 +1,10 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { ChannelListingDependencies } from "../pi/channel-listing.ts";
 import type { ToolActivityItem } from "../pi/message-activity.ts";
 import { listChannelMessages as listChannelSessionMessages } from "../pi/channel-listing.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxItem, type MailboxStore } from "../pi/mailbox.ts";
 import type { Clock, IdSource } from "../http/app.ts";
-import { ActorNotInChannelError, IdempotencyKeyReuseError } from "../http/errors.ts";
+import { ActorNotInChannelError, IdempotencyKeyReuseError, IdempotencyReservationBusyError } from "../http/errors.ts";
 import { householdConversationGrant } from "../policy/capability-policy.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { pythonRepr } from "./bots.ts";
@@ -56,6 +56,15 @@ function scopedPostIdempotencyKey(request: PostMessageRequest): string | null {
 	if (request.idempotencyKey === null) return null;
 	return createHash("sha256")
 		.update(JSON.stringify([request.tenantId, request.channelId, request.authorKind, request.authorId, request.idempotencyKey]))
+		.digest("hex");
+}
+
+function postRequestFingerprint(request: PostMessageRequest): string {
+	return createHash("sha256")
+		.update(JSON.stringify([
+			request.tenantId, request.channelId, request.authorKind, request.authorId,
+			request.body, request.addressedToBotId, request.enqueueTurn !== false,
+		]))
 		.digest("hex");
 }
 
@@ -145,30 +154,59 @@ async function admitAddressedMessage(
  */
 export async function postMessage(deps: MessageDependencies, request: PostMessageRequest): Promise<PostMessageResult> {
 	const idempotencyKey = scopedPostIdempotencyKey(request);
-	if (idempotencyKey !== null) {
-		const cached = await deps.store.getPostIdempotency(request.tenantId, idempotencyKey);
-		if (cached !== null) {
-			if (
-				cached.message.channelId !== request.channelId ||
-				cached.message.authorKind !== request.authorKind ||
-				cached.message.authorId !== request.authorId ||
-				cached.message.body !== request.body ||
-				cached.message.addressedToBotId !== request.addressedToBotId
-			) {
-				throw new IdempotencyKeyReuseError("The idempotency key was already used with a different message payload.");
-			}
-			return cached;
-		}
-	}
 	const channel = await requireChannelTenant(request.channelId, request.tenantId, deps);
 	requireParticipant(channel, request.authorKind, request.authorId);
 	if (request.addressedToBotId !== null) {
 		requireParticipant(channel, "bot", request.addressedToBotId);
 	}
 	deps.faults?.maybeCrash("message_commit", "before");
-	const seq = await allocateSeq(deps.mailbox, channel.tenantId, channel.channelId);
+	let reservation: { ownerId: string; messageId: string; createdAt: Date; leaseExpiresAt: Date; seq: number | null } | null = null;
+	if (idempotencyKey !== null) {
+		const candidate = {
+			ownerId: randomUUID(),
+			messageId: deps.ids.next(),
+			createdAt: deps.clock.now(),
+			leaseExpiresAt: new Date(deps.clock.now().getTime() + 30_000),
+		};
+		for (let attempt = 0; attempt < 100; attempt += 1) {
+			const result = await deps.store.reservePostIdempotency(
+				request.tenantId,
+				idempotencyKey,
+				postRequestFingerprint(request),
+				candidate,
+				deps.clock.now(),
+			);
+			if (result.state === "conflict") {
+				throw new IdempotencyKeyReuseError("The idempotency key was already used with a different message payload.");
+			}
+			if (result.state === "completed") return result.result;
+			if (result.state === "owner") {
+				reservation = result.reservation;
+				break;
+			}
+			await sleep(10);
+		}
+		if (reservation === null) {
+			throw new IdempotencyReservationBusyError("The message request is already being processed; retry with the same key.");
+		}
+	}
+	const allocatedSeq = reservation?.seq ?? await allocateSeq(deps.mailbox, channel.tenantId, channel.channelId);
+	let seq = allocatedSeq;
+	if (reservation !== null) {
+		const savedSeq = await deps.store.setPostIdempotencySequence(
+			request.tenantId,
+			idempotencyKey!,
+			reservation.ownerId,
+			allocatedSeq,
+			deps.clock.now(),
+		);
+		if (savedSeq === null) {
+			throw new IdempotencyReservationBusyError("The message reservation was reclaimed before its sequence was saved.");
+		}
+		seq = savedSeq;
+	}
 	const message: Message = {
-		messageId: deps.ids.next(),
+		messageId: reservation?.messageId ?? deps.ids.next(),
 		channelId: channel.channelId,
 		tenantId: channel.tenantId,
 		seq,
@@ -176,7 +214,7 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 		authorId: request.authorId,
 		body: request.body,
 		addressedToBotId: request.addressedToBotId,
-		createdAt: deps.clock.now(),
+		createdAt: reservation?.createdAt ?? deps.clock.now(),
 	};
 	const itemFor = (botId: string): MailboxItem => ({
 		tenantId: channel.tenantId,
@@ -223,7 +261,10 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 		}
 	}
 	if (idempotencyKey !== null) {
-		await deps.store.putPostIdempotency(request.tenantId, idempotencyKey, message, turnId);
+		const completed = await deps.store.completePostIdempotency(
+			request.tenantId, idempotencyKey, reservation!.ownerId, message, turnId, deps.clock.now(),
+		);
+		if (!completed) throw new IdempotencyReservationBusyError("The message reservation expired before completion; retry with the same key.");
 	}
 	return { message, turnId };
 }

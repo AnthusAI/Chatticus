@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { GetItemCommand, PutItemCommand, QueryCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { InMemoryMessagingStore } from "../features-support/in-memory-messaging-store.ts";
 import { createEmbeddedChatApp } from "../src/http/embedded-chat-app.ts";
 import type { MessageDependencies } from "../src/domain/messages.ts";
 import type { Principal } from "../src/auth/principal.ts";
+import type { Turn } from "../src/domain/turns.ts";
 
 const now = new Date("2026-01-01T00:00:00.000Z");
 
@@ -12,6 +14,7 @@ function fakeDynamo() {
 	const sequences = new Map<string, number>();
 	return {
 		items,
+		sequences,
 		client: {
 			async send(command: { constructor: { name: string }; input: Record<string, any> }): Promise<any> {
 				if (command instanceof UpdateItemCommand) {
@@ -67,6 +70,12 @@ function setup() {
 		organizationStatus: "enabled",
 		role: "member",
 	};
+	const turn: Turn = {
+		turnId: "turn-private-a", tenantId, channelId, botId: "editorial-assistant", status: "completed",
+		promptMessageSeq: null, promptAuthorId: editorId, attemptId: null, attempt: 0, claimedBy: null,
+		leaseExpiresAt: null, deadlineAt: null, recoveryAttempts: 0, waitingFor: null, waitingSince: null,
+		logicalEnqueueIds: [], pendingComputerTool: null, storageFence: null, nextEventSeq: 1, terminalReason: null, messageSeq: null,
+	};
 	const messages: MessageDependencies = {
 		store,
 		ids: { next: () => `generated-${++id}` },
@@ -86,10 +95,19 @@ function setup() {
 	const app = createEmbeddedChatApp({
 		clock: { now: () => now },
 		messages,
-		turns: { store: {} as never, clock: { now: () => now }, ids: { next: () => `turn-${++id}` } },
-		resolvePrincipal: async (request) => request.headers.get("x-test-editor") === editorId ? principal : null,
+		turns: {
+			store: { async getTurn(scope: string, requestedId: string) { return scope === tenantId && requestedId === turn.turnId ? turn : null; }, async listEvents() { return []; } } as never,
+			clock: { now: () => now }, ids: { next: () => `turn-${++id}` },
+		},
+		resolvePrincipal: async (request) => {
+			const identity = request.headers.get("x-test-editor");
+			if (identity === editorId) return principal;
+			if (identity === "same-tenant-nonparticipant") return { ...principal, userId: identity };
+			if (identity === "editor-b") return { ...principal, tenantId: `${tenantId}-other`, userId: identity };
+			return null;
+		},
 	});
-	return { app, channelId, editorId, tenantId, store };
+	return { app, channelId, editorId, tenantId, store, turnId: turn.turnId };
 }
 
 describe("embedded chat server core", () => {
@@ -160,5 +178,58 @@ describe("embedded chat server core", () => {
 			headers: { "x-test-editor": "site-person-editor-b" },
 		});
 		expect(foreignRead.status).toBe(401);
+	});
+
+	it("atomically collapses concurrent identical sends and rejects enqueue flag conflicts", async () => {
+		const { app, channelId, editorId } = setup();
+		const send = (enqueueTurn: boolean) => app.request(`/channels/${channelId}/messages`, {
+			method: "POST",
+			headers: { "content-type": "application/json", "x-test-editor": editorId, "idempotency-key": "concurrent-key" },
+			body: JSON.stringify({ author_kind: "human", author_id: editorId, body: "Concurrent message", addressed_to_bot_id: null, enqueue_turn: enqueueTurn }),
+		});
+		const [left, right] = await Promise.all([send(true), send(true)]);
+		expect(left.status).toBe(200);
+		expect(right.status).toBe(200);
+		const [leftBody, rightBody] = await Promise.all([
+			left.json() as Promise<{ message: { message_id: string } }>,
+			right.json() as Promise<{ message: { message_id: string } }>,
+		]);
+		expect(leftBody.message.message_id).toBe(rightBody.message.message_id);
+		const conflict = await send(false);
+		expect(conflict.status).toBe(409);
+	});
+
+	it("recovers an expired interrupted reservation using its stable message id and sequence", async () => {
+		const { app, channelId, editorId, tenantId, store } = setup();
+		const key = createHash("sha256").update(JSON.stringify([tenantId, channelId, "human", editorId, "recovery-key"])).digest("hex");
+		const fingerprint = createHash("sha256").update(JSON.stringify([tenantId, channelId, "human", editorId, "Recovered message", null, true])).digest("hex");
+		const createdAt = new Date(now.getTime() - 60_000);
+		const initial = await store.reservePostIdempotency(tenantId, key, fingerprint, {
+			ownerId: "interrupted-owner", messageId: "stable-recovery-message", createdAt,
+			leaseExpiresAt: new Date(now.getTime() - 30_000),
+		}, new Date(now.getTime() - 60_000));
+		expect(initial.state).toBe("owner");
+		if (initial.state !== "owner") throw new Error("test reservation was not acquired");
+		await store.setPostIdempotencySequence(tenantId, key, initial.reservation.ownerId, 42, new Date(now.getTime() - 45_000));
+		const response = await app.request(`/channels/${channelId}/messages`, {
+			method: "POST",
+			headers: { "content-type": "application/json", "x-test-editor": editorId, "idempotency-key": "recovery-key" },
+			body: JSON.stringify({ author_kind: "human", author_id: editorId, body: "Recovered message", addressed_to_bot_id: null }),
+		});
+		expect(response.status).toBe(200);
+		const body = await response.json() as { message: { message_id: string; seq: number } };
+		expect(body.message).toMatchObject({ message_id: "stable-recovery-message", seq: 42 });
+	});
+
+	it("uses host scope and participant membership for turn events and streams", async () => {
+		const { app, editorId, turnId } = setup();
+		for (const endpoint of [`/turns/${turnId}/events`, `/turns/${turnId}/stream`]) {
+			const own = await app.request(endpoint, { headers: { "x-test-editor": editorId } });
+			expect(own.status).toBe(200);
+			const sameTenantNonparticipant = await app.request(endpoint, { headers: { "x-test-editor": "same-tenant-nonparticipant" } });
+			expect(sameTenantNonparticipant.status).toBe(403);
+			const otherTenant = await app.request(endpoint, { headers: { "x-test-editor": "editor-b" } });
+			expect(otherTenant.status).toBe(403);
+		}
 	});
 });
