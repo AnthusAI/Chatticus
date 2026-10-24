@@ -119,6 +119,11 @@ async function admitAddressedMessage(
 			continue;
 		}
 		const turnId = options.reservedTurnId ?? deps.ids.next();
+		// Install the durable recovery wake-up before committing a turn that needs it.
+		await deps.turnProbes.send(
+			{ tenantId: channel.tenantId, turnId, kind: "deadline", expectAttempt: 0 },
+			TURN_DEADLINE_SECONDS,
+		);
 		const started = await deps.turns.startTurn({
 			tenantId: channel.tenantId,
 			channelId: channel.channelId,
@@ -134,10 +139,6 @@ async function admitAddressedMessage(
 			...(options.fence === undefined ? {} : { reservationFence: { ...options.fence, now: deps.clock.now() } }),
 		});
 		if (started) {
-			await deps.turnProbes.send(
-				{ tenantId: channel.tenantId, turnId, kind: "deadline", expectAttempt: 0 },
-				TURN_DEADLINE_SECONDS,
-			);
 			deps.faults?.maybeCrash("message_commit", "after");
 			return { turnId, started: true, kind: "started" };
 		}

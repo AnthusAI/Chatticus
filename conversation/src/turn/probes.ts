@@ -59,6 +59,9 @@ export type LogicalEnqueueDependencies = {
 
 /**
  * Publish a run job at most once per `enqueueId`: the identifier is recorded on the turn first, then the job is sent.
+ * If the process fails after recording but before a queue delivery is known, the preinstalled deadline probe starts a
+ * recovery attempt with a distinct recovery enqueue ID. Initial turn admission installs that probe before committing
+ * the turn so the recorded-but-unpublished initial ID cannot leave an active turn without a recovery wake-up.
  *
  * @returns false when the identifier was already recorded and nothing was sent.
  */

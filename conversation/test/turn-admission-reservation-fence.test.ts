@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	GetItemCommand,
+	InternalServerError,
 	TransactionCanceledException,
 	TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
@@ -58,5 +59,42 @@ describe("DynamoTurnAdmission reservation fencing", () => {
 		reservationOwner = "new-owner";
 		const currentRequest = { ...request, reservationFence: { ...request.reservationFence, ownerId: reservationOwner } };
 		expect(await admission.startTurn(currentRequest)).toBe(true);
+	});
+
+	it("reconciles a start transaction that committed before its response was lost", async () => {
+		const now = new Date("2026-01-01T00:00:00.000Z");
+		let marker: Record<string, any> = {
+			reservation_state: { S: "pending" }, reservation_owner: { S: "owner" },
+			lease_expires_at: { N: String(now.getTime() + 30_000) },
+		};
+		let lostResponse = true;
+		const client = {
+			async send(command: any): Promise<any> {
+				if (command instanceof TransactWriteItemsCommand) {
+					const update = command.input.TransactItems?.find((entry: any) => entry.Update?.UpdateExpression?.includes("admitted_turn_id"))?.Update;
+					if (update !== undefined) {
+						const values = update.ExpressionAttributeValues ?? {};
+						marker = { ...marker, admitted_turn_id: values[":turn"], admission_kind: values[":kind"] };
+					}
+					if (lostResponse) {
+						lostResponse = false;
+						throw new InternalServerError({ message: "response lost after commit", $metadata: {} });
+					}
+					return {};
+				}
+				if (command instanceof GetItemCommand) return { Item: marker };
+				throw new Error(`unexpected command ${command.constructor.name}`);
+			},
+		};
+		const admission = new DynamoTurnAdmission(client as never, "test-table");
+		const request = {
+			tenantId: "tenant", channelId: "channel", botId: "bot", turnId: "stable-turn",
+			promptMessageSeq: 1, promptAuthorId: "editor", grant: null, createdAt: now,
+			startedEventId: "started-event", expectedPointerTurnId: null,
+			reservationFence: { tenantId: "tenant", idempotencyKey: "request-hash", ownerId: "owner", now },
+		};
+		expect(await admission.startTurn(request)).toBe(true);
+		expect(marker.admitted_turn_id.S).toBe("stable-turn");
+		expect(marker.admission_kind.S).toBe("started");
 	});
 });

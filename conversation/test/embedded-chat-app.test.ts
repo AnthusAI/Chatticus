@@ -7,6 +7,7 @@ import type { MessageDependencies } from "../src/domain/messages.ts";
 import type { Principal } from "../src/auth/principal.ts";
 import type { Turn } from "../src/domain/turns.ts";
 import type { TurnAdmission, TurnRunQueue } from "../src/domain/turn-admission.ts";
+import type { TurnProbeMessage, TurnProbeQueue } from "../src/domain/turn-admission.ts";
 
 const now = new Date("2026-01-01T00:00:00.000Z");
 
@@ -53,6 +54,8 @@ function setup() {
 	const editorId = "prospectus-person-a";
 	const channelId = "private-channel-a";
 	let currentTime = now;
+	const probes: TurnProbeMessage[] = [];
+	const sideEffectOrder: string[] = [];
 	void store.putChannel({
 		channelId,
 		tenantId,
@@ -92,7 +95,7 @@ function setup() {
 		mailbox: { client: dynamo.client as never, tableName: "test" },
 		turns: turnAdmission,
 		turnRuns,
-		turnProbes: { async send() {} },
+		turnProbes: { async send(message) { probes.push(message); sideEffectOrder.push("probe"); } } satisfies TurnProbeQueue,
 		listing: {
 			client: dynamo.client as never,
 			s3: {} as never,
@@ -116,7 +119,7 @@ function setup() {
 			return null;
 		},
 	});
-	return { app, channelId, editorId, tenantId, store, turnAdmission, turnRuns, messages, setTime(value: Date) { currentTime = value; }, turnId: turn.turnId };
+	return { app, channelId, editorId, tenantId, store, turnAdmission, turnRuns, messages, probes, sideEffectOrder, setTime(value: Date) { currentTime = value; }, turnId: turn.turnId };
 }
 
 describe("embedded chat server core", () => {
@@ -232,7 +235,7 @@ describe("embedded chat server core", () => {
 	});
 
 	it("reuses the committed turn and fences stale owners after enqueue-before-completion interruption", async () => {
-		const { app, channelId, editorId, tenantId, store, turnAdmission, turnRuns, messages, setTime } = setup();
+		const { app, channelId, editorId, tenantId, store, turnAdmission, turnRuns, probes, sideEffectOrder, setTime } = setup();
 		const turns = new Map<string, { active: boolean }>();
 		const enqueued = new Set<string>();
 		const jobs: string[] = [];
@@ -244,6 +247,7 @@ describe("embedded chat server core", () => {
 			pointerTurnId, active: turns.get(pointerTurnId)?.active ?? false, closing: false,
 		};
 		turnAdmission.startTurn = async (request: any) => {
+			sideEffectOrder.push("turn-start");
 			staleStartRequest = request;
 			if (request.reservationFence !== undefined) {
 				staleFence = request.reservationFence;
@@ -289,6 +293,9 @@ describe("embedded chat server core", () => {
 		try { await send(); } catch { /* The injected failure models a crash after enqueue and before reservation completion. */ }
 		expect(starts).toBe(1);
 		expect(jobs).toHaveLength(1);
+		expect(probes).toHaveLength(1);
+		expect(probes[0]).toMatchObject({ turnId: jobs[0], kind: "deadline" });
+		expect(sideEffectOrder.indexOf("probe")).toBeLessThan(sideEffectOrder.indexOf("turn-start"));
 		const originalTurnId = jobs[0];
 		turns.get(originalTurnId!)!.active = false;
 		setTime(new Date(now.getTime() + 31_000));

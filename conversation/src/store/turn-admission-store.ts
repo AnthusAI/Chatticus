@@ -92,6 +92,19 @@ export class DynamoTurnAdmission implements TurnAdmission {
 			Number(result.Item.lease_expires_at?.N ?? "0") > fence.now.getTime();
 	}
 
+	private async reservationAdmissionMatches(
+		fence: AdmissionReservationFence,
+		turnId: string,
+		kind: "started" | "steered",
+	): Promise<boolean> {
+		const key = postIdempotencyKey(fence.tenantId, fence.idempotencyKey);
+		const result = await this.client.send(new GetItemCommand({
+			TableName: this.tableName,
+			Key: { pk: { S: key.pk }, sk: { S: key.sk } }, ConsistentRead: true,
+		}));
+		return result.Item?.admitted_turn_id?.S === turnId && result.Item?.admission_kind?.S === kind;
+	}
+
 	async openTurn(tenantId: string, channelId: string, botId: string): Promise<OpenTurnState | null> {
 		const pointerKey = activeTurnPointerKey(tenantId, channelId, botId);
 		const pointer = await this.client.send(
@@ -214,6 +227,9 @@ export class DynamoTurnAdmission implements TurnAdmission {
 			));
 			return true;
 		} catch (error) {
+			if (request.reservationFence !== undefined && await this.reservationAdmissionMatches(request.reservationFence, request.turnId, "started")) {
+				return true;
+			}
 			if (error instanceof TransactionCanceledException) {
 				if (request.reservationFence !== undefined && !(await this.reservationFenceIsCurrent(request.reservationFence))) {
 					throw new IdempotencyReservationBusyError("The message reservation is no longer owned by this admission attempt.");
@@ -257,6 +273,9 @@ export class DynamoTurnAdmission implements TurnAdmission {
 			));
 			return true;
 		} catch (error) {
+			if (fence !== undefined && await this.reservationAdmissionMatches(fence, turnId, "steered")) {
+				return true;
+			}
 			if (error instanceof TransactionCanceledException) {
 				if (fence !== undefined && !(await this.reservationFenceIsCurrent(fence))) {
 					throw new IdempotencyReservationBusyError("The message reservation is no longer owned by this admission attempt.");
