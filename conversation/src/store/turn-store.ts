@@ -12,6 +12,7 @@ import { pythonRepr } from "../domain/bots.ts";
 import type { ProbeObservation, Turn, TurnControlStore, TurnEvent, TurnEventDraft, TurnStatus } from "../domain/turns.ts";
 import { StaleAttemptError, TurnNotFoundError, TurnTerminalError } from "../http/errors.ts";
 import type { TaskCapabilityGrant } from "../policy/capability-policy.ts";
+import type { AdmissionReservationFence } from "../domain/turn-admission.ts";
 import { TURN_GRANT_SORT_KEY, decodeGrant, encodeGrant } from "./codecs/grant.ts";
 import {
 	decodePendingComputerTool,
@@ -21,6 +22,8 @@ import {
 	turnItemPartitionKey,
 } from "./turn-events.ts";
 import { retryTransient } from "./transient-retry.ts";
+import { postIdempotencyKey } from "./keys.ts";
+import { IdempotencyReservationBusyError } from "../http/errors.ts";
 
 const ACTIVE_STATUS = "active";
 const TRANSITION_ATTEMPTS = 8;
@@ -125,8 +128,49 @@ export async function recordLogicalEnqueueOnTurn(
 	tenantId: string,
 	turnId: string,
 	enqueueId: string,
+	fence?: AdmissionReservationFence,
 ): Promise<boolean> {
 	const key = { pk: { S: turnItemPartitionKey(tenantId, turnId) }, sk: { S: "meta" } };
+	if (fence !== undefined) {
+		const reservationKey = postIdempotencyKey(fence.tenantId, fence.idempotencyKey);
+		try {
+			await retryTransient(() => client.send(new TransactWriteItemsCommand({
+				TransactItems: [
+					{
+						ConditionCheck: {
+							TableName: tableName,
+							Key: { pk: { S: reservationKey.pk }, sk: { S: reservationKey.sk } },
+							ConditionExpression: "reservation_state = :pending AND reservation_owner = :owner AND lease_expires_at > :now",
+							ExpressionAttributeValues: { ":pending": { S: "pending" }, ":owner": { S: fence.ownerId }, ":now": { N: String(fence.now.getTime()) } },
+						},
+					},
+					{
+						Update: {
+							TableName: tableName,
+							Key: key,
+							UpdateExpression: "ADD logical_enqueue_ids :ids",
+							ConditionExpression: "attribute_exists(pk) AND (attribute_not_exists(logical_enqueue_ids) OR NOT contains(logical_enqueue_ids, :id))",
+							ExpressionAttributeValues: { ":ids": { SS: [enqueueId] }, ":id": { S: enqueueId } },
+						},
+					},
+				],
+			})));
+			return true;
+		} catch (error) {
+			if (!(error instanceof TransactionCanceledException)) throw error;
+			const [turn, reservation] = await Promise.all([
+				client.send(new GetItemCommand({ TableName: tableName, Key: key, ConsistentRead: true })),
+				client.send(new GetItemCommand({ TableName: tableName, Key: { pk: { S: reservationKey.pk }, sk: { S: reservationKey.sk } }, ConsistentRead: true })),
+			]);
+			if (turn.Item === undefined) throw new TurnNotFoundError(`Turn ${pythonRepr(turnId)} does not exist.`);
+			const ids = turn.Item.logical_enqueue_ids?.SS ?? [];
+			if (ids.includes(enqueueId)) return false;
+			if (reservation.Item?.reservation_state?.S !== "pending" || reservation.Item.reservation_owner?.S !== fence.ownerId || Number(reservation.Item.lease_expires_at?.N ?? "0") <= fence.now.getTime()) {
+				throw new IdempotencyReservationBusyError("The message reservation is no longer owned by this enqueue attempt.");
+			}
+			throw error;
+		}
+	}
 	try {
 		await retryTransient(() => client.send(
 			new UpdateItemCommand({

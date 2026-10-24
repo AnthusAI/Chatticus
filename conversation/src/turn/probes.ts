@@ -7,6 +7,7 @@ import {
 	type TurnDependencies,
 } from "../domain/turns.ts";
 import type { TurnProbeMessage, TurnProbeQueue, TurnRunJob, TurnRunQueue } from "../domain/turn-admission.ts";
+import type { AdmissionReservationFence } from "../domain/turn-admission.ts";
 import type { FaultPlan } from "./fault-plan.ts";
 import { type ComputerHandoffDependencies, settleParkedTurn } from "./park.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
@@ -46,7 +47,7 @@ export const yieldEnqueueId = (turnId: string, attempt: number): string => `${tu
 
 /** Where a logical enqueue is remembered, so a retry can tell it was already delivered. */
 export interface LogicalEnqueueRecorder {
-	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean>;
+	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string, fence?: AdmissionReservationFence): Promise<boolean>;
 }
 
 /** What a logical enqueue needs. */
@@ -65,9 +66,10 @@ export async function requestLogicalEnqueue(
 	deps: LogicalEnqueueDependencies,
 	job: TurnRunJob,
 	enqueueId: string,
+	fence?: AdmissionReservationFence,
 ): Promise<boolean> {
 	deps.faults?.maybeCrash("logical_enqueue", "before");
-	if (!(await deps.recorder.recordLogicalEnqueue(job.tenantId, job.turnId, enqueueId))) return false;
+	if (!(await deps.recorder.recordLogicalEnqueue(job.tenantId, job.turnId, enqueueId, fence))) return false;
 	deps.faults?.maybeCrash("logical_enqueue", "after");
 	await deps.turnRuns.enqueue(job);
 	return true;

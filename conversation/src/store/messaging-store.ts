@@ -15,7 +15,12 @@ export type PostIdempotencyReservation = {
 	createdAt: Date;
 	leaseExpiresAt: Date;
 	seq: number | null;
+	reservedTurnId: string | null;
+	startedEventId: string | null;
+	admission: { turnId: string; kind: "started" | "steered" } | null;
 };
+
+export type PostIdempotencyCandidate = Omit<PostIdempotencyReservation, "seq" | "admission">;
 
 export type PostIdempotencyReservationResult =
 	| { state: "owner"; reservation: PostIdempotencyReservation }
@@ -92,7 +97,7 @@ export interface MessagingStore {
 		tenantId: string,
 		idempotencyKey: string,
 		fingerprint: string,
-		candidate: Omit<PostIdempotencyReservation, "seq">,
+		candidate: PostIdempotencyCandidate,
 		now: Date,
 	): Promise<PostIdempotencyReservationResult>;
 	/** Persist the sequence once so a reclaimed reservation can repeat downstream writes idempotently. */

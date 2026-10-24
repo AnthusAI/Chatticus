@@ -16,6 +16,7 @@ import type {
 	OwnerCredentialsRenewal,
 	OwnerDispatchRecord,
 	PostIdempotencyReservation,
+	PostIdempotencyCandidate,
 	PostIdempotencyReservationResult,
 } from "../src/store/messaging-store.ts";
 
@@ -230,14 +231,15 @@ export class InMemoryMessagingStore implements MessagingStore {
 		tenantId: string,
 		idempotencyKey: string,
 		fingerprint: string,
-		candidate: Omit<PostIdempotencyReservation, "seq">,
+		candidate: PostIdempotencyCandidate,
 		now: Date,
 	): Promise<PostIdempotencyReservationResult> {
 		const key = `${tenantId}\u0000${idempotencyKey}`;
 		const existing = this.postReservations.get(key);
 		if (existing === undefined) {
-			this.postReservations.set(key, { fingerprint, reservation: { ...candidate, seq: null }, result: null });
-			return { state: "owner", reservation: { ...candidate, seq: null } };
+			const reservation = { ...candidate, seq: null, admission: null };
+			this.postReservations.set(key, { fingerprint, reservation, result: null });
+			return { state: "owner", reservation: { ...reservation } };
 		}
 		if (existing.fingerprint !== fingerprint) return { state: "conflict" };
 		if (existing.result !== null) return { state: "completed", result: existing.result };
@@ -245,6 +247,19 @@ export class InMemoryMessagingStore implements MessagingStore {
 		const reservation = { ...existing.reservation, ownerId: candidate.ownerId, leaseExpiresAt: candidate.leaseExpiresAt };
 		this.postReservations.set(key, { ...existing, reservation });
 		return { state: "owner", reservation };
+	}
+
+	async recordPostIdempotencyAdmission(
+		tenantId: string,
+		idempotencyKey: string,
+		ownerId: string,
+		admission: { turnId: string; kind: "started" | "steered" },
+		now: Date,
+	): Promise<boolean> {
+		const entry = this.postReservations.get(`${tenantId}\u0000${idempotencyKey}`);
+		if (entry === undefined || entry.result !== null || entry.reservation.ownerId !== ownerId || entry.reservation.leaseExpiresAt <= now) return false;
+		entry.reservation.admission = admission;
+		return true;
 	}
 
 	async setPostIdempotencySequence(tenantId: string, idempotencyKey: string, ownerId: string, seq: number, now: Date): Promise<number | null> {

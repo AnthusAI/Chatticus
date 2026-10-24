@@ -55,6 +55,7 @@ import type {
 	OwnerBootstrapRecord,
 	OwnerCredentialsRenewal,
 	OwnerDispatchRecord,
+	PostIdempotencyCandidate,
 	PostIdempotencyReservation,
 	PostIdempotencyReservationResult,
 } from "./messaging-store.ts";
@@ -486,7 +487,7 @@ export class DynamoMessagingStore implements MessagingStore {
 		tenantId: string,
 		idempotencyKey: string,
 		fingerprint: string,
-		candidate: Omit<PostIdempotencyReservation, "seq">,
+		candidate: PostIdempotencyCandidate,
 		now: Date,
 	): Promise<PostIdempotencyReservationResult> {
 		const key = postIdempotencyKey(tenantId, idempotencyKey);
@@ -495,6 +496,8 @@ export class DynamoMessagingStore implements MessagingStore {
 			reservation_state: { S: "pending" }, request_fingerprint: { S: fingerprint },
 			reservation_owner: { S: candidate.ownerId }, lease_expires_at: { N: String(candidate.leaseExpiresAt.getTime()) },
 			message_id: { S: candidate.messageId }, created_at: { S: candidate.createdAt.toISOString() },
+			...(candidate.reservedTurnId === null ? {} : { reserved_turn_id: { S: candidate.reservedTurnId } }),
+			...(candidate.startedEventId === null ? {} : { started_event_id: { S: candidate.startedEventId } }),
 		};
 		try {
 			await this.client.send(new PutItemCommand({
@@ -502,7 +505,7 @@ export class DynamoMessagingStore implements MessagingStore {
 				Item: pendingItem,
 				ConditionExpression: "attribute_not_exists(pk)",
 			}));
-			return { state: "owner", reservation: { ...candidate, seq: null } };
+			return { state: "owner", reservation: { ...candidate, seq: null, admission: null } };
 		} catch (error) {
 			if (!(error instanceof ConditionalCheckFailedException)) throw error;
 		}
@@ -604,7 +607,19 @@ export class DynamoMessagingStore implements MessagingStore {
 		if (ownerId === undefined || messageId === undefined || createdAt === undefined || lease === undefined) {
 			throw new Error("malformed post idempotency reservation");
 		}
-		return { ownerId, messageId, createdAt: new Date(createdAt), leaseExpiresAt: new Date(Number(lease)), seq: item.seq?.N === undefined ? null : Number(item.seq.N) };
+		return {
+			ownerId,
+			messageId,
+			createdAt: new Date(createdAt),
+			leaseExpiresAt: new Date(Number(lease)),
+			seq: item.seq?.N === undefined ? null : Number(item.seq.N),
+			reservedTurnId: item.reserved_turn_id?.S ?? null,
+			startedEventId: item.started_event_id?.S ?? null,
+			admission: item.admitted_turn_id?.S === undefined ? null : {
+				turnId: item.admitted_turn_id.S,
+				kind: item.admission_kind?.S === "steered" ? "steered" : "started",
+			},
+		};
 	}
 
 	async putMessage(message: ChannelMessageRecord): Promise<void> {

@@ -6,6 +6,7 @@ import { createEmbeddedChatApp } from "../src/http/embedded-chat-app.ts";
 import type { MessageDependencies } from "../src/domain/messages.ts";
 import type { Principal } from "../src/auth/principal.ts";
 import type { Turn } from "../src/domain/turns.ts";
+import type { TurnAdmission, TurnRunQueue } from "../src/domain/turn-admission.ts";
 
 const now = new Date("2026-01-01T00:00:00.000Z");
 
@@ -51,6 +52,7 @@ function setup() {
 	const tenantId = "site-account-editor-a";
 	const editorId = "prospectus-person-a";
 	const channelId = "private-channel-a";
+	let currentTime = now;
 	void store.putChannel({
 		channelId,
 		tenantId,
@@ -76,13 +78,20 @@ function setup() {
 		leaseExpiresAt: null, deadlineAt: null, recoveryAttempts: 0, waitingFor: null, waitingSince: null,
 		logicalEnqueueIds: [], pendingComputerTool: null, storageFence: null, nextEventSeq: 1, terminalReason: null, messageSeq: null,
 	};
+	const turnAdmission: TurnAdmission = {
+		async openTurn() { return null; },
+		async startTurn() { return false; },
+		async steerTurn() { return false; },
+		async recordLogicalEnqueue() { return true; },
+	};
+	const turnRuns: TurnRunQueue = { async enqueue() {} };
 	const messages: MessageDependencies = {
 		store,
 		ids: { next: () => `generated-${++id}` },
-		clock: { now: () => now },
+		clock: { now: () => currentTime },
 		mailbox: { client: dynamo.client as never, tableName: "test" },
-		turns: { async openTurn() { return null; }, async startTurn() { return false; }, async steerTurn() { return false; }, async recordLogicalEnqueue() { return true; } },
-		turnRuns: { async enqueue() {} },
+		turns: turnAdmission,
+		turnRuns,
 		turnProbes: { async send() {} },
 		listing: {
 			client: dynamo.client as never,
@@ -107,7 +116,7 @@ function setup() {
 			return null;
 		},
 	});
-	return { app, channelId, editorId, tenantId, store, turnId: turn.turnId };
+	return { app, channelId, editorId, tenantId, store, turnAdmission, turnRuns, messages, setTime(value: Date) { currentTime = value; }, turnId: turn.turnId };
 }
 
 describe("embedded chat server core", () => {
@@ -207,6 +216,7 @@ describe("embedded chat server core", () => {
 		const initial = await store.reservePostIdempotency(tenantId, key, fingerprint, {
 			ownerId: "interrupted-owner", messageId: "stable-recovery-message", createdAt,
 			leaseExpiresAt: new Date(now.getTime() - 30_000),
+			reservedTurnId: null, startedEventId: null,
 		}, new Date(now.getTime() - 60_000));
 		expect(initial.state).toBe("owner");
 		if (initial.state !== "owner") throw new Error("test reservation was not acquired");
@@ -219,6 +229,81 @@ describe("embedded chat server core", () => {
 		expect(response.status).toBe(200);
 		const body = await response.json() as { message: { message_id: string; seq: number } };
 		expect(body.message).toMatchObject({ message_id: "stable-recovery-message", seq: 42 });
+	});
+
+	it("reuses the committed turn and fences stale owners after enqueue-before-completion interruption", async () => {
+		const { app, channelId, editorId, tenantId, store, turnAdmission, turnRuns, messages, setTime } = setup();
+		const turns = new Map<string, { active: boolean }>();
+		const enqueued = new Set<string>();
+		const jobs: string[] = [];
+		let pointerTurnId: string | null = null;
+		let starts = 0;
+		let staleFence: { tenantId: string; idempotencyKey: string; ownerId: string; now: Date } | null = null;
+		let staleStartRequest: any;
+		turnAdmission.openTurn = async () => pointerTurnId === null ? null : {
+			pointerTurnId, active: turns.get(pointerTurnId)?.active ?? false, closing: false,
+		};
+		turnAdmission.startTurn = async (request: any) => {
+			staleStartRequest = request;
+			if (request.reservationFence !== undefined) {
+				staleFence = request.reservationFence;
+				const accepted = await store.recordPostIdempotencyAdmission(
+					request.reservationFence.tenantId,
+					request.reservationFence.idempotencyKey,
+					request.reservationFence.ownerId,
+					{ turnId: request.turnId, kind: "started" },
+					request.reservationFence.now,
+				);
+				if (!accepted) throw new Error("stale reservation owner");
+			}
+			if (turns.has(request.turnId)) return false;
+			turns.set(request.turnId, { active: true });
+			pointerTurnId = request.turnId;
+			starts += 1;
+			return true;
+		};
+		turnAdmission.recordLogicalEnqueue = async (_tenant: string, turnId: string, enqueueId: string, fence?: { tenantId: string; idempotencyKey: string; ownerId: string; now: Date }) => {
+			if (fence !== undefined) {
+				const reservation = await store.setPostIdempotencySequence(fence.tenantId, fence.idempotencyKey, fence.ownerId, 1, fence.now);
+				if (reservation === null) throw new Error("stale reservation owner cannot enqueue");
+			}
+			if (enqueued.has(enqueueId)) return false;
+			enqueued.add(enqueueId);
+			return true;
+		};
+		turnRuns.enqueue = async (job: { turnId: string }) => { jobs.push(job.turnId); };
+		const complete = store.completePostIdempotency.bind(store);
+		let interruptAfterEnqueue = true;
+		store.completePostIdempotency = async (...args: Parameters<typeof complete>) => {
+			if (interruptAfterEnqueue) {
+				interruptAfterEnqueue = false;
+				throw new Error("injected interruption after queue enqueue");
+			}
+			return complete(...args);
+		};
+		const send = () => app.request(`/channels/${channelId}/messages`, {
+			method: "POST",
+			headers: { "content-type": "application/json", "x-test-editor": editorId, "idempotency-key": "start-and-enqueue" },
+			body: JSON.stringify({ author_kind: "human", author_id: editorId, body: "Run once", addressed_to_bot_id: "editorial-assistant" }),
+		});
+		try { await send(); } catch { /* The injected failure models a crash after enqueue and before reservation completion. */ }
+		expect(starts).toBe(1);
+		expect(jobs).toHaveLength(1);
+		const originalTurnId = jobs[0];
+		turns.get(originalTurnId!)!.active = false;
+		setTime(new Date(now.getTime() + 31_000));
+		const retry = await send();
+		expect(retry.status).toBe(200);
+		const retryBody = await retry.json() as { turn_id: string };
+		expect(retryBody.turn_id).toBe(originalTurnId);
+		expect(starts).toBe(1);
+		expect(jobs).toEqual([originalTurnId]);
+		const staleFenceCopy = { ...staleFence! };
+		await expect(turnAdmission.startTurn(staleStartRequest)).rejects.toThrow("stale reservation owner");
+		const staleEnqueue = await store.setPostIdempotencySequence(tenantId, staleFenceCopy.idempotencyKey, staleFenceCopy.ownerId, 1, now);
+		expect(staleEnqueue).toBeNull();
+		expect(starts).toBe(1);
+		expect(jobs).toHaveLength(1);
 	});
 
 	it("uses host scope and participant membership for turn events and streams", async () => {

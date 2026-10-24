@@ -6,12 +6,13 @@ import { allocateSeq, put as putMailboxItem, type MailboxItem, type MailboxStore
 import type { Clock, IdSource } from "../http/app.ts";
 import { ActorNotInChannelError, IdempotencyKeyReuseError, IdempotencyReservationBusyError } from "../http/errors.ts";
 import { householdConversationGrant } from "../policy/capability-policy.ts";
-import type { MessagingStore } from "../store/messaging-store.ts";
+import type { MessagingStore, PostIdempotencyReservation } from "../store/messaging-store.ts";
 import { pythonRepr } from "./bots.ts";
 import { type ActorKind, type Channel, type ChannelMessageRecord, requireChannelTenant } from "./channels.ts";
 import type { FaultPlan } from "../turn/fault-plan.ts";
 import { logicalEnqueueId, requestLogicalEnqueue } from "../turn/probes.ts";
 import type { TurnAdmission, TurnProbeQueue, TurnRunQueue } from "./turn-admission.ts";
+import type { AdmissionReservationFence } from "./turn-admission.ts";
 import { TURN_DEADLINE_SECONDS } from "./turns.ts";
 
 /** One committed channel message. */
@@ -90,7 +91,7 @@ export function requireParticipant(channel: Channel, kind: ActorKind, actorId: s
 const sleep = (milliseconds: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-type Admission = { turnId: string; started: boolean };
+type Admission = { turnId: string; started: boolean; kind: "started" | "steered" };
 
 async function admitAddressedMessage(
 	deps: MessageDependencies,
@@ -98,13 +99,18 @@ async function admitAddressedMessage(
 	message: Message,
 	botId: string,
 	addressedItem: MailboxItem,
+	options: {
+		reservedTurnId?: string | null;
+		startedEventId?: string | null;
+		fence?: AdmissionReservationFence;
+	},
 ): Promise<Admission> {
 	const pollMilliseconds = deps.closingPollMilliseconds ?? DEFAULT_CLOSING_POLL_MILLISECONDS;
 	for (let attempt = 0; attempt < CLOSING_POLL_ATTEMPTS; attempt += 1) {
 		const open = await deps.turns.openTurn(channel.tenantId, channel.channelId, botId);
 		if (open !== null && open.active && !open.closing) {
-			if (await deps.turns.steerTurn(open.pointerTurnId, addressedItem)) {
-				return { turnId: open.pointerTurnId, started: false };
+			if (await deps.turns.steerTurn(open.pointerTurnId, addressedItem, options.fence)) {
+				return { turnId: open.pointerTurnId, started: false, kind: "steered" };
 			}
 			continue;
 		}
@@ -112,12 +118,7 @@ async function admitAddressedMessage(
 			await sleep(pollMilliseconds);
 			continue;
 		}
-		await putMailboxItem(deps.mailbox, addressedItem);
-		const turnId = deps.ids.next();
-		await deps.turnProbes.send(
-			{ tenantId: channel.tenantId, turnId, kind: "deadline", expectAttempt: 0 },
-			TURN_DEADLINE_SECONDS,
-		);
+		const turnId = options.reservedTurnId ?? deps.ids.next();
 		const started = await deps.turns.startTurn({
 			tenantId: channel.tenantId,
 			channelId: channel.channelId,
@@ -127,12 +128,18 @@ async function admitAddressedMessage(
 			promptAuthorId: message.authorId,
 			grant: message.authorKind === "human" ? householdConversationGrant() : null,
 			createdAt: message.createdAt,
-			startedEventId: deps.ids.next(),
+			startedEventId: options.startedEventId ?? deps.ids.next(),
 			expectedPointerTurnId: open === null ? null : open.pointerTurnId,
+			initialItem: addressedItem,
+			...(options.fence === undefined ? {} : { reservationFence: { ...options.fence, now: deps.clock.now() } }),
 		});
 		if (started) {
+			await deps.turnProbes.send(
+				{ tenantId: channel.tenantId, turnId, kind: "deadline", expectAttempt: 0 },
+				TURN_DEADLINE_SECONDS,
+			);
 			deps.faults?.maybeCrash("message_commit", "after");
-			return { turnId, started: true };
+			return { turnId, started: true, kind: "started" };
 		}
 	}
 	throw new Error(
@@ -160,13 +167,15 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 		requireParticipant(channel, "bot", request.addressedToBotId);
 	}
 	deps.faults?.maybeCrash("message_commit", "before");
-	let reservation: { ownerId: string; messageId: string; createdAt: Date; leaseExpiresAt: Date; seq: number | null } | null = null;
+	let reservation: PostIdempotencyReservation | null = null;
 	if (idempotencyKey !== null) {
 		const candidate = {
 			ownerId: randomUUID(),
 			messageId: deps.ids.next(),
 			createdAt: deps.clock.now(),
 			leaseExpiresAt: new Date(deps.clock.now().getTime() + 30_000),
+			reservedTurnId: request.addressedToBotId === null ? null : deps.ids.next(),
+			startedEventId: request.addressedToBotId === null ? null : deps.ids.next(),
 		};
 		for (let attempt = 0; attempt < 100; attempt += 1) {
 			const result = await deps.store.reservePostIdempotency(
@@ -238,15 +247,38 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 	}
 	let turnId: string | null = null;
 	if (request.addressedToBotId !== null) {
-		const admission = await admitAddressedMessage(
-			deps,
-			channel,
-			message,
-			request.addressedToBotId,
-			itemFor(request.addressedToBotId),
-		);
+		let admission: Admission | null = reservation?.admission === null || reservation?.admission === undefined
+			? null
+			: { ...reservation.admission, started: reservation.admission.kind === "started" };
+		if (admission === null) {
+			admission = await admitAddressedMessage(
+				deps,
+				channel,
+				message,
+				request.addressedToBotId,
+				itemFor(request.addressedToBotId),
+				{
+					reservedTurnId: reservation?.reservedTurnId,
+					startedEventId: reservation?.startedEventId,
+					...(reservation === null || idempotencyKey === null ? {} : {
+						fence: { tenantId: request.tenantId, idempotencyKey, ownerId: reservation.ownerId, now: deps.clock.now() },
+					}),
+				},
+			);
+		}
 		turnId = admission.turnId;
-		if (admission.started && request.enqueueTurn !== false) {
+		if (reservation?.admission?.kind === "started") {
+			// A recovered admitted turn may have crashed before its deadline probe was published.
+			// Duplicate probes are harmless: the turn/attempt fence makes stale probes no-ops.
+			await deps.turnProbes.send(
+				{ tenantId: channel.tenantId, turnId: admission.turnId, kind: "deadline", expectAttempt: 0 },
+				TURN_DEADLINE_SECONDS,
+			);
+		}
+		if (admission.kind === "started" && request.enqueueTurn !== false) {
+			const fence = reservation === null || idempotencyKey === null ? undefined : {
+				tenantId: request.tenantId, idempotencyKey, ownerId: reservation.ownerId, now: deps.clock.now(),
+			};
 			await requestLogicalEnqueue(
 				{ recorder: deps.turns, turnRuns: deps.turnRuns, faults: deps.faults },
 				{
@@ -257,6 +289,7 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 					requiredCapabilities: ["cpu"],
 				},
 				logicalEnqueueId(admission.turnId),
+				fence,
 			);
 		}
 	}

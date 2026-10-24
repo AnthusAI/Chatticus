@@ -73,7 +73,7 @@ describe("DynamoMessagingStore post idempotency reservations", () => {
 		const { client } = dynamoHarness();
 		const store = new DynamoMessagingStore(client as never, "test-table");
 		const now = new Date("2026-01-01T00:00:00.000Z");
-		const candidate = (ownerId: string) => ({ ownerId, messageId: "message-1", createdAt: now, leaseExpiresAt: new Date(now.getTime() + 30_000) });
+		const candidate = (ownerId: string) => ({ ownerId, messageId: "message-1", createdAt: now, leaseExpiresAt: new Date(now.getTime() + 30_000), reservedTurnId: null, startedEventId: null });
 		const [first, concurrent] = await Promise.all([
 			store.reservePostIdempotency("tenant", "request", "fingerprint", candidate("owner-a"), now),
 			store.reservePostIdempotency("tenant", "request", "fingerprint", candidate("owner-b"), now),
@@ -102,12 +102,14 @@ describe("DynamoMessagingStore post idempotency reservations", () => {
 		const old = new Date(now.getTime() - 60_000);
 		const created = await store.reservePostIdempotency("tenant", "request", "fingerprint", {
 			ownerId: "dead-owner", messageId: "stable-message", createdAt: old, leaseExpiresAt: new Date(now.getTime() - 30_000),
+			reservedTurnId: "stable-turn", startedEventId: "started-event",
 		}, old);
 		expect(created.state).toBe("owner");
 		if (created.state !== "owner") throw new Error("reservation was not created");
 		expect(await store.setPostIdempotencySequence("tenant", "request", created.reservation.ownerId, 12, old)).toBe(12);
 		const recovered = await store.reservePostIdempotency("tenant", "request", "fingerprint", {
 			ownerId: "recovery-owner", messageId: "ignored-candidate", createdAt: now, leaseExpiresAt: new Date(now.getTime() + 30_000),
+			reservedTurnId: "other-turn", startedEventId: "other-event",
 		}, now);
 		expect(recovered.state).toBe("owner");
 		if (recovered.state === "owner") expect(recovered.reservation).toMatchObject({ ownerId: "recovery-owner", messageId: "stable-message", seq: 12 });
