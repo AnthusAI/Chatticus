@@ -39,6 +39,7 @@
     "./tailwind-preset": "./web/tailwind-preset.ts",
     "./chat-client": "./chat/client/index.ts",
     "./chat-server": "./conversation/src/http/embedded-chat-app.ts",
+    "./chat-worker": "./conversation/src/http/embedded-chat-worker.ts",
     "./chat-react": "./chat/react/index.ts",
     "./chat.css": "./chat/styles.css"
   },
