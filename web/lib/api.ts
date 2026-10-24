@@ -1,3 +1,5 @@
+import type { Message, Turn } from "../../chat/client";
+export type { Message, Turn, TurnEvent, ToolActivityItem } from "../../chat/client";
 import { apiBase } from "./config";
 import { authorizedHeaders } from "./api-auth";
 import { orgApiPath } from "./paths";
@@ -31,77 +33,12 @@ export type PostMessageResponse = {
   turn_id: string | null;
 };
 
-/** One recorded tool call on a committed bot message, in call order. */
-export type ToolActivityItem = {
-  call_id: string;
-  /** A last item with tool "more" summarises calls omitted by the server. */
-  tool: string;
-  summary: string;
-  arguments: Record<string, unknown>;
-  arguments_truncated: boolean;
-  /** Null when no result was recorded for the call. */
-  ok: boolean | null;
-  result_summary: string | null;
-  output: string | null;
-  output_truncated: boolean;
-  duration_ms: number | null;
-};
-
-export type Message = {
-  message_id: string;
-  channel_id: string;
-  tenant_id: string;
-  seq: number;
-  author_kind: "human" | "bot";
-  author_id: string;
-  body: string;
-  addressed_to_bot_id: string | null;
-  created_at: string;
-  /** Tool calls behind a bot reply. Absent when an older server answers. */
-  activity?: ToolActivityItem[];
-};
-
-export type Turn = {
-  turn_id: string;
-  tenant_id: string;
-  channel_id: string;
-  bot_id: string;
-  status: "active" | "completed" | "failed" | "reconciling";
-  waiting_for: string | null;
-  terminal_reason?: string | null;
-  prompt_message_seq?: number | null;
-};
-
 export type Computer = {
   computer_id: string;
   tenant_id: string;
   stopped: boolean;
   policy: string;
   host_start_generation: number;
-};
-
-export type TurnEvent = {
-  kind: string;
-  seq: number;
-  turn_id: string;
-  token?: string;
-  body?: string;
-  /** Reasoning summary on turn.thinking. */
-  text?: string;
-  /** Tool name on tool.call and tool.result. */
-  tool?: string;
-  /** Pairs a tool.call with its tool.result. */
-  call_id?: string;
-  summary?: string;
-  arguments?: Record<string, unknown>;
-  arguments_truncated?: boolean;
-  ok?: boolean;
-  output?: string;
-  output_truncated?: boolean;
-  /** Null when the call began under an earlier attempt. */
-  duration_ms?: number | null;
-  /** Phase text on computer.starting and computer.ready. */
-  detail?: string;
 };
 
 export type Task = {

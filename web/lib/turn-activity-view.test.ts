@@ -16,12 +16,12 @@ import {
 
 // The component sources use the automatic JSX runtime through Next; tsx --test compiles them classically.
 (globalThis as { React?: typeof React }).React = React;
-type ActivityView = typeof import("../components/assistant-ui/TurnActivityView");
+type ActivityView = typeof import("../../chat/react/TurnActivityView");
 let TurnActivityBody: ActivityView["TurnActivityBody"];
 let WorkingIndicator: ActivityView["WorkingIndicator"];
 
 before(async () => {
-  ({ TurnActivityBody, WorkingIndicator } = await import("../components/assistant-ui/TurnActivityView"));
+  ({ TurnActivityBody, WorkingIndicator } = await import("../../chat/react/TurnActivityView"));
 });
 
 function render(events: Parameters<typeof reduceTurnActivity>[0]): string {

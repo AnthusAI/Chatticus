@@ -122,7 +122,7 @@ if (input.action === "roster") {
       text: first && typeof first === "object" && "text" in first ? first.text : null,
       failed: Boolean(custom.failed),
       retryBody: (custom.retryBody as string | undefined) ?? null,
-      authorBotName: (custom.authorBotName as string | undefined) ?? null,
+      authorBotName: (custom.authorLabel as string | undefined) ?? null,
     };
   });
 } else if (input.action === "turn-presentation") {

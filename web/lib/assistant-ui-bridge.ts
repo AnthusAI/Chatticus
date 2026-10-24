@@ -1,3 +1,5 @@
+import { SLOW_TURN_TEXT } from "../../chat/client/turn-presentation";
+export { SLOW_TURN_TEXT, TURN_SLOW_AFTER_MS, isTurnSlow } from "../../chat/client/turn-presentation";
 import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import type { Message, Turn, TurnEvent } from "./api";
@@ -29,16 +31,7 @@ export type FailedTurn = {
   retryBody: string;
 };
 
-/** How long a turn may show no progress before the member is told it is slow. */
-export const TURN_SLOW_AFTER_MS = 45_000;
-
-export const SLOW_TURN_TEXT = "Still working. This is taking longer than expected.";
-
 const FAILED_TURN_FALLBACK_REASON = "The bot could not answer this message.";
-
-export function isTurnSlow(millisecondsWithoutProgress: number): boolean {
-  return millisecondsWithoutProgress >= TURN_SLOW_AFTER_MS;
-}
 
 /**
  * The failed reply to show, if the conversation's latest turn failed and
@@ -153,7 +146,7 @@ export function convertChatticusThreadMessage(
   if (item.kind === "committed") {
     const message = item.message;
     const role = message.author_kind === "human" ? "user" : "assistant";
-    const authorBotName =
+    const authorLabel =
       message.author_kind === "bot" ? botNameById.get(message.author_id) : undefined;
     return {
       id: message.message_id,
@@ -162,7 +155,7 @@ export function convertChatticusThreadMessage(
       createdAt: new Date(message.created_at),
       metadata: {
         custom: {
-          authorBotName,
+          authorLabel,
           createdAt: message.created_at,
           seq: message.seq,
           activity: item.activity ?? undefined,
@@ -180,7 +173,7 @@ export function convertChatticusThreadMessage(
       status: { type: "incomplete", reason: "error" },
       metadata: {
         custom: {
-          authorBotName: botNameById.get(item.failure.botId),
+          authorLabel: botNameById.get(item.failure.botId),
           failed: true,
           retryBody: item.failure.retryBody,
           isStreaming: false,
@@ -189,7 +182,7 @@ export function convertChatticusThreadMessage(
     };
   }
 
-  const authorBotName = botNameById.get(item.botId);
+  const authorLabel = botNameById.get(item.botId);
   const text =
     item.body || streamingAssistantPlaceholder(item.waitingFor, item.turnStatus, item.slow);
   const isRunning = item.turnStatus === "active" || item.turnStatus === "reconciling";
@@ -201,7 +194,7 @@ export function convertChatticusThreadMessage(
     status: isRunning ? { type: "running" } : undefined,
     metadata: {
       custom: {
-        authorBotName,
+        authorLabel,
         isStreamingShell: !item.body,
         activity: item.activity,
         slow: item.slow,
@@ -211,13 +204,4 @@ export function convertChatticusThreadMessage(
   };
 }
 
-type AppendContentPart = { type: string; text?: string };
-
-export function textFromAppendMessageContent(
-  content: readonly AppendContentPart[],
-): string {
-  return content
-    .filter((part) => part.type === "text" && typeof part.text === "string")
-    .map((part) => part.text ?? "")
-    .join("");
-}
+export { textFromAppendMessageContent } from "../../chat/react/message-content";

@@ -1,28 +1,12 @@
 "use client";
-
-import {
-  AssistantRuntimeProvider,
-  useExternalStoreRuntime,
-  type AppendMessage,
-} from "@assistant-ui/react";
-import { useCallback, useMemo, type ReactNode } from "react";
-
+import { useMemo } from "react";
+import { ChatRuntime } from "../../../chat/react";
+import { MessageCostSlot } from "../workspace/CostMarkers";
 import type { Message, Turn, TurnEvent } from "@/lib/api";
-import {
-  buildChatticusThreadMessages,
-  convertChatticusThreadMessage,
-  textFromAppendMessageContent,
-  type ChatticusThreadMessage,
-  type FailedTurn,
-} from "@/lib/assistant-ui-bridge";
+import { buildChatticusThreadMessages, convertChatticusThreadMessage, type FailedTurn } from "@/lib/assistant-ui-bridge";
 import type { RetainedTurnActivity } from "@/lib/committed-activity";
 import type { TurnUiStatus } from "@/lib/workspace-state";
-
-import {
-  ChatticusAssistantThread,
-  RetryFailedTurnContext,
-  type ChatticusAssistantThreadProps,
-} from "./ChatticusAssistantThread";
+import type { ChatticusAssistantThreadProps } from "./ChatticusAssistantThread";
 
 export type ChatticusAssistantRuntimeProps = {
   messages: Message[];
@@ -41,70 +25,18 @@ export type ChatticusAssistantRuntimeProps = {
   className?: string;
 };
 
-function ChatticusAssistantRuntimeInner({
-  messages,
-  turn,
-  progress,
-  turnStatus,
-  isSendDisabled,
-  botNameById,
-  onSendMessage,
-  failedTurn = null,
-  turnIsSlow = false,
-  turnEvents = [],
-  retainedActivity = null,
-  onRetryFailedTurn,
-  threadProps,
-  className,
-}: ChatticusAssistantRuntimeProps) {
-  const threadMessages = useMemo(
-    () =>
-      buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow, turnEvents, retainedActivity),
-    [failedTurn, messages, progress, retainedActivity, turn, turnEvents, turnIsSlow, turnStatus],
-  );
-  const retryFailedTurn = useMemo(
-    () =>
-      failedTurn && onRetryFailedTurn && !isSendDisabled
-        ? () => void onRetryFailedTurn(failedTurn)
-        : null,
-    [failedTurn, isSendDisabled, onRetryFailedTurn],
-  );
-
-  const isRunning = isSendDisabled;
-
-  const convertMessage = useCallback(
-    (message: ChatticusThreadMessage) => convertChatticusThreadMessage(message, botNameById),
-    [botNameById],
-  );
-
-  const onNew = useCallback(
-    async (message: AppendMessage) => {
-      const text = textFromAppendMessageContent(message.content);
-      if (!text.trim()) {
-        return;
-      }
-      await onSendMessage(text.trim());
-    },
-    [onSendMessage],
-  );
-
-  const runtime = useExternalStoreRuntime({
-    messages: threadMessages,
-    convertMessage,
-    isRunning,
-    isSendDisabled,
-    onNew,
-  });
-
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <RetryFailedTurnContext.Provider value={retryFailedTurn}>
-        <ChatticusAssistantThread className={className} {...threadProps} />
-      </RetryFailedTurnContext.Provider>
-    </AssistantRuntimeProvider>
-  );
-}
-
-export function ChatticusAssistantRuntime(props: ChatticusAssistantRuntimeProps): ReactNode {
-  return <ChatticusAssistantRuntimeInner {...props} />;
+/** Product adapter: the roster, durable turn state and cost ledger stay in Chatticus. */
+export function ChatticusAssistantRuntime({ messages, turn, progress, turnStatus, isSendDisabled, botNameById, onSendMessage, failedTurn = null, turnIsSlow = false, turnEvents = [], retainedActivity = null, onRetryFailedTurn, threadProps, className }: ChatticusAssistantRuntimeProps) {
+  const threadMessages = useMemo(() => buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow, turnEvents, retainedActivity)
+    .map((message) => convertChatticusThreadMessage(message, botNameById)),
+    [messages, turn, progress, turnStatus, failedTurn, turnIsSlow, turnEvents, retainedActivity, botNameById]);
+  const retry = failedTurn && onRetryFailedTurn && !isSendDisabled ? () => void onRetryFailedTurn(failedTurn) : null;
+  const messageSequenceById = useMemo(() => new Map(messages.map((message) => [message.message_id, message.seq])), [messages]);
+  const presentation = useMemo(() => ({ footer: (id: string) => {
+    const sequence = messageSequenceById.get(id);
+    return sequence !== undefined ? <MessageCostSlot seq={sequence} /> : null;
+  } }), [messageSequenceById]);
+  return <ChatRuntime messages={threadMessages} isRunning={isSendDisabled} isSendDisabled={isSendDisabled}
+    onSendMessage={onSendMessage} onRetryFailedTurn={retry} threadProps={threadProps}
+    className={className} presentation={presentation} />;
 }
