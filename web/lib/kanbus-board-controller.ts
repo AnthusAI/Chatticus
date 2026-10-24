@@ -44,6 +44,9 @@ export type KanbusBoardPhase =
       source: SourceLine;
     };
 
+/** What a look for the workspace's Kanbus project found, without reading any issue file. */
+export type KanbusProjectDiscovery = { status: "found"; boardName: string } | { status: "none" } | { status: "error"; title: string };
+
 export type KanbusBoardSnapshot = {
   phase: KanbusBoardPhase;
   refreshing: boolean;
@@ -113,6 +116,16 @@ export class KanbusBoardController {
   dispose(): void {
     this.loadSequence += 1;
     this.loading = false;
+  }
+
+  /** Looks for the Kanbus project in the workspace with one or a few listings and no file reads, to name it in a picker. */
+  async discover(): Promise<KanbusProjectDiscovery> {
+    try {
+      const found = await this.findIssuesListing();
+      return found === null ? { status: "none" } : { status: "found", boardName: boardNameOf(found.directory) };
+    } catch (error) {
+      return { status: "error", title: describeFilesError(error).title };
+    }
   }
 
   /** Reads the board again. */

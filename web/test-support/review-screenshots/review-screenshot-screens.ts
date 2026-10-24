@@ -121,6 +121,45 @@ export const REVIEW_SCREENS: ReadonlyArray<ReviewScreen> = [
     },
   },
   {
+    id: "panel-board-picker",
+    label: "Board panel, picker open",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      await page.getByTestId("kanbus-board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      if (!(await clickFirstVisible(page, page.getByTestId("board-picker-toggle")))) return false;
+      await page.getByTestId("board-picker-bot-entry").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
+    id: "panel-board-bot",
+    label: "Board panel, a bot board",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      if (!(await clickFirstVisible(page, page.getByTestId("board-picker-toggle")))) return false;
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Bot board: Pi" })))) return false;
+      await page.getByText("Pi's board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      await page.getByText("Draft the Kanbus panel plan").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
+    id: "panel-board-bot-full",
+    label: "Board panel, a bot board, full screen",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      const fillsWorkspace = await clickFirstVisible(page, page.getByRole("button", { name: "Full", exact: true }));
+      if (!fillsWorkspace) return false;
+      if (!(await clickFirstVisible(page, page.getByTestId("board-picker-toggle")))) return false;
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Bot board: Pi" })))) return false;
+      await page.getByText("Draft the Kanbus panel plan").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
     id: "panel-costs",
     label: "Costs panel",
     signedIn: true,
