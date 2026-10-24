@@ -4,7 +4,7 @@
   "description": "## Decision (2026-09-14)\nGo straight to **assistant-ui** for the Chatticus workspace conversation surface (not Phase-1-only AI Elements / shadcn MessageScroller).\n\n## Why\nWe need production chat UX (Thread, Composer, streaming, tool/approval-ready primitives) while keeping Chatticus durable messaging, SSE turns, orgs, bots, and computers.\n\n## Integration path\nUse **ExternalStoreRuntime** (`useExternalStoreRuntime`): Chatticus owns messages + turn stream; assistant-ui renders Thread/Composer.\nDocs: https://www.assistant-ui.com/docs/runtimes/custom/external-store\nOverview: https://www.assistant-ui.com/docs/runtimes/custom/overview\nPick-a-runtime: https://www.assistant-ui.com/docs/runtimes/pick-a-runtime\n\n## Non-goals\n- Do not adopt CopilotKit / AG-UI as the product protocol\n- Do not replace Chatticus messaging/SSE/org APIs with AI SDK useChat as source of truth\n- Do not require assistant-cloud\n\n## Success\nSigned-in workspace conversation uses assistant-ui Thread + ExternalStoreRuntime over existing postMessage + openTurnStream; roster/inspector/computer can stay Chatticus chrome initially.",
   "type": "epic",
   "status": "open",
-  "priority": 1,
+  "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": null,
@@ -17,25 +17,34 @@
       "text": "Spike merged to develop 1940914. Next: chatticus-da146e (multi-bot / tools / waiting) after live smoke on dev.",
       "created_at": "2026-09-14T13:55:16.663503Z",
       "comment_type": "default",
-      "data": {},
       "agent": {
         "platform": "cursor",
         "model": "grok-4.6",
-        "name": "Chatticus",
-        "settings": {}
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "59a99819-36e7-41fb-9b9c-b62fa04a71bd",
+      "author": "home",
+      "text": "Lowered to P2 (board cleanup 2026-10-20). assistant-ui is adopted: @assistant-ui/react is a dependency of web/ on develop and the spike (b014c0) is closed. Open children are da146e and 2e48ad, both P2.",
+      "created_at": "2026-10-20T13:57:30.947852Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
       }
     }
   ],
   "created_at": "2026-09-14T13:42:30.374345Z",
-  "updated_at": "2026-09-14T13:55:16.663629Z",
+  "updated_at": "2026-10-20T13:57:31.060519Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "cursor",
     "model": "grok-4.6",
-    "name": "Chatticus",
-    "settings": {}
-  }
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
 }

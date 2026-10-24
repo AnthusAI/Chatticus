@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-13da8565-637f-4066-a8be-497e7c0cbe54",
+  "title": "M2.7: Bot-initiated external send tool (gated)",
+  "description": "Add send_external_message as a computerless connector tool that creates a consequential send bound to the exact destination and payload (recipient, subject, body, attachment digests), using the existing capability sink and the organization recipients ceiling. Executes through the same outbound path and records a delivery with a new thread mapping.\n\nAcceptance criteria:\n- Without a human-created exact rule the call stops for approval showing the literal message as it will be sent\n- With an exact matching rule an unattended turn may send; any change in recipient or body requires a new approval\n- Rate limits and suppression apply; a suppressed address is refused with a readable reason\n\nGherkin: features/external_send_tool.feature\n\nDepends on: M2.6\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-b9866bbe-614a-4a27-bbfb-7a8bfe823df6",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:52.946293Z",
+  "updated_at": "2026-10-22T03:58:13.095761Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

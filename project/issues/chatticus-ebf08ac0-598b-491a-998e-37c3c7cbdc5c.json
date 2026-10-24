@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-ebf08ac0-598b-491a-998e-37c3c7cbdc5c",
+  "title": "An operator stops a computer's owner without ECS access",
+  "description": "Found by the second reader of docs/OWNER_CREDENTIAL_REVOCATION.md (chatticus-816a1a). Step 1 of the emergency runbook stops the owner task with aws ecs stop-task, which needs ecs:StopTask and the right cluster; the second reader found the original runbook selected the production cluster (ChatticusComputers-Cluster...) instead of development's (ChatticusComputersDevelopment-Cluster...). There is no operator route that stops a computer or marks it stopped and no per-computer disable flag; the only operator routes are enable, suspend and reinstate for an organization (conversation/src/http/routes/operator.ts), and suspend does not stop a running owner. A killed task reports nothing, so the control plane learns the owner is gone only when the 30 second heartbeat window ends (settleLostComputerHost). Add an operator-authenticated route (and a members.ts or equivalent CLI verb) that makes the control plane retire the current owner generation at once, so the owner token is refused immediately (403 not_current_owner) and the owner stops, without ECS credentials and without a tenant suspension; it must be scoped to one tenant and audited.\n\nFeature: Operator stop of one organization's computer owner\n  Scenario: The owner token is refused at once after an operator stop\n    Given an organization with a live computer owner\n    When an operator stops that computer through the operator route\n    Then the owner's next request is answered 403 not_current_owner and the owner exits\n  Scenario: An operator stop changes nothing for other organizations\n    Given two organizations with live computer owners\n    When an operator stops the first organization's computer\n    Then the second organization's owner keeps polling and renewing",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-20T13:54:16.083101Z",
+  "updated_at": "2026-10-20T13:54:29.886609Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-second-reader"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-99a8c9c7-c6e1-4b3c-be11-76ae11542dac",
+  "title": "Chattic.us-web: uncommitted Kanbus project scaffolding and README section on develop",
+  "description": "Found 2026-10-20 by the stand-up drift check. The ~/Projects/Chattic.us-web checkout (branch develop, 4 commits behind origin/develop) has uncommitted changes with no issue naming them. The stand-up report counted 6 code files; on re-check the changes are not application code. Modified: .gitignore (ignores project/.cache and project/.overlay) and README.md (adds an Internal Kanbus wiki section pointing at project/wiki/). Untracked: .kanbus.yml (project_key chatticus-web, wiki_directory wiki), .claude/settings.json, .cursorignore, .vscode/settings.json, CONTRIBUTING_AGENT.template.md, project/AGENTS.md, project/events/AGENTS.md, project/events/DO_NOT_EDIT, project/issues/AGENTS.md, project/issues/DO_NOT_EDIT, and wiki pages project/wiki/index.md, competition.md (60 lines), whats-next.md. The wiki files are dated 2026-10-14. Read-only inspection; nothing was committed or changed. The owner should decide whether the web repo gets its own Kanbus project (then commit this through a pull request, since that repo uses PRs) or whether web work stays on this board (then discard it). The branch also needs a pull before anyone edits it.",
+  "type": "chore",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-20T13:18:02.315766Z",
+  "updated_at": "2026-10-20T13:18:02.315832Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "drift-fix"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

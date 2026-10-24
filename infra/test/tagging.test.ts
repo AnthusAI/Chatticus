@@ -47,6 +47,7 @@ describe("stack tag registry", () => {
       ENVIRONMENT_ZONES_STACK_IDS.production,
       ENVIRONMENT_CERTIFICATES_STACK_IDS.production,
       "ChatticusBudgets",
+      "ChatticusAuditTrail",
     ]) {
       assert.equal(stackTagsFor(stackId, "production").environment, "production", stackId);
     }
@@ -55,6 +56,7 @@ describe("stack tag registry", () => {
   it("classifies the shared stacks as shared", () => {
     const expected: Record<string, string> = {
       ChatticusBudgets: "budgets",
+      ChatticusAuditTrail: "audit-trail",
       ChatticusSnapshots: "snapshots",
       ChatticusComputers: "computer",
       ChatticusDns: "dns",

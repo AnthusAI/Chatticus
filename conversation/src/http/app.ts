@@ -19,6 +19,10 @@ import { submitSelfSetupCrossAccountRoleHandler } from "./routes/self-setup.ts";
 import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
+import type { BoardAuditSink } from "../board/board-audit.ts";
+import { logBoardAuditRecord } from "../board/board-audit.ts";
+import type { BotBoardService } from "../board/bot-board-service.ts";
+import { registerBotBoardRoutes } from "./routes/bot-boards.ts";
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
 import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
@@ -171,6 +175,10 @@ export interface AppDeps {
 	 * are registered only when this is given: the secret the tokens are signed with and the credential broker.
 	 */
 	ownerSupervisor?: { readonly signingKey: string; readonly broker: OwnerCredentialBrokerPort; readonly minimumProtocolVersion?: number };
+	/** The board service: provisions a new bot's board and serves the board routes. Present only where the board capability is rolled out; absent, bot creation is unchanged and the board routes answer 404 board_service_not_enabled. */
+	boards?: BotBoardService | null;
+	/** Receives one record for each denied board request; defaults to a structured log line. */
+	boardAudit?: BoardAuditSink;
 }
 
 /**
@@ -321,7 +329,7 @@ export function createApp(deps: AppDeps): Hono {
 	);
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
-		createBotHandler(c, userRoutes),
+		createBotHandler(c, { ...userRoutes, boards: deps.boards ?? null }),
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
 		lookupBotHandler(c, userRoutes),
@@ -332,6 +340,7 @@ export function createApp(deps: AppDeps): Hono {
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/bots", audience: "user" }, (c) =>
 		listUserBotsHandler(c, userRoutes),
 	);
+	registerBotBoardRoutes(app, { ...userRoutes, clock: deps.clock, boards: deps.boards ?? null, audit: deps.boardAudit ?? logBoardAuditRecord });
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/channels", audience: "user" }, (c) =>
 		listUserChannelsHandler(c, userRoutes),
 	);

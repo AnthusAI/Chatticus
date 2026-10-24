@@ -95,7 +95,7 @@ Feature: The starter launches the computer as a supervisor that holds one bootst
   Scenario: A starter that launches computers refuses to start without any owner settings
     Given the organization is homed in the deployment account
     When the starter is composed
-    Then the starter was refused at composition mentioning "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN"
+    Then the starter was refused at composition mentioning "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME"
 
   Scenario: A computer in a customer's account starts as the host worker and never gets an owner
     Given the organization is homed in the account "210987654321" with a ChatticusComputers stack and a cross-account role

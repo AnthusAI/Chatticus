@@ -4,7 +4,7 @@
   "description": "**Phase 2 of 5.** Blocked by the waitlist record shape in the pitch and survey epic. Unblocks paid enablement.\n\nTurns a list of signups into a prioritized queue, and answers the question the whole initiative exists to serve: which of these people are professional services clients.\n\nScoring is deterministic and computed at submission, stored on the record. The AWS answers carry the most weight because they predict whether someone can be onboarded at all — and one of them is not a score but a filter. A team running on GCP or Azure cannot be a beta customer at any score, and treating that as a low number rather than a different track wastes operator attention on people who will never convert.\n\nWeights to start from, recalibrated after fifty responses against what actually converted:\n\n| Signal | Condition | Points |\n| --- | --- | --- |\n| Cloud | not AWS | **disqualify** |\n| Services intent | yes, we have budget | +4 |\n| AWS maturity | production workloads on AWS | +3 |\n| Organization size | 101 or more people | +3 |\n| AWS spend | $10k or more per month | +3 |\n| Services intent | tell me more | +2 |\n| Organization size | 26 to 100 people | +2 |\n| Cloud authority | me, or our DevOps team | +2 |\n| Seniority | founder, exec, or lead | +2 |\n| Urgency | this week or this month | +2 |\n| BYOK readiness | key already in production | +2 |\n| Effort | free-text answer over 200 characters | +1 |\n| Cycle time | security review required | -1 |\n\nScore 10 or more is services-qualified and gets a person within 48 hours — a real reply quoting their own words back, not a marketing email.\n\nOperator tooling lives beside the existing members CLI, one module over, with the same ergonomics. There is no dashboard in this epic and should not be one for the first two hundred signups; a CSV export and a weekly digest are worth more.\n\n**Start with:** scoring at submission. The CLI is a view over it.",
   "type": "epic",
   "status": "open",
-  "priority": 1,
+  "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
@@ -26,10 +26,24 @@
       "text": "Triage/scoring/CLI stay in this repo until `574e4b`. Dashboard decision unchanged (CSV + weekly digest). After Account exists in Chattic.us-web, this epic relocates with the waitlist store.",
       "created_at": "2026-09-05T17:59:09.153754Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d8c80510-f879-4585-8348-1b519b9c6827",
+      "author": "home",
+      "text": "Status 2026-10-20 (board cleanup): triage stories de3a66, 4e14ec, 49324d, 786185 closed as obsolete: the waitlist store, scoring, disqualification and operator tooling now live in AnthusAI/Chattic.us-web (PR 24). Remaining child 36fc27 (weekly digest, P2) is not in that repo's intake docs yet and belongs there. Lowering this epic to P2 rather than closing it, because the digest decision is still open.",
+      "created_at": "2026-10-20T13:57:45.739080Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
     }
   ],
   "created_at": "2026-09-03T13:15:20.858149Z",
-  "updated_at": "2026-09-05T17:59:09.153754Z",
+  "updated_at": "2026-10-20T13:57:45.838587Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {}
 }

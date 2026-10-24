@@ -3,7 +3,7 @@
   "title": "Workspace redesign: what shipped and what remains",
   "description": "Status 2026-10-19 for epic chatticus-daa715.\n\n## Shipped to develop (production as of 2026-10-18)\n- Flat workspace with a panel plugin host and per-reply usage (first slice).\n- Full-height workspace on iPad Safari, resizable sidebar and panel.\n- Panel plugins load from manifests as custom elements (Context, Files, Costs run on that path).\n- Reply latency shown beside cost on replies and the conversation chip.\n- A screenshot gallery (desktop, iPad, phone) is posted on every web pull request.\n\n## Remaining\n- Kanbus board plugin (workspace files now, cloud DynamoDB-backed board later).\n- Monaco code editor plugin (full screen, file tree, terminal, embedded coding assistant).\n- Browser tab plugin.\n- AWS spend against the 50 USD monthly ceiling shown in the workspace (see chatticus-9ac621 for the unresolved hosted-organization meter).\n- Dark mode polish; plugin standard decision (Korporus web components).\n\nDesign notes: /ui-design/panel-plugin-contract.md and competitor-review-kylon.md in the project files. Brand rule: flat regions, no borders or outlines. Ryan reviews from an iPad, so UI pull requests need the screenshot gallery.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -25,10 +25,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-kanban-shared"
       }
+    },
+    {
+      "id": "1cc8af64-bd1f-4bce-9c60-c98ae365d856",
+      "author": "home",
+      "text": "Board sync 2026-10-20: work is under way, status moved open to in_progress. Kanbus board panel shipped to develop: PR 615 (b731f936, merged 2026-10-20 00:47Z) first workspace plugin; PR 618 (4678ed59, merged 02:25Z) swapped it to the shared @kanbus/ui component; PR 619 (d97c3702, merged to main 02:48Z) released it. PR 617 (release PR) was closed unmerged and replaced by 619. Of the remaining items in the description, the Kanbus board plugin is now done for workspace files (the cloud, DynamoDB-backed board is tracked under chatticus-c5f14c). Still remaining: Monaco editor plugin, Browser tab plugin, AWS spend against the 50 USD ceiling, dark mode polish and the plugin standard decision. Leftovers: local branches ts/workspace-kanban-plugin (8638f6e7) and ts/workspace-board-uses-kanbus-ui (f769e1db), in .claude/worktrees/kanban-plugin and kanban-shared, are the pushed heads of PRs 615 and 618. Both PRs were squash-merged, so those worktrees and branches have no unpushed work and the owner can remove them.",
+      "created_at": "2026-10-20T13:17:43.838951Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "drift-fix"
+      }
     }
   ],
   "created_at": "2026-10-19T16:50:00Z",
-  "updated_at": "2026-10-20T01:58:27.563366Z",
+  "updated_at": "2026-10-20T13:17:43.838978Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

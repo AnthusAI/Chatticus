@@ -6,6 +6,14 @@ export const CHATTICUS_CLOUD_ENVIRONMENTS = [
 
 export type ChatticusCloudEnvironment = (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number];
 
+/**
+ * The environments whose control plane stack deploys the Kanbus board service (one KanbusApi per environment, with its
+ * own bucket and table) and hands its URL to the Front Door and the turn executor. This is a documented rollout switch,
+ * not a behavior fork: there is one code path, and extending the rollout to staging and then production is a one-line
+ * change to this list. Development goes first by the owner's decision, see docs/BOT_BOARDS.md section 11.
+ */
+export const KANBUS_BOARD_ENVIRONMENTS: readonly ChatticusCloudEnvironment[] = ["development"];
+
 export const THIN_TURN_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusThinTurnDevelopment",
   staging: "ChatticusThinTurnStaging",
@@ -176,6 +184,20 @@ export function invokeKeySecretArnParameterName(
   environment: ChatticusCloudEnvironment,
 ): string {
   return `${thinTurnParameterPrefix(environment)}/invoke-key-secret-arn`;
+}
+
+/** The SSM SecureString parameter that holds the generated operator key of one environment. */
+export function operatorKeyParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `${thinTurnParameterPrefix(environment)}/operator-key`;
+}
+
+/** The SSM SecureString parameter that holds the generated model gateway signing key of one environment. */
+export function modelGatewaySigningKeyParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `/chatticus/${environment}/model-gateway/signing-key`;
 }
 
 export function operatorKeySecretArnParameterName(

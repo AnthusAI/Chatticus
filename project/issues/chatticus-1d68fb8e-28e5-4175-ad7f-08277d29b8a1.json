@@ -68,10 +68,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "bd9d6fd3-3063-4ee2-a3b1-936b8de8d6ca",
+      "author": "home",
+      "text": "Status 2026-10-20 (board cleanup): KEEP. The 2026-09-19 live run passed refusal, no computer started and org stays enabled, and the blocker 26f253 (rollup not deployed) is closed. But the meter behind the ceiling changed since: hosted organizations are metered from recorded owner runtime (PRs 586, 588, 608) and every organization starts at a 50 dollar ceiling (PR 594). The claim 'stops spend at the ceiling' needs one fresh live run against that meter before it is citable; cannot be verified read-only.",
+      "created_at": "2026-10-20T13:57:45.058049Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
     }
   ],
   "created_at": "2026-09-08T22:21:12.490291Z",
-  "updated_at": "2026-09-19T17:17:08.389769Z",
+  "updated_at": "2026-10-20T13:57:45.058092Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

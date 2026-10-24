@@ -6,6 +6,11 @@ on:
       environment:
         required: true
         type: string
+      expect-board:
+        description: "Whether the environment has the bot board capability (CHATTICUS_KANBUS_API_URL on the Front Door and Turn Executor). When true the smoke test also exercises a bot's board through the front door, and a front door that answers board_service_not_enabled fails it."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,4 +54,10 @@ jobs:
         working-directory: conversation
         env:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
-        run: npx tsx bin/acceptance.ts --environment "$TARGET_ENVIRONMENT"
+          EXPECT_BOARD: ${{ inputs.expect-board }}
+        run: |
+          if [ "$EXPECT_BOARD" = "true" ]; then
+            npx tsx bin/acceptance.ts --environment "$TARGET_ENVIRONMENT" --expect-board
+          else
+            npx tsx bin/acceptance.ts --environment "$TARGET_ENVIRONMENT"
+          fi

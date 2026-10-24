@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-eb508e27-1295-4c7e-8ce0-fa2d265ba805",
+  "title": "[Chattic.us-web] chattic.us Sign in links go to /chat, which returns 403",
+  "description": "**Problem**\nEvery \"Sign in\" link on the live marketing site https://chattic.us/ points at /chat on the marketing origin. That path returns 403 (S3 AccessDenied). The product lives at https://hey.chattic.us/chat. Board note: Chattic.us-web has no tracked board, so this is filed on Chatticus.\n\n**Evidence**\nLive HTML of https://chattic.us/ contains href=\"/chat\" on the Sign in links (checked 2026-10-20). `curl -s -o /dev/null -w '%{http_code}' https://chattic.us/chat` returns 403; `https://hey.chattic.us/chat` returns 200. Source locations in Chattic.us-web: Hero.tsx:69, Header.tsx:40, FinalCta.tsx:26, Footer.tsx:10. The privacy page (page-content.ts:26) also says /chat.\n\n**Fix**\nPoint all four Sign in links, and the privacy page text, at https://hey.chattic.us/chat (or add a redirect from chattic.us/chat to it).\n\n**How to verify**\n`curl -s -o /dev/null -w '%{http_code}' https://chattic.us/chat` returns 200 or a 301/302 to hey.chattic.us/chat, and clicking Sign in on https://chattic.us/ lands on the product sign-in.\n\nSource: Anthus repo audit, 2026-10-20.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-20T04:27:18.145440Z",
+  "updated_at": "2026-10-20T04:27:18.145493Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "audit-filer"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

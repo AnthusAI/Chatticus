@@ -4,7 +4,7 @@
   "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 0ab02c\n- **Runs in parallel with:** 0df6cb, b574a6\n- **Unblocks:** e41552 cannot open to the public without it\n\n---\n**Found by inversion: what makes the waitlist story fail on the day it succeeds?**\n\nAn unverified External Google OAuth app is capped at 100 users and shows an unverified-app warning on the consent screen. The whole point of the waitlist is that anyone may sign up, and marketing on the apex is meant to drive that. We would hit a hard wall at exactly the moment the funnel starts working, and the people who hit it would see a browser security warning first.\n\nVerification also requires a homepage and a privacy policy URL on a domain we own, so the marketing site needs a privacy policy before public signup, not after. That is a dependency on marketing that nothing in this initiative currently names.\n\nRequesting only email and profile scopes keeps this out of the slow restricted-scope review, but it is still a review with a queue.\n\n**Done when:** the consent screen is verified, or the 100-user cap is a recorded and accepted limit with a date by which it stops being acceptable.",
   "type": "chore",
   "status": "open",
-  "priority": 1,
+  "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
@@ -12,9 +12,24 @@
     "phase-2"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "27d16dab-afe5-450b-9e04-fbda99319465",
+      "author": "home",
+      "text": "Lowered to P2 (board cleanup 2026-10-20). Still valid and still a human task, but not urgent: signup is invitation_only in staging and production, so nobody outside the invited set reaches the Google consent screen yet. Raise again when public signup is about to open.",
+      "created_at": "2026-10-20T13:57:30.207003Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
+    }
+  ],
   "created_at": "2026-09-01T02:57:18.510928Z",
-  "updated_at": "2026-09-01T02:57:18.510928Z",
+  "updated_at": "2026-10-20T13:57:30.282425Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {}
 }

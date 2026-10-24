@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-4b9bd7ae-107d-4194-afe4-6c9ec566d713",
+  "title": "M3.7: Slack acceptance and live smoke in a development workspace",
+  "description": "Acceptance runner check with a recorded signed event, plus a manual smoke in a workspace the owner supplies. Runbook for installing and removing the app.\n\nAcceptance criteria:\n- Acceptance check passes against development\n- Live thread round trip recorded on the task\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: M3.5, M3.6; owner supplies a development workspace\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-58823c41-ef08-4ac0-9df5-20e3ae004dd6",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-7fc34317-0f00-4e53-8498-252561a9cb1f",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:56.976107Z",
+  "updated_at": "2026-10-22T03:58:16.130052Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

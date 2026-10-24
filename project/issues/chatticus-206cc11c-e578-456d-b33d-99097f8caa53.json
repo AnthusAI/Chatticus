@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-206cc11c-e578-456d-b33d-99097f8caa53",
+  "title": "Operator key moves to SSM SecureString /chatticus/<env>/thin-turn/operator-key",
+  "description": "Part of story chatticus-a170754a (Secrets and generated keys live in SSM Parameter Store SecureString, created by infrastructure code); read its description for the full plan, order and hazards. Replace the OperatorKey Secrets Manager secret in infra/lib/thin-turn-stack.ts with the construct; FrontDoor (front-door-composition.ts) reads it with ssm GetParameter WithDecryption; env var CHATTICUS_OPERATOR_KEY_PARAMETER_NAME; IAM ssm:GetParameter on the exact ARN. Rotate instead of copy: only a human operator uses it, blast radius none. Three secrets saved (1.20 USD per month). Order: thin-turn deploy, then control-plane deploy, remove the old secret in a later deploy after cloudformation list-imports shows no importer of the operator-key-secret-arn export. Update docs/OWNER_CREDENTIAL_REVOCATION.md sections 6 and 2.1 and docs/OPERATOR_ORG_SEED.md.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-21T15:52:39.470061Z",
+  "updated_at": "2026-10-21T15:52:39.470099Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-secrets-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

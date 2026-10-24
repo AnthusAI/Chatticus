@@ -1,3 +1,4 @@
+import { KanbusApi } from "@kanbus/cdk";
 import * as cdk from "aws-cdk-lib";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
@@ -22,9 +23,11 @@ import {
 import { readAlarmNotificationEmail } from "./budgets-config";
 import {
   ChatticusCloudEnvironment,
+  KANBUS_BOARD_ENVIRONMENTS,
   integrationTestParameterPrefix,
   invokeKeySecretArnParameterName,
-  operatorKeySecretArnParameterName,
+  modelGatewaySigningKeyParameterName,
+  operatorKeyParameterName,
   openAiApiKeyParameterName,
   signupModeForEnvironment,
   webParameterPrefix,
@@ -35,6 +38,7 @@ import {
   wireComputerStarterEcsRunTask,
   wireComputerStarterOwnerRunTask,
 } from "./computer-host-start";
+import { GeneratedSecureString } from "./generated-secure-string";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 import { frontDoorSnapshotPolicyStatements } from "./owner-role-policy";
 
@@ -43,6 +47,9 @@ const CREATE_REQUIRE_BANNER =
   "const require = topLevelCreateRequire(import.meta.url);";
 
 const DEAD_LETTER_MAX_RECEIVE_COUNT = 5;
+
+/** Days an archived bot board is kept before the Kanbus sweeper purges it; docs/BOT_BOARDS.md section 11 (f). */
+const KANBUS_ARCHIVE_RETENTION_DAYS = 30;
 
 /** Length of the generated model gateway signing key; the token code requires at least 32. */
 export const MODEL_GATEWAY_SIGNING_KEY_LENGTH = 64;
@@ -125,13 +132,15 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly turnProbeFunction: lambdaNodejs.NodejsFunction;
   readonly computerStarterFunction: lambdaNodejs.NodejsFunction;
   /** Development only: signs the per-turn model gateway tokens. */
-  readonly modelGatewaySigningKeySecret?: secretsmanager.Secret;
+  readonly modelGatewaySigningKey?: GeneratedSecureString;
   /** Development only, and only once ChatticusComputers has the owner task: the assumable ceiling for one Pi session owner. */
   readonly computerOwnerScopedRole?: iam.Role;
   /** Development only, with the scoped role: the assumable ceiling for the supervisor of the organization computer. */
   readonly computerSupervisorRole?: iam.Role;
   /** Development only, with the scoped role: the only principal that assumes the two owner roles; the Front Door invokes it. */
   readonly ownerCredentialBrokerFunction?: lambdaNodejs.NodejsFunction;
+  /** Only in the environments of KANBUS_BOARD_ENVIRONMENTS: this environment's own Kanbus board service. */
+  readonly kanbusApi?: KanbusApi;
 
   constructor(scope: Construct, id: string, props: ControlPlaneStackProps) {
     super(scope, id, props);
@@ -275,10 +284,8 @@ export class ControlPlaneStack extends cdk.Stack {
       this,
       invokeKeySecretArnParameterName(environmentName),
     );
-    const operatorKeySecretArn = ssm.StringParameter.valueForStringParameter(
-      this,
-      operatorKeySecretArnParameterName(environmentName),
-    );
+    const operatorKeyParameterNameValue = operatorKeyParameterName(environmentName);
+    const operatorKeyParameterArn = parameterArn(operatorKeyParameterNameValue);
 
     const frontDoorFunction = nodeFunction(
       "FrontDoor",
@@ -293,7 +300,7 @@ export class ControlPlaneStack extends cdk.Stack {
         CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER: cognitoUserPoolIdParameterName,
         CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER: cognitoAppClientIdParameterName,
         CHATTICUS_INVOKE_KEY_SECRET_ARN: invokeKeySecretArn,
-        CHATTICUS_OPERATOR_KEY_SECRET_ARN: operatorKeySecretArn,
+        CHATTICUS_OPERATOR_KEY_PARAMETER_NAME: operatorKeyParameterNameValue,
         CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: this.account,
         ...(integrationTestEnabled ? { CHATTICUS_INTEGRATION_TEST_ENABLED: "true" } : {}),
       },
@@ -312,7 +319,13 @@ export class ControlPlaneStack extends cdk.Stack {
     frontDoorFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["secretsmanager:GetSecretValue"],
-        resources: [invokeKeySecretArn, operatorKeySecretArn],
+        resources: [invokeKeySecretArn],
+      }),
+    );
+    frontDoorFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [operatorKeyParameterArn],
       }),
     );
     frontDoorFunction.addToRolePolicy(
@@ -407,29 +420,52 @@ export class ControlPlaneStack extends cdk.Stack {
       }),
     );
     this.computerStarterFunction = computerStarterFunction;
+
+    if (KANBUS_BOARD_ENVIRONMENTS.includes(environmentName)) {
+      const kanbusApi = new KanbusApi(this, "Kanbus", {
+        environmentName,
+        archiveRetentionDays: KANBUS_ARCHIVE_RETENTION_DAYS,
+        servicePrincipals: [
+          { role: frontDoorFunction.role!, tenants: "*", provision: true, delegateActor: true },
+          { role: turnExecutorFunction.role!, tenants: "*", provision: false, delegateActor: true },
+        ],
+      });
+      for (const target of [frontDoorFunction, turnExecutorFunction]) {
+        target.addEnvironment("CHATTICUS_KANBUS_API_URL", kanbusApi.serviceApiUrl!);
+      }
+      this.kanbusApi = kanbusApi;
+    }
+
     if (isDevelopment) {
-      const modelGatewaySigningKeySecret = new secretsmanager.Secret(
-        this,
-        "ModelGatewaySigningKey",
-        {
-          description:
-            "Signs the short-lived per-turn tokens the model gateway accepts. Read by the FrontDoor, the ComputerStarter and the OwnerCredentialBroker only.",
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-          generateSecretString: {
-            passwordLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
-            excludePunctuation: true,
-          },
+      new secretsmanager.Secret(this, "ModelGatewaySigningKey", {
+        description:
+          "Retired: the model gateway signing key now lives in the SSM SecureString /chatticus/development/model-gateway/signing-key. Nothing reads this secret; delete it after the deploy is verified.",
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        generateSecretString: {
+          passwordLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
+          excludePunctuation: true,
         },
-      );
-      modelGatewaySigningKeySecret.grantRead(frontDoorFunction);
-      modelGatewaySigningKeySecret.grantRead(computerStarterFunction);
+      });
+      const modelGatewaySigningKey = new GeneratedSecureString(this, "ModelGatewaySigningKeyParameter", {
+        parameterName: modelGatewaySigningKeyParameterName(environmentName),
+        valueLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
+        description:
+          "Signs the short-lived per-turn tokens the model gateway accepts. Read by the FrontDoor, the ComputerStarter and the OwnerCredentialBroker only.",
+      });
       for (const target of [frontDoorFunction, computerStarterFunction]) {
+        target.node.addDependency(modelGatewaySigningKey);
+        target.addToRolePolicy(
+          new iam.PolicyStatement({
+            actions: ["ssm:GetParameter"],
+            resources: [modelGatewaySigningKey.parameterArn],
+          }),
+        );
         target.addEnvironment(
-          "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN",
-          modelGatewaySigningKeySecret.secretArn,
+          "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME",
+          modelGatewaySigningKey.parameterName,
         );
       }
-      this.modelGatewaySigningKeySecret = modelGatewaySigningKeySecret;
+      this.modelGatewaySigningKey = modelGatewaySigningKey;
     }
     const computerHostStart = computerHostStartEcsConfig(this, environmentName);
     if (computerHostStart !== undefined) {
@@ -440,8 +476,8 @@ export class ControlPlaneStack extends cdk.Stack {
       );
       const computerOwnerStart = computerOwnerStartConfig(this, environmentName);
       if (computerOwnerStart !== undefined) {
-        const signingKeySecret = this.modelGatewaySigningKeySecret;
-        if (signingKeySecret === undefined) {
+        const signingKey = this.modelGatewaySigningKey;
+        if (signingKey === undefined) {
           throw new Error("The owner credential broker needs the model gateway signing key, which exists in development only.");
         }
         const credentialBrokerFunction = nodeFunction(
@@ -451,15 +487,16 @@ export class ControlPlaneStack extends cdk.Stack {
           15,
           "Owner credential broker: the only principal that assumes the supervisor and per-turn roles and signs the owner tokens.",
           {
-            CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: signingKeySecret.secretArn,
+            CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME: signingKey.parameterName,
             CHATTICUS_ENVIRONMENT: environmentName,
             ...ownerBrokerFaultVariables,
           },
         );
+        credentialBrokerFunction.node.addDependency(signingKey);
         credentialBrokerFunction.addToRolePolicy(
           new iam.PolicyStatement({
-            actions: ["secretsmanager:GetSecretValue"],
-            resources: [signingKeySecret.secretArn],
+            actions: ["ssm:GetParameter"],
+            resources: [signingKey.parameterArn],
           }),
         );
         const ownerRoles = wireComputerStarterOwnerRunTask(

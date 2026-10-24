@@ -3,7 +3,7 @@
   "title": "Adopt Pi as the agent harness and its session schema as the Chatticus transcript",
   "description": "Direction from the human (2026-10-04): integrate the Pi coding agent harness deeply. Chatticus has no real session storage format, so adopt Pi's session format (tree of entries with id/parentId) and Pi's detailed message schema as the canonical transcript; every Chatticus message revolves around that schema. Pi streams events; Chatticus becomes the user interface for Pi, streaming its responses into the existing one-turn stream.\n\nFirst step: research Pi's session/message/event schema and embedding APIs from source, then a design note mapping it onto Chatticus constraints (DynamoDB as the transcript store, channels with several bots, one-turn streams with no sockets, the computer vs Lambda split, approvals) and a migration of existing messages (no dual readers).",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -45,11 +45,23 @@
       "text": "STORAGE DECISION (human, 2026-10-04): payloads in S3 by convention, DynamoDB only as the index - chosen for long-term storage cost, which compounds in DynamoDB. Spike result (moto, spike meter): requests cost ~30% more per turn with S3 (each PUT ~ 8 WRU; WRUs are set by item minimums), storage ~60% less; break-even ~4 months (plain turn) / ~20 months (tool turn); transcripts are kept indefinitely, so S3 wins over time and removes the 400 KB / 4 MB limits. Stage-2 requirements: (1) S3 lifecycle moves idle conversations' commit objects to Intelligent-Tiering or Glacier Instant Retrieval; (2) compaction folds an idle conversation's commits into one segment object and replaces its per-record index items with a manifest, so DynamoDB footprint stays ~constant per conversation; (3) consider the DynamoDB Standard-IA table class for the index; (4) cut commits per turn (pi-durable's 100 ms partial throttle drives 7-31 commits/turn).",
       "created_at": "2026-10-04T19:56:05.207204Z",
       "comment_type": "default"
+    },
+    {
+      "id": "59adfab4-fa48-41eb-90e6-25f9ccef910e",
+      "author": "home",
+      "text": "Closed (board cleanup 2026-10-20). The decision was taken and shipped: the spike (6c4d24) passed, the control plane was rebuilt in TypeScript on pi-durable (epic a727ec) and the Pi session is the only transcript; PR 467 removed python/. Nothing remains under this epic.",
+      "created_at": "2026-10-20T13:57:17.633870Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
     }
   ],
   "created_at": "2026-10-04T18:31:58.379533Z",
-  "updated_at": "2026-10-04T19:56:05.207231Z",
-  "closed_at": null,
+  "updated_at": "2026-10-20T13:57:17.703674Z",
+  "closed_at": "2026-10-20T13:57:17.703635Z",
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",

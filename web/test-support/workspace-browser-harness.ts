@@ -26,6 +26,8 @@ class AcceptanceNotePanel extends HTMLElement {
 customElements.define("acceptance-note-panel", AcceptanceNotePanel);
 `;
 
+const BROWSER_CONDITION_TIMEOUT_MS = 20_000;
+
 /** Exercise the real workspace in Chrome; lifecycle events model Safari recovery, not a physical iPad keyboard. */
 async function main(): Promise<void> {
   const input = JSON.parse(process.argv[2] ?? "{}");
@@ -64,10 +66,10 @@ async function main(): Promise<void> {
   const address = server.address();
   assert.ok(address && typeof address !== "string");
   const browser = spawn(chromeExecutable, [
-    "--headless=new", "--disable-extensions", "--disable-background-networking", "--no-sandbox", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+    "--headless=new", "--disable-extensions", "--disable-background-networking", "--no-sandbox", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--lang=en-US",
     ...(process.platform === "linux" ? ["--disable-dev-shm-usage"] : []),
     "--remote-debugging-port=0", `--user-data-dir=${profileDirectory}`, "about:blank",
-  ], { detached: true, stdio: ["ignore", "ignore", "pipe"] });
+  ], { detached: true, stdio: ["ignore", "ignore", "pipe"], env: { ...process.env, TZ: "UTC", LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" } });
   let browserStderr = "";
   let browserSpawnError: Error | undefined;
   browser.stderr.on("data", (chunk) => { browserStderr = (browserStderr + String(chunk)).slice(-8_000); });
@@ -95,13 +97,16 @@ async function main(): Promise<void> {
     assert.ok(!response.exceptionDetails, JSON.stringify(response.exceptionDetails));
     return response.result.value;
   }
-  async function until(expression: string): Promise<void> {
-    const deadline = Date.now() + 10_000;
+  async function until(expression: string, missing?: string): Promise<void> {
+    const deadline = Date.now() + BROWSER_CONDITION_TIMEOUT_MS;
     while (Date.now() < deadline) {
       if (await evaluate(expression)) return;
       await delay(30);
     }
-    throw new Error(`Browser condition did not become true: ${expression}`);
+    throw new Error(`${missing ?? "Browser condition did not become true"} within ${BROWSER_CONDITION_TIMEOUT_MS} ms: ${expression}`);
+  }
+  async function settleFrames(): Promise<void> {
+    await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`);
   }
   async function viewport(width: number, height: number): Promise<void> {
     await command("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
@@ -115,15 +120,15 @@ async function main(): Promise<void> {
     await evaluate(`document.querySelector('${selector(column)}').focus()`);
     await command("Input.dispatchKeyEvent", { type: "keyDown", key: keyName });
     await command("Input.dispatchKeyEvent", { type: "keyUp", key: keyName });
-    await delay(50);
+    await settleFrames();
   }
   async function reload(): Promise<void> {
     const previousLoadCount = pageLoadCount;
     await command("Page.reload");
     for (let attempt = 0; pageLoadCount === previousLoadCount && attempt < 100; attempt++) await delay(30);
     assert.ok(pageLoadCount > previousLoadCount, "Reload did not finish");
-    await until(`document.querySelector('.workspace-shell') && document.querySelector('[aria-label="Resize sidebar"]') && document.documentElement.style.getPropertyValue('--workspace-viewport-height') !== ''`);
-    await delay(100);
+    await until(`document.querySelector('.workspace-shell') && document.querySelector('[aria-label="Resize sidebar"]') && document.documentElement.style.getPropertyValue('--workspace-viewport-height') !== ''`, "The reloaded workspace did not finish mounting");
+    await settleFrames();
   }
   async function point(column: string): Promise<{ x: number; y: number }> {
     return evaluate(`(() => { const r = document.querySelector('${selector(column)}').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + 40}; })()`);
@@ -169,6 +174,12 @@ async function main(): Promise<void> {
     });
     await command("Page.enable");
     await command("Runtime.enable");
+    await command("Emulation.setEmulatedMedia", { media: "screen", features: [
+      { name: "prefers-color-scheme", value: "light" },
+      { name: "prefers-reduced-motion", value: "no-preference" },
+    ] });
+    await command("Emulation.setTimezoneOverride", { timezoneId: "UTC" });
+    await command("Emulation.setLocaleOverride", { locale: "en-US" });
     await viewport(2000, 900);
     await command("Page.navigate", { url: `http://127.0.0.1:${address.port}/` });
     await until(`document.querySelector('.workspace-shell') !== null`);
@@ -183,7 +194,6 @@ async function main(): Promise<void> {
           ${input.event === "visualViewport" ? "window.visualViewport" : "window"}.dispatchEvent(new Event('${input.event === "visualViewport" ? "resize" : input.event}'))`);
         await until(`document.querySelector('.workspace-shell').getBoundingClientRect().height === 620`);
         await evaluate(`Object.defineProperty(window, 'innerHeight', {configurable: true, value: 900}); void 0`);
-        await delay(600);
         await until(`document.querySelector('.workspace-shell').getBoundingClientRect().height === 900`);
         await viewport(1366, 900);
       }
@@ -225,16 +235,17 @@ async function main(): Promise<void> {
       await reload();
       const saved = { sidebar: await width("sidebar"), panel: await width("panel") };
       await viewport(1280, 900);
-      await delay(100);
+      await until(`document.querySelector('.workspace-roster').getBoundingClientRect().width < ${saved.sidebar} && document.querySelector('.workspace-panel').getBoundingClientRect().width < ${saved.panel}`, "The columns did not give space back after the window narrowed");
       const narrow = await evaluate(`({sidebar: document.querySelector('.workspace-roster').getBoundingClientRect().width, panel: document.querySelector('.workspace-panel').getBoundingClientRect().width, conversation: document.querySelector('[aria-label="Conversation"]').getBoundingClientRect().width, documentWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth})`);
       await viewport(2000, 900);
-      await delay(100);
+      await until(`document.querySelector('.workspace-roster').getBoundingClientRect().width === ${saved.sidebar} && document.querySelector('.workspace-panel').getBoundingClientRect().width === ${saved.panel}`, "The columns did not return to their saved widths after the window widened");
       output = { saved, narrow, restored: { sidebar: await width("sidebar"), panel: await width("panel") } };
     } else if (input.action === "plugins") {
-      await until(`document.querySelector('chatticus-context-panel') !== null`);
+      await until(`document.querySelector('chatticus-context-panel')?.textContent.includes('Computer') === true`, "The Context plugin element did not render its Computer section");
       const contextPanelRendered = await evaluate(`document.querySelector('chatticus-context-panel').textContent.includes('Computer')`);
       await evaluate(`document.querySelector('[role="tab"]:nth-child(2)').click()`);
-      await until(`document.querySelector('chatticus-files-panel') !== null`);
+      await until(`document.querySelector('chatticus-files-panel')?.firstElementChild != null`, "The Files plugin element did not render any content");
+      const filesPanelRendered = await evaluate(`document.querySelector('chatticus-files-panel').firstElementChild !== null`);
       const registration = await evaluate(`window.registerAcceptancePanelPlugin({
         id: "acceptance-notes", name: "Notes", version: "1.0.0", entry: "/acceptance-plugin.js",
         elements: { panel: "acceptance-note-panel" }, sizes: ["split", "full"], handles: ["acceptance.note"],
@@ -243,15 +254,15 @@ async function main(): Promise<void> {
       const tabNamesBeforeOpening = await evaluate(`[...document.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)`);
       await evaluate(`[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent.includes('Notes')).click()`);
       await until(`document.querySelector('acceptance-note-panel') !== null && document.querySelector('acceptance-note-panel').textContent !== ''`);
-      await until(`[...document.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent.includes('Acceptance notes'))`);
+      await until(`[...document.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent.includes('Acceptance notes3'))`, "The plugin did not rename its tab and show its status badge");
       const splitContent = await evaluate(`document.querySelector('acceptance-note-panel').textContent`);
       await evaluate(`[...document.querySelectorAll('[aria-label="Panel size"] button')].find((button) => button.textContent === 'Full').click()`);
       await until(`document.querySelector('acceptance-note-panel').textContent.includes('size=full')`);
       const fullContent = await evaluate(`document.querySelector('acceptance-note-panel').textContent`);
       const tabTitlesAfterOpening = await evaluate(`[...document.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)`);
       await evaluate(`[...document.querySelectorAll('[role="tab"]')][0].click()`);
-      await until(`document.querySelector('acceptance-note-panel').closest('[role="tabpanel"]').hidden`);
-      const keptMountedWhileHidden = await evaluate(`document.querySelector('acceptance-note-panel').textContent.includes('active=false')`);
+      await until(`document.querySelector('acceptance-note-panel').closest('[role="tabpanel"]').hidden && document.querySelector('acceptance-note-panel').textContent.includes('active=false')`, "The plugin was not told it became inactive while staying mounted");
+      const keptMountedWhileHidden = await evaluate(`document.querySelector('acceptance-note-panel').isConnected && document.querySelector('acceptance-note-panel').textContent.includes('active=false')`);
       const reservedCoreRegistration = await evaluate(`window.registerAcceptancePanelPlugin({
         id: "files", name: "Impostor", version: "1.0.0", elements: { panel: "impostor-panel" }, sizes: ["split"],
       })`);
@@ -263,7 +274,7 @@ async function main(): Promise<void> {
       const failureAlert = `[...document.querySelectorAll('[role="alert"]')].find((alert) => alert.textContent.includes('could not be loaded'))`;
       await until(`${failureAlert} !== undefined`);
       output = {
-        contextPanelRendered, registration, fullContent, tabNamesBeforeOpening, splitContent, tabTitlesAfterOpening, keptMountedWhileHidden,
+        contextPanelRendered, filesPanelRendered, registration, fullContent, tabNamesBeforeOpening, splitContent, tabTitlesAfterOpening, keptMountedWhileHidden,
         reservedCoreRegistration, failingRegistration, failureMessage: await evaluate(`${failureAlert}.textContent`),
       };
     } else throw new Error(`Unknown browser action ${input.action}`);
@@ -274,10 +285,14 @@ async function main(): Promise<void> {
     socket?.close();
     const signalBrowserGroup = (signal: NodeJS.Signals) => {
       if (!browser.pid) return;
-      try {
-        process.kill(-browser.pid, signal);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+      for (const target of [-browser.pid, browser.pid]) {
+        try {
+          process.kill(target, signal);
+          return;
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code !== "ESRCH" && code !== "EPERM") throw error;
+        }
       }
     };
     const closed = browser.exitCode !== null || browser.signalCode !== null || !browser.pid
@@ -287,11 +302,14 @@ async function main(): Promise<void> {
     await Promise.race([closed, delay(2000)]);
     signalBrowserGroup("SIGKILL");
     browser.stderr.destroy();
+    const serverClosed = new Promise<void>((resolve) => server.close(() => resolve()));
     server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await serverClosed;
     await rm(profileDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+const exitAfterOutputIsFlushed = (exitCode: number) => process.stdout.write("", () => process.exit(exitCode));
+
+main().then(() => exitAfterOutputIsFlushed(0), (error) => { console.error(error); exitAfterOutputIsFlushed(1); });

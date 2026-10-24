@@ -15,6 +15,7 @@ import { TURN_RUN_QUEUE } from "./front-door.ts";
 import { probeQueueOf, runQueueOf, runVisibilityOf } from "./turn-queues.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
 import type { TurnWatcher } from "./turn-watcher.ts";
+import { executorBoardServiceFor } from "./bot-board-support.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 /** What a bot answers with when a scenario did not script its answer; the number tells the answers of one scenario apart. */
@@ -202,6 +203,7 @@ export async function executorDepsFor(
 		turnProbes: probeQueueOf(world),
 		runVisibility: runVisibilityOf(world),
 		computer: computerHandoffDependenciesFor(world),
+		...(executorBoardServiceFor(world) === undefined ? {} : { boards: executorBoardServiceFor(world)! }),
 		remainingMilliseconds: options.remainingMilliseconds ?? (() => scenario.functionMillisecondsLeft ?? Number.MAX_SAFE_INTEGER),
 		faults: world.faultPlan,
 	};

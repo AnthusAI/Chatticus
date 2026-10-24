@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-8c6e2181-aec6-467f-9ee5-9896766bddb5",
+  "title": "M3.3: Slack installation (OAuth v2) and bindings",
+  "description": "OAuth install flow initiated by an owner in the web app, state protected, callback on the front door, workspace bot token written to the path-scoped SSM SecureString, binding created per workspace with a default bot per Slack channel set by an owner. Uninstall and token revocation events disable the binding.\n\nAcceptance criteria:\n- Install from a development workspace creates a binding owned by the initiating organization\n- State mismatch or replay is rejected\n- Revocation event disables the binding and stops delivery\n- Token never appears in logs, responses or DynamoDB\n\nGherkin: features/slack_installation.feature\n\nDepends on: M3.2\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-58823c41-ef08-4ac0-9df5-20e3ae004dd6",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-519be5fa-e4ad-484f-9fe8-b15fae712b9b",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:55.765554Z",
+  "updated_at": "2026-10-22T03:58:15.182939Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

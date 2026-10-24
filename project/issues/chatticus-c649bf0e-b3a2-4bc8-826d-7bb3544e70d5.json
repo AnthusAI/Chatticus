@@ -47,10 +47,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "92430344-dd92-4a84-960d-dd79afbf3746",
+      "author": "home",
+      "text": "Board sync 2026-10-20: leftover worktree for this work. Local branch ts/development-in-production-account (8eaee861, 2 commits ahead of develop by commit id) in .claude/worktrees/dev-into-prod-account was reported as unpushed. It is not: origin/ts/development-in-production-account contains 8eaee861, and the work landed on develop as PR 610 (dc0db14d, merged 2026-10-19 22:13Z) and PR 611 (dbc0e073). The worktree can be removed by its owner.",
+      "created_at": "2026-10-20T13:17:43.926177Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "drift-fix"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:48.670078Z",
-  "updated_at": "2026-10-19T22:39:14.737033Z",
+  "updated_at": "2026-10-20T13:17:43.926204Z",
   "closed_at": "2026-10-19T22:39:14.736993Z",
   "agent": {
     "platform": "claude-code",

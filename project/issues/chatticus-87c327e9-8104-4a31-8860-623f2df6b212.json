@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-87c327e9-8104-4a31-8860-623f2df6b212",
+  "title": "M4.5: Discord interactions adapter (deferred, slash commands only)",
+  "description": "Deferred until demanded. Interactions endpoint with Ed25519 verification, PING handling, deferred response within 3 seconds and follow-up webhook within 15 minutes; /ask bot message mapped to a pair or guild-thread channel; outbound by bot token REST. Explicitly no Gateway websocket and no message-content intent because the architecture forbids persistent sockets.\n\nAcceptance criteria:\n- Only built if the owner opens it; spike decision recorded first\n- Bad signature rejected; PING answered\n- Slash command round trip with the fake transport\n\nGherkin: features/discord_interactions.feature\n\nDepends on: M3.2, M2.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 4,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-f58b4fe2-1584-4d30-bf28-cd2285c1a389",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:58.785771Z",
+  "updated_at": "2026-10-22T03:57:58.785837Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

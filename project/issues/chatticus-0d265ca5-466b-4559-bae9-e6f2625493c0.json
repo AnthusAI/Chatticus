@@ -12,9 +12,22 @@
     "cost-accounting"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cbf67e89-70d7-4ecd-b92d-91b80fc5ba4b",
+      "author": "home",
+      "text": "Status 2026-10-20 (board cleanup): KEEP. Part of the active cost accounting epic 8c857b; T7 (legacy vendor ledger migration) has no PR on develop yet.",
+      "created_at": "2026-10-20T13:57:45.647784Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
+    }
+  ],
   "created_at": "2026-10-13T11:31:35.280677Z",
-  "updated_at": "2026-10-13T11:31:35.280715Z",
+  "updated_at": "2026-10-20T13:57:45.647808Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

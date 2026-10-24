@@ -1,3 +1,4 @@
+import type { BotBoardService } from "../board/bot-board-service.ts";
 import type { IdSource } from "../http/app.ts";
 import { DuplicateBotNameError } from "../http/errors.ts";
 import type { Bot } from "../store/codecs/bot.ts";
@@ -15,8 +16,19 @@ export class BotNotFoundError extends Error {
 	}
 }
 
+/** The board provisioning a new bot needs, supplied only where the board capability is rolled out. */
+export type BotBoardProvisioner = Pick<BotBoardService, "provisionBotBoard" | "archiveBoardOfUnstoredBot">;
+
 /** What the bot functions read and write. */
-export type BotDependencies = { store: MessagingStore; ids: IdSource };
+export type BotDependencies = { store: MessagingStore; ids: IdSource; boards?: BotBoardProvisioner | null };
+
+/** The new bot's board could not be provisioned, so the bot was not created. */
+export class BotBoardProvisioningError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "BotBoardProvisioningError";
+	}
+}
 
 /** Render a string the way Python repr does for a plain string. */
 export function pythonRepr(value: string): string {
@@ -26,13 +38,25 @@ export function pythonRepr(value: string): string {
 	return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
+async function archiveOrphanBoard(bot: Bot, creatorUserId: string, deps: BotDependencies): Promise<void> {
+	if (deps.boards === undefined || deps.boards === null) return;
+	const archived = await deps.boards
+		.archiveBoardOfUnstoredBot({ organizationId: bot.tenantId, botId: bot.botId }, { kind: "user", userId: creatorUserId })
+		.catch((error: unknown) => ({ ok: false as const, failure: { message: String(error) } }));
+	if (!archived.ok) {
+		console.warn(`The board of bot ${bot.botId} could not be archived after the bot failed to store: ${archived.failure.message}`);
+	}
+}
+
 /**
  * Create a named bot and ensure the organization has a computer.
  *
  * Ported from python/src/chatticus/control_plane.py lines 794-826. A replayed idempotency key returns the
- * bot stored under it.
+ * bot stored under it. Where the board capability is rolled out, the bot's board is provisioned before the bot is
+ * stored; a board that cannot be provisioned fails the creation and nothing is stored, and a bot that fails to store after its board was provisioned has that board archived (best effort). A retry of the same request makes a new bot id and a new board: the idempotency key only replays a bot that was stored.
  *
  * @throws DuplicateBotNameError If the organization already has this bot name.
+ * @throws BotBoardProvisioningError If the board capability is on and the bot's board could not be provisioned.
  */
 export async function createBot(
 	tenantId: string,
@@ -54,9 +78,23 @@ export async function createBot(
 	}
 	await ensureComputer(tenantId, deps);
 	const bot: Bot = { botId: deps.ids.next(), tenantId, name, memory: {} };
-	await deps.store.putBot(bot, true);
-	if (idempotencyKey !== null) {
-		await deps.store.putBotIdempotency(tenantId, idempotencyKey, bot);
+	if (deps.boards !== undefined && deps.boards !== null) {
+		const provisioned = await deps.boards.provisionBotBoard(
+			{ organizationId: tenantId, botId: bot.botId },
+			{ kind: "user", userId: options.creatorUserId },
+		);
+		if (!provisioned.ok) {
+			throw new BotBoardProvisioningError(`The board of bot ${pythonRepr(name)} could not be provisioned: ${provisioned.failure.message}`);
+		}
+	}
+	try {
+		await deps.store.putBot(bot, true);
+		if (idempotencyKey !== null) {
+			await deps.store.putBotIdempotency(tenantId, idempotencyKey, bot);
+		}
+	} catch (error) {
+		await archiveOrphanBoard(bot, options.creatorUserId, deps);
+		throw error;
 	}
 	return bot;
 }

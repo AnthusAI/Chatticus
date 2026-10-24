@@ -307,5 +307,79 @@
 			"exampleKey": "tenants/{tenantId}/computers/{computerId}/snapshot.tar.gz",
 			"note": "The supervisor publishes the snapshot of its computer."
 		}
+	],
+	"deniedRows": [
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		}
 	]
 }

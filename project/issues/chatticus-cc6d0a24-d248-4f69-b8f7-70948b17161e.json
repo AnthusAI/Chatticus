@@ -18,16 +18,25 @@
       "author": "unknown",
       "text": "Feature: Paid enablement\n\n  Scenario: A created organization carries its waitlist origin\n    Given an invited waitlist signup\n    When that person signs in and creates their organization\n    Then the organization records the waitlist signup it came from\n\n  Scenario: Survey answers are reachable from the organization\n    Given an organization created from a waitlist invitation\n    When an operator reads that organization\n    Then its survey answers and score are reachable from it",
       "created_at": "2026-09-03T13:19:48.155853Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "aea653ff-d7f9-464a-8722-33c488928a27",
+      "author": "home",
+      "text": "Status 2026-10-20 (board cleanup): KEEP. Not built in this repo (no waitlist origin field on the organization in conversation/src). The waitlist now lives in AnthusAI/Chattic.us-web, whose invitation endpoint returns a sign-in URL; recording the origin on the organization still needs a design for how the signup id reaches this repo. Not urgent while signup is invitation_only.",
+      "created_at": "2026-10-20T13:57:45.460632Z",
       "comment_type": "default",
-      "data": {},
-      "agent": null
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
     }
   ],
   "created_at": "2026-09-03T13:19:46.981551Z",
-  "updated_at": "2026-09-03T13:19:48.156002Z",
+  "updated_at": "2026-10-20T13:57:45.460652Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }

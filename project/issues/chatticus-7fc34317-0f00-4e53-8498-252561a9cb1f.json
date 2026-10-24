@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-7fc34317-0f00-4e53-8498-252561a9cb1f",
+  "title": "M3.5: Slack outbound: render, deliver, rate limits",
+  "description": "Render bot replies with Slack mrkdwn limits, post in thread with chat.postMessage and per-message username and icon for the bot's name, honor 429 Retry-After with bounded retries, split long text, never post outside the originating channel and thread unless a gated send.\n\nAcceptance criteria:\n- Reply appears in the originating thread under the bot's name\n- 429 handling retries with the header value and then records failure\n- Long answers are split or linked with an in-app link\n\nGherkin: features/slack_outbound.feature\n\nDepends on: M3.4, M1.4\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-58823c41-ef08-4ac0-9df5-20e3ae004dd6",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-5eda611e-494a-48db-bb52-32e272d08550",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:56.408431Z",
+  "updated_at": "2026-10-22T03:58:15.626645Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

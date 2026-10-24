@@ -1,5 +1,6 @@
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import type { GetParameterCommand } from "@aws-sdk/client-ssm";
 import type { EcsRunTaskInput } from "../src/computer/aws-ports.ts";
 import type { Organization } from "../src/domain/organizations.ts";
 import { composeComputerStarterDependencies, type ComputerStarterAwsClients } from "../src/lambdas/computer-starter.ts";
@@ -15,9 +16,9 @@ export const OWNER_START_DEPLOYMENT_ACCOUNT = "123456789012";
 /** The invoke key value the scenario's secret holds; no log may carry it. */
 export const OWNER_START_INVOKE_KEY = "scenario-invoke-key-value-77aa";
 
-/** The secrets the starter reads by ARN. */
+/** The secret the starter reads by ARN and the parameter it reads by name. */
 export const OWNER_START_INVOKE_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:invoke-AbCdEf";
-export const OWNER_START_SIGNING_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:gateway-signing-AbCdEf";
+export const OWNER_START_SIGNING_PARAMETER_NAME = "/chatticus/development/model-gateway/signing-key";
 
 /** What one scenario about the starter remembers between its steps. */
 export type OwnerStartScenario = {
@@ -74,7 +75,7 @@ export function ownerRuntimeSettings(): Record<string, string> {
 		CHATTICUS_OWNER_TASK_DEFINITION: "owner-computer:3",
 		CHATTICUS_OWNER_CONTAINER_NAME: "owner",
 		CHATTICUS_OWNER_COMMAND: "node /opt/chatticus/host/supervisor.mjs",
-		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: OWNER_START_SIGNING_SECRET_ARN,
+		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME: OWNER_START_SIGNING_PARAMETER_NAME,
 		CHATTICUS_CONVERSATIONS_TABLE: "conversations-table",
 		CHATTICUS_PI_SESSIONS_BUCKET: "pi-sessions-bucket",
 		CHATTICUS_SNAPSHOT_BUCKET: "snapshot-bucket",
@@ -84,13 +85,21 @@ export function ownerRuntimeSettings(): Record<string, string> {
 function secretsFor(): ComputerStarterAwsClients["secrets"] {
 	const values: Record<string, string> = {
 		[OWNER_START_INVOKE_SECRET_ARN]: OWNER_START_INVOKE_KEY,
-		[OWNER_START_SIGNING_SECRET_ARN]: SCENARIO_GATEWAY_SIGNING_KEY,
 	};
 	return {
 		async send(command: GetSecretValueCommand) {
 			return { SecretString: values[command.input.SecretId ?? ""] };
 		},
 	} as ComputerStarterAwsClients["secrets"];
+}
+
+function parametersFor(): ComputerStarterAwsClients["parameters"] {
+	const values: Record<string, string> = { [OWNER_START_SIGNING_PARAMETER_NAME]: SCENARIO_GATEWAY_SIGNING_KEY };
+	return {
+		async send(command: GetParameterCommand) {
+			return { Parameter: { Value: values[command.input.Name ?? ""] } };
+		},
+	} as ComputerStarterAwsClients["parameters"];
 }
 
 /** Run `action` while every console line it prints is kept on the scenario. */
@@ -124,7 +133,7 @@ export async function composeStarter(world: ChatticusWorld): Promise<ComputerSta
 		scenario.composed = await withCapturedLogs(world, () =>
 			composeComputerStarterDependencies(
 				scenario.environment,
-				{ dynamo: world.messagingTable.client, sqs: new SQSClient({ region: "us-east-1" }), secrets: secretsFor() },
+				{ dynamo: world.messagingTable.client, sqs: new SQSClient({ region: "us-east-1" }), secrets: secretsFor(), parameters: parametersFor() },
 				{
 					ecsClientFactory: (credentials) => (credentials === null ? scenario.ecs : scenario.customerEcs),
 					cloudformationClientFactory: () => new FakeCloudFormation(),

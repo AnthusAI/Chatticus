@@ -24,6 +24,7 @@ import { CommitOutcomeUnknown, findStorageFailure, OwnershipLost } from "../pi/e
 import { chatticusExtensions } from "../pi/extension.ts";
 import { type ComputerToolCall, type ComputerToolHandoff, computerToolsExtension } from "../pi/computer-tools.ts";
 import { type ToolGateDependencies, toolGateExtension } from "../pi/gate.ts";
+import { botBoardToolExtensions } from "../pi/bot-board-tool.ts";
 import { taskToolExtensions } from "../pi/task-tool.ts";
 import { primaryHumanParticipant } from "../domain/channels.ts";
 import { PolicyControl } from "../policy/policy-control.ts";
@@ -205,6 +206,12 @@ class TurnAttempt {
 					{ tenantId: this.job.tenantId, userId: primaryHumanParticipant(channel), botId: this.job.botId },
 					{ store: messaging, ids: this.deps.turns.ids },
 				),
+				...(this.deps.boards === undefined
+					? []
+					: botBoardToolExtensions(
+							{ organizationId: this.job.tenantId, botId: this.job.botId, turnId: this.job.turnId },
+							this.deps.boards,
+						)),
 				(this.deps.computerTools ?? computerToolsExtension)(this.computerHandoff()),
 				toolGateExtension(this.toolGateDependencies()),
 			],

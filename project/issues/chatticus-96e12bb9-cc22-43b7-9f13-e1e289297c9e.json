@@ -1,9 +1,9 @@
 {
   "id": "chatticus-96e12bb9-cc22-43b7-9f13-e1e289297c9e",
-  "title": "The image build and the Lambda deploys must not displace each other in the shared queue group",
+  "title": "Starter must not restart an owner task that exits at startup with a configuration error",
   "description": "2026-10-11: dispatching the image build while the deploy workflows were queued cancelled the pending ControlPlane and ThinTurn deploys (GitHub keeps one pending run per concurrency group), so the new image went live against the old starter and every owner crashed at startup (CHATTICUS_OWNER_HOST_TOKEN required) in a retry loop of about 10 starts. Fix: give the image build its own concurrency group, make the deploy workflows wait for the image of the same commit (or the other way round), or publish the image under the sha tag first and flip dev after the Lambdas deploy. Also: the starter should stop retrying an owner that exits with a configuration error.\n\nWhat remains (triage 2026-10-14): PR 543 gave the image build its own concurrency group (it can no longer displace pending ControlPlane or ThinTurn deploys) and PR 547 made the image tag move only through promote-computer-image-development.yml after the server side deploys succeeded. Left: the starter still retrying an owner that exits at startup with a configuration error (the CHATTICUS_OWNER_HOST_TOKEN required crash loop, about 10 starts). PR 546 bounds failures of the start call itself to 3 deliveries, but an owner task that starts and then exits on a config error is a different path and has no scenario in features/computer_owner_start.feature. Close once that is scenario-pinned or judged out of scope.",
   "type": "bug",
-  "status": "in_progress",
+  "status": "open",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -58,10 +58,34 @@
         "model": "claude-sonnet-5-5",
         "name": "claude-main"
       }
+    },
+    {
+      "id": "7bdfa210-a8cf-45c7-a2fe-bd11c08ca4ba",
+      "author": "home",
+      "text": "Board sync 2026-10-20: still in_progress, no change in substance. Verified against origin/develop: PRs 543 (012ab064), 547 (27344a08) and 546 (872e1f99) are merged; features/computer_owner_start.feature has no scenario for an owner task that starts and exits on a configuration error, and no later commit or ticket addresses the starter retry loop. The remaining work is that scenario plus the starter change, or an owner decision that it is out of scope. No activity since 2026-10-14.",
+      "created_at": "2026-10-20T13:17:35.789956Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "drift-fix"
+      }
+    },
+    {
+      "id": "58fbb074-5b0a-43a8-aaca-76904ad96fb6",
+      "author": "home",
+      "text": "Triage 2026-10-20. Queue displacement is fixed. Evidence: PR 543 (own concurrency group build-computer-image-development), PR 547 (dev tag moves only via promote-computer-image-development.yml after the server deploys), PR 548 merged. gh run list: 'Build computer image (development)' last 40 runs = 38 success, 1 failure, 1 cancelled (2026-10-18, the image build itself, not a deploy). On 2026-10-19 22:13Z one push ran the image build and all four Deploy (development) workflows together and every one succeeded, then Promote computer image (development) succeeded at 22:24Z. Cancelled Deploy runs since 2026-10-06 (2026-10-19 development x4 and staging x2, one pending 2026-10-20) are same-group pending-run supersession by a newer push or dispatch (cancel-in-progress false, one pending slot), not displacement by the image build; the newer run deploys the newer sha.\n\nSPLIT-OUT STORY (to be filed as its own story under epic a727ec once the secret-scanner policy accepts new chatticus- issue files; title: The owner starter must not restart an owner task that exits at startup with a configuration error). The remainder is real. On 2026-10-11 an owner task started against a mismatched starter, exited with CHATTICUS_OWNER_HOST_TOKEN required, and was restarted about 10 times. PR 546 bounds failures of the start call itself to 3 deliveries (features/computer_owner_start.feature, delivery 3 scenario) but not an owner task that starts and then exits at startup on a configuration error. Needed: a scenario in features/computer_owner_start.feature (Given an owner task that exits at startup with a configuration error, When the starter sees the exit, Then it starts no further owner task and the parked turn fails with a clear reason), the starter change, and the steps in conversation/features-support/steps/. Alternative: the owner decides it is out of scope. This ticket is re-scoped to exactly that remainder and moved to open until the story can be filed.",
+      "created_at": "2026-10-20T13:37:17.277903Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-triage"
+      }
     }
   ],
   "created_at": "2026-10-11T17:37:40.103261Z",
-  "updated_at": "2026-10-14T03:33:49.317945Z",
+  "updated_at": "2026-10-20T13:40:01.399846Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

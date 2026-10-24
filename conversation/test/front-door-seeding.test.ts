@@ -19,7 +19,7 @@ const dynamo = new DynamoDBClient({ endpoint, region: "us-east-1", credentials, 
 
 const DEPLOYMENT_ACCOUNT_ID = "123456789012";
 const INVOKE_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:invoke-AbCdEf";
-const OPERATOR_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:operator-GhIjKl";
+const OPERATOR_KEY_PARAMETER_NAME = "/chatticus/test/thin-turn/operator-key";
 
 function parametersWith(values: Record<string, string>): FrontDoorAwsClients["parameters"] {
 	return {
@@ -32,7 +32,7 @@ function parametersWith(values: Record<string, string>): FrontDoorAwsClients["pa
 
 const secrets = {
 	async send(command: GetSecretValueCommand) {
-		return { SecretString: command.input.SecretId === INVOKE_SECRET_ARN ? "invoke-key-value" : "operator-key-value" };
+		return { SecretString: command.input.SecretId === INVOKE_SECRET_ARN ? "invoke-key-value" : undefined };
 	},
 } as FrontDoorAwsClients["secrets"];
 
@@ -54,7 +54,7 @@ function clientsFor(parameters: Record<string, string>, dynamoClient: DynamoDBCl
 		dynamo: dynamoClient,
 		s3: new S3Client({ endpoint, region: "us-east-1", credentials, forcePathStyle: true, maxAttempts: 1 }),
 		sqs: new SQSClient({ endpoint, region: "us-east-1", credentials, maxAttempts: 1 }),
-		parameters: parametersWith(parameters),
+		parameters: parametersWith({ ...parameters, [OPERATOR_KEY_PARAMETER_NAME]: "operator-key-value" }),
 		secrets,
 	};
 }
@@ -72,7 +72,7 @@ function environmentFor(environmentName: string): Record<string, string | undefi
 		CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER: `/chatticus/${environmentName}/web/cognito-user-pool-id`,
 		CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER: `/chatticus/${environmentName}/web/cognito-app-client-id`,
 		CHATTICUS_INVOKE_KEY_SECRET_ARN: INVOKE_SECRET_ARN,
-		CHATTICUS_OPERATOR_KEY_SECRET_ARN: OPERATOR_SECRET_ARN,
+		CHATTICUS_OPERATOR_KEY_PARAMETER_NAME: OPERATOR_KEY_PARAMETER_NAME,
 		CHATTICUS_INTEGRATION_TEST_ENABLED: "true",
 		CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: DEPLOYMENT_ACCOUNT_ID,
 		OPENAI_API_KEY: "sk-test",

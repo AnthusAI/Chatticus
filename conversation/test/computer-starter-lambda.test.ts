@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import type { GetParameterCommand } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createMessagingTable } from "../features-support/messaging-table.ts";
@@ -17,7 +18,7 @@ const sqs = new SQSClient({ endpoint, region: "us-east-1", credentials, maxAttem
 
 const ACCOUNT_ID = "123456789012";
 const SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:invoke-AbCdEf";
-const SIGNING_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:gateway-signing-AbCdEf";
+const SIGNING_PARAMETER_NAME = "/chatticus/development/model-gateway/signing-key";
 const CUSTOMER_TENANT = "customer-org";
 const CUSTOMER_ACCOUNT_ID = "210987654321";
 const SECRET_VALUE = "super-secret-invoke-key-value";
@@ -40,7 +41,7 @@ function environment(overrides: Record<string, string | undefined> = {}): Record
 		CHATTICUS_ECS_HOST_COMMAND: "node /opt/chatticus/host/host-worker.mjs",
 		CHATTICUS_FRONT_DOOR_URL: FRONT_DOOR_URL,
 		CHATTICUS_INVOKE_KEY_SECRET_ARN: SECRET_ARN,
-		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: SIGNING_SECRET_ARN,
+		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME: SIGNING_PARAMETER_NAME,
 		CHATTICUS_OWNER_TASK_DEFINITION: "owner-computer:3",
 		CHATTICUS_OWNER_CONTAINER_NAME: "owner",
 		CHATTICUS_OWNER_COMMAND: "node /opt/chatticus/host/supervisor.mjs",
@@ -69,8 +70,20 @@ function failingSecrets(): ComputerStarterAwsClients["secrets"] {
 	} as ComputerStarterAwsClients["secrets"];
 }
 
-function clientsWith(secrets: ComputerStarterAwsClients["secrets"]): ComputerStarterAwsClients {
-	return { dynamo, sqs, secrets };
+function parametersReturning(value: string | undefined, requested: Array<{ name: string; withDecryption: boolean | undefined }> = []): ComputerStarterAwsClients["parameters"] {
+	return {
+		async send(command: GetParameterCommand) {
+			requested.push({ name: command.input.Name ?? "", withDecryption: command.input.WithDecryption });
+			return { Parameter: value === undefined ? undefined : { Value: value } };
+		},
+	} as ComputerStarterAwsClients["parameters"];
+}
+
+function clientsWith(
+	secrets: ComputerStarterAwsClients["secrets"],
+	parameters: ComputerStarterAwsClients["parameters"] = parametersReturning("gateway-signing-key-for-the-starter-test"),
+): ComputerStarterAwsClients {
+	return { dynamo, sqs, secrets, parameters };
 }
 
 const claim: HostStartClaim = {
@@ -141,9 +154,15 @@ afterEach(() => {
 describe("ComputerStarter invoke key", () => {
 	it("reads the invoke key secret by ARN at composition and forwards it with the Front Door URL in the RunTask overrides of a customer-account host", async () => {
 		const requested: string[] = [];
+		const requestedParameters: Array<{ name: string; withDecryption: boolean | undefined }> = [];
 		const ecs = new FakeEcs();
-		const dependencies = await composeComputerStarterDependencies(environment(), clientsWith(secretsReturning(SECRET_VALUE, requested)), customerAccountOptions(ecs));
-		expect(requested).toEqual([SECRET_ARN, SIGNING_SECRET_ARN]);
+		const dependencies = await composeComputerStarterDependencies(
+			environment(),
+			clientsWith(secretsReturning(SECRET_VALUE, requested), parametersReturning("gateway-signing-key-for-the-starter-test", requestedParameters)),
+			customerAccountOptions(ecs),
+		);
+		expect(requested).toEqual([SECRET_ARN]);
+		expect(requestedParameters).toEqual([{ name: SIGNING_PARAMETER_NAME, withDecryption: true }]);
 		await dependencies.driver.start(claim, job);
 		expect(ecs.runTaskCalls).toHaveLength(1);
 		const containerEnvironment = ecs.runTaskCalls[0]!.overrides!.containerOverrides![0]!.environment!;
@@ -167,6 +186,12 @@ describe("ComputerStarter invoke key", () => {
 	it("fails the start loudly when the secret has no value", async () => {
 		await expect(composeComputerStarterDependencies(environment(), clientsWith(secretsReturning(undefined)))).rejects.toThrow(
 			`The secret ${SECRET_ARN} has no value.`,
+		);
+	});
+
+	it("fails the start loudly when the signing key parameter has no value", async () => {
+		await expect(composeComputerStarterDependencies(environment(), clientsWith(secretsReturning(SECRET_VALUE), parametersReturning(undefined)))).rejects.toThrow(
+			`The parameter ${SIGNING_PARAMETER_NAME} has no value.`,
 		);
 	});
 

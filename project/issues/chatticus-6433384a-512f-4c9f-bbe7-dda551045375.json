@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-6433384a-512f-4c9f-bbe7-dda551045375",
+  "title": "M2.1: External identities, trust classes and member linking",
+  "description": "Add external_identity items and the trust class resolution member, guest, unknown, blocked (contract section 4). Implement email linking: a member's verified sign-in address links automatically on first authenticated inbound; extra addresses are added in the web app and confirmed by a one-time emailed link. Removal and demotion take effect at the next message. Unknown goes to quarantine (M2.3); member turns start with the conversational grant.\n\nAcceptance criteria:\n- A message from an address that matches no member and no admission is classified unknown and starts no turn\n- A removed member's next message is not treated as a member\n- A member cannot link another member's address; confirmation links are single use and expire\n- Trust class is recorded on the message origin and visible to the owner\n\nGherkin: features/external_sender_trust.feature\n\nDepends on: M1.8\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-5cbab606-fe83-407e-bf6b-3f97791cab78",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:51.126037Z",
+  "updated_at": "2026-10-22T03:58:11.831275Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

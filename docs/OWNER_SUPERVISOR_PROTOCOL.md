@@ -115,7 +115,7 @@ image bundle from importing the starter (the bundle guard forbids `owner-start-d
 ## 4. Identities and tokens
 
 All tokens are `ct1.<claims>.<signature>` (HMAC-SHA-256 over `ct1.<claims>`, claims as base64url JSON), signed with
-the existing model gateway signing key secret (`ModelGatewaySigningKey`, `control-plane-stack.ts:379-402`;
+the model gateway signing key (the SSM SecureString `/chatticus/development/model-gateway/signing-key`, `control-plane-stack.ts`;
 `session-token.ts:59-63`). The claim keys are camelCase like today's.
 
 | Token | Audience | Claims | Lifetime | Minted by | Accepted by |
@@ -490,11 +490,11 @@ scan failed sends nothing, so the flag stays set.
 (`InvocationType: RequestResponse`) by the Front Door through `LambdaClient`; nothing else may invoke it
 (`lambda:InvokeFunction` is granted to the Front Door role only).
 
-**Holds:** the signing key secret (`CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN`, read at first use and cached 300
-seconds, the pattern of `INVOKE_KEY_CACHE_SECONDS`), and nothing else. **Permissions:** `secretsmanager:GetSecretValue`
-on that one secret; `sts:AssumeRole` and `sts:TagSession` on the two role ARNs. No DynamoDB, no S3, no SQS, no SSM.
+**Holds:** the signing key (`CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME`, an SSM SecureString read at first use and cached 300
+seconds, the pattern of `INVOKE_KEY_CACHE_SECONDS`), and nothing else. **Permissions:** `ssm:GetParameter`
+on that one parameter ARN; `sts:AssumeRole` and `sts:TagSession` on the two role ARNs. No DynamoDB, no S3, no SQS, no Secrets Manager.
 **Environment:** `CHATTICUS_OWNER_SCOPED_ROLE_ARN`, `CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN`,
-`CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN`, `AWS_REGION`. The role ARNs, the duration (3600) and the tag keys are
+`CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME`, `AWS_REGION`. The role ARNs, the duration (3600) and the tag keys are
 fixed in code and environment; nothing in a request chooses them.
 
 Payload (`ownerCredentialBrokerRequestSchema`, strict, `version: 1`):
@@ -822,8 +822,8 @@ Container override environment: section 9.2, names as listed. **Removed from tod
 `node /opt/chatticus/host/supervisor.mjs`.
 
 Starter IAM (`computer-host-start.ts:409-487`, `control-plane-stack.ts:308-377`): keeps `ecs:RunTask` on the owner task
-definition family, `iam:PassRole` for the owner task and execution roles, `secretsmanager:GetSecretValue` on the signing
-key, the Messaging table, the SQS sends. **Loses** `sts:AssumeRole` and `sts:TagSession` on the scoped role
+definition family, `iam:PassRole` for the owner task and execution roles, `ssm:GetParameter` on the signing
+key parameter, the Messaging table, the SQS sends. **Loses** `sts:AssumeRole` and `sts:TagSession` on the scoped role
 (`computer-host-start.ts:482`). It never invokes the broker. The customer-account `sts:AssumeRole` on
 `ChatticusOrganizationComputerRole` stays (`control-plane-stack.ts:330-335`).
 
@@ -1074,7 +1074,7 @@ Do not read or write `project/`.
   environment; starter environment and IAM (11.1, 11.2).
 - [ ] `infra/lib/computer-stack.ts` and `infra/README.md`: remove the legacy host, add the outputs, `initProcessEnabled`,
   `stopTimeout` (11.3). `lookupComputersHostStart` reads the outputs.
-- [ ] `infra/test/computer-owner-stack.test.ts`: assertions for the broker's permissions (nothing but the secret and the
+- [ ] `infra/test/computer-owner-stack.test.ts`: assertions for the broker's permissions (nothing but the parameter and the
   two roles), the roles' trust and tag conditions, the starter's missing STS right, the Front Door invoke right, the
   legacy resources gone, the owner command.
 

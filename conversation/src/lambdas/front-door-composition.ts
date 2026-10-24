@@ -7,6 +7,7 @@ import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { LambdaClient } from "@aws-sdk/client-lambda";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { Hono } from "hono";
+import { botBoardServiceFromEnvironment } from "../board/bot-board-service-factory.ts";
 import { createIdTokenVerifier } from "../auth/cognito.ts";
 import { secretsManagerInvokeKeySource } from "../auth/invoke-key-source.ts";
 import { loadIntegrationTestAuthConfig, seedIntegrationTestOrganization } from "../auth/integration-test.ts";
@@ -74,11 +75,11 @@ export const REQUIRED_FRONT_DOOR_ENVIRONMENT = [
 	"CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER",
 	"CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER",
 	"CHATTICUS_INVOKE_KEY_SECRET_ARN",
-	"CHATTICUS_OPERATOR_KEY_SECRET_ARN",
+	"CHATTICUS_OPERATOR_KEY_PARAMETER_NAME",
 ] as const;
 
-/** Names the Secrets Manager secret holding the model gateway's session token signing key. The gateway is mounted only when it is set. */
-export const MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN_VARIABLE = "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN";
+/** Names the SSM SecureString parameter holding the model gateway's session token signing key. The gateway is mounted only when it is set. */
+export const MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME_VARIABLE = "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME";
 
 /** Names the snapshot bucket the read-only file routes read. The routes answer 503 while it is unset. */
 export const SNAPSHOT_BUCKET_VARIABLE = "CHATTICUS_SNAPSHOT_BUCKET";
@@ -95,13 +96,6 @@ const requiredIn = (environment: Record<string, string | undefined>, name: strin
 async function readParameter(parameters: ParameterReader, name: string): Promise<string> {
 	const response = await parameters.send(new GetParameterCommand({ Name: name, WithDecryption: true }));
 	return response.Parameter?.Value ?? "";
-}
-
-async function readSecretString(secrets: SecretReader, secretArn: string): Promise<string> {
-	const response = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
-	const value = response.SecretString ?? "";
-	if (value === "") throw new Error(`The secret ${secretArn} has no value.`);
-	return value;
 }
 
 async function optionalParameter(parameters: ParameterReader, name: string): Promise<string> {
@@ -150,7 +144,7 @@ async function seedIntegrationTestOrganizationOnce(
 
 /**
  * Build the real HTTP application from the environment: the Dynamo stores, the three SQS queues, the OpenAI voice
- * understanding, the Cognito id token verifier, the invoke and operator keys (read from Secrets Manager by ARN), and (outside production) the integration
+ * understanding, the Cognito id token verifier, the invoke keys (read from Secrets Manager by ARN), the operator key and the gateway signing key (read from SSM SecureString parameters by name), and (outside production) the integration
  * test session exchange. Runs once per cold start.
  *
  * @param environment The environment variables; defaults to the process environment.
@@ -171,7 +165,7 @@ export async function composeFrontDoorApp(
 		clock,
 	);
 	const [invokeKey = ""] = await invokeKeys();
-	const operatorKey = await readSecretString(clients.secrets, requiredIn(environment, "CHATTICUS_OPERATOR_KEY_SECRET_ARN"));
+	const operatorKey = await requiredParameter(clients.parameters, requiredIn(environment, "CHATTICUS_OPERATOR_KEY_PARAMETER_NAME"));
 	const deploymentAwsAccountId = deploymentAwsAccountIdFrom(environment);
 	await resolveOpenAiApiKey(environment, clients.parameters);
 	const userPoolId = await requiredParameter(clients.parameters, requiredIn(environment, "CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER"));
@@ -193,15 +187,15 @@ export async function composeFrontDoorApp(
 			integrationTest.userId,
 		);
 	}
-	const gatewaySecretArn = environment[MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN_VARIABLE] ?? "";
-	const gatewaySigningKey = gatewaySecretArn === "" ? "" : await readSecretString(clients.secrets, gatewaySecretArn);
+	const gatewayParameterName = environment[MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME_VARIABLE] ?? "";
+	const gatewaySigningKey = gatewayParameterName === "" ? "" : await requiredParameter(clients.parameters, gatewayParameterName);
 	const brokerFunctionName = environment[OWNER_CREDENTIAL_BROKER_FUNCTION_NAME_VARIABLE] ?? "";
 	const ownerSupervisor =
 		gatewaySigningKey === "" || brokerFunctionName === ""
 			? undefined
 			: { signingKey: gatewaySigningKey, broker: new LambdaOwnerCredentialBroker(clients.lambda ?? new LambdaClient({}), brokerFunctionName) };
 	const modelGateway: ModelGatewayDependencies | undefined =
-		gatewaySecretArn === ""
+		gatewayParameterName === ""
 			? undefined
 			: {
 					signingKey: gatewaySigningKey,
@@ -218,7 +212,9 @@ export async function composeFrontDoorApp(
 					monthlyModelSpendCeilingUsd: monthlyModelSpendCeilingUsdFrom(environment),
 				};
 	const snapshotBucket = environment[SNAPSHOT_BUCKET_VARIABLE] ?? "";
+	const boards = botBoardServiceFromEnvironment(environment, { credentials: () => client.config.credentials(), memberships: store, bots: store });
 	return createApp({
+		boards,
 		snapshotFiles: snapshotBucket === "" ? null : new SnapshotFileService(new S3SnapshotStore(snapshotBucket, clients.s3)),
 		editOverlay:
 			snapshotBucket === ""

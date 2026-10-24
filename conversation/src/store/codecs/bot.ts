@@ -11,6 +11,8 @@ export interface Bot {
 	tenantId: string;
 	name: string;
 	memory: Record<string, string>;
+	/** When the bot's board was archived by an owner; absent while the board is live. */
+	boardArchivedAt?: Date;
 }
 
 export type Item = Record<string, AttributeValue>;
@@ -28,6 +30,7 @@ export function encode(value: Bot): Item {
 		bot_id: { S: value.botId },
 		name: { S: value.name },
 		memory: { S: stringifyPythonStyle(value.memory) },
+		...(value.boardArchivedAt === undefined ? {} : { board_archived_at: { S: value.boardArchivedAt.toISOString() } }),
 	};
 }
 
@@ -71,5 +74,6 @@ export function decode(item: Item): Bot {
 		tenantId,
 		name,
 		memory,
+		...(item.board_archived_at?.S === undefined ? {} : { boardArchivedAt: new Date(item.board_archived_at.S) }),
 	};
 }

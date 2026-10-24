@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-2c5e98eb-4e18-4bde-a999-36e3c7fedfdc",
+  "title": "M5.5: Phone verification and linking",
+  "description": "Member adds a number in the web app and enters a one-time SMS code; a number links to one member in one organization at a time; SMS-linked members have the conversational grant only; guests off by default.\n\nAcceptance criteria:\n- Wrong or expired code does not link\n- A number already linked elsewhere is refused with a neutral message\n- Unlink and removal take effect at the next message\n\nGherkin: features/sms_phone_verification.feature\n\nDepends on: M5.4\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-6f07a158-c114-4a26-87c2-12cc3340ae75",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:58:00.523203Z",
+  "updated_at": "2026-10-22T03:58:17.783414Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

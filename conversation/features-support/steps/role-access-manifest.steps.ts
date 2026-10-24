@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
 import type { RecordedAwsRequest } from "../aws-request-recorder.ts";
-import { frontDoorSnapshotPolicyStatements, ownerRolePolicyStatements, supervisorRolePolicyStatements, type PolicyStatement } from "../iam-policy-evaluator.ts";
-import { ACCESS_ROLES, ACCESS_STORES, loadRoleAccessManifest, type AccessRole, type AccessRow, type AccessStore } from "../../src/gateway/role-access-manifest.ts";
+import { frontDoorSnapshotPolicyStatements, policyAllows, ownerRolePolicyStatements, supervisorRolePolicyStatements, type PolicyStatement } from "../iam-policy-evaluator.ts";
+import { exampleTagsOf, ACCESS_ROLES, ACCESS_STORES, loadRoleAccessDenials, loadRoleAccessManifest, secretParameterArnsOf, type AccessRole, type AccessRow, type AccessStore } from "../../src/gateway/role-access-manifest.ts";
 import { FIXED_STORE_ARNS, requestsTheManifestDoesNotDescribe, rowsTheRoleCannotServe } from "../role-access-manifest.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -121,3 +121,35 @@ Then(
 		assert.ok(failures[0]!.includes(row) && failures[0]!.includes(reason), failures[0]);
 	},
 );
+
+Then(
+	/^the "(ownerTurn|supervisor)" role policy file denies "([^"]+)" on every secret parameter the manifest lists$/,
+	function (this: ChatticusWorld, role: string, action: string) {
+		const policyFile = role === "ownerTurn" ? "owner" : "supervisor";
+		const statements = POLICY_FILES[policyFile]!();
+		const arns = secretParameterArnsOf("us-east-1", "111122223333", "development");
+		const denials = loadRoleAccessDenials().filter((row) => row.role === role && row.action === action);
+		assert.ok(denials.length > 0, `The manifest has no denial row for ${role} ${action}.`);
+		for (const denial of denials) {
+			const allowed = policyAllows(statements, exampleTagsOf(denial.role), { action, resourceArn: arns[denial.parameter], contextKeys: {} });
+			assert.equal(allowed, false, `${role} may ${action} on ${denial.parameter}.`);
+		}
+	},
+);
+
+Then(
+	/^the manifest denies the roles "([^"]+)" and "([^"]+)" the parameters "([^"]+)" and "([^"]+)"$/,
+	function (this: ChatticusWorld, firstRole: string, secondRole: string, firstParameter: string, secondParameter: string) {
+		const denials = loadRoleAccessDenials();
+		for (const role of [firstRole, secondRole]) {
+			for (const parameter of [firstParameter, secondParameter]) {
+				assert.ok(denials.some((row) => row.role === role && row.parameter === parameter), `No denial row for ${role} on ${parameter}.`);
+			}
+		}
+	},
+);
+
+Then(/^the manifest denies the actions "([^"]+)", "([^"]+)" and "([^"]+)"$/, function (this: ChatticusWorld, first: string, second: string, third: string) {
+	const denials = loadRoleAccessDenials();
+	for (const action of [first, second, third]) assert.ok(denials.some((row) => row.action === action), `No denial row for ${action}.`);
+});

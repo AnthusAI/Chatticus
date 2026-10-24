@@ -11,6 +11,7 @@
  */
 
 import { defineExtension, type Extension, hook, ToolTask } from "@earendil-works/pi-durable";
+import { BOARD_TOOL_NAME } from "./bot-board-tool.ts";
 import { TASK_TOOL_NAME } from "./task-tool.ts";
 import { MemberStandingRequiredError } from "../http/errors.ts";
 import {
@@ -115,9 +116,10 @@ export async function evaluateModelToolRequest(
 
 /**
  * Tools that are not capability tools: they touch only the organization's own durable records, never the computer, the
- * network or a recipient, so they need no grant. The Python worker dispatched the task tool before the gated tools.
+ * network or a recipient, so they need no grant. The Python worker dispatched the task tool before the gated tools. The
+ * board tool is the bot's own work board in the board service and is ungated the same way.
  */
-export const UNGATED_TOOL_NAMES: ReadonlySet<string> = new Set([TASK_TOOL_NAME]);
+export const UNGATED_TOOL_NAMES: ReadonlySet<string> = new Set([TASK_TOOL_NAME, BOARD_TOOL_NAME]);
 
 /**
  * The gate as an extension: a `beforeTool` hook on pi-durable's tool task. The hook sees the call after Pi has validated

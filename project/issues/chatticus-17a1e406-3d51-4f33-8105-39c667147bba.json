@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-17a1e406-3d51-4f33-8105-39c667147bba",
+  "title": "M4.1: Teams verification spike and decisions",
+  "description": "Verify and record the current Microsoft rules for registering a new bot (single versus multi-tenant, Azure Bot resource, Entra app, any SDK change), JWT validation requirements, activity and proactive messaging model, channel mention rule, tenant admin consent flow, and storage of conversation references. Output: comment with decisions and corrections to contract section 10.4. Registration happens in Azure (outside AWS) by the owner.\n\nAcceptance criteria:\n- Decisions recorded; owner steps listed and short\n- Go or no-go for the Teams adapter stated\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-f58b4fe2-1584-4d30-bf28-cd2285c1a389",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:57.456676Z",
+  "updated_at": "2026-10-22T03:57:57.456741Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-ae8f04d8-3c6d-4a49-b3e7-f1b5211697cb",
+  "title": "GeneratedSecureString construct: create-only random SecureString custom resource",
+  "description": "Part of story chatticus-a170754a (Secrets and generated keys live in SSM Parameter Store SecureString, created by infrastructure code); read its description for the full plan, order and hazards. New CDK construct in infra/lib with a Provider-framework Lambda: Create generates a crypto.randomBytes value and PutParameter SecureString Standard Overwrite false (adopt if it exists); Update and Delete no-ops; response excludes the value; handler role ssm:PutParameter on the exact ARN; never logs the value. Unit tests assert the template holds no value and no kms grant is needed with aws/ssm. Prerequisite for the operator key and signing key tasks.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-21T15:52:39.380694Z",
+  "updated_at": "2026-10-21T15:52:39.380745Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-secrets-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

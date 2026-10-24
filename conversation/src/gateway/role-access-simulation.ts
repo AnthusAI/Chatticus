@@ -1,4 +1,14 @@
-import { ACCESS_ROLES, describeRow, exampleRequestOf, exampleTagsOf, type AccessRole, type AccessRow, type StoreArns } from "./role-access-manifest.ts";
+import {
+	ACCESS_ROLES,
+	describeRow,
+	exampleRequestOf,
+	exampleTagsOf,
+	type AccessDenialRow,
+	type AccessRole,
+	type AccessRow,
+	type SecretParameterArns,
+	type StoreArns,
+} from "./role-access-manifest.ts";
 
 /** One condition key value the policy simulator is given, in the shape of the SimulatePrincipalPolicy `ContextEntries` parameter. */
 export type SimulationContextEntry = {
@@ -14,6 +24,8 @@ export type SimulationCase = {
 	readonly action: string;
 	readonly resourceArn: string;
 	readonly contextEntries: readonly SimulationContextEntry[];
+	/** What the deployed role must answer; a case without it must be allowed. */
+	readonly expectation?: "allowed" | "denied";
 };
 
 const SIMULATED_KEY_TYPES: Record<string, SimulationContextEntry["ContextKeyType"]> = {
@@ -57,6 +69,29 @@ export function simulationCasesOf(rows: readonly AccessRow[], arns: StoreArns): 
 		}
 		return cases;
 	});
+}
+
+/**
+ * The questions for the denial rows of the manifest: each one asks whether a role may read a secret parameter and must be
+ * answered with a denial, explicit or implicit.
+ *
+ * @param denials The denial rows.
+ * @param arns The ARNs of the secret parameters of the deployed environment.
+ * @returns The cases, in manifest order.
+ */
+export function denialSimulationCasesOf(denials: readonly AccessDenialRow[], arns: SecretParameterArns): SimulationCase[] {
+	return denials.map((denial) => ({
+		role: denial.role,
+		description: `${denial.role} must be denied ${denial.action} on ${denial.parameter}`,
+		action: denial.action,
+		resourceArn: arns[denial.parameter],
+		contextEntries: Object.entries(exampleTagsOf(denial.role)).map(([key, value]) => ({
+			ContextKeyName: `aws:PrincipalTag/${key}`,
+			ContextKeyValues: [value],
+			ContextKeyType: "string" as const,
+		})),
+		expectation: "denied",
+	}));
 }
 
 /** Cases that share a role, a resource and condition keys, so one simulator call answers all of their actions. */
@@ -112,16 +147,27 @@ export function simulationResultsOf(group: SimulationGroup, evaluations: readonl
 /** What the simulator decided for one case. */
 export type SimulationResult = { readonly simulationCase: SimulationCase; readonly decision: string };
 
+/** Whether the simulator answered as the case required: allowed for a case that must be allowed, any denial for one that must be denied. */
+export function resultAsRequired(result: SimulationResult): boolean {
+	return (result.simulationCase.expectation ?? "allowed") === "allowed" ? result.decision === "allowed" : result.decision !== "allowed";
+}
+
 /**
  * The one line an operator reads after a deploy.
  *
  * @param environment The environment name.
  * @param results The decisions.
- * @returns A line starting `PASS` when every case was allowed and `FAIL` otherwise.
+ * @returns A line starting `PASS` when every case was answered as required and `FAIL` otherwise.
  */
 export function simulationSummaryOf(environment: string, results: readonly SimulationResult[]): string {
-	const denied = results.filter((result) => result.decision !== "allowed");
+	const mustAllow = results.filter((result) => (result.simulationCase.expectation ?? "allowed") === "allowed");
+	const mustDeny = results.filter((result) => result.simulationCase.expectation === "denied");
+	const refused = mustAllow.filter((result) => !resultAsRequired(result));
+	const permitted = mustDeny.filter((result) => !resultAsRequired(result));
 	const perRole = ACCESS_ROLES.map((role) => `${role} ${results.filter((result) => result.simulationCase.role === role).length}`).join(", ");
-	return `${denied.length === 0 ? "PASS" : "FAIL"} role access ${environment}: ${results.length - denied.length} of ${results.length} allowed (${perRole})${denied.length === 0 ? "" : `; denied: ${denied.map((result) => result.simulationCase.description).join("; ")}`}`;
+	const allowedPart = `${mustAllow.length - refused.length} of ${mustAllow.length} allowed`;
+	const deniedPart = mustDeny.length === 0 ? "" : `, ${mustDeny.length - permitted.length} of ${mustDeny.length} denied as required`;
+	const refusedPart = refused.length === 0 ? "" : `; denied: ${refused.map((result) => result.simulationCase.description).join("; ")}`;
+	const permittedPart = permitted.length === 0 ? "" : `; wrongly allowed: ${permitted.map((result) => result.simulationCase.description).join("; ")}`;
+	return `${refused.length + permitted.length === 0 ? "PASS" : "FAIL"} role access ${environment}: ${allowedPart}${deniedPart} (${perRole})${refusedPart}${permittedPart}`;
 }
-

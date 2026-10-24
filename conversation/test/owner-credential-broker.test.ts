@@ -14,10 +14,10 @@ function harness(ownerId = "owner-1") {
 	const logLines: string[] = [];
 	const handler = createOwnerCredentialBrokerHandler({
 		now: () => current,
-		secrets: {
+		parameters: {
 			send: async () => {
 				secretReads.push(current.getTime());
-				return { SecretString: SIGNING_KEY };
+				return { Parameter: { Value: SIGNING_KEY } };
 			},
 		} as never,
 		sts: {
@@ -35,7 +35,7 @@ function harness(ownerId = "owner-1") {
 		} as never,
 		supervisorRoleArn: "arn:aws:iam::111111111111:role/ComputerSupervisorRole",
 		scopedRoleArn: "arn:aws:iam::111111111111:role/ComputerOwnerScopedRole",
-		signingKeySecretArn: "arn:aws:secretsmanager:us-east-1:111111111111:secret:key",
+		signingKeyParameterName: "/chatticus/development/model-gateway/signing-key",
 		emit: (event, fields = {}) => logLines.push(`${event} ${JSON.stringify(fields)}`),
 	});
 	const renewalRequest = (): OwnerCredentialBrokerRequest => {

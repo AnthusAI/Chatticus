@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-f58b4fe2-1584-4d30-bf28-cd2285c1a389",
+  "title": "M4: Microsoft Teams, and Discord (deferred)",
+  "description": "Third transport is Teams through Bot Framework HTTPS (JWT validated, replies by Bot Connector REST). Discord is deferred: without the Gateway websocket it receives only slash commands, buttons and modals, so it is a possible later slash-command adapter, not a conversation surface. Each platform starts with a verification spike because registration rules change.\n\nDepends on M2 (and benefits from M3 lessons).",
+  "type": "epic",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b10a407e-b5bd-4f5b-90a9-af1de587a11b",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-2b2207f6-3635-4bb6-8ea3-2bfe06a605c1",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:47.918273Z",
+  "updated_at": "2026-10-22T03:58:09.374279Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

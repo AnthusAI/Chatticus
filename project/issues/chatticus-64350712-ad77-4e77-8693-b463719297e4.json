@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-64350712-ad77-4e77-8693-b463719297e4",
+  "title": "M5.3: SMS infrastructure in CDK",
+  "description": "Opt-out list, configuration set, event destination to SNS then Lambda, two-way SNS topic to the inbound Lambda, IAM roles, alarms, and an environment flag so the number is only associated when an organization enables SMS. Number purchase itself stays an owner step if CloudFormation cannot express registration.\n\nAcceptance criteria:\n- infra tests pass; no IAM user or key\n- Idle cost with no number associated is zero\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: M5.2\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-db90ffbd-83e4-4fbd-bb9c-fcf671306c59",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:59.911246Z",
+  "updated_at": "2026-10-22T03:58:17.051894Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

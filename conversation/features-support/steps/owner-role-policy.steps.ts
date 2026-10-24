@@ -62,6 +62,10 @@ When("the owner requests {string} on the object {string} of bucket {string}", fu
 	scenarioOf(this).request = { action, resourceArn: `arn:aws:s3:::${bucket}/${key}`, contextKeys: {} };
 });
 
+When("the owner requests {string} on the resource {string}", function (this: ChatticusWorld, action: string, resourceArn: string) {
+	scenarioOf(this).request = { action, resourceArn, contextKeys: {} };
+});
+
 When("the owner lists bucket {string} with the prefix {string}", function (this: ChatticusWorld, bucket: string, prefix: string) {
 	scenarioOf(this).request = { action: "s3:ListBucket", resourceArn: `arn:aws:s3:::${bucket}`, contextKeys: { "s3:prefix": [prefix] } };
 });

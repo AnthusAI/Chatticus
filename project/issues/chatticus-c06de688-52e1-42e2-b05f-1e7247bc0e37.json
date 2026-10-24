@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-c06de688-52e1-42e2-b05f-1e7247bc0e37",
+  "title": "An operator revokes leaked owner role sessions with a CDK-delivered deny",
+  "description": "Found by the second reader of docs/OWNER_CREDENTIAL_REVOCATION.md (chatticus-816a1a). Decision S6 (docs/OWNER_CREDENTIAL_RENEWAL.md 12.3, 17 R) says the aws:TokenIssueTime deny on ComputerSupervisorRole and ComputerOwnerScopedRole is a CDK change deployed by the normal path. No switch exists: wireComputerStarterOwnerRunTask (infra/lib/computer-host-start.ts) has no deny, deploy-chatticus-dedicated-account.sh passes no such context, so today the runbook offers an aws iam put-role-policy break-glass as a recorded exception to S6 and AGENTS.md. The second reader synthesized the exact change on development (two AWS::IAM::Policy resources named OwnerSessionsRevokedBefore, DateLessThan aws:TokenIssueTime) and did not deploy it. Build the switch: a CDK context ownerSessionsRevokedBefore (UTC time) read in wireComputerStarterOwnerRunTask, an OWNER_SESSIONS_REVOKED_BEFORE passthrough in infra/deploy-chatticus-dedicated-account.sh for the ControlPlane stack, CDK assertions (the two policies exist only when set; the roles keep an empty Policies property), and a live proof on development that the broker still issues a session after the time and the pre-existing owner recovers at its next renewal (this also settles runbook items U1 and U2). Then retire the break-glass path from the runbook.\n\nFeature: Revoking leaked owner role sessions through CDK\n  Scenario: A deny is synthesized for both owner roles\n    Given the ControlPlane stack is synthesized with ownerSessionsRevokedBefore set to a UTC time\n    When the template is read\n    Then each of ComputerSupervisorRole and ComputerOwnerScopedRole has one Deny on all actions with DateLessThan aws:TokenIssueTime at that time\n  Scenario: The broker still issues after the deny is deployed\n    Given the deny is deployed on development with the time set to now\n    When a member message starts the computer\n    Then owner_broker_issued is logged after the time and no owner_broker_refused assume_role_failed is logged",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-20T13:54:15.739086Z",
+  "updated_at": "2026-10-20T13:54:15.739140Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-second-reader"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

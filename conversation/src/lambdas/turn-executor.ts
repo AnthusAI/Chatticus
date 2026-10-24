@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
 import { SQSClient } from "@aws-sdk/client-sqs";
+import { botBoardServiceFromEnvironment } from "../board/bot-board-service-factory.ts";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
 import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
 import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
@@ -42,13 +43,16 @@ async function executorDeps(): Promise<SharedDeps> {
 	cachedSqs = sqs;
 	cachedRunsQueueUrl = requiredEnvironment("CHATTICUS_TURN_RUNS_QUEUE_URL");
 	const messagingTableName = requiredEnvironment("CHATTICUS_MESSAGING_TABLE");
+	const messaging = new DynamoMessagingStore(client, messagingTableName);
+	const boards = botBoardServiceFromEnvironment(process.env, { credentials: () => client.config.credentials(), memberships: messaging, bots: messaging });
 	cachedDeps = {
 		turns: {
 			store: new DynamoTurnControlStore(client, messagingTableName),
 			clock: { now: () => new Date() },
 			ids: { next: () => randomUUID() },
 		},
-		messaging: new DynamoMessagingStore(client, messagingTableName),
+		messaging,
+		...(boards === null ? {} : { boards }),
 		client,
 		s3: new S3Client({}),
 		messagingTableName,

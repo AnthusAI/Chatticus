@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-242c8dc3-2c22-4700-b6e1-56ef254059de",
+  "title": "Upgrade @kanbus/ui in the Board panel from 0.3.1 to 0.4.1 (themes API changes) and pin cdk plus api-client as a pair",
+  "description": "",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-daa715d3-b3a6-4d93-a559-24312ea18dcd",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "94b19769-ee9e-4a5a-b643-2d84faf9825b",
+      "author": "home",
+      "text": "From the Kanbus project (2026-10-20): released tags are immutable; the three packages version independently. Pins: @kanbus/cdk 0.2.0 (it bundles kanbus-api, so its version IS the server version: 0.2.0 = Kanbus 0.39.0) and @kanbus/api-client 0.1.0 as a PAIR, upgraded together; @kanbus/ui separately (Chatticus Board panel is on 0.3.1, latest is 0.4.1, which follows the themes work and removes newsprint; expect theme API changes, so test the Board panel screenshots). The api-client issue types (nullable assignee, parent, closed_at) are not identical to @kanbus/ui KanbanIssue: map in the Chatticus adapter. Kanbus is adding a compatibility table (packages/README.md) and GET /api/version on kanbus-api. Also pending on the Kanbus side: flat borderless theme, scoped tokens, explicit read-only prop, narrow layout, pure parsers (kbs-460415fd).",
+      "created_at": "2026-10-20T18:45:37.091084Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator"
+      }
+    }
+  ],
+  "created_at": "2026-10-20T18:45:36.941437Z",
+  "updated_at": "2026-10-20T18:45:37.091120Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "orchestrator"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

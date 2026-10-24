@@ -164,21 +164,35 @@ describe("ChatticusComputers owner task definition", () => {
   });
 });
 
+const SIGNING_KEY_PARAMETER_NAME = "/chatticus/development/model-gateway/signing-key";
+
 describe("ControlPlane model gateway signing key", () => {
   const template = synthControlPlane("development", { computerHostStart: "noop" });
-  const secretId = Object.keys(resourcesOfType(template, "AWS::SecretsManager::Secret")).find((id) =>
+  const retiredSecretId = Object.keys(resourcesOfType(template, "AWS::SecretsManager::Secret")).find((id) =>
     id.startsWith("ModelGatewaySigningKey"),
   )!;
 
-  it("generates a long key without punctuation", () => {
-    const secret = resourcesOfType(template, "AWS::SecretsManager::Secret")[secretId]!;
-    assert.ok(secret.Properties.GenerateSecretString.PasswordLength >= 32);
-    assert.equal(secret.Properties.GenerateSecretString.ExcludePunctuation, true);
-    assert.equal(secret.DeletionPolicy, "Delete");
+  it("is a generated SecureString of 64 characters under the fixed development name, retained and never in the template", () => {
+    const [resource] = Object.values(resourcesOfType(template, "Custom::GeneratedSecureString"));
+    assert.equal(resource!.Properties.ParameterName, SIGNING_KEY_PARAMETER_NAME);
+    assert.ok(resource!.Properties.ValueLength >= 32);
+    assert.equal(resource!.Properties.ValueLength, 64);
+    assert.equal(resource!.DeletionPolicy, "Retain");
+    assert.equal(JSON.stringify(template.toJSON()).includes("Custom::AWS"), false);
+  });
+
+  it("leaves the retired Secrets Manager secret in place, retained and read by no role, until a later deploy removes it", () => {
+    const secret = resourcesOfType(template, "AWS::SecretsManager::Secret")[retiredSecretId]!;
+    assert.equal(secret.DeletionPolicy, "Retain");
+    assert.equal(secret.UpdateReplacePolicy, "Retain");
+    const readers = Object.values(resourcesOfType(template, "AWS::IAM::Policy")).filter((policy) =>
+      JSON.stringify(policy.Properties.PolicyDocument).includes(`"Ref":"${retiredSecretId}"`),
+    );
+    assert.equal(readers.length, 0);
   });
 
   it("is readable by exactly the FrontDoor and the ComputerStarter roles when no owner is wired", () => {
-    const readers = readersOf(template, secretId);
+    const readers = parameterReadersOf(template);
     assert.equal(readers.length, 2);
     assert.match(readers[0]!, /^ComputerStarterServiceRole/);
     assert.match(readers[1]!, /^FrontDoorServiceRole/);
@@ -186,24 +200,43 @@ describe("ControlPlane model gateway signing key", () => {
 
   it("is readable by exactly the FrontDoor, the ComputerStarter and the OwnerCredentialBroker roles when the owner is wired", () => {
     const owner = synthControlPlane("development", OWNER_CONTEXT);
-    const ownerSecretId = Object.keys(resourcesOfType(owner, "AWS::SecretsManager::Secret")).find((id) =>
-      id.startsWith("ModelGatewaySigningKey"),
-    )!;
-    const readers = readersOf(owner, ownerSecretId);
+    const readers = parameterReadersOf(owner);
     assert.equal(readers.length, 3);
     assert.match(readers[0]!, /^ComputerStarterServiceRole/);
     assert.match(readers[1]!, /^FrontDoorServiceRole/);
     assert.match(readers[2]!, /^OwnerCredentialBrokerServiceRole/);
   });
 
-  it("tells exactly the FrontDoor and the ComputerStarter which secret it is", () => {
+  it("is granted only ssm:GetParameter on the exact parameter ARN", () => {
+    for (const policy of Object.values(resourcesOfType(template, "AWS::IAM::Policy"))) {
+      for (const statement of policy.Properties.PolicyDocument.Statement as Record<string, any>[]) {
+        if (!JSON.stringify(statement.Resource).includes("model-gateway/signing-key")) continue;
+        const roles = JSON.stringify(policy.Properties.Roles);
+        if (/Writer/.test(roles)) continue;
+        assert.deepEqual(actionsOf(statement), ["ssm:GetParameter"]);
+        assert.equal(JSON.stringify(statement.Resource).includes("*"), false);
+      }
+    }
+  });
+
+  it("tells exactly the FrontDoor and the ComputerStarter which parameter it is", () => {
     for (const fragment of ["TypeScript front door", "ComputerStartJobs consumer"]) {
-      assert.deepEqual(functionVariables(template, fragment).CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN, {
-        Ref: secretId,
-      });
+      assert.equal(functionVariables(template, fragment).CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME, SIGNING_KEY_PARAMETER_NAME);
     }
     for (const fragment of ["TurnRuns consumer", "TurnProbes consumer"]) {
-      assert.equal(functionVariables(template, fragment).CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN, undefined);
+      assert.equal(functionVariables(template, fragment).CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME, undefined);
+    }
+  });
+
+  it("is created before any function that reads it can start, so a cold start never finds it missing", () => {
+    const owner = synthControlPlane("development", OWNER_CONTEXT);
+    const keyId = Object.keys(resourcesOfType(owner, "Custom::GeneratedSecureString")).find((id) => id.startsWith("ModelGatewaySigningKeyParameter"))!;
+    const functions = Object.entries(resourcesOfType(owner, "AWS::Lambda::Function")).filter(([id]) =>
+      /^(FrontDoor|ComputerStarter|OwnerCredentialBroker)[0-9A-F]{8}$/.test(id),
+    );
+    assert.equal(functions.length, 3);
+    for (const [id, resource] of functions) {
+      assert.ok((resource.DependsOn ?? []).includes(keyId), `${id} depends on ${keyId}`);
     }
   });
 
@@ -211,17 +244,24 @@ describe("ControlPlane model gateway signing key", () => {
     for (const environmentName of ["staging", "production"] as const) {
       const other = synthControlPlane(environmentName, { computerHostStart: "noop" });
       assert.ok(!JSON.stringify(other.toJSON()).includes("ModelGatewaySigningKey"));
+      assert.ok(!JSON.stringify(other.toJSON()).includes("model-gateway"));
       assert.equal(
-        functionVariables(other, "TypeScript front door").CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN,
+        functionVariables(other, "TypeScript front door").CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME,
         undefined,
       );
     }
   });
 });
 
-function readersOf(template: Template, secretId: string): string[] {
+function parameterReadersOf(template: Template): string[] {
   return Object.values(resourcesOfType(template, "AWS::IAM::Policy"))
-    .filter((policy) => JSON.stringify(policy.Properties.PolicyDocument).includes(`"Ref":"${secretId}"`))
+    .filter((policy) =>
+      (policy.Properties.PolicyDocument.Statement as Record<string, any>[]).some(
+        (statement) =>
+          [].concat(statement.Action).includes("ssm:GetParameter") &&
+          JSON.stringify(statement.Resource).includes("model-gateway/signing-key"),
+      ),
+    )
     .flatMap((policy) => policy.Properties.Roles.map((role: any) => role.Ref as string))
     .sort();
 }
@@ -275,11 +315,11 @@ describe("ControlPlane credential broker and owner roles", () => {
     assert.equal(urls.length, 0);
   });
 
-  it("gives the broker the signing key secret and the two role ARNs, and nothing else", () => {
+  it("gives the broker the signing key parameter name and the two role ARNs, and nothing else", () => {
     const names = Object.keys(brokerProperties.Environment.Variables).sort();
     assert.deepEqual(names, [
       "CHATTICUS_ENVIRONMENT",
-      "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN",
+      "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME",
       "CHATTICUS_OWNER_SCOPED_ROLE_ARN",
       "CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN",
     ]);
@@ -288,17 +328,18 @@ describe("ControlPlane credential broker and owner roles", () => {
     assert.deepEqual(brokerProperties.Environment.Variables.CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN, { "Fn::GetAtt": [supervisorId, "Arn"] });
   });
 
-  it("lets the broker read one secret and assume the two roles with tags, and touch no store, queue or parameter", () => {
+  it("lets the broker read one parameter and assume the two roles with tags, and touch no store, queue or secret", () => {
     assert.equal(brokerStatements.length, 2);
-    const secret = brokerStatements.find((statement) => actionsOf(statement).includes("secretsmanager:GetSecretValue"))!;
-    assert.deepEqual(actionsOf(secret), ["secretsmanager:GetSecretValue"]);
-    assert.match(JSON.stringify(secret.Resource), /ModelGatewaySigningKey/);
+    const parameter = brokerStatements.find((statement) => actionsOf(statement).includes("ssm:GetParameter"))!;
+    assert.deepEqual(actionsOf(parameter), ["ssm:GetParameter"]);
+    assert.match(JSON.stringify(parameter.Resource), /parameter\/chatticus\/development\/model-gateway\/signing-key/);
+    assert.equal(JSON.stringify(parameter.Resource).includes("*"), false);
     const assume = brokerStatements.find((statement) => actionsOf(statement).includes("sts:AssumeRole"))!;
     assert.deepEqual(actionsOf(assume).sort(), ["sts:AssumeRole", "sts:TagSession"]);
     assert.deepEqual(assume.Resource, [{ "Fn::GetAtt": [scopedId, "Arn"] }, { "Fn::GetAtt": [supervisorId, "Arn"] }]);
     assert.equal(assume.Condition, undefined);
     const document = JSON.stringify(brokerStatements);
-    for (const forbidden of ["dynamodb:", "s3:", "sqs:", "ssm:", "kms:", "lambda:", "iam:", "ecs:"]) {
+    for (const forbidden of ["dynamodb:", "s3:", "sqs:", "secretsmanager:", "ssm:GetParameterHistory", "ssm:GetParameters", "kms:", "lambda:", "iam:", "ecs:"]) {
       assert.ok(!document.includes(forbidden), `broker must not hold ${forbidden}`);
     }
     const role = resourcesOfType(template, "AWS::IAM::Role")[brokerRoleId]!;
@@ -450,7 +491,7 @@ describe("ControlPlane credential broker and owner roles", () => {
       "CHATTICUS_MESSAGING_TABLE",
       "CHATTICUS_CONVERSATIONS_TABLE",
       "CHATTICUS_PI_SESSIONS_BUCKET",
-      "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN",
+      "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME",
     ]) {
       assert.ok(variables[name] !== undefined, `starter sets ${name}`);
     }

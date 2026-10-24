@@ -3,7 +3,7 @@
   "title": "Deploy Chattic.us-web from main through CodePipeline, not GitHub Actions",
   "description": "Chattic.us-web is private, and GitHub Actions on private AnthusAI repos fails on billing, so the marketing site is deployed by hand from an SSO login. Ryan's policy: no human or agent AWS login in the update path. Add a ChatticusMarketingPipeline CDK stack in Chattic.us-web (modeled on Cyclotron-web's CyclotronMarketingPipeline) in the account that holds ChatticusMarketing: a CodeStar connection to GitHub, a verify CodeBuild stage running the ci.yml checks, and a deploy stage running deploy-chatticus-marketing.sh with CHATTICUS_MARKETING_INCLUDE_APEX=1, then the live copy smoke. Remove the Actions deploy workflow it replaces. Done when a push to main deploys chattic.us with no manual step.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -29,11 +29,35 @@
       "text": "STUBS: open items named by the coordinator whose details live in other threads or boards and were NOT re-verified in this session. Whoever picks these up should read the original thread/board first.\n\n4. Chattic.us: `cdk deploy` pending, and the chattic-us-web-github Amplify/CodeStar connection needs authorization (GitHub sign-in by Ryan).\n\nStub caveat: details live in other threads or boards and were NOT re-verified; read the original thread/board first.\n\nSource: Claude Code Projects handoff, 2026-10-19.",
       "created_at": "2026-10-19T16:42:55.959948Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d243d3ff-bd23-463f-841f-b87913781e5b",
+      "author": "home",
+      "text": "Verified read-only against chatticus-production, no deploy needed: ChatticusMarketingPipeline was already deployed (CREATE_COMPLETE 2026-10-18), connection chattic-us-web-github is AVAILABLE, pipeline chatticus-marketing (push trigger on main) has Source/Verify/Deploy all Succeeded, last 4 executions green (first of 5 failed, since fixed). Actions deploy workflow is gone (only ci.yml remains). ChatticusMarketingGitHubDeploy does not exist in the account, so nothing to retire there; only the code stack marketing-github-deploy-stack.ts and infra/deploy-chatticus-marketing-github-deploy.sh remain in the website repo and can be deleted. Nothing authorized or started by me.",
+      "created_at": "2026-10-20T13:36:14.994293Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-pipeline-deploy"
+      }
+    },
+    {
+      "id": "cbf1b5ee-5c49-40bd-822a-5b914b0d5f9d",
+      "author": "home",
+      "text": "Verified read-only 2026-10-20: ChatticusMarketingPipeline CREATE_COMPLETE since 2026-10-18; connection chattic-us-web-github AVAILABLE (authorized); pipeline chatticus-marketing triggers on push to main and its last four executions succeeded (latest 2026-10-19); the GitHub Actions deploy workflow is gone from Chattic.us-web (only ci.yml remains); the ChatticusMarketingGitHubDeploy stack no longer exists in the account. Done condition met. Leftover cleanup filed separately.",
+      "created_at": "2026-10-20T13:38:23.445869Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5-5",
+        "name": "orchestrator"
+      }
     }
   ],
   "created_at": "2026-10-17T14:29:54.701943Z",
-  "updated_at": "2026-10-19T16:42:55.959976Z",
-  "closed_at": null,
+  "updated_at": "2026-10-20T13:38:23.632032Z",
+  "closed_at": "2026-10-20T13:38:23.631995Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5-5",

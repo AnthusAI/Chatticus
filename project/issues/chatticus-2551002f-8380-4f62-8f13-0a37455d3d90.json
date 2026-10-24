@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-2551002f-8380-4f62-8f13-0a37455d3d90",
+  "title": "M1.4: Outbound delivery path: replies follow the prompt origin",
+  "description": "At turn completion, if the prompt message has an origin, write a delivery item (tenant, message, binding; status pending) in the same commit and emit an EventBridge event channel.message.created with ids only. Add the delivery handler (EventBridge rule target Lambda) that loads message and binding, renders and delivers through the transport with idempotency key message_id+binding_id, and records sent, failed(retryable, permanent, suppressed, opted_out), then delivered, bounced, complained from status events. Add the sweeper (EventBridge Scheduler) that retries stale pending items a bounded number of times. A turn started from the web never creates a delivery.\n\nAcceptance criteria:\n- A reply to an external prompt is delivered once to the originating binding and thread via the fake transport\n- A web-started turn on the same channel produces no delivery\n- Delivery retried after a transient failure produces one provider send (idempotency)\n- Permanent failure is recorded with a reason the owner can read; sweeper gives up after the bound\n- A steered turn with several external prompts delivers to the origin of the most recent external prompt\n- Delivery handler never receives message bodies in the EventBridge event\n\nGherkin: features/external_outbound_delivery.feature\n\nDepends on: M1.3\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-5568d0d4-e2f9-475d-a9e4-318e97c97c02",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-22T03:57:49.351020Z",
+  "updated_at": "2026-10-22T03:58:10.300621Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-channels-plan"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

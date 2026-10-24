@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { Given, Then, When } from "@cucumber/cucumber";
 import type { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
-import type { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { GetParameterCommand, type SSMClient } from "@aws-sdk/client-ssm";
 import { ownerCredentialBrokerResponseSchema, type OwnerCredentialBrokerResponse } from "@chatticus/host-protocol/supervisor";
 import { createDeployedOwnerCredentialBrokerHandler, createOwnerCredentialBrokerHandler } from "../../src/lambdas/owner-credential-broker.ts";
 import {
@@ -17,7 +17,7 @@ import type { ChatticusWorld } from "../world.ts";
 
 const SUPERVISOR_ROLE_ARN = "arn:aws:iam::111111111111:role/ComputerSupervisorRole";
 const SCOPED_ROLE_ARN = "arn:aws:iam::111111111111:role/ComputerOwnerScopedRole";
-const SIGNING_KEY_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111111111111:secret:signing-key";
+const SIGNING_KEY_PARAMETER_NAME = "/chatticus/development/model-gateway/signing-key";
 const SIGNING_KEY = "scenario-signing-key-".padEnd(48, "k");
 const STS_SECRET_ACCESS_KEY = "sts-secret-access-key-value";
 const STS_SESSION_TOKEN = "sts-session-token-value";
@@ -33,6 +33,7 @@ type BrokerScenario = {
 	startFailure: string | null;
 	readonly clock: FakeClock;
 	readonly stsInputs: AssumeRoleInput[];
+	readonly parameterReads: Array<Record<string, unknown>>;
 	response: OwnerCredentialBrokerResponse | null;
 };
 
@@ -41,7 +42,7 @@ const scenarios = new WeakMap<ChatticusWorld, BrokerScenario>();
 function scenarioOf(world: ChatticusWorld): BrokerScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { ownerAgeSeconds: 0, signingKeyReadable: true, stsFailure: null, deployedEnvironment: null, startFailure: null, clock: new FakeClock(), stsInputs: [], response: null };
+		scenario = { ownerAgeSeconds: 0, signingKeyReadable: true, stsFailure: null, deployedEnvironment: null, startFailure: null, clock: new FakeClock(), stsInputs: [], parameterReads: [], response: null };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -127,6 +128,7 @@ const DEFAULT_TURN: TurnPayload = { turn_id: "turn-1", bot_id: "bot-1", channel_
 async function ask(world: ChatticusWorld, payload: Record<string, unknown>): Promise<void> {
 	const scenario = scenarioOf(world);
 	scenario.stsInputs.length = 0;
+	scenario.parameterReads.length = 0;
 	const sts = {
 		send: async (command: AssumeRoleCommand) => {
 			scenario.stsInputs.push(command.input);
@@ -141,31 +143,32 @@ async function ask(world: ChatticusWorld, payload: Record<string, unknown>): Pro
 			};
 		},
 	} as unknown as Pick<STSClient, "send">;
-	const secrets = {
-		send: async () => {
-			if (!scenario.signingKeyReadable) throw new Error("secret unreadable");
-			return { SecretString: SIGNING_KEY };
+	const parameters = {
+		send: async (command: unknown) => {
+			scenario.parameterReads.push(command instanceof GetParameterCommand ? { ...command.input } : { unexpected: String(command?.constructor?.name) });
+			if (!scenario.signingKeyReadable) throw new Error("parameter unreadable");
+			return { Parameter: { Value: SIGNING_KEY } };
 		},
-	} as unknown as Pick<SecretsManagerClient, "send">;
-	const handler = handlerOf(scenario, sts, secrets);
+	} as unknown as Pick<SSMClient, "send">;
+	const handler = handlerOf(scenario, sts, parameters);
 	scenario.response = ownerCredentialBrokerResponseSchema.parse(await handler(payload));
 }
 
 function handlerOf(
 	scenario: BrokerScenario,
 	sts: Pick<STSClient, "send">,
-	secrets: Pick<SecretsManagerClient, "send">,
+	parameters: Pick<SSMClient, "send">,
 ): (event: unknown) => Promise<OwnerCredentialBrokerResponse> {
 	if (scenario.deployedEnvironment !== null) {
-		return createDeployedOwnerCredentialBrokerHandler(scenario.deployedEnvironment, { sts, secrets, now: () => scenario.clock.now() });
+		return createDeployedOwnerCredentialBrokerHandler(scenario.deployedEnvironment, { sts, parameters, now: () => scenario.clock.now() });
 	}
 	return createOwnerCredentialBrokerHandler({
 		sts,
-		secrets,
+		parameters,
 		now: () => scenario.clock.now(),
 		supervisorRoleArn: SUPERVISOR_ROLE_ARN,
 		scopedRoleArn: SCOPED_ROLE_ARN,
-		signingKeySecretArn: SIGNING_KEY_SECRET_ARN,
+		signingKeyParameterName: SIGNING_KEY_PARAMETER_NAME,
 	});
 }
 
@@ -461,7 +464,7 @@ function deployedEnvironmentWith(variables: Record<string, string | undefined>):
 	return {
 		CHATTICUS_OWNER_SUPERVISOR_ROLE_ARN: SUPERVISOR_ROLE_ARN,
 		CHATTICUS_OWNER_SCOPED_ROLE_ARN: SCOPED_ROLE_ARN,
-		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: SIGNING_KEY_SECRET_ARN,
+		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_PARAMETER_NAME: SIGNING_KEY_PARAMETER_NAME,
 		...variables,
 	};
 }
@@ -486,8 +489,8 @@ async function invokeDeployedEntryPoint(world: ChatticusWorld): Promise<string |
 	const environment = scenario.deployedEnvironment;
 	assert.ok(environment, "No deployed environment was set in this scenario.");
 	const sts = { send: async (command: AssumeRoleCommand) => void scenario.stsInputs.push(command.input) } as unknown as Pick<STSClient, "send">;
-	const secrets = { send: async () => ({ SecretString: SIGNING_KEY }) } as unknown as Pick<SecretsManagerClient, "send">;
-	const entryPoint = createDeployedOwnerCredentialBrokerHandler(environment, { sts, secrets, now: () => scenario.clock.now() });
+	const parameters = { send: async () => ({ Parameter: { Value: SIGNING_KEY } }) } as unknown as Pick<SSMClient, "send">;
+	const entryPoint = createDeployedOwnerCredentialBrokerHandler(environment, { sts, parameters, now: () => scenario.clock.now() });
 	const request = requestFor("supervisor", bootstrapToken(scenario));
 	const failures: Array<string | null> = [];
 	for (let invocation = 0; invocation < 3; invocation += 1) {
@@ -521,4 +524,12 @@ Then("the broker refuses to start", async function (this: ChatticusWorld) {
 
 Then("every invocation of the deployed entry point fails", function (this: ChatticusWorld) {
 	assert.notEqual(scenarioOf(this).startFailure, null, "An invocation of the deployed entry point succeeded.");
+});
+
+Then("the broker read the signing key from the SSM parameter {string} with decryption", function (this: ChatticusWorld, name: string) {
+	assert.deepEqual(scenarioOf(this).parameterReads, [{ Name: name, WithDecryption: true }]);
+});
+
+Then("the broker made no other read", function (this: ChatticusWorld) {
+	assert.equal(scenarioOf(this).parameterReads.length, 1);
 });

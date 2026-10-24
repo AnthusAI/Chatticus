@@ -22,10 +22,22 @@
         "model": "claude-sonnet-5-5",
         "name": "orchestrator"
       }
+    },
+    {
+      "id": "301125b1-a098-4c74-84ad-22ae2fef745c",
+      "author": "home",
+      "text": "Status 2026-10-20 (board cleanup): KEEP. The cutover is done (PR 467 removed python/; TypeScript on Pi serves all three environments) but the epic still has open children, among them 33ead1 (TS-40e, P1) and the in-progress 3a31bb, so it stays open until those land.",
+      "created_at": "2026-10-20T13:57:44.897399Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-board-cleanup"
+      }
     }
   ],
   "created_at": "2026-10-05T12:28:30.768577Z",
-  "updated_at": "2026-10-05T15:54:24.493239Z",
+  "updated_at": "2026-10-20T13:57:44.897460Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
