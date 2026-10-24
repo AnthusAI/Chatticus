@@ -117,7 +117,7 @@ export type ProbeDependencies = {
 	readonly submissions: SubmissionInspector;
 	/** The stores that route computer work, read when a probe finds a turn parked on a computer action. */
 	readonly messaging: MessagingStore;
-	readonly computer: ComputerHandoffDependencies;
+	readonly computer?: ComputerHandoffDependencies;
 	readonly maximumRecoveryAttempts?: number;
 	readonly faults?: FaultPlan;
 };
@@ -185,7 +185,11 @@ export async function handleProbe(deps: ProbeDependencies, message: TurnProbeMes
 	const now = deps.turns.clock.now();
 	if (turn.waitingFor !== null) {
 		if (superseded) return;
-		if (await settleParkedTurn(deps, turn)) return;
+		if (deps.computer === undefined) {
+			await failStaleTurn(deps.turns, turn, "waiting", "computer capability is unavailable for this conversation");
+			return;
+		}
+		if (await settleParkedTurn({ ...deps, computer: deps.computer }, turn)) return;
 		const since = turn.waitingSince ?? turn.deadlineAt ?? now;
 		const remaining = WAITING_LIMIT_SECONDS - secondsBetween(now, since);
 		if (remaining <= 0) {

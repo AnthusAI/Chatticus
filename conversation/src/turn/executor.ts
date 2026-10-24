@@ -325,17 +325,20 @@ class TurnAttempt {
 	}
 
 	private parkDependencies(): ParkDependencies {
+		const computer = this.deps.computer;
+		if (computer === undefined) throw new Error("Computer handoff is unavailable for this execution profile.");
 		return {
 			turns: this.deps.turns,
 			messaging: this.deps.messaging,
 			turnRuns: this.deps.turnRuns,
 			turnProbes: this.deps.turnProbes,
-			computer: this.deps.computer,
+			computer,
 			faults: this.deps.faults,
 		};
 	}
 
 	private computerHandoff(): ComputerToolHandoff {
+		if (this.deps.computer === undefined) throw new Error("Computer handoff is unavailable for this execution profile.");
 		const { tenantId, turnId } = this.job;
 		return {
 			lookup: (call) => this.deps.computer.actions.getByCall(tenantId, turnId, call.callId),

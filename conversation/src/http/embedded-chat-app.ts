@@ -21,7 +21,7 @@ export interface EmbeddedChatAppDependencies {
 	turns: TurnDependencies;
 	resolvePrincipal: HostedPrincipalResolver;
 	/** Server-selected bot used to create or reopen each host principal's canonical private conversation. */
-	privateConversation?: { assistantBotId: string };
+	privateConversation?: { assistantBotId: string; ensureAssistant?: (tenantId: string) => Promise<void> };
 	streamTiming?: StreamTiming;
 	streamClock?: StreamClock;
 	openStreams?: OpenStreamCounter;
@@ -64,6 +64,7 @@ export function createEmbeddedChatApp(deps: EmbeddedChatAppDependencies): Hono {
 		if (principal.kind !== "user" || principal.userId === null || !principal.userId.trim() || !principal.tenantId.trim()) {
 			return context.json({ detail: "a verified user principal is required" }, 403);
 		}
+		await deps.privateConversation.ensureAssistant?.(principal.tenantId);
 		const channel = await createChannel(
 			principal.tenantId,
 			principal.userId,

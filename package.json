@@ -51,12 +51,19 @@
       "import": "./chat/runtime-dist/chat-worker.mjs",
       "default": "./chat/runtime-dist/chat-worker.mjs"
     },
+    "./chat-runtime": {
+      "types": "./chat/runtime-dist/chat-runtime.d.ts",
+      "import": "./chat/runtime-dist/chat-runtime.mjs",
+      "default": "./chat/runtime-dist/chat-runtime.mjs"
+    },
     "./chat-react": "./chat/react/index.ts",
     "./chat.css": "./chat/styles.css"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.1146.0",
     "@aws-sdk/client-s3": "3.1146.0",
+    "@aws-sdk/client-sqs": "3.1146.0",
+    "@aws-sdk/client-ssm": "3.1146.0",
     "@aws-crypto/sha256-js": "5.2.0",
     "@aws-sdk/signature-v4": "3.374.0",
     "@earendil-works/chord": "1.0.2",

@@ -28,10 +28,14 @@ try {
 		import assert from "node:assert/strict";
 		const server = await import("chatticus/chat-server");
 		const worker = await import("chatticus/chat-worker");
+		const runtime = await import("chatticus/chat-runtime");
 		assert.equal(typeof server.createEmbeddedChatApp, "function");
 		assert.equal(typeof worker.consumeRunJob, "function");
 		assert.equal(typeof worker.Decimal.parse, "function");
 		assert.equal(typeof worker.VendorPriceBook, "function");
+		assert.equal(typeof runtime.createSiteHostedChatDependencies, "function");
+		assert.equal(typeof runtime.createSiteHostedRunHandler, "function");
+		assert.equal(typeof runtime.createSiteHostedProbeHandler, "function");
 		console.log("PASS: clean consumer loads compiled Chatticus server and worker exports");
 	`;
 	execFileSync(process.execPath, ["--input-type=module", "-e", consumerCode], { cwd: consumerDirectory, stdio: "inherit" });

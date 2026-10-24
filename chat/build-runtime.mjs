@@ -21,6 +21,7 @@ await build({
 	entryPoints: {
 		"chat-server": "conversation/src/http/embedded-chat-app.ts",
 		"chat-worker": "conversation/src/http/embedded-chat-worker.ts",
+		"chat-runtime": "conversation/src/runtime/site-hosted-chat.ts",
 	},
 	outdir: outputDirectory,
 	bundle: true,
@@ -34,3 +35,4 @@ await build({
 
 await copyFile("chat/runtime-types/chat-server.d.ts", resolve(outputDirectory, "chat-server.d.ts"));
 await copyFile("chat/runtime-types/chat-worker.d.ts", resolve(outputDirectory, "chat-worker.d.ts"));
+await copyFile("chat/runtime-types/chat-runtime.d.ts", resolve(outputDirectory, "chat-runtime.d.ts"));
