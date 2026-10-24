@@ -5,6 +5,8 @@ import type { TurnDependencies } from "../domain/turns.ts";
 import { PrincipalHttpError } from "../auth/principal.ts";
 import { DomainError, statusFor } from "./errors.ts";
 import type { Clock } from "./app.ts";
+import { createChannel } from "../domain/channels.ts";
+import { channelPayload } from "./routes/channels.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
 import { listTurnEventsHandler, type TurnRouteDependencies } from "./routes/turns.ts";
@@ -18,6 +20,8 @@ export interface EmbeddedChatAppDependencies {
 	messages: MessageDependencies;
 	turns: TurnDependencies;
 	resolvePrincipal: HostedPrincipalResolver;
+	/** Server-selected bot used to create or reopen each host principal's canonical private conversation. */
+	privateConversation?: { assistantBotId: string };
 	streamTiming?: StreamTiming;
 	streamClock?: StreamClock;
 	openStreams?: OpenStreamCounter;
@@ -53,6 +57,22 @@ export function createEmbeddedChatApp(deps: EmbeddedChatAppDependencies): Hono {
 		throw error;
 	});
 	app.post("/channels/:channel_id/messages", (context) => postChannelMessageHandler(context, messageRoutes));
+	app.post("/private-channel", async (context) => {
+		if (deps.privateConversation === undefined) return context.json({ detail: "private conversation is unavailable" }, 503);
+		const principal = await deps.resolvePrincipal(context.req.raw);
+		if (principal === null) return context.json({ detail: "authentication required" }, 401);
+		if (principal.kind !== "user" || principal.userId === null || !principal.userId.trim() || !principal.tenantId.trim()) {
+			return context.json({ detail: "a verified user principal is required" }, 403);
+		}
+		const channel = await createChannel(
+			principal.tenantId,
+			principal.userId,
+			[deps.privateConversation.assistantBotId],
+			{ kind: "direct" },
+			{ store: deps.messages.store, ids: deps.messages.ids },
+		);
+		return context.json(channelPayload(channel), 200);
+	});
 	app.get("/channels/:channel_id/messages", (context) => listChannelMessagesHandler(context, messageRoutes));
 	app.get("/turns/:turn_id/events", (context) => listTurnEventsHandler(context, turnRoutes));
 	app.get("/turns/:turn_id/stream", (context) => streamTurnHandler(context, {

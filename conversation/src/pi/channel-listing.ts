@@ -15,6 +15,8 @@ export type ChannelListingDependencies = {
 	readonly bucket: string;
 	/** Shared cache of immutable Pi commit objects, see MessageBodyCache. */
 	readonly commitCache?: CommitObjectCache;
+	/** Opens an existing host-owned session; the normal Chatticus path uses fenced indexed storage. */
+	readonly openExistingStorage?: (storageId: string) => Promise<Storage | undefined>;
 };
 
 export type ListedMessage = {
@@ -59,14 +61,17 @@ export async function listChannelMessages(
 	const mailboxStore: MailboxStore = { client: dependencies.client, tableName: dependencies.messagingTableName };
 	const bySeq = new Map<number, { listed: Omit<ListedMessage, "body" | "activity">; body: Promise<string>; line?: ChannelLogLine; botId: string; session?: SessionRead }>();
 	for (const botId of botIds) {
-		const storage = await IndexedStorage.openExisting({
-			client: dependencies.client,
-			s3: dependencies.s3,
-			tableName: dependencies.conversationsTableName,
-			bucket: dependencies.bucket,
-			storageId: storageIdFor(tenantId, botId, channelId),
-			commitCache: dependencies.commitCache,
-		});
+		const storageId = storageIdFor(tenantId, botId, channelId);
+		const storage = dependencies.openExistingStorage === undefined
+			? await IndexedStorage.openExisting({
+					client: dependencies.client,
+					s3: dependencies.s3,
+					tableName: dependencies.conversationsTableName,
+					bucket: dependencies.bucket,
+					storageId,
+					commitCache: dependencies.commitCache,
+				})
+			: await dependencies.openExistingStorage(storageId);
 		const allLines = storage === undefined ? [] : await readLog(storage);
 		const session = storage === undefined ? undefined : { storage, lines: allLines };
 		const logged =
