@@ -181,3 +181,4 @@ features/bot_board_routes.feature
 features/generated_secure_string.feature
 features/embedded_chat.feature
 features/embedded_admission.feature
+features/embedded_server_core.feature

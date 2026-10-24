@@ -38,10 +38,16 @@
     "./styles/shared.css": "./web/styles/shared.css",
     "./tailwind-preset": "./web/tailwind-preset.ts",
     "./chat-client": "./chat/client/index.ts",
+    "./chat-server": "./conversation/src/http/embedded-chat-app.ts",
     "./chat-react": "./chat/react/index.ts",
     "./chat.css": "./chat/styles.css"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1146.0",
+    "@aws-sdk/client-s3": "3.1146.0",
+    "@earendil-works/chord": "1.0.2",
+    "@earendil-works/pi-ai": "1.0.2",
+    "@earendil-works/pi-durable": "1.0.2",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-slot": "^1.2.3",
@@ -50,6 +56,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "tailwind-merge": "^2.6.0",
+    "hono": "4.13.13",
     "@assistant-ui/react": "0.15.19",
     "react-markdown": "9.1.0",
     "remark-gfm": "4.0.1"

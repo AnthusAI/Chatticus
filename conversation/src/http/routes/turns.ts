@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import type { Principal } from "../../auth/principal.ts";
 import { getChannel } from "../../domain/channels.ts";
 import {
 	activeTurnForChannel,
@@ -16,6 +17,8 @@ import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDepen
 /** Everything the turn routes depend on. */
 export interface TurnRouteDependencies extends UserPrincipalDependencies {
 	turns: TurnDependencies;
+	/** Embedded hosts derive the turn partition from their verified principal rather than a browser path parameter. */
+	tenantIdForPrincipal?: (principal: Principal) => string;
 }
 
 /** One turn as the HTTP API renders it. */
@@ -104,7 +107,8 @@ async function channelTurnHandler(
 	if (isRefusal(principal)) {
 		return principal;
 	}
-	const tenantId = pathParameter(c, "tenant_id");
+	const tenantId = deps.tenantIdForPrincipal?.(principal) ?? pathParameter(c, "tenant_id");
+	if (!tenantId.trim()) throw new Error("The host principal did not provide a tenant scope.");
 	const channelId = pathParameter(c, "channel_id");
 	try {
 		await getChannel(tenantId, channelId, deps);
