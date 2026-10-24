@@ -1,9 +1,10 @@
+import { createHash } from "node:crypto";
 import type { ChannelListingDependencies } from "../pi/channel-listing.ts";
 import type { ToolActivityItem } from "../pi/message-activity.ts";
 import { listChannelMessages as listChannelSessionMessages } from "../pi/channel-listing.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxItem, type MailboxStore } from "../pi/mailbox.ts";
 import type { Clock, IdSource } from "../http/app.ts";
-import { ActorNotInChannelError } from "../http/errors.ts";
+import { ActorNotInChannelError, IdempotencyKeyReuseError } from "../http/errors.ts";
 import { householdConversationGrant } from "../policy/capability-policy.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { pythonRepr } from "./bots.ts";
@@ -50,6 +51,13 @@ export type PostMessageResult = { message: Message; turnId: string | null };
 
 /** Which messages to list. */
 export type ListMessagesRequest = { tenantId: string; channelId: string; afterSeq?: number };
+
+function scopedPostIdempotencyKey(request: PostMessageRequest): string | null {
+	if (request.idempotencyKey === null) return null;
+	return createHash("sha256")
+		.update(JSON.stringify([request.tenantId, request.channelId, request.authorKind, request.authorId, request.idempotencyKey]))
+		.digest("hex");
+}
 
 const CLOSING_POLL_ATTEMPTS = 100;
 const DEFAULT_CLOSING_POLL_MILLISECONDS = 50;
@@ -136,9 +144,19 @@ async function admitAddressedMessage(
  * @throws ActorNotInChannelError If the author or addressee is not a participant.
  */
 export async function postMessage(deps: MessageDependencies, request: PostMessageRequest): Promise<PostMessageResult> {
-	if (request.idempotencyKey !== null) {
-		const cached = await deps.store.getPostIdempotency(request.tenantId, request.idempotencyKey);
+	const idempotencyKey = scopedPostIdempotencyKey(request);
+	if (idempotencyKey !== null) {
+		const cached = await deps.store.getPostIdempotency(request.tenantId, idempotencyKey);
 		if (cached !== null) {
+			if (
+				cached.message.channelId !== request.channelId ||
+				cached.message.authorKind !== request.authorKind ||
+				cached.message.authorId !== request.authorId ||
+				cached.message.body !== request.body ||
+				cached.message.addressedToBotId !== request.addressedToBotId
+			) {
+				throw new IdempotencyKeyReuseError("The idempotency key was already used with a different message payload.");
+			}
 			return cached;
 		}
 	}
@@ -204,8 +222,8 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 			);
 		}
 	}
-	if (request.idempotencyKey !== null) {
-		await deps.store.putPostIdempotency(request.tenantId, request.idempotencyKey, message, turnId);
+	if (idempotencyKey !== null) {
+		await deps.store.putPostIdempotency(request.tenantId, idempotencyKey, message, turnId);
 	}
 	return { message, turnId };
 }

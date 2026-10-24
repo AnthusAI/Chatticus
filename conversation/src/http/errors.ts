@@ -89,6 +89,12 @@ export class ActorNotInChannelError extends DomainError {
 	}
 }
 
+export class IdempotencyKeyReuseError extends DomainError {
+	constructor(message: string) {
+		super("idempotency_key_reused", message);
+	}
+}
+
 export class TurnNotFoundError extends DomainError {
 	constructor(message: string) {
 		super("turn_not_found", message);
@@ -395,6 +401,9 @@ export function statusFor(error: unknown): number {
 		return 404;
 	}
 	if (error instanceof ComputerActionNotClaimedError) {
+		return 409;
+	}
+	if (error instanceof IdempotencyKeyReuseError) {
 		return 409;
 	}
 	if (error instanceof StaleAttemptError ||
