@@ -10,7 +10,10 @@
     "computer/host"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "node chat/build-runtime.mjs && npm run build --workspaces --if-present",
+    "build:chat-runtime": "node chat/build-runtime.mjs",
+    "prepack": "npm run build:chat-runtime",
+    "test:chat-runtime-package": "node chat/test-runtime-package.mjs",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspace=web",
     "typecheck": "npm run typecheck --workspace=web",
@@ -38,17 +41,28 @@
     "./styles/shared.css": "./web/styles/shared.css",
     "./tailwind-preset": "./web/tailwind-preset.ts",
     "./chat-client": "./chat/client/index.ts",
-    "./chat-server": "./conversation/src/http/embedded-chat-app.ts",
-    "./chat-worker": "./conversation/src/http/embedded-chat-worker.ts",
+    "./chat-server": {
+      "types": "./chat/runtime-dist/chat-server.d.ts",
+      "import": "./chat/runtime-dist/chat-server.mjs",
+      "default": "./chat/runtime-dist/chat-server.mjs"
+    },
+    "./chat-worker": {
+      "types": "./chat/runtime-dist/chat-worker.d.ts",
+      "import": "./chat/runtime-dist/chat-worker.mjs",
+      "default": "./chat/runtime-dist/chat-worker.mjs"
+    },
     "./chat-react": "./chat/react/index.ts",
     "./chat.css": "./chat/styles.css"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.1146.0",
     "@aws-sdk/client-s3": "3.1146.0",
+    "@aws-crypto/sha256-js": "5.2.0",
+    "@aws-sdk/signature-v4": "3.374.0",
     "@earendil-works/chord": "1.0.2",
     "@earendil-works/pi-ai": "1.0.2",
     "@earendil-works/pi-durable": "1.0.2",
+    "@smithy/protocol-http": "3.3.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-slot": "^1.2.3",
@@ -58,11 +72,14 @@
     "lucide-react": "^0.468.0",
     "tailwind-merge": "^2.6.0",
     "hono": "4.13.13",
+    "aws-jwt-verify": "5.2.1",
+    "zod": "4.6.5",
     "@assistant-ui/react": "0.15.19",
     "react-markdown": "9.1.0",
     "remark-gfm": "4.0.1"
   },
   "devDependencies": {
+    "esbuild": "0.28.2",
     "@semantic-release/changelog": "7.0.0",
     "@semantic-release/commit-analyzer": "13.0.1",
     "@semantic-release/git": "11.0.1",
