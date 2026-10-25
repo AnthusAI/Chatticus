@@ -17,9 +17,22 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8eaef529-9baf-4be8-bb41-b255a06a280f",
+      "author": "home",
+      "text": "M1 follow-up on PR 641: the M1 automation filter now drops own-origin, auto-submitted and bounce-report mail (counter inbound_automated_dropped), and linking an external identity equal to any route key is refused (identity_is_a_route, 422). The full filter, list mail and bulk precedence handling still belong here.",
+      "created_at": "2026-10-25T17:21:00.403867Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-followups"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:51.892461Z",
-  "updated_at": "2026-10-22T03:58:12.539566Z",
+  "updated_at": "2026-10-25T17:21:00.403899Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

@@ -21,9 +21,22 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9c384069-0471-48c9-a51e-0eadf9e79128",
+      "author": "home",
+      "text": "Known gap from the PR 641 review (see docs/EXTERNAL_CHANNELS.md, Known gaps for M2): admission reports a repeated delivery of a claimed but unfinished message as in_flight. The SES ingress must answer that case with a non-2xx status so the provider retries after the 60 second claim lease; a 2xx would lose the message if the first attempt died.",
+      "created_at": "2026-10-25T17:21:00.277963Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-followups"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:50.630104Z",
-  "updated_at": "2026-10-22T03:58:11.409Z",
+  "updated_at": "2026-10-25T17:21:00.277996Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
