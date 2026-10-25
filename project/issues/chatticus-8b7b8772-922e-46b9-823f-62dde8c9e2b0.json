@@ -3,7 +3,7 @@
   "title": "Delete the retired Secrets Manager OperatorKey and ModelGatewaySigningKey secrets after the SSM move is verified",
   "description": "After PR 634 (SSM SecureString creator) is deployed and verified in development, staging and production, run aws cloudformation list-imports on the operator-key-secret-arn exports, then remove the retained secrets in a separate change; never in the same deploy as a consumer switch. Delete nothing without the owner's approval. Related story: a17075. Stays blocked until the SSM move is verified in all three environments.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -37,8 +37,8 @@
     }
   ],
   "created_at": "2026-10-23T04:13:20.911904Z",
-  "updated_at": "2026-10-25T17:17:49.557445Z",
-  "closed_at": null,
+  "updated_at": "2026-10-25T17:17:55.050849Z",
+  "closed_at": "2026-10-25T17:17:55.050817Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
