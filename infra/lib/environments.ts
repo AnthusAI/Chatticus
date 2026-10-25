@@ -200,12 +200,6 @@ export function modelGatewaySigningKeyParameterName(
   return `/chatticus/${environment}/model-gateway/signing-key`;
 }
 
-export function operatorKeySecretArnParameterName(
-  environment: ChatticusCloudEnvironment,
-): string {
-  return `${thinTurnParameterPrefix(environment)}/operator-key-secret-arn`;
-}
-
 export function webParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/web`;
 }

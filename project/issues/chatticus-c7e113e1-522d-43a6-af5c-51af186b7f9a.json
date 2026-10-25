@@ -22,10 +22,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "dcf60992-30af-4856-8f43-9662069ad1ee",
+      "author": "home",
+      "text": "Legacy retirement run 2026-10-25. DELETED (DELETE_COMPLETE): ChatticusAuthStaging, ChatticusAuthProduction, ChatticusThinTurnStaging. Gates held: no DNS pointing at them (auth/auth-staging delegated to chatticus-production zones; legacy chattic.us zone is not the delegated one), no traffic in 14 days (staging front door last used 2026-09-26), no importers, user pools empty. Staging messaging table (62 items) backed up first as on-demand backup chatticus-legacy-retire-staging-messaging-20261025 (legacy account); table, both queues, both user pools and the staging InvokeKey were Retain and still exist. Secrets scheduled for deletion (30 day window, ends 2026-11-24): InvokeKey581783BE-P6oUHWIsZvY0, chatticus/staging/oauth/google, chatticus/production/oauth/google. SKIPPED: ChatticusWeb and ChatticusAuth (management zone still has live dev.chattic.us and auth-dev.chattic.us records pointing at them), ChatticusThinTurn (imported by ChatticusWeb, front door invoked 2026-10-20), ChatticusThinTurnProduction (front door last invoked 2026-10-15, inside the 14-day window; eligible after 2026-10-29; 97 item table needs backup first), ChatticusMarketing and distribution E2KIMGDJ4DW3XZ (requests on 2026-10-20 and 2026-10-23; stack in use as ChatticusDns importer). Not examined: Python Function URL and WAITLIST/CONTACT items, ChatticusDns zone (hosted zones out of scope). Remaining secrets (dev/production InvokeKey, OperatorKey, dev oauth/google) are still referenced by surviving stacks. chattic.us and hey.chattic.us returned 200 after each deletion. Restore: aws dynamodb restore-table-from-backup --profile legacy --target-table-name <new> --backup-arn <arn of the named backup>; aws secretsmanager restore-secret --secret-id <name> within 30 days.",
+      "created_at": "2026-10-25T15:51:36.472557Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-legacy-retire"
+      }
     }
   ],
   "created_at": "2026-10-15T17:21:28.154450Z",
-  "updated_at": "2026-10-19T22:38:44.865084Z",
+  "updated_at": "2026-10-25T15:51:36.472607Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

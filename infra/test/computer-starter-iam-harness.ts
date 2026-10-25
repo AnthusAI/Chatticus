@@ -27,7 +27,6 @@ const stack = new ControlPlaneStack(app, "ControlPlane", {
   chatticusEnvironment: "development",
   messagingTable,
   invokeSecret: new secretsmanager.Secret(support, "InvokeKey"),
-  operatorSecret: new secretsmanager.Secret(support, "OperatorKey"),
 });
 const template = Template.fromStack(stack).toJSON();
 

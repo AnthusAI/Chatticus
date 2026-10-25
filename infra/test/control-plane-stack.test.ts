@@ -419,7 +419,7 @@ describe("ControlPlaneStack", () => {
         ...JSON.stringify(Template.fromStack(controlPlane).toJSON()).matchAll(/"Fn::ImportValue":"([^"]+)"/g),
       ].map((match) => match[1]!);
       const secretExports = exportedNames.filter((name) => /secret-arn|InvokeKey|OperatorKey/i.test(name));
-      assert.ok(secretExports.length >= 2, "the thin-turn stack still exports its secret ARNs for the web stack");
+      assert.ok(secretExports.length >= 1, "the thin-turn stack still exports its invoke key secret ARN for the web stack");
       for (const imported of importedNames) {
         assert.ok(!secretExports.includes(imported), `the control plane does not import ${imported}`);
         assert.doesNotMatch(imported, /InvokeKey|OperatorKey|secret/i);

@@ -210,7 +210,6 @@ Feature: The computer owner role reaches one conversation session and nothing el
 
     Examples:
       | action                         | resource                                                                                      |
-      | secretsmanager:GetSecretValue  | arn:aws:secretsmanager:us-east-1:111111111111:secret:signing-key                              |
       | ssm:GetParameter               | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/model-gateway/signing-key |
       | ssm:GetParameterHistory        | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/model-gateway/signing-key |
       | ssm:GetParameter               | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/thin-turn/operator-key    |

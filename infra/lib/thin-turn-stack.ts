@@ -22,8 +22,6 @@ import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 /**
  * Permanent data-owning stack: the Messaging table, the invoke secret with its
  * SSM parameter, the operator key SecureString, and the Node budget jobs.
- * The retired operator secret and its SSM and export names stay until a later
- * deploy removes them, after the control plane reads the SecureString.
  *
  * Every data resource is retained. The conversation compute lives in the
  * control-plane stack; nothing here serves a request.
@@ -42,8 +40,6 @@ export interface ThinTurnStackProps extends cdk.StackProps {
 export class ThinTurnStack extends cdk.Stack {
   readonly messagingTable: dynamodb.ITable;
   readonly invokeSecret: secretsmanager.ISecret;
-  /** Retired: nothing reads it any more; it stays until a later deploy removes it. */
-  readonly operatorSecret: secretsmanager.ISecret;
   /** The generated operator key, an SSM SecureString the front door reads by name. */
   readonly operatorKey: GeneratedSecureString;
 
@@ -74,16 +70,6 @@ export class ThinTurnStack extends cdk.Stack {
       },
     });
     this.invokeSecret = invokeSecret;
-
-    const operatorSecret = new secretsmanager.Secret(this, "OperatorKey", {
-      description: `Operator bearer credential for the Chatticus ${environmentName} thin-turn front door.`,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      generateSecretString: {
-        passwordLength: 32,
-        excludePunctuation: true,
-      },
-    });
-    this.operatorSecret = operatorSecret;
 
     this.operatorKey = new GeneratedSecureString(this, "OperatorKeyParameter", {
       parameterName: operatorKeyParameterName(environmentName),
@@ -200,16 +186,6 @@ export class ThinTurnStack extends cdk.Stack {
       },
     );
     invokeKeySecretArnParameter.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
-    const operatorKeySecretArnParameter = new ssm.StringParameter(
-      this,
-      "OperatorKeySecretArnParameter",
-      {
-        parameterName: `${parameterPrefix}/operator-key-secret-arn`,
-        stringValue: operatorSecret.secretArn,
-        description: `Operator-key secret ARN for the ${environmentName} thin-turn front door.`,
-      },
-    );
-    operatorKeySecretArnParameter.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
     new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });
     new cdk.CfnOutput(this, "MessagingTableName", { value: table.tableName });
     new cdk.CfnOutput(this, "InvokeKeySecretArn", {
@@ -218,13 +194,6 @@ export class ThinTurnStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "InvokeKeySecretArnOutput", {
       value: invokeSecret.secretArn,
-    });
-    new cdk.CfnOutput(this, "OperatorKeySecretArn", {
-      value: operatorSecret.secretArn,
-      exportName: thinTurnExportName(environmentName, "operator-key-secret-arn"),
-    });
-    new cdk.CfnOutput(this, "OperatorKeySecretArnOutput", {
-      value: operatorSecret.secretArn,
     });
   }
 }

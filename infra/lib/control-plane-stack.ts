@@ -7,7 +7,6 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
@@ -437,15 +436,6 @@ export class ControlPlaneStack extends cdk.Stack {
     }
 
     if (isDevelopment) {
-      new secretsmanager.Secret(this, "ModelGatewaySigningKey", {
-        description:
-          "Retired: the model gateway signing key now lives in the SSM SecureString /chatticus/development/model-gateway/signing-key. Nothing reads this secret; delete it after the deploy is verified.",
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-        generateSecretString: {
-          passwordLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
-          excludePunctuation: true,
-        },
-      });
       const modelGatewaySigningKey = new GeneratedSecureString(this, "ModelGatewaySigningKeyParameter", {
         parameterName: modelGatewaySigningKeyParameterName(environmentName),
         valueLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,

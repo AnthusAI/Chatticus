@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-channels-plan"
       }
+    },
+    {
+      "id": "1ce35d86-307e-4371-8131-813f041e4ca5",
+      "author": "home",
+      "text": "Owner decision 2026-10-25 (corrects the earlier answers to questions 3 and 5): NO toll-free SMS number now (nice to have later), NO SES production access until email has been tested more. M1 and M2 proceed in the SES sandbox with the fake transport and verified testers only. Other answers stand.",
+      "created_at": "2026-10-25T15:20:51.039136Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator-defer"
+      }
     }
   ],
   "created_at": "2026-10-22T03:55:27.815608Z",
-  "updated_at": "2026-10-22T03:58:49.973628Z",
+  "updated_at": "2026-10-25T15:20:51.039180Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
