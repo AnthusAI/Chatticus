@@ -4,7 +4,7 @@
   "description": "OWNER-RUN, requires an Amazon request and a recurring cost, so it needs the owner's explicit yes (open question). Purchase one toll-free number in the chatticus-production account for the development environment through the console or CLI by the owner, submit toll-free verification (use case: replies from a named assistant to people who texted first), and request SMS production access when the sandbox limit blocks testing. Record lead times observed. This task never files anything on its own.\n\nAcceptance criteria:\n- Owner decision recorded\n- Number status and verification status recorded on the task (no account ids)\n- Observed lead times recorded to correct the contract\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: owner approval; ideally started at the beginning of M2\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
   "type": "task",
   "status": "open",
-  "priority": 2,
+  "priority": 4,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-59bdaef5-2409-4555-b342-5d733b374235",
@@ -12,9 +12,22 @@
     "channels"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0e8b8c87-7218-4ef8-9a99-8c00cea814c8",
+      "author": "home",
+      "text": "Owner decision 2026-10-25: no toll-free SMS number now. Nice to have later, not planned. Do not purchase or register anything; the M5 SMS epic stays deferred until the owner says otherwise.",
+      "created_at": "2026-10-25T15:20:50.720336Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator-defer"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:59.267241Z",
-  "updated_at": "2026-10-22T03:57:59.267417Z",
+  "updated_at": "2026-10-25T15:20:51.224373Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
