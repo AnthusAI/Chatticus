@@ -22,10 +22,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-secrets-retire"
       }
+    },
+    {
+      "id": "4cd62b0c-55dc-4642-927b-972f3d3fe757",
+      "author": "home",
+      "text": "Done. Step A PR 640 merged; development deployed and verified (SSM parameters version 1 serve the stacks, no secrets left in thin-turn/control-plane templates except InvokeKey). Step B: release PR 642 to main; staging and production deploys (thinturn, controlplane, auth, web) all succeeded and were verified (operator-key parameter version 1, Front Door env points at it). Then scheduled deletion with a 30 day window (restore possible until 2026-11-24): OperatorKeyD7C0C4F2-OddBqh9H1bJ4 (ThinTurnProduction), OperatorKeyD7C0C4F2-cEyrwQHmABMv (ThinTurnStaging), OperatorKeyD7C0C4F2-tyCrOlWuhZwM (ThinTurnDevelopment), ModelGatewaySigningKeyB6E39-knjmIBEgcuoC (ControlPlaneDevelopment). Each verified by stack and logical-id tags; no Lambda env var referenced any. Restore: aws secretsmanager restore-secret --secret-id <name>.",
+      "created_at": "2026-10-25T17:17:49.557419Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-secrets-retire"
+      }
     }
   ],
   "created_at": "2026-10-23T04:13:20.911904Z",
-  "updated_at": "2026-10-25T15:58:05.280432Z",
+  "updated_at": "2026-10-25T17:17:49.557445Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
