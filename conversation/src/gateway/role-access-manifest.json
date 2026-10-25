@@ -196,6 +196,14 @@
 		},
 		{
 			"role": "ownerTurn",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels#deliveries$",
+			"exampleKey": "{tenantId}#channels#deliveries",
+			"note": "Completing a turn whose prompt arrived over an external transport records the reply owed, once, as a delivery and an open entry."
+		},
+		{
+			"role": "ownerTurn",
 			"action": "dynamodb:GetItem",
 			"store": "messagingTable",
 			"keyPattern": "^[^#]+#computer#actions$",

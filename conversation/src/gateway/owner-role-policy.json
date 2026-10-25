@@ -46,6 +46,7 @@
 					"dynamodb:LeadingKeys": [
 						"${aws:PrincipalTag/tenant}#turn#*",
 						"${aws:PrincipalTag/tenant}#channel#*",
+						"${aws:PrincipalTag/tenant}#channels#deliveries",
 						"${aws:PrincipalTag/tenant}#computer#actions",
 						"${aws:PrincipalTag/tenant}#computer#record",
 						"${aws:PrincipalTag/tenant}#vendor_ledger",

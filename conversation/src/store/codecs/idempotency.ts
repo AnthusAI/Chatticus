@@ -18,6 +18,8 @@ export interface Idempotency {
 	addressedToBotId?: string;
 	createdAt: string;
 	turnId?: string;
+	/** The JSON of the message origin, present only for a message that arrived over an external transport. */
+	origin?: string;
 }
 
 export type Item = Record<string, AttributeValue>;
@@ -44,6 +46,9 @@ export function encode(value: Idempotency): Item {
 
 	if (value.turnId !== undefined) {
 		item.turn_id = { S: value.turnId };
+	}
+	if (value.origin !== undefined) {
+		item.origin = { S: value.origin };
 	}
 
 	return item;
@@ -121,5 +126,6 @@ export function decode(item: Item): Idempotency {
 		addressedToBotId,
 		createdAt,
 		turnId: item.turn_id?.S,
+		origin: item.origin?.S,
 	};
 }

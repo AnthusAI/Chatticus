@@ -1,5 +1,6 @@
 import type { Context } from "@earendil-works/chord";
 import { type Conversation, ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable";
+import { recordReplyDelivery, replyOriginOf } from "../channels/delivery.ts";
 import type { Channel } from "../domain/channels.ts";
 import type { Turn } from "../domain/turns.ts";
 import { deriveCostRecords, readCallCostRecords } from "../ledger/call-cost.ts";
@@ -127,6 +128,12 @@ export async function commitFinalAnswer(inputs: FinalizeInputs, answerEntryId: n
 			body,
 			createdAt,
 		});
+	}
+	if (deps.channelDelivery !== undefined) {
+		const origin = replyOriginOf(log?.lines ?? [], turn, messageSeq);
+		if (origin !== null) {
+			await recordReplyDelivery(deps.channelDelivery, { tenantId: turn.tenantId, channelId: turn.channelId, messageId, messageSeq }, origin);
+		}
 	}
 	return { messageSeq, body };
 }

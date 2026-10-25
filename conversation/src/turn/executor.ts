@@ -97,6 +97,7 @@ const draftOf = (item: MailboxItem): Omit<ChannelMessageDraft, "body"> => ({
 	authorId: item.authorId,
 	addressedToBotId: item.addressedToBotId,
 	createdAt: item.createdAt,
+	...(item.origin === undefined ? {} : { origin: item.origin }),
 });
 
 const delay = (milliseconds: number): { promise: Promise<void>; cancel: () => void } => {
