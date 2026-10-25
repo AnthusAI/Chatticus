@@ -40,12 +40,16 @@ async function clickFirstVisible(page: Page, locator: ReturnType<Page["getByRole
   return true;
 }
 
+/** The panel measures itself after it is resized (for example by the Full button), so the layout is read only after this long. */
+const LAYOUT_SETTLE_MILLISECONDS = 400;
+
 /** Shows the list of boards: the Boards button opens the bottom sheet where the list is not beside the board. */
 async function showBoardPicker(page: Page): Promise<boolean> {
   const toggle = page.getByTestId("board-picker-toggle").filter({ visible: true }).first();
   const besideTheBoard = page.getByTestId("board-picker-side").filter({ visible: true }).first();
   await toggle.or(besideTheBoard).first().waitFor({ state: "visible" });
-  if (await toggle.isVisible()) await toggle.click();
+  await page.waitForTimeout(LAYOUT_SETTLE_MILLISECONDS);
+  if (!(await besideTheBoard.isVisible())) await toggle.click();
   await page.getByTestId("board-picker-bot-entry").filter({ visible: true }).first().waitFor({ state: "visible" });
   return true;
 }
