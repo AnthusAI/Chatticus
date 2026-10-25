@@ -59,6 +59,13 @@ Feature: Owners bind external endpoints to their bots
     When "olive@example.org" creates a fake binding for the bot "Assistant" in "Other House" with the route key "Line-One"
     Then the channel request is refused with the status 409 and the code "route_taken"
 
+  Scenario: An external identity equal to a route key cannot be linked
+    Given the fake route "researcher-line" of "Anthus Labs" is bound to the bot "Researcher"
+    When "ryan@example.com" links the fake sender "Researcher-Line" to "sam@example.com" in "Anthus Labs"
+    Then the channel request is refused with the status 422 and the code "identity_is_a_route"
+    When "ryan@example.com" links the fake sender "sam-phone" to "sam@example.com" in "Anthus Labs"
+    Then the channel request is accepted
+
   Scenario: A member can read bindings but not change them
     Given "ryan@example.com" has chosen the mail handle "anthus" for "Anthus Labs"
     And "ryan@example.com" has created an email binding for the bot "Researcher" in "Anthus Labs"

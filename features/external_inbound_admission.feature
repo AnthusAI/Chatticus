@@ -33,6 +33,21 @@ Feature: Inbound external messages are admitted through one path
     And the external channel of "sam@example.com" in "Anthus Labs" has the message "Please research this" written by "sam@example.com"
     And that channel has 1 message
 
+  Scenario: A repeated delivery of an admitted message is answered as a duplicate and changes nothing
+    When a message arrives over the fake transport:
+      | to           | researcher-line |
+      | from         | sam-phone       |
+      | id           | m1              |
+      | conversation | thread-1        |
+      | text         | Please research this |
+    And the Messaging table is counted
+    And the same fake request is delivered 1 more times
+    Then the message was admitted as a duplicate of the first one
+    And the Messaging table holds the same items as when it was counted
+    And the bot "Researcher" has 1 turn queued
+    And the counter "inbound_admitted" was counted 1 time
+    And the counter "inbound_duplicate" was counted 1 time
+
   Scenario: A copied bot reads the message and does not act on it
     When a message arrives over the fake transport:
       | to           | researcher-line |
@@ -46,6 +61,22 @@ Feature: Inbound external messages are admitted through one path
     And the bot "Writer" has 0 turns queued
     And the external channel of "sam@example.com" in "Anthus Labs" has the bots "Researcher" and "Writer" as participants
     And that channel has 1 message
+
+  Scenario: A copied address that belongs to another organization is ignored
+    Given the organization "Other House" has the owner "olive@example.org"
+    And the organization "Other House" has the bot "Assistant"
+    And external channels are switched on for the organization "Other House"
+    And the fake route "assistant-line" of "Other House" is bound to the bot "Assistant"
+    When a message arrives over the fake transport:
+      | to           | researcher-line |
+      | cc           | assistant-line  |
+      | from         | sam-phone       |
+      | id           | m1              |
+      | conversation | thread-1        |
+      | text         | Researcher, take this one |
+    Then the message was admitted
+    And the external channel of "sam@example.com" in "Anthus Labs" has only the bot "Researcher" as a bot participant
+    And the bot "Assistant" has 0 turns queued
 
   Scenario: A second message while the turn is open steers the same turn
     When a message arrives over the fake transport:
@@ -117,6 +148,26 @@ Feature: Inbound external messages are admitted through one path
       | conversation | thread-1        |
       | text         | Anyone?         |
     Then the message was dropped as "gate_closed"
+
+  Scenario Outline: A message the system or a machine sent is dropped and counted
+    When a message arrives over the fake transport:
+      | to           | researcher-line |
+      | from         | sam-phone       |
+      | id           | m1              |
+      | conversation | thread-1        |
+      | text         | Automated       |
+      | automated    | <hint>          |
+    Then the message was dropped as "automated_message"
+    And the bot "Researcher" has 0 turns queued
+    And "sam@example.com" has 0 channels of kind "external" in "Anthus Labs"
+    And the counter "inbound_automated_dropped" was counted 1 time
+    And the counter "inbound_gate_closed" was counted 0 times
+
+    Examples:
+      | hint           |
+      | own_origin     |
+      | auto_submitted |
+      | bounce_report  |
 
   Scenario: A sender nobody linked starts nothing
     When a message arrives over the fake transport:

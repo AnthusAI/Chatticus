@@ -1,5 +1,6 @@
 import {
 	TransportDeliveryError,
+	type AutomationHints,
 	type ChannelTransport,
 	type CommittedMessage,
 	type DeliveryReceipt,
@@ -32,6 +33,7 @@ export interface FakeInboundEventInput {
 	readonly text?: string;
 	readonly to?: readonly string[];
 	readonly cc?: readonly string[];
+	readonly automationHints?: Partial<AutomationHints>;
 }
 
 /** One provider send the fake transport performed. */
@@ -114,7 +116,7 @@ export class FakeChannelTransport implements ChannelTransport {
 			text: input.text ?? "",
 			attachments: [],
 			addressing: { to: input.to ?? [], cc: input.cc ?? [] },
-			automationHints: { autoSubmitted: false, bulkPrecedence: false, bounceReport: false, listMail: false, ownOrigin: false },
+			automationHints: { autoSubmitted: false, bulkPrecedence: false, bounceReport: false, listMail: false, ownOrigin: false, ...input.automationHints },
 			receivedAt: verified.receivedAt,
 			rawReference: null,
 		}));

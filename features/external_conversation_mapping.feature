@@ -104,6 +104,16 @@ Feature: An external conversation is one Chatticus channel
     Then "ada@example.com" has 0 channels of kind "external" in "Anthus Labs"
     And "ada@example.com" is refused when reading the external channel of "sam@example.com" in "Anthus Labs"
 
+  Scenario: Someone outside the organization is refused as a non-member and learns nothing about the channel
+    Given the organization "Other House" has the owner "olive@example.org"
+    When a message arrives over the fake transport:
+      | to           | researcher-line |
+      | from         | sam-phone       |
+      | id           | m1              |
+      | conversation | thread-1        |
+      | text         | Private to Sam  |
+    Then "olive@example.org" is refused as a non-member when reading the external channel of "sam@example.com" in "Anthus Labs"
+
   Scenario: Replaying the same external message creates no second channel or message
     When a message arrives over the fake transport:
       | to           | researcher-line |

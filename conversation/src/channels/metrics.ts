@@ -6,6 +6,9 @@ export type ChannelMetricName =
 	| "inbound_duplicate"
 	| "inbound_gate_closed"
 	| "inbound_unlinked_sender"
+	| "inbound_automated_dropped"
+	| "inbound_bot_not_in_conversation"
+	| "inbound_sender_not_in_conversation"
 	| "outbound_sent"
 	| "outbound_failed"
 	| "outbound_gave_up";

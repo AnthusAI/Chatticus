@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { ScanCommand } from "@aws-sdk/client-dynamodb";
 import type { ChannelEvent, ChannelEventPublisher } from "../src/channels/events.ts";
 import type { AdmissionDependencies, AdmissionOutcome } from "../src/channels/inbound-admission.ts";
-import { allowEveryMessage } from "../src/channels/inbound-admission.ts";
+import { dropAutomatedMessages } from "../src/channels/inbound-admission.ts";
 import type { DeliveryDependencies, SweepDependencies } from "../src/channels/delivery.ts";
 import { FakeChannelTransport } from "../src/channels/fake-transport.ts";
 import type { ChannelMetricName, ChannelMetrics } from "../src/channels/metrics.ts";
@@ -101,7 +101,7 @@ export async function admissionDependenciesFor(world: ChatticusWorld): Promise<A
 		messages: await executorMessageDependencies(world),
 		ids: world.ids,
 		clock: world.clock,
-		automation: allowEveryMessage,
+		automation: dropAutomatedMessages,
 	};
 }
 

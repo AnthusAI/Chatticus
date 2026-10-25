@@ -86,6 +86,8 @@ export async function recordReplyDelivery(
 export interface DeliveryDependencies {
 	readonly runtime: ChannelsRuntime;
 	readonly clock: Clock;
+	/** The messaging store that tells whether the organization is enabled. */
+	readonly messaging: MessagingStore;
 	/** The committed message at a sequence of a channel, or null when there is none. */
 	readonly loadMessage: (tenantId: string, channelId: string, seq: number) => Promise<CommittedMessage | null>;
 }
@@ -105,7 +107,7 @@ async function fail(deps: DeliveryDependencies, delivery: DeliveryRecord, failur
 }
 
 /**
- * Deliver one owed reply: load the message and the binding, render, send with the idempotency key message id plus binding
+ * Deliver one owed reply: load the message and the binding, refuse when the organization is not enabled, render, send with the idempotency key message id plus binding
  * id, and record the result. A reply already sent, failed or settled is left alone, so a repeated event sends nothing.
  *
  * @param deps The runtime, clock and message loader.
@@ -120,6 +122,8 @@ export async function deliverChannelMessage(deps: DeliveryDependencies, ids: { t
 	const binding = await store.getBinding(delivery.tenantId, delivery.bindingId);
 	if (binding === null || !binding.enabled) return fail(deps, delivery, "suppressed", "binding_disabled");
 	if (!(await externalChannelsAvailable(deps.runtime, delivery.tenantId))) return fail(deps, delivery, "suppressed", "external_channels_off");
+	const organization = await deps.messaging.getOrganization(delivery.tenantId);
+	if (organization === null || organization.status !== "enabled") return fail(deps, delivery, "suppressed", "organization_suspended");
 	const transport: ChannelTransport | undefined = deps.runtime.transports.get(binding.provider);
 	if (transport === undefined) return fail(deps, delivery, "permanent", "no_transport");
 	const message = await deps.loadMessage(delivery.tenantId, delivery.channelId, delivery.messageSeq);
@@ -153,9 +157,7 @@ export async function deliverChannelMessage(deps: DeliveryDependencies, ids: { t
 }
 
 /** What the sweeper reads. */
-export interface SweepDependencies extends DeliveryDependencies {
-	readonly messaging: MessagingStore;
-}
+export type SweepDependencies = DeliveryDependencies;
 
 /**
  * Retry the replies that stayed pending or retryable past the stale age, and give up on a reply that has been tried the

@@ -156,6 +156,34 @@ Feature: A bot's reply follows the message that started its turn
     Then the fake provider sent 0 messages
     And the delivery of the reply is "failed" with the reason "binding_disabled"
 
+  Scenario: A suspended organization sends nothing
+    When a message arrives over the fake transport:
+      | to           | researcher-line |
+      | from         | sam-phone       |
+      | id           | m1              |
+      | conversation | thread-1        |
+      | text         | Please research this |
+    And the bot "Researcher" completes its turn
+    And the organization "Anthus Labs" is suspended by the operator
+    And the delivery handler runs for the reply
+    Then the fake provider sent 0 messages
+    And the delivery of the reply is "failed" with the reason "organization_suspended"
+
+  Scenario: A web message that steers an external turn does not change who the reply is owed to
+    When a message arrives over the fake transport:
+      | to           | researcher-line |
+      | from         | sam-phone       |
+      | id           | m1              |
+      | conversation | thread-1        |
+      | text         | From outside    |
+    And "sam@example.com" posts "From the web" on the external channel addressed to the bot "Researcher"
+    And the model will answer "Answered both."
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    Then the fake provider sent 1 message
+    And the fake provider sent "Answered both." to "sam-phone" in the conversation "thread-1" in reply to "m1"
+    And the message "From the web" on the external channel of "sam@example.com" in "Anthus Labs" shows no origin
+
   Scenario: Provider callbacks update the delivery
     When a message arrives over the fake transport:
       | to           | researcher-line |

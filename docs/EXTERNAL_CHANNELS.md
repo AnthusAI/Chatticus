@@ -199,6 +199,10 @@ organization. Replies carry the bot's name through Slack's per-message username 
 presents as several named teammates.
 
 **Steering.** If an addressed bot already has an open turn on the channel, the existing steering rule applies unchanged.
+A web message that steers a turn an external message started carries no origin and is never delivered outside; the
+turn's reply is still owed to the external sender who started it, or to the most recent external message the turn took
+in, because that person is the one waiting for the answer. A web message alone never creates, changes or removes the
+place a reply is owed.
 
 ## 4. Identity and authorization
 
@@ -591,5 +595,22 @@ What exists, so a later reader does not have to infer it from the code:
   functions of `delivery.ts`; the EventBridge publisher, the rule, the Lambda entry points and the scheduler arrive with
   the infrastructure tasks.
 - **Same-organization access to a channel.** A member who is not a participant of an external channel is refused with
-  403 by the same participant check every channel uses, not 404.
+  403 by the same participant check every channel uses, not 404. A caller who is not a member of the organization at all
+  is refused with 403 by the organization membership check every organization route uses, with the same answer for an
+  existing and a missing channel; only the owner binding routes answer 404 to non-members.
 
+### Known gaps for M2
+
+These are decided, observed and deliberately left open in milestone 1. Each has a board task.
+
+- **In-flight inbound.** While a message is claimed and not yet completed, a repeated delivery of it is dropped as
+  `in_flight` and counted as `inbound_duplicate`. The ingress for a real provider must answer that case with a non-2xx
+  status so the provider retries after the claim lease (60 seconds); answering 2xx would lose the message if the first
+  attempt died. The core reports `in_flight`; the ingress must map it.
+- **Finalize crash window.** `commitFinalAnswer` commits the reply and then records the delivery and publishes the
+  event. A crash between the commit and the delivery record leaves a committed reply with no owed delivery, and the
+  sweeper cannot see it because it lists open deliveries only. Closing the window needs the delivery recorded in the same
+  write as the commit, or a reconciliation pass over replies of external turns.
+- **Missing `events:PutEvents` grant.** The turn executor publishes the channel message event, and no infrastructure
+  grant yet lets its role call `events:PutEvents` on the channel event bus. The infrastructure task adds the grant with
+  the bus and the rule; until then the publisher must not be wired in a deployed environment.

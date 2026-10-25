@@ -91,6 +91,7 @@ const REFUSAL_STATUS: Readonly<Record<BindingRefusal, number>> = {
 	mail_handle_taken: 409,
 	binding_not_found: 404,
 	member_not_found: 404,
+	identity_is_a_route: 422,
 };
 
 const NOT_FOUND_BODY = { detail: "Not found.", code: "not_found" } as const;

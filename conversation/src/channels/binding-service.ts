@@ -19,7 +19,8 @@ export type BindingRefusal =
 	| "mail_handle_reserved"
 	| "mail_handle_taken"
 	| "binding_not_found"
-	| "member_not_found";
+	| "member_not_found"
+	| "identity_is_a_route";
 
 /** The outcome of a binding operation. */
 export type BindingOutcome<Value> = { readonly ok: true; readonly value: Value } | { readonly ok: false; readonly refusal: BindingRefusal };
@@ -117,7 +118,8 @@ export async function setChannelBindingEnabled(deps: BindingDependencies, tenant
 
 /**
  * Link an external identity to an enabled member of the organization. Milestone 1 trusts the owner who links it;
- * proof of control by the member arrives with the trust classes.
+ * proof of control by the member arrives with the trust classes. An identity equal to any route key of the provider is
+ * refused, so a bot's own address can never be a sender that a bot answers.
  *
  * @param deps The dependencies.
  * @param tenantId The organization.
@@ -132,10 +134,12 @@ export async function linkExternalIdentity(
 	const provider = link.provider as TransportProvider;
 	if (!deps.runtime.allowedProviders.includes(provider)) return refuse("unsupported_provider");
 	if ((await deps.store.getMembership(tenantId, link.userId)) === null) return refuse("member_not_found");
+	const externalId = link.externalId.trim().toLowerCase();
+	if ((await deps.runtime.store.resolveRoute(provider, normalizedRouteKey(externalId))) !== null) return refuse("identity_is_a_route");
 	const stored: ExternalIdentityLink = {
 		tenantId,
 		provider,
-		externalId: link.externalId.trim().toLowerCase(),
+		externalId,
 		userId: link.userId,
 		linkedBy: link.linkedBy,
 		linkedAt: deps.clock.now(),

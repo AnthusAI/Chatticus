@@ -5,7 +5,7 @@ import { createChannelBinding, linkExternalIdentity } from "../../src/channels/b
 import { ingestInbound, type AdmissionOutcome } from "../../src/channels/inbound-admission.ts";
 import { deliverChannelMessage, processStatusCallback, sweepStaleDeliveries } from "../../src/channels/delivery.ts";
 import type { DeliveryRecord } from "../../src/channels/records.ts";
-import { TransportDeliveryError, type DeliveryFailureClass } from "../../src/channels/transport.ts";
+import { TransportDeliveryError, type AutomationHints, type DeliveryFailureClass } from "../../src/channels/transport.ts";
 import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
 import { membershipKey } from "../../src/store/keys.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
@@ -237,9 +237,20 @@ Given("the fake sender {string} is linked to {string} in {string}", async functi
 	assert.ok(linked.ok, JSON.stringify(linked));
 });
 
+When("{string} links the fake sender {string} to {string} in {string}", async function (this: ChatticusWorld, who: string, sender: string, person: string, organization: string) {
+	const tenantId = tenantOf(organization);
+	await call(this, who, "PUT", `/orgs/${tenantId}/external-identities`, { provider: "fake", external_id: sender, user_id: userIdOf(tenantId, person) });
+});
+
 Given("the fake transport carries pair conversations", function (this: ChatticusWorld) {
 	channelsScenarioOf(this).fake.useGranularity("pair");
 });
+
+const AUTOMATION_HINTS: Readonly<Record<string, Partial<AutomationHints>>> = {
+	own_origin: { ownOrigin: true },
+	auto_submitted: { autoSubmitted: true },
+	bounce_report: { bounceReport: true },
+};
 
 function inboundInputOf(table: DataTable) {
 	const row = table.rowsHash();
@@ -253,6 +264,7 @@ function inboundInputOf(table: DataTable) {
 		...(row["text"] === undefined ? {} : { text: row["text"] }),
 		referencedExternalMessageIds: list(row["references"]),
 		cc: list(row["cc"]),
+		...(row["automated"] === undefined ? {} : { automationHints: AUTOMATION_HINTS[row["automated"]] }),
 	};
 }
 
@@ -296,6 +308,17 @@ Then("the message was admitted", function (this: ChatticusWorld) {
 
 Then("the message was dropped as {string}", function (this: ChatticusWorld, reason: string) {
 	assert.deepEqual(lastOutcome(this), { kind: "dropped", reason });
+});
+
+Then("the message was admitted as a duplicate of the first one", function (this: ChatticusWorld) {
+	const outcomes = channelsScenarioOf(this).outcomes;
+	const first = outcomes[0];
+	const last = lastOutcome(this);
+	assert.ok(outcomes.length > 1 && first?.kind === "admitted" && last.kind === "admitted", JSON.stringify(outcomes));
+	assert.equal(first.duplicate, false);
+	assert.equal(last.duplicate, true);
+	assert.equal(last.messageId, first.messageId);
+	assert.equal(last.channelId, first.channelId);
 });
 
 Then("the fake request was refused", function (this: ChatticusWorld) {
@@ -431,6 +454,24 @@ Then("{string} is refused when reading the external channel of {string} in {stri
 });
 
 Then(
+	"the message {string} on the external channel of {string} in {string} shows no origin",
+	async function (this: ChatticusWorld, text: string, person: string, organization: string) {
+		const channel = await externalChannelOf(this, person, organization);
+		const messages = await messagesOf(this, person, tenantOf(organization), channel.channel_id);
+		const found = messages.find((message) => message.body === text);
+		assert.ok(found, `No message with the text ${text}`);
+		assert.equal(found.origin, undefined);
+	},
+);
+
+Then("{string} is refused as a non-member when reading the external channel of {string} in {string}", async function (this: ChatticusWorld, reader: string, owner: string, organization: string) {
+	const channel = await externalChannelOf(this, owner, organization);
+	const response = await call(this, reader, "GET", `/orgs/${tenantOf(organization)}/channels/${channel.channel_id}/messages`);
+	assert.equal(response.status, 403, response.text);
+	assert.match(response.json.detail, /is not a member of organization/);
+});
+
+Then(
 	"the external channel of {string} in {string} has the message {string} written by {string}",
 	async function (this: ChatticusWorld, person: string, organization: string, text: string, author: string) {
 		const channel = await externalChannelOf(this, person, organization);
@@ -440,6 +481,15 @@ Then(
 		assert.ok(found, `No message with the text ${text}`);
 		assert.equal(found.author_kind, "human");
 		assert.equal(found.author_id, userIdOf(tenantId, author));
+	},
+);
+
+Then(
+	"the external channel of {string} in {string} has only the bot {string} as a bot participant",
+	async function (this: ChatticusWorld, person: string, organization: string, botName: string) {
+		const channel = await externalChannelOf(this, person, organization);
+		const botIds = channel.participants.filter((participant) => participant.kind === "bot").map((participant) => participant.actor_id);
+		assert.deepEqual(botIds, [botIdOf(this, botName)]);
 	},
 );
 

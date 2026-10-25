@@ -4,6 +4,7 @@ import type { Clock, IdSource } from "../http/app.ts";
 import { normalizedRouteKey } from "../store/channel-store.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { mapExternalConversation } from "./conversation-mapping.ts";
+import type { ChannelMetricName } from "./metrics.ts";
 import type { ChannelBinding } from "./records.ts";
 import { externalChannelsAvailable, type ChannelsRuntime } from "./runtime.ts";
 import type { ChannelTransport, InboundEvent, InboundRefusal, RawInbound, VerifiedInbound } from "./transport.ts";
@@ -29,8 +30,12 @@ export type AdmissionOutcome =
 /** Decides whether an automated message may start a turn; the full filter arrives with the abuse controls. */
 export type AutomationFilter = (event: InboundEvent) => "allow" | "drop";
 
-/** The automation filter of milestone 1: every message is allowed. */
-export const allowEveryMessage: AutomationFilter = () => "allow";
+/**
+ * The automation filter of milestone 1: a message the system itself sent, an auto-submitted message and a bounce report
+ * are dropped, so a bot can never answer its own mail or another machine's. The full filter arrives with the abuse controls.
+ */
+export const dropAutomatedMessages: AutomationFilter = (event) =>
+	event.automationHints.ownOrigin || event.automationHints.autoSubmitted || event.automationHints.bounceReport ? "drop" : "allow";
 
 /** What admission reads and writes. */
 export interface AdmissionDependencies {
@@ -42,7 +47,7 @@ export interface AdmissionDependencies {
 	readonly automation: AutomationFilter;
 }
 
-const dropped = (runtime: ChannelsRuntime, reason: DropReason, counter: "inbound_unknown_route" | "inbound_gate_closed" | "inbound_unlinked_sender" | "inbound_duplicate", dimensions: Record<string, string> = {}): AdmissionOutcome => {
+const dropped = (runtime: ChannelsRuntime, reason: DropReason, counter: ChannelMetricName, dimensions: Record<string, string> = {}): AdmissionOutcome => {
 	runtime.metrics.count(counter, { reason, ...dimensions });
 	return { kind: "dropped", reason };
 };
@@ -90,7 +95,7 @@ export async function admitInbound(deps: AdmissionDependencies, transport: Chann
 	const binding = await runtime.store.getBinding(target.tenantId, target.bindingId);
 	if (binding === null) return dropped(runtime, "unknown_route", "inbound_unknown_route");
 	if (!(await gateIsOpen(deps, binding))) return dropped(runtime, "gate_closed", "inbound_gate_closed", { provider: event.provider });
-	if (deps.automation(event) === "drop") return dropped(runtime, "automated_message", "inbound_gate_closed", { provider: event.provider });
+	if (deps.automation(event) === "drop") return dropped(runtime, "automated_message", "inbound_automated_dropped", { provider: event.provider });
 
 	const link = await runtime.store.getIdentityLink(binding.tenantId, event.provider, event.sender.externalId.trim().toLowerCase());
 	const membership = link === null ? null : await deps.messaging.getMembership(binding.tenantId, link.userId);
@@ -112,9 +117,9 @@ export async function admitInbound(deps: AdmissionDependencies, transport: Chann
 		{ userId: link.userId },
 		botIds,
 	);
-	if (channel === null) return dropped(runtime, "bot_not_in_conversation", "inbound_gate_closed", { provider: event.provider });
+	if (channel === null) return dropped(runtime, "bot_not_in_conversation", "inbound_bot_not_in_conversation", { provider: event.provider });
 	if (!channel.participants.some((participant) => participant.kind === "human" && participant.actorId === link.userId)) {
-		return dropped(runtime, "sender_not_in_conversation", "inbound_gate_closed", { provider: event.provider });
+		return dropped(runtime, "sender_not_in_conversation", "inbound_sender_not_in_conversation", { provider: event.provider });
 	}
 
 	const origin: MessageOrigin = {
