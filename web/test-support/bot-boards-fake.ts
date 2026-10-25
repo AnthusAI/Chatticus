@@ -9,7 +9,7 @@ type FakeBoard = {
   name: string;
   cards: Array<Record<string, unknown>>;
   indexBehind: boolean;
-  hiddenFromMember: boolean;
+  hasBoard: boolean;
 };
 
 const DEFAULT_WORKFLOW: Record<string, string[]> = {
@@ -78,7 +78,7 @@ function issueOf(botId: string, row: FakeBotBoardRow): Record<string, unknown> {
 /**
  * A fake front door for the bot board routes of `conversation/src/http/routes/bot-boards.ts` and the bot list route,
  * with the same response shapes and error codes. It keeps the cards of each bot, pages them by cursor, and can be told
- * to lag behind, to be unreachable, to have no board service, or to hide a board from the member.
+ * to lag behind, to be unreachable, to have no board service, or to have a bot whose board has not been made yet (a member then gets the front door's not found).
  */
 export class FakeBotBoards {
   readonly requests: FakeBotBoardRequest[] = [];
@@ -86,7 +86,7 @@ export class FakeBotBoards {
   private readonly boards = new Map<string, FakeBoard>();
 
   addBot(botId: string, name: string): void {
-    if (!this.boards.has(botId)) this.boards.set(botId, { botId, name, cards: [], indexBehind: false, hiddenFromMember: false });
+    if (!this.boards.has(botId)) this.boards.set(botId, { botId, name, cards: [], indexBehind: false, hasBoard: true });
   }
 
   removeBot(botId: string): void {
@@ -107,8 +107,12 @@ export class FakeBotBoards {
     this.requireBoard(botId).indexBehind = behind;
   }
 
-  hideFromMember(botId: string): void {
-    this.requireBoard(botId).hiddenFromMember = true;
+  removeBoard(botId: string): void {
+    this.requireBoard(botId).hasBoard = false;
+  }
+
+  giveBoard(botId: string): void {
+    this.requireBoard(botId).hasBoard = true;
   }
 
   private requireBoard(botId: string): FakeBoard {
@@ -139,7 +143,8 @@ export class FakeBotBoards {
       return json(502, { detail: "The board service did not confirm the request.", code: "board_service_unavailable", kind: "unavailable" });
     }
     const board = this.boards.get(decodeURIComponent(boardMatch[2]));
-    if (!board || board.hiddenFromMember) return json(404, { detail: "The board was not found.", code: "not_found", kind: "not_found" });
+    if (!board) return json(404, { detail: "The board was not found.", code: "not_found", kind: "not_found" });
+    if (!board.hasBoard) return json(404, { detail: "The board or the card was not found.", code: "not_found", kind: "not_found" });
     const limit = Math.min(Number(query.limit ?? "100"), 100);
     const offset = query.cursor ? Number(query.cursor) : 0;
     const visible = board.indexBehind ? board.cards.slice(0, Math.max(0, board.cards.length - 1)) : board.cards;

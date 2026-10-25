@@ -256,10 +256,123 @@ Feature: Members pick between the project boards of the computer and the boards 
     Then the picker has the section "Bot boards" listing "Researcher"
 
   @web
-  Scenario: A bot board that the front door does not show to this member says so without an error
+  Scenario: A bot that has no board yet is listed and says so
     Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
     And the bot "Assistant" has a board with the card "Pay the electric bill"
-    And the front door answers not found for the board of "Assistant"
-    When the member picks the bot board "Assistant"
-    Then the board says "This bot board is not available to you"
+    And the bot "Scout" has no board yet
+    When the member opens the board picker
+    Then the picker has the section "Bot boards" listing "Assistant" and "Scout"
+    And the picker entry "Scout" says "no board yet"
+    And the picker entry "Assistant" says nothing about a missing board
+
+  @web
+  Scenario: Picking a bot that has no board yet shows a plain empty state, not an error
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
+    And the bot "Scout" has no board yet
+    When the member picks the bot board "Scout"
+    Then the board says "Scout has no board yet"
     And the board shows no error
+
+  @web
+  Scenario: A bot that was given its board stops saying that it has none
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
+    And the bot "Scout" has no board yet
+    When the member opens the board picker
+    Then the picker entry "Scout" says "no board yet"
+    When the bot "Scout" is given a board with the card "Check the vendor list"
+    And the member closes and opens the board picker
+    Then the picker entry "Scout" says nothing about a missing board
+
+  @web
+  Scenario: The project board is shown first when nothing was picked
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
+    And the workspace folder "chatticus" holds a Kanbus project with these issues
+      | id   | title           | status | priority |
+      | cx-2 | Write the guide | open   | 2        |
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    When the member opens the Board tab
+    Then the board is named "chatticus board"
+
+  @web
+  Scenario: With no project in the workspace the first bot that has a board is shown
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
+    And the bot "Aria" has no board yet
+    And the bot "Scout" has a board with the card "Check the vendor list"
+    When the member opens the Board tab
+    Then the board is named "Scout's board"
+
+  # ---------------------------------------------------------------- where the list sits
+
+  # The list of boards sits beside the board on an iPad held sideways and on anything wider. On an iPad held upright and on
+  # anything narrower, down to a phone, it is a bottom sheet that the Boards button opens. The harness stands in for the
+  # screen with its width and height in points. Columns that fit the screen, the one-column phone view and the touch
+  # gestures are the board component's own and stay in the draft features/web_bot_boards.feature, which needs a real browser.
+
+  @web @ipad
+  Scenario: On an iPad held sideways the list sits beside the board
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad held sideways
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    When the member picks the bot board "Assistant"
+    Then the list of boards is shown beside the board
+    And the board column "open" lists "as-1"
+    And the Boards button is not offered
+    And the list of boards is not a bottom sheet
+
+  @web
+  Scenario: On a desktop the list sits beside the board too
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    When the member picks the bot board "Assistant"
+    Then the list of boards is shown beside the board
+
+  @web @ipad
+  Scenario: Beside the board the selected board is marked and a bot with no board yet says so
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad held sideways
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    And the bot "Scout" has no board yet
+    When the member picks the bot board "Assistant"
+    Then the picker has the section "Bot boards" listing "Assistant" and "Scout"
+    And the picker entry "Scout" says "no board yet"
+    And the entry "Assistant" is marked as the board on show
+
+  @web @ipad
+  Scenario: On an iPad held upright the list is a bottom sheet
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad held upright
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    When the member opens the Board tab
+    Then the list of boards is not shown
+    And the Boards button is offered
+    When the member opens the board picker
+    Then the list of boards is shown in a bottom sheet
+
+  @web @phone
+  Scenario: On a phone the Boards button opens a bottom sheet over the board
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    When the member picks the bot board "Assistant"
+    Then the list of boards is not shown
+    And the board column "open" lists "as-1"
+    When the member opens the board picker
+    Then the list of boards is shown in a bottom sheet
+    And the bottom sheet can be closed without picking a board
+    And the picker has the section "Bot boards" listing "Assistant"
+
+  @web @phone
+  Scenario: On a phone picking a board closes the sheet and shows the board
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    And the bot "Scout" has a board with the card "Check the vendor list"
+    When the member picks the bot board "Assistant"
+    And the member opens the board picker
+    And the member picks the bot board "Scout"
+    Then the list of boards is not shown
+    And the board is named "Scout's board"
+
+  @web @phone
+  Scenario: On a phone the sheet closes when the member dismisses it
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone
+    And the bot "Assistant" has a board with the card "Pay the electric bill"
+    When the member opens the board picker
+    And the member closes the board picker
+    Then the list of boards is not shown
+    And the board offers to refresh

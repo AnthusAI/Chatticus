@@ -7,6 +7,7 @@ import { setIdTokenSourceForTests } from "../lib/api-auth";
 import { computerFilesApiFor } from "../lib/computer-files-api";
 import { listBots } from "../lib/api";
 import { BoardWorkspaceController, type BoardSelection, type BoardSelectionStore } from "../lib/board-workspace-controller";
+import { boardPickerLayoutFor } from "../lib/board-picker-layout";
 import { botBoardsApiFor } from "../lib/bot-boards-api";
 import { FakeBotBoards, type FakeBoardServiceMode } from "./bot-boards-fake";
 import { FakeComputerFiles, type FakeMode } from "./computer-files-fake";
@@ -21,6 +22,7 @@ let controller: BoardWorkspaceController | null = null;
 let failEveryRequest = false;
 let rememberedSelection: string | null = null;
 let theme: "light" | "dark" = "light";
+let screen = { width: 1440, height: 900 };
 const drawings: Array<{ kind: string; wrapperClass: string; columnClass: string; cardClass: string }> = [];
 const computerRequestsSincePick: string[] = [];
 
@@ -87,6 +89,7 @@ async function render() {
       snapshot: requireController().getSnapshot(),
       handlers: { onRefresh: () => undefined, onSelect: () => undefined, onTogglePicker: () => undefined },
       theme,
+      layout: boardPickerLayoutFor(screen.width, screen.height),
     }),
   );
   const columns = elementsWithClassOfMarkup(html, "kb-column").map((column) => ({
@@ -181,8 +184,16 @@ async function handle(command: Command): Promise<unknown> {
     case "service-mode":
       botBoards.mode = command.mode as FakeBoardServiceMode;
       return null;
-    case "hide-bot-board":
-      botBoards.hideFromMember(botIdFor(command.name));
+    case "seed-bot-without-board":
+      botBoards.addBot(botIdFor(command.name), command.name);
+      botBoards.removeBoard(botIdFor(command.name));
+      return null;
+    case "give-bot-board":
+      botBoards.giveBoard(botIdFor(command.name));
+      botBoards.addCards(botIdFor(command.name), botBoardRows(command.name, command.rows));
+      return null;
+    case "set-screen":
+      screen = { width: command.width, height: command.height };
       return null;
     case "index-behind":
       botBoards.setIndexBehind(botIdFor(command.name), command.value);

@@ -40,6 +40,14 @@ async function clickFirstVisible(page: Page, locator: ReturnType<Page["getByRole
   return true;
 }
 
+/** Shows the list of boards: the Boards button opens the bottom sheet where the list is not beside the board. */
+async function showBoardPicker(page: Page): Promise<boolean> {
+  const toggle = page.getByTestId("board-picker-toggle").filter({ visible: true }).first();
+  if ((await toggle.count()) > 0) await toggle.click();
+  await page.getByTestId("board-picker-bot-entry").filter({ visible: true }).first().waitFor({ state: "visible" });
+  return true;
+}
+
 async function openPlanningChannel(page: Page): Promise<void> {
   const planning = page.getByRole("button", { name: /Planning/ }).filter({ visible: true }).first();
   const openRoster = page.getByRole("button", { name: "Open bots and channels" }).filter({ visible: true }).first();
@@ -127,9 +135,7 @@ export const REVIEW_SCREENS: ReadonlyArray<ReviewScreen> = [
     arrange: async (page) => {
       await openPanelPlugin(page, "Board");
       await page.getByTestId("kanbus-board").filter({ visible: true }).first().waitFor({ state: "visible" });
-      if (!(await clickFirstVisible(page, page.getByTestId("board-picker-toggle")))) return false;
-      await page.getByTestId("board-picker-bot-entry").filter({ visible: true }).first().waitFor({ state: "visible" });
-      return true;
+      return showBoardPicker(page);
     },
   },
   {
@@ -138,10 +144,22 @@ export const REVIEW_SCREENS: ReadonlyArray<ReviewScreen> = [
     signedIn: true,
     arrange: async (page) => {
       await openPanelPlugin(page, "Board");
-      if (!(await clickFirstVisible(page, page.getByTestId("board-picker-toggle")))) return false;
+      await showBoardPicker(page);
       if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Bot board: Pi" })))) return false;
       await page.getByText("Pi's board").filter({ visible: true }).first().waitFor({ state: "visible" });
       await page.getByText("Draft the Kanbus panel plan").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
+    id: "panel-board-bot-without-board",
+    label: "Board panel, a bot with no board yet",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      await showBoardPicker(page);
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: /Bot board: Scout/ })))) return false;
+      await page.getByText("Scout has no board yet").filter({ visible: true }).first().waitFor({ state: "visible" });
       return true;
     },
   },
@@ -153,7 +171,7 @@ export const REVIEW_SCREENS: ReadonlyArray<ReviewScreen> = [
       await openPanelPlugin(page, "Board");
       const fillsWorkspace = await clickFirstVisible(page, page.getByRole("button", { name: "Full", exact: true }));
       if (!fillsWorkspace) return false;
-      if (!(await clickFirstVisible(page, page.getByTestId("board-picker-toggle")))) return false;
+      await showBoardPicker(page);
       if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Bot board: Pi" })))) return false;
       await page.getByText("Draft the Kanbus panel plan").filter({ visible: true }).first().waitFor({ state: "visible" });
       return true;

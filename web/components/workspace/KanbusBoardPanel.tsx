@@ -7,6 +7,7 @@ import { BoardWorkspaceController, type BoardSelectionStore } from "@/lib/board-
 import { botBoardsApiFor } from "@/lib/bot-boards-api";
 import { computerFilesApiFor } from "@/lib/computer-files-api";
 import type { ActiveOrg } from "@/lib/membership-state";
+import { boardPickerLayoutFor, type BoardPickerLayout } from "@/lib/board-picker-layout";
 import "@/styles/kanbus-board.css";
 import { KanbusBoardPanelFrame } from "./KanbusBoardPanelFrame";
 
@@ -26,6 +27,19 @@ function browserSelectionStore(org: ActiveOrg): BoardSelectionStore {
   };
 }
 
+function subscribeToScreenSize(onChange: () => void): () => void {
+  window.addEventListener("resize", onChange);
+  window.addEventListener("orientationchange", onChange);
+  return () => {
+    window.removeEventListener("resize", onChange);
+    window.removeEventListener("orientationchange", onChange);
+  };
+}
+
+function currentLayout(): BoardPickerLayout {
+  return boardPickerLayoutFor(window.innerWidth, window.innerHeight);
+}
+
 /** The Board tab. The controller reads the project board from the workspace and the bot boards from the front door; this component tells it when the tab is showing. */
 export function KanbusBoardPanel({ org, active, theme }: Props) {
   const [controller] = useState(
@@ -38,6 +52,7 @@ export function KanbusBoardPanel({ org, active, theme }: Props) {
       }),
   );
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const layout = useSyncExternalStore(subscribeToScreenSize, currentLayout, () => "sheet" as const);
   const handlers = useMemo(
     () => ({
       onRefresh: () => void controller.refresh(),
@@ -53,5 +68,5 @@ export function KanbusBoardPanel({ org, active, theme }: Props) {
 
   useEffect(() => () => controller.dispose(), [controller]);
 
-  return <KanbusBoardPanelFrame snapshot={snapshot} handlers={handlers} theme={theme} />;
+  return <KanbusBoardPanelFrame snapshot={snapshot} handlers={handlers} theme={theme} layout={layout} />;
 }

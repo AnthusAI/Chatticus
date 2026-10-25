@@ -6,7 +6,7 @@ Feature: Members pick between the project boards of the computer and the interna
   DRAFT. The read-only scenarios (the picker, the board drawn by Kanbus, states) moved to the registered
   features/web_bot_board_picker.feature. What remains here is the owner editing, the card detail and the layout scenarios:
   editing needs the owner write UI (a later phase), card detail needs card selection (the first slice passes no selection
-  handler), and the layout scenarios need a real browser (the review screenshot gallery covers them for now). Implemented by Milestone 2 (Kanbus epic chatticus-c5f14c) once the Kanbus-side dependencies in
+  handler), and the layout scenarios about columns and touch need a real browser (the review screenshot gallery covers them for now). Where the list of boards sits (beside the board, or a bottom sheet) moved to the registered feature. Implemented by Milestone 2 (Kanbus epic chatticus-c5f14c) once the Kanbus-side dependencies in
   docs/BOT_BOARDS.md section 9 have landed. This file is not in features/cucumber-features.txt and no step in
   conversation/features-support/steps/ implements it yet. The contract is docs/BOT_BOARDS.md. Related drafts:
   bot_board_tool.feature, bot_board_access.feature, bot_board_task_migration.feature. Tag: @web (the real Board
@@ -184,11 +184,9 @@ Feature: Members pick between the project boards of the computer and the interna
   # ---------------------------------------------------------------- phone and iPad
 
   @web @phone
-  Scenario: On a phone the picker and one column at a time fit the screen
+  Scenario: On a phone one column at a time fits the screen
     Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone-width screen
     And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member opens the board picker
-    Then the picker fits the screen without sideways scrolling
     When the member picks the bot board "Assistant"
     Then the board shows one column at a time and offers the other columns
     And no part of the board needs sideways scrolling of the page
@@ -213,12 +211,11 @@ Feature: Members pick between the project boards of the computer and the interna
     Then the card says "Saved"
 
   @web @ipad
-  Scenario: On an iPad the picker sits beside the board and the columns are side by side
+  Scenario: On an iPad the columns are side by side
     Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad-width screen
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     When the member picks the bot board "Assistant"
-    Then the picker is shown beside the board
-    And at least three columns are visible at once
+    Then at least three columns are visible at once
     And no part of the board needs sideways scrolling of the page
 
   @web @ipad

@@ -20,7 +20,8 @@ export const BOT_BOARD_SOURCE_TEXT = "Saved to the cloud";
 export const BOT_BOARDS_NOT_ENABLED_TEXT = "Bot boards are not available in this environment yet";
 export const BOT_BOARDS_UNAVAILABLE_TEXT = "The bot boards are not available right now";
 export const BOT_BOARD_GONE_TEXT = "That bot board is no longer there";
-export const BOT_BOARD_NOT_VISIBLE_TEXT = "This bot board is not available to you";
+export const BOT_WITHOUT_BOARD_NOTE = "no board yet";
+export const BOT_WITHOUT_BOARD_HINT = "Its board will show here once it has one.";
 export const BOT_BOARD_BEHIND_TEXT = "Some recent changes may not be shown yet. Refresh to look again.";
 export const NO_PROJECT_TEXT = "No Kanbus project in the workspace yet";
 export const PROJECT_EMPTY_HINT = "A Kanbus project keeps one JSON file per issue under project/issues in a folder of the workspace.";
@@ -58,7 +59,7 @@ export type BoardView =
 export type BoardPicker = {
   open: boolean;
   projects: { entries: Array<{ name: string }>; message: string | null };
-  bots: { entries: Array<{ botId: string; name: string }>; message: string | null };
+  bots: { entries: Array<{ botId: string; name: string; note: string | null }>; message: string | null };
 };
 
 export type BoardWorkspaceSnapshot = {
@@ -114,6 +115,7 @@ export class BoardWorkspaceController {
   private readonly listeners = new Set<() => void>();
   private readonly botBoards = new Map<string, BotBoardState>();
   private readonly botSequences = new Map<string, number>();
+  private readonly boardPresence = new Map<string, "has" | "none">();
   private selection: BoardSelection = { kind: "project" };
   private chosenByMember = false;
   private pickerOpen = false;
@@ -253,7 +255,7 @@ export class BoardWorkspaceController {
   private moveOffEmptyProject(): void {
     if (this.chosenByMember || this.selection.kind !== "project") return;
     if (this.discovery?.status !== "none" || this.botList.status !== "listed" || this.boardServiceEnabled === false) return;
-    const first = this.botList.bots[0];
+    const first = this.botList.bots.find((bot) => this.boardPresence.get(bot.botId) !== "none");
     if (first === undefined) return;
     this.selection = { kind: "bot", botId: first.botId };
     this.loadSelected();
@@ -273,24 +275,36 @@ export class BoardWorkspaceController {
       return;
     }
     this.publish();
-    await this.probeBoardService();
+    await this.probeBoards();
     if (generation !== this.generation) return;
     this.moveOffEmptyProject();
     this.publish();
   }
 
-  private async probeBoardService(): Promise<void> {
-    if (this.botList.status !== "listed" || this.boardServiceEnabled === true) return;
-    const first = this.botList.bots[0];
-    if (first === undefined) return;
+  private async probeBoards(): Promise<void> {
+    if (this.botList.status !== "listed" || this.boardServiceEnabled === false) return;
     const generation = this.generation;
-    try {
-      await this.botBoardsApi.overview(first.botId, { limit: 1 });
-      if (generation === this.generation) this.boardServiceEnabled = true;
-    } catch (error) {
-      if (generation !== this.generation) return;
-      if (error instanceof BotBoardsApiError && error.code === BOARD_SERVICE_NOT_ENABLED_CODE) this.boardServiceEnabled = false;
+    const bots = this.botList.bots;
+    for (const botId of [...this.boardPresence.keys()]) {
+      if (!bots.some((bot) => bot.botId === botId)) this.boardPresence.delete(botId);
     }
+    const unknownOrMissing = bots.filter((bot) => this.boardPresence.get(bot.botId) !== "has");
+    await Promise.all(
+      unknownOrMissing.map(async (bot) => {
+        try {
+          await this.botBoardsApi.overview(bot.botId, { limit: 1 });
+          if (generation === this.generation) {
+            this.boardServiceEnabled = true;
+            this.boardPresence.set(bot.botId, "has");
+          }
+        } catch (error) {
+          if (generation !== this.generation) return;
+          if (error instanceof BotBoardsApiError && error.code === BOARD_SERVICE_NOT_ENABLED_CODE) this.boardServiceEnabled = false;
+          else if (error instanceof BotBoardsApiError && error.status === 404) this.boardPresence.set(bot.botId, "none");
+          else this.boardPresence.delete(bot.botId);
+        }
+      }),
+    );
   }
 
   private botNameOf(botId: string): string | null {
@@ -308,21 +322,22 @@ export class BoardWorkspaceController {
     try {
       view = await this.readBotBoard(botId);
     } catch (error) {
-      view = this.viewOfBotBoardFailure(error);
+      view = this.viewOfBotBoardFailure(error, botId);
     }
     if (generation !== this.generation || this.botSequences.get(botId) !== sequence) return;
     this.botBoards.set(botId, { status: "done", view, loadedAtMs: this.now() });
     this.publish();
   }
 
-  private viewOfBotBoardFailure(error: unknown): BoardView {
+  private viewOfBotBoardFailure(error: unknown, botId: string): BoardView {
     if (error instanceof BotBoardsApiError) {
       if (error.code === BOARD_SERVICE_NOT_ENABLED_CODE) {
         this.boardServiceEnabled = false;
         return { status: "empty", title: BOT_BOARDS_NOT_ENABLED_TEXT, hint: null };
       }
       if (error.status === 404) {
-        return { status: "empty", title: BOT_BOARD_NOT_VISIBLE_TEXT, hint: "The bot may have no board yet, or its board may have been removed." };
+        this.boardPresence.set(botId, "none");
+        return { status: "empty", title: `${this.botNameOf(botId) ?? "This bot"} has no board yet`, hint: BOT_WITHOUT_BOARD_HINT };
       }
       if (error.status === 403) return { status: "error", title: "You cannot open this board" };
     }
@@ -332,6 +347,7 @@ export class BoardWorkspaceController {
   private async readBotBoard(botId: string): Promise<BoardView> {
     const overview = await this.botBoardsApi.overview(botId, { limit: BOT_BOARD_PAGE_SIZE });
     this.boardServiceEnabled = true;
+    this.boardPresence.set(botId, "has");
     const cards: BotBoardCard[] = [...overview.cards];
     let cursor = overview.next_cursor;
     let behind = overview.catalog_pending;
@@ -421,7 +437,7 @@ export class BoardWorkspaceController {
     else if (this.botList.status === "loading") bots.message = "Looking for bots";
     else if (this.botList.status === "error") bots.message = "The bots could not be listed";
     else if (this.botList.bots.length === 0) bots.message = "No bots yet";
-    else bots.entries = this.botList.bots;
+    else bots.entries = this.botList.bots.map((bot) => ({ ...bot, note: this.boardPresence.get(bot.botId) === "none" ? BOT_WITHOUT_BOARD_NOTE : null }));
     return { open: this.pickerOpen, projects, bots };
   }
 

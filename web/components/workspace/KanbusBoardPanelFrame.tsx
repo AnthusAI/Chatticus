@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { ChevronDown, RefreshCw } from "lucide-react";
+import { ChevronDown, RefreshCw, X } from "lucide-react";
 import { IssueCollection } from "@kanbus/ui";
 
+import type { BoardPickerLayout } from "@/lib/board-picker-layout";
 import type { BoardPicker, BoardSelection, BoardView, BoardWorkspaceSnapshot } from "@/lib/board-workspace-controller";
 
 export type KanbusBoardHandlers = {
@@ -31,17 +32,36 @@ function isSelected(selection: BoardSelection, candidate: BoardSelection): boole
   return selection.kind === "project" || (candidate.kind === "bot" && selection.botId === candidate.botId);
 }
 
-function PickerEntry({ testId, name, kindLabel, selected, onPick }: { testId: string; name: string; kindLabel: string; selected: boolean; onPick: () => void }) {
+function PickerEntry({
+  testId,
+  rowTestId,
+  name,
+  note,
+  kindLabel,
+  selected,
+  onPick,
+}: {
+  testId: string;
+  rowTestId: string;
+  name: string;
+  note: string | null;
+  kindLabel: string;
+  selected: boolean;
+  onPick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onPick}
       aria-pressed={selected}
-      aria-label={`${kindLabel}: ${name}`}
-      data-testid={testId}
-      className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm hover:bg-surface-high ${selected ? "bg-surface-high font-bold" : ""} ${FOCUS_RING_CLASS}`}
+      aria-label={note === null ? `${kindLabel}: ${name}` : `${kindLabel}: ${name}, ${note}`}
+      data-testid={rowTestId}
+      className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-sm hover:bg-surface-high ${selected ? "bg-surface-high font-bold" : ""} ${FOCUS_RING_CLASS}`}
     >
-      {name}
+      <span className="truncate" data-testid={testId}>{name}</span>
+      {note !== null ? (
+        <span className="shrink-0 text-xs font-normal text-surface-foreground/65" data-testid="board-picker-entry-note">{note}</span>
+      ) : null}
     </button>
   );
 }
@@ -55,15 +75,27 @@ function PickerSection({ heading, children }: { heading: string; children: React
   );
 }
 
-function BoardPickerList({ picker, selection, handlers }: { picker: BoardPicker; selection: BoardSelection; handlers: KanbusBoardHandlers }) {
+function BoardPickerList({
+  picker,
+  selection,
+  handlers,
+  surfaceClass,
+}: {
+  picker: BoardPicker;
+  selection: BoardSelection;
+  handlers: KanbusBoardHandlers;
+  surfaceClass: string;
+}) {
   return (
-    <div className="rounded-2xl bg-surface p-2" data-testid="board-picker">
+    <div className={surfaceClass} data-testid="board-picker">
       <PickerSection heading="Project boards">
         {picker.projects.entries.map((entry) => (
           <PickerEntry
             key={`project:${entry.name}`}
             testId="board-picker-project-entry"
+            rowTestId="board-picker-project-row"
             name={entry.name}
+            note={null}
             kindLabel="Project board"
             selected={isSelected(selection, { kind: "project" })}
             onPick={() => handlers.onSelect({ kind: "project" })}
@@ -78,7 +110,9 @@ function BoardPickerList({ picker, selection, handlers }: { picker: BoardPicker;
           <PickerEntry
             key={`bot:${entry.botId}`}
             testId="board-picker-bot-entry"
+            rowTestId="board-picker-bot-row"
             name={entry.name}
+            note={entry.note}
             kindLabel="Bot board"
             selected={isSelected(selection, { kind: "bot", botId: entry.botId })}
             onPick={() => handlers.onSelect({ kind: "bot", botId: entry.botId })}
@@ -89,6 +123,44 @@ function BoardPickerList({ picker, selection, handlers }: { picker: BoardPicker;
         ) : null}
       </PickerSection>
     </div>
+  );
+}
+
+function BoardPickerSheet({ picker, selection, handlers }: { picker: BoardPicker; selection: BoardSelection; handlers: KanbusBoardHandlers }) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handlers.onTogglePicker}
+        tabIndex={-1}
+        aria-label="Close the boards list"
+        className="fixed inset-0 z-40 bg-ink/35"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Boards"
+        data-testid="board-picker-sheet"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") handlers.onTogglePicker();
+        }}
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[75vh] overflow-y-auto rounded-t-3xl bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      >
+        <div className="flex items-center justify-between px-1 pb-1">
+          <h2 className="text-sm font-bold">Boards</h2>
+          <button
+            type="button"
+            onClick={handlers.onTogglePicker}
+            aria-label="Close the boards list"
+            data-testid="board-picker-sheet-close"
+            className={`inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-surface-high ${FOCUS_RING_CLASS}`}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+        <BoardPickerList picker={picker} selection={selection} handlers={handlers} surfaceClass="" />
+      </div>
+    </>
   );
 }
 
@@ -130,21 +202,41 @@ function BoardBody({ view, theme }: { view: BoardView; theme: "light" | "dark" }
  * The Board tab around the Kanbus component: the picker over project boards and bot boards, the loading, empty and error
  * messages, and the refresh button. Whichever board is picked, the columns and cards are drawn by `IssueCollection` from
  * `@kanbus/ui`, inside one wrapper (see styles/kanbus-board.css) that maps the component's variables to the workspace
- * tokens. The panel only reads: no selection handler is passed, so cards do nothing when pressed.
+ * tokens. The picker sits beside the board in the `side` layout (an iPad held sideways and wider) and is a bottom sheet
+ * that the Boards button opens in the `sheet` layout (an iPad held upright and narrower). The panel only reads: no
+ * selection handler is passed, so cards do nothing when pressed.
  */
 export function KanbusBoardPanelFrame({
   snapshot,
   handlers,
   theme,
+  layout,
 }: {
   snapshot: BoardWorkspaceSnapshot;
   handlers: KanbusBoardHandlers;
   theme: "light" | "dark";
+  layout: BoardPickerLayout;
 }) {
   const { view, picker } = snapshot;
   const refreshLabel = view.status === "error" ? "Try again" : view.status === "empty" ? "Look again" : "Refresh the board";
+  const refresh = <RefreshButton busy={snapshot.refreshing} label={refreshLabel} onRefresh={handlers.onRefresh} />;
+  if (layout === "side") {
+    return (
+      <div className="flex h-full min-h-0 gap-2" data-picker-layout="side">
+        <aside className="w-64 shrink-0 overflow-y-auto" data-testid="board-picker-side" aria-label="Boards">
+          <BoardPickerList picker={picker} selection={snapshot.selection} handlers={handlers} surfaceClass="rounded-2xl bg-surface p-2" />
+        </aside>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+          <div className="flex items-center justify-end px-1">{refresh}</div>
+          <div className="min-h-0 flex-1">
+            <BoardBody view={view} theme={theme} />
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-2" data-picker-layout="sheet">
       <div className="flex items-center justify-between gap-2 px-1">
         <button
           type="button"
@@ -154,14 +246,14 @@ export function KanbusBoardPanelFrame({
           className={`inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-xs font-bold hover:bg-surface-high ${FOCUS_RING_CLASS}`}
         >
           Boards
-          <ChevronDown size={14} className={picker.open ? "rotate-180" : undefined} aria-hidden="true" />
+          <ChevronDown size={14} aria-hidden="true" />
         </button>
-        <RefreshButton busy={snapshot.refreshing} label={refreshLabel} onRefresh={handlers.onRefresh} />
+        {refresh}
       </div>
-      {picker.open ? <BoardPickerList picker={picker} selection={snapshot.selection} handlers={handlers} /> : null}
       <div className="min-h-0 flex-1">
         <BoardBody view={view} theme={theme} />
       </div>
+      {picker.open ? <BoardPickerSheet picker={picker} selection={snapshot.selection} handlers={handlers} /> : null}
     </div>
   );
 }

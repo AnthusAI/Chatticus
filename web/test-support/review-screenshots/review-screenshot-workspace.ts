@@ -317,10 +317,6 @@ const seededBotBoardCards: Record<string, FakeBotBoardRow[]> = {
     { id: "pi-6", title: "Tidy the planning channel", type: "chore", status: "closed", priority: "3" },
     { id: "pi-7", title: "Send the weekly status note", type: "task", status: "closed", priority: "2" },
   ],
-  "bot-scout": [
-    { id: "sc-1", title: "Read the vendor report", type: "task", status: "open", priority: "2", labels: "research" },
-    { id: "sc-2", title: "Compare two hosting quotes", type: "task", status: "in_progress", priority: "1", labels: "research" },
-  ],
 };
 
 /**
@@ -339,7 +335,9 @@ export class ReviewScreenshotWorkspace {
     this.costs.seed(seededCostTurns);
     for (const bot of seededBots) {
       this.botBoards.addBot(bot.bot_id, bot.name);
-      this.botBoards.addCards(bot.bot_id, seededBotBoardCards[bot.bot_id] ?? []);
+      const cards = seededBotBoardCards[bot.bot_id];
+      if (cards === undefined) this.botBoards.removeBoard(bot.bot_id);
+      else this.botBoards.addCards(bot.bot_id, cards);
     }
     this.files.userEmail = REVIEW_SCREENSHOT_USER_EMAIL;
     this.files.seed("live", "/workspace/README.md", "# Chatticus\n\nA serverless platform that runs Pi agents as a software factory.\n");
