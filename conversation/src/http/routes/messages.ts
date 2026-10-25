@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { assertActingUserId, assertCallerParticipatesInChannel } from "../acting-user.ts";
 import { listMessages, type Message, type MessageDependencies, postMessage } from "../../domain/messages.ts";
 import type { ToolActivityItem } from "../../pi/message-activity.ts";
-import type { ActorKind } from "../../domain/channels.ts";
+import type { ActorKind, MessageOrigin } from "../../domain/channels.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
 
 /** Everything the message routes depend on. */
@@ -21,8 +21,31 @@ export interface MessagePayload {
 	body: string;
 	addressed_to_bot_id: string | null;
 	created_at: string;
+	/** Where the message came from when it arrived over an external transport; omitted for a web message. */
+	origin?: OriginPayload;
 	/** The tool calls of the turn a bot message ends; omitted when the turn used no tool. */
 	activity?: ToolActivityItem[];
+}
+
+/** The origin of an external message as the HTTP API renders it. */
+export interface OriginPayload {
+	binding_id: string;
+	provider: string;
+	external_message_id: string;
+	conversation_key: string;
+	sender_external_id: string;
+	assertion: string;
+}
+
+function originPayload(origin: MessageOrigin): OriginPayload {
+	return {
+		binding_id: origin.bindingId,
+		provider: origin.provider,
+		external_message_id: origin.externalMessageId,
+		conversation_key: origin.conversationKey,
+		sender_external_id: origin.senderExternalId,
+		assertion: origin.assertion,
+	};
 }
 
 /** Render a message for the HTTP API. */
@@ -37,6 +60,7 @@ export function messagePayload(message: Message): MessagePayload {
 		body: message.body,
 		addressed_to_bot_id: message.addressedToBotId,
 		created_at: message.createdAt.toISOString(),
+		...(message.origin === undefined ? {} : { origin: originPayload(message.origin) }),
 		...(message.activity === undefined ? {} : { activity: message.activity }),
 	};
 }

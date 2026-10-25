@@ -1,4 +1,5 @@
 import type { Context } from "@earendil-works/chord";
+import type { MessageOrigin } from "../domain/channels.ts";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
 	createSession,
@@ -19,6 +20,8 @@ export type ChannelLogLine = {
 	addressedToBotId: string | null;
 	createdAt: string;
 	entryId: number;
+	/** Where the message came from when it arrived over an external transport; absent means the web app. */
+	origin?: MessageOrigin;
 };
 
 export type ChannelLogValue = { lines: ChannelLogLine[] };
@@ -45,6 +48,7 @@ const draftLine = (draft: ChannelMessageDraft, entryId: number): ChannelLogLine 
 	addressedToBotId: draft.addressedToBotId,
 	createdAt: draft.createdAt,
 	entryId,
+	...(draft.origin === undefined ? {} : { origin: draft.origin }),
 });
 
 /**

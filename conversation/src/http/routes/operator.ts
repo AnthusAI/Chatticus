@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { enforceOperatorPrincipal } from "../../auth/operator.ts";
 import { OrganizationsKernelImpl } from "../../domain/organizations.ts";
 import type { Organization } from "../../domain/organizations.ts";
+import type { ChannelsRuntime } from "../../channels/runtime.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import { pathParameter } from "../user-principal.ts";
 
@@ -51,4 +52,30 @@ export async function operatorOrganizationHandler(
 				? await kernel.suspendOrganization(tenantId, lifecycle)
 				: await kernel.reinstateOrganization(tenantId, lifecycle);
 	return c.json(operatorOrganizationResponse(organization), 200);
+}
+
+/** Everything the operator external channels routes depend on. */
+export interface OperatorExternalChannelsDependencies {
+	store: MessagingStore;
+	operatorKey: string;
+	/** Present only where external channels are rolled out; absent, the route answers 404. */
+	channels: ChannelsRuntime | null;
+}
+
+/**
+ * POST /operator/orgs/{tenant_id}/external-channels/{enable,disable}: the operator switches external channels on or off
+ * for one organization. The caller presents the operator bearer key; nothing else is accepted.
+ */
+export async function operatorExternalChannelsHandler(
+	c: Context,
+	action: "enable" | "disable",
+	deps: OperatorExternalChannelsDependencies,
+): Promise<Response> {
+	enforceOperatorPrincipal(c.req.raw, deps.operatorKey);
+	if (deps.channels === null) return c.json({ detail: "Not found.", code: "not_found" }, 404);
+	const tenantId = pathParameter(c, "tenant_id");
+	const organization = await deps.store.getOrganization(tenantId);
+	if (organization === null) return c.json({ detail: "Not found.", code: "not_found" }, 404);
+	await deps.channels.store.setExternalChannelsEnabled(tenantId, action === "enable");
+	return c.json({ tenant_id: tenantId, external_channels_enabled: action === "enable" }, 200);
 }

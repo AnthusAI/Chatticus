@@ -5,6 +5,7 @@ import type { Extension } from "@earendil-works/pi-durable";
 import type { Models } from "@earendil-works/pi-ai/models";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { BotBoardService } from "../board/bot-board-service.ts";
+import type { ReplyDeliveryRecorder } from "../channels/delivery.ts";
 import type { TurnCostOwnerKind } from "../ledger/turn-cost.ts";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
@@ -92,6 +93,8 @@ export type ExecutorDeps = {
 	readonly remainingMilliseconds?: () => number;
 	/** The bot boards service. Absent where the board capability is not rolled out, and then no board tool is offered. */
 	readonly boards?: BotBoardService;
+	/** Records the replies owed to external transports. Absent where external channels are not rolled out, and then no turn records a delivery. */
+	readonly channelDelivery?: ReplyDeliveryRecorder;
 	/** The computer handoff: actions, start jobs and the spend ceiling pause. */
 	readonly computer: ComputerHandoffDependencies;
 	/**

@@ -179,3 +179,7 @@ features/bot_board_owner_actions.feature
 features/bot_board_rollout.feature
 features/bot_board_routes.feature
 features/generated_secure_string.feature
+features/external_channel_binding.feature
+features/external_conversation_mapping.feature
+features/external_inbound_admission.feature
+features/external_outbound_delivery.feature
