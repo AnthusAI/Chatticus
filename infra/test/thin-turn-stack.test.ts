@@ -87,7 +87,6 @@ describe("ThinTurnStack data retention", () => {
   const retainedResources: Array<[string, string]> = [
     ["AWS::DynamoDB::Table", "Messaging4C94D7F8"],
     ["AWS::SecretsManager::Secret", "InvokeKey" + "581783BE"],
-    ["AWS::SecretsManager::Secret", "OperatorKey" + "D7C0C4F2"],
   ];
 
   for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
@@ -113,7 +112,7 @@ describe("ThinTurnStack data retention", () => {
         });
       });
 
-      for (const holder of ["invoke", "operator"]) {
+      for (const holder of ["invoke"]) {
         it(`retains the ${holder} secret ARN SSM parameter`, () => {
           const matches = Object.values(
             template.findResources("AWS::SSM::Parameter", {
@@ -151,9 +150,7 @@ const BUDGET_CONTEXT = {
 const KEPT_LOGICAL_IDS = [
   "Messaging4C94D7F8",
   "InvokeKey" + "581783BE",
-  "OperatorKey" + "D7C0C4F2",
   "InvokeKeySecretArnParameter" + "774B7228",
-  "OperatorKeySecretArnParameter" + "8FF1C056",
   "BudgetRollupGroup",
   "DailyBudgetRollup1695A8BE",
   "BudgetRollupSchedulerRole1B54F783",
@@ -190,13 +187,12 @@ describe("ThinTurnStack shrunk to its data and budget jobs", () => {
         }
       });
 
-      it("keeps both secret ARN parameters", () => {
+      it("keeps only the invoke key secret ARN parameter", () => {
         const names = Object.values(
           template.findResources("AWS::SSM::Parameter"),
         ).map((resource) => JSON.stringify(resource.Properties.Name));
         assert.deepEqual(names.sort(), [
           JSON.stringify(`/chatticus/${environmentName}/thin-turn/invoke-key-secret-arn`),
-          JSON.stringify(`/chatticus/${environmentName}/thin-turn/operator-key-secret-arn`),
         ]);
       });
 
@@ -257,7 +253,7 @@ describe("ThinTurnStack shrunk to its data and budget jobs", () => {
         assert.equal(groups[0].Properties.Name, `chatticus-${environmentName}-budget-rollup`);
       });
 
-      it("keeps only the two secret ARN exports", () => {
+      it("keeps only the invoke key secret ARN export", () => {
         const exportNames = Object.values(
           (template.toJSON().Outputs ?? {}) as Record<string, any>,
         )
@@ -266,7 +262,6 @@ describe("ThinTurnStack shrunk to its data and budget jobs", () => {
           .sort();
         assert.deepEqual(exportNames, [
           `Chatticus-${environmentName}-thin-turn-invoke-key-secret-arn`,
-          `Chatticus-${environmentName}-thin-turn-operator-key-secret-arn`,
         ]);
       });
     });
@@ -288,11 +283,15 @@ describe("ThinTurnStack operator key", () => {
         assert.equal(resources[0].UpdateReplacePolicy, "Retain");
       });
 
-      it("keeps the retired operator secret, retained, until a later deploy removes it", () => {
+      it("holds no Secrets Manager operator secret and no operator secret ARN parameter or output", () => {
         const secrets = template.findResources("AWS::SecretsManager::Secret");
-        const operator = Object.entries(secrets).find(([logicalId]) => logicalId.startsWith("OperatorKey"));
-        assert.ok(operator);
-        assert.equal(operator[1].DeletionPolicy, "Retain");
+        assert.deepEqual(
+          Object.keys(secrets).filter((logicalId) => logicalId.startsWith("OperatorKey")),
+          [],
+        );
+        const outputs = Object.keys((template.toJSON().Outputs ?? {}) as Record<string, unknown>);
+        assert.deepEqual(outputs.filter((name) => name.startsWith("OperatorKeySecretArn")), []);
+        assert.equal(JSON.stringify(template.toJSON()).includes("operator-key-secret-arn"), false);
       });
 
       it("never writes a generated value or uses an AwsCustomResource", () => {

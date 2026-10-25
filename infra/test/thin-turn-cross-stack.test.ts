@@ -94,9 +94,9 @@ describe("ThinTurnStack exports the control plane and web stacks import", () => 
         }
       });
 
-      it("keeps the named secret ARN exports and drops the function URL export", () => {
+      it("keeps the invoke key secret ARN export, has no operator key export and drops the function URL export", () => {
         assert.ok(exported.includes(`Chatticus-${environmentName}-thin-turn-invoke-key-secret-arn`));
-        assert.ok(exported.includes(`Chatticus-${environmentName}-thin-turn-operator-key-secret-arn`));
+        assert.equal(exported.includes(`Chatticus-${environmentName}-thin-turn-operator-key-secret-arn`), false);
         assert.equal(
           exported.some((name) => name.endsWith("function-url")),
           false,

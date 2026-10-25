@@ -168,9 +168,6 @@ const SIGNING_KEY_PARAMETER_NAME = "/chatticus/development/model-gateway/signing
 
 describe("ControlPlane model gateway signing key", () => {
   const template = synthControlPlane("development", { computerHostStart: "noop" });
-  const retiredSecretId = Object.keys(resourcesOfType(template, "AWS::SecretsManager::Secret")).find((id) =>
-    id.startsWith("ModelGatewaySigningKey"),
-  )!;
 
   it("is a generated SecureString of 64 characters under the fixed development name, retained and never in the template", () => {
     const [resource] = Object.values(resourcesOfType(template, "Custom::GeneratedSecureString"));
@@ -181,14 +178,9 @@ describe("ControlPlane model gateway signing key", () => {
     assert.equal(JSON.stringify(template.toJSON()).includes("Custom::AWS"), false);
   });
 
-  it("leaves the retired Secrets Manager secret in place, retained and read by no role, until a later deploy removes it", () => {
-    const secret = resourcesOfType(template, "AWS::SecretsManager::Secret")[retiredSecretId]!;
-    assert.equal(secret.DeletionPolicy, "Retain");
-    assert.equal(secret.UpdateReplacePolicy, "Retain");
-    const readers = Object.values(resourcesOfType(template, "AWS::IAM::Policy")).filter((policy) =>
-      JSON.stringify(policy.Properties.PolicyDocument).includes(`"Ref":"${retiredSecretId}"`),
-    );
-    assert.equal(readers.length, 0);
+  it("holds no Secrets Manager signing key secret", () => {
+    const secretIds = Object.keys(resourcesOfType(template, "AWS::SecretsManager::Secret"));
+    assert.deepEqual(secretIds.filter((id) => id.startsWith("ModelGatewaySigningKey")), []);
   });
 
   it("is readable by exactly the FrontDoor and the ComputerStarter roles when no owner is wired", () => {
