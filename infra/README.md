@@ -47,10 +47,10 @@ Manager because CloudFront headers, Cognito provider details and Lambda
 environment values cannot take an SSM SecureString at deploy time. **Deploy
 order: thin-turn before control-plane**, because the control-plane Front Door
 reads the operator key parameter that the thin-turn stack creates. The retired
-Secrets Manager `OperatorKey` and `ModelGatewaySigningKey` secrets are retained
-and read by nothing; delete them in a later deploy after the switch is verified
-(run `aws cloudformation list-imports` against the thin-turn operator key secret
-ARN export first).
+Secrets Manager `OperatorKey` and `ModelGatewaySigningKey` constructs, their
+`operator-key-secret-arn` SSM parameters and exports are gone from the
+templates; the retained secrets themselves are scheduled for deletion by the
+owner-approved runbook, not by a deploy.
 
 **Customer cross-account template:** `infra/customer-role.yml` is the only
 template. Each `ChatticusWeb*` stack publishes it at
