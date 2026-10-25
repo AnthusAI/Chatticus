@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "d6b1f525-7b3b-4952-ba2c-11a499d1bba0",
+      "author": "home",
+      "text": "Legacy retirement 2026-10-25: deleted ChatticusAuthStaging, ChatticusAuthProduction, ChatticusThinTurnStaging in the legacy account. Remaining legacy Chatticus stacks and the blocking reasons are in chatticus-c7e113. Dev DNS records dev.chattic.us and auth-dev.chattic.us in the management zone must be removed or repointed before ChatticusWeb, ChatticusAuth and ChatticusThinTurn can retire.",
+      "created_at": "2026-10-25T15:51:36.960193Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-legacy-retire"
+      }
     }
   ],
   "created_at": "2026-09-30T19:07:56.375945Z",
-  "updated_at": "2026-10-19T22:39:11.175771Z",
+  "updated_at": "2026-10-25T15:51:36.960228Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
