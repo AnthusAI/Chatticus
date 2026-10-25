@@ -3,7 +3,7 @@
   "title": "M1.0: Land the contract doc and register the narrative",
   "description": "Decide with the owner how docs/EXTERNAL_CHANNELS.draft.md lands (docs/EXTERNAL_CHANNELS.md, cross-links from MESSAGING.md, ORGANIZATIONS.md and APPROVAL.md) and add a features/external_channels_narrative note listing the planned features in reading order. Docs are product and land by pull request into develop, not with the board.\n\nAcceptance criteria:\n- docs/EXTERNAL_CHANNELS.md exists and matches the owner's answers to the open questions\n- MESSAGING.md links to it from the section on bot to bot and the HTTP surface\n- No third-party agent product is named as a model\n- README untouched (no status section)\n\nGherkin: none (infrastructure or owner task); infra tests or a runbook are the evidence.\n\nDepends on: owner answers to the open questions on the initiative\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,22 @@
     "channels"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f7f89943-4249-4036-a774-8349502d1717",
+      "author": "home",
+      "text": "M1.0: docs/EXTERNAL_CHANNELS.md lands the contract with the owner's seven decisions and a Milestone 1 as built section; MESSAGING, ORGANIZATIONS and APPROVAL link to it; features/external_channels_narrative.md lists the features in reading order; README untouched; no third-party agent product named. PR 641 (https://github.com/AnthusAI/Chatticus/pull/641), awaiting review and merge.",
+      "created_at": "2026-10-25T16:45:57.279884Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-channels-m1"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:48.341244Z",
-  "updated_at": "2026-10-22T03:57:48.342494Z",
+  "updated_at": "2026-10-25T16:46:10.469416Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

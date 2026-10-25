@@ -3,7 +3,7 @@
   "title": "M1.1: Channel binding records, owner routes and rollout switch",
   "description": "Add the ChannelBinding item (tenant_id, binding_id, provider, route key, default bot, enabled, limits, created_by, created_at), the global route lookup item (route#provider#routeKey to tenant and binding, no content), the per-organization external_channels rollout switch plus per-environment kill switch, and owner-only HTTP routes under /orgs/{tenant}/channel-bindings (create, list, get, update, disable). Mirror the bot board access model: owners change, members read, strangers get 404, role read at every request. Add the organization mail_handle (lowercase DNS label, unique per environment, reserved words refused).\n\nAcceptance criteria:\n- An owner creates an email binding and gets the derived address bot AT mail_handle.mail-domain\n- A member can list but not change; a member of another organization gets 404; a removed owner loses access at the next request\n- Two organizations cannot claim the same route key or mail_handle\n- With the rollout switch off the routes answer as if the feature does not exist for members\n- Disabling a binding keeps its data and stops admission and delivery (asserted in later features)\n- No schema migration; items use tenant_id keys\n\nGherkin: features/external_channel_binding.feature\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,22 @@
     "channels"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "97354768-7b3b-48ea-90dc-781405355d9e",
+      "author": "home",
+      "text": "M1.1 implemented in PR 641 (https://github.com/AnthusAI/Chatticus/pull/641): features/external_channel_binding.feature (19 scenarios). Owner routes for mail handle, bindings, deliveries and linked identities; operator enable and disable per organization; environment kill switch; strangers, switched-off organizations and environments without the runtime answer a uniform 404; role read from the membership at every request. Awaiting review and merge.",
+      "created_at": "2026-10-25T16:45:57.340918Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-channels-m1"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:48.605377Z",
-  "updated_at": "2026-10-22T03:59:00.927988Z",
+  "updated_at": "2026-10-25T16:46:10.533541Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

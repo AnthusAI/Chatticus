@@ -3,7 +3,7 @@
   "title": "M1: Channel transport port and email in the SES sandbox",
   "description": "Smallest vertical slice of external channels. Introduce the provider-neutral channel transport port and channel binding service, an in-memory fake transport that makes every behavior Gherkin-testable, and email through Amazon SES working end to end in the development environment while the account is in the SES sandbox.\n\nWhy first: it proves the abstraction (one inbound path, one outbound path, one channel per external conversation) against the hardest common transport, and it needs no Amazon request. Inbound receiving is not restricted by the sandbox; outbound goes to verified identities and the SES mailbox simulator.\n\nScope: binding records and owner routes; external channel kind and message origin; inbound admission pipeline; outbound delivery path with EventBridge wake-up and delivery records; email parsing, threading and rendering; CDK for the mail domain, receipt rule and event destinations; ingress and event Lambdas; live proof with one owner-verified address.\nOut of scope: trust classes beyond a single linked test member, quarantine, guests, rate limits, web UI (M2).\n\nExit criteria: all M1 features pass in cucumber-js with the fake transport; the development environment receives a real email at a bot address and answers the verified sender in the same thread; the acceptance runner check passes; nothing was asked of Amazon.\n\nContract: initiative description (draft docs/EXTERNAL_CHANNELS.draft.md).",
   "type": "epic",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,7 +12,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-10-22T03:55:31.668190Z",
-  "updated_at": "2026-10-22T03:57:46.946079Z",
+  "updated_at": "2026-10-25T16:46:10.799546Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
