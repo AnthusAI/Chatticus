@@ -55,32 +55,14 @@ When("the bot {string} is given a board with the card {string}", async function 
 	await processOf(this).send({ op: "give-bot-board", name, rows: [{ title }] });
 });
 
-async function startOnScreen(world: ChatticusWorld, width: number, height: number): Promise<void> {
-	kanbusBoardScenarios.get(world)?.close();
-	const process = new KanbusBoardProcess();
-	kanbusBoardScenarios.set(world, process);
-	await process.send({ op: "init" });
-	await process.send({ op: "set-screen", width, height });
-}
-
 Given(
-	"the board view for {string} in {string} with a running computer on an iPad held sideways",
-	async function (this: ChatticusWorld, _email: string, _organization: string) {
-		await startOnScreen(this, 1180, 820);
-	},
-);
-
-Given(
-	"the board view for {string} in {string} with a running computer on an iPad held upright",
-	async function (this: ChatticusWorld, _email: string, _organization: string) {
-		await startOnScreen(this, 820, 1180);
-	},
-);
-
-Given(
-	"the board view for {string} in {string} with a running computer on a phone",
-	async function (this: ChatticusWorld, _email: string, _organization: string) {
-		await startOnScreen(this, 390, 844);
+	"the board view for {string} in {string} with a running computer and a Board panel {int} points wide",
+	async function (this: ChatticusWorld, _email: string, _organization: string, width: number) {
+		kanbusBoardScenarios.get(this)?.close();
+		const process = new KanbusBoardProcess();
+		kanbusBoardScenarios.set(this, process);
+		await process.send({ op: "init" });
+		await process.send({ op: "set-panel-width", width });
 	},
 );
 

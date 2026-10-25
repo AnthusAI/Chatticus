@@ -4,7 +4,7 @@ Feature: Members pick between the project boards of the computer and the boards 
   So that I can see a bot's commitments, in columns by status, without asking in chat and without turning the computer on
 
   This is the read-only first slice of the web side of docs/BOT_BOARDS.md section 7. The editing scenarios, the card
-  detail scenarios and the layout scenarios stay in the draft features/web_bot_boards.feature. These scenarios run the real
+  detail scenarios and the scenarios of columns and touch stay in the draft features/web_bot_boards.feature. These scenarios run the real
   Board controller and the real rendered panel, including IssueCollection from the Kanbus UI package, against a fake running computer
   that answers the file routes and a fake front door that answers the bot board routes with the shapes of
   conversation/src/http/routes/bot-boards.ts, with a fixed clock (the same harness as features/web_kanbus_board.feature).
@@ -303,14 +303,17 @@ Feature: Members pick between the project boards of the computer and the boards 
 
   # ---------------------------------------------------------------- where the list sits
 
-  # The list of boards sits beside the board on an iPad held sideways and on anything wider. On an iPad held upright and on
-  # anything narrower, down to a phone, it is a bottom sheet that the Boards button opens. The harness stands in for the
-  # screen with its width and height in points. Columns that fit the screen, the one-column phone view and the touch
-  # gestures are the board component's own and stay in the draft features/web_bot_boards.feature, which needs a real browser.
+  # The list of boards sits beside the board where the Board panel is wide enough for both, and is a bottom sheet that
+  # the Boards button opens where it is not. What counts is the width of the panel, not of the screen: beside the
+  # conversation on an iPad held sideways the panel is about 400 points wide, so the list is a sheet there, and the
+  # list sits beside the board where the panel fills that iPad (about 880 points) or a desktop window. A phone's panel is
+  # about 390 points. The harness stands in for the panel with its width in points. Columns that fit the panel, the
+  # one-column phone view and the touch gestures are the board component's own and stay in the draft
+  # features/web_bot_boards.feature, which needs a real browser.
 
-  @web @ipad
-  Scenario: On an iPad held sideways the list sits beside the board
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad held sideways
+  @web
+  Scenario: Where the panel is wide the list sits beside the board
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer and a Board panel 880 points wide
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     When the member picks the bot board "Assistant"
     Then the list of boards is shown beside the board
@@ -319,15 +322,8 @@ Feature: Members pick between the project boards of the computer and the boards 
     And the list of boards is not a bottom sheet
 
   @web
-  Scenario: On a desktop the list sits beside the board too
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member picks the bot board "Assistant"
-    Then the list of boards is shown beside the board
-
-  @web @ipad
-  Scenario: Beside the board the selected board is marked and a bot with no board yet says so
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad held sideways
+  Scenario: Beside the board the board on show is marked and a bot with no board yet says so
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer and a Board panel 880 points wide
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     And the bot "Scout" has no board yet
     When the member picks the bot board "Assistant"
@@ -335,9 +331,9 @@ Feature: Members pick between the project boards of the computer and the boards 
     And the picker entry "Scout" says "no board yet"
     And the entry "Assistant" is marked as the board on show
 
-  @web @ipad
-  Scenario: On an iPad held upright the list is a bottom sheet
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad held upright
+  @web
+  Scenario: A panel docked beside the conversation on an iPad has the list in a bottom sheet
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer and a Board panel 400 points wide
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     When the member opens the Board tab
     Then the list of boards is not shown
@@ -345,9 +341,9 @@ Feature: Members pick between the project boards of the computer and the boards 
     When the member opens the board picker
     Then the list of boards is shown in a bottom sheet
 
-  @web @phone
+  @web
   Scenario: On a phone the Boards button opens a bottom sheet over the board
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer and a Board panel 390 points wide
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     When the member picks the bot board "Assistant"
     Then the list of boards is not shown
@@ -357,9 +353,9 @@ Feature: Members pick between the project boards of the computer and the boards 
     And the bottom sheet can be closed without picking a board
     And the picker has the section "Bot boards" listing "Assistant"
 
-  @web @phone
+  @web
   Scenario: On a phone picking a board closes the sheet and shows the board
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer and a Board panel 390 points wide
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     And the bot "Scout" has a board with the card "Check the vendor list"
     When the member picks the bot board "Assistant"
@@ -368,9 +364,9 @@ Feature: Members pick between the project boards of the computer and the boards 
     Then the list of boards is not shown
     And the board is named "Scout's board"
 
-  @web @phone
+  @web
   Scenario: On a phone the sheet closes when the member dismisses it
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone
+    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer and a Board panel 390 points wide
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     When the member opens the board picker
     And the member closes the board picker

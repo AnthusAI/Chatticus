@@ -22,7 +22,7 @@ let controller: BoardWorkspaceController | null = null;
 let failEveryRequest = false;
 let rememberedSelection: string | null = null;
 let theme: "light" | "dark" = "light";
-let screen = { width: 1440, height: 900 };
+let panelWidth = 880;
 const drawings: Array<{ kind: string; wrapperClass: string; columnClass: string; cardClass: string }> = [];
 const computerRequestsSincePick: string[] = [];
 
@@ -89,7 +89,7 @@ async function render() {
       snapshot: requireController().getSnapshot(),
       handlers: { onRefresh: () => undefined, onSelect: () => undefined, onTogglePicker: () => undefined },
       theme,
-      layout: boardPickerLayoutFor(screen.width, screen.height),
+      layout: boardPickerLayoutFor(panelWidth),
     }),
   );
   const columns = elementsWithClassOfMarkup(html, "kb-column").map((column) => ({
@@ -192,8 +192,8 @@ async function handle(command: Command): Promise<unknown> {
       botBoards.giveBoard(botIdFor(command.name));
       botBoards.addCards(botIdFor(command.name), botBoardRows(command.name, command.rows));
       return null;
-    case "set-screen":
-      screen = { width: command.width, height: command.height };
+    case "set-panel-width":
+      panelWidth = command.width;
       return null;
     case "index-behind":
       botBoards.setIndexBehind(botIdFor(command.name), command.value);

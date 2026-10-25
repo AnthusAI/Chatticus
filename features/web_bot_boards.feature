@@ -6,7 +6,7 @@ Feature: Members pick between the project boards of the computer and the interna
   DRAFT. The read-only scenarios (the picker, the board drawn by Kanbus, states) moved to the registered
   features/web_bot_board_picker.feature. What remains here is the owner editing, the card detail and the layout scenarios:
   editing needs the owner write UI (a later phase), card detail needs card selection (the first slice passes no selection
-  handler), and the layout scenarios about columns and touch need a real browser (the review screenshot gallery covers them for now). Where the list of boards sits (beside the board, or a bottom sheet) moved to the registered feature. Implemented by Milestone 2 (Kanbus epic chatticus-c5f14c) once the Kanbus-side dependencies in
+  handler), and the layout scenarios about columns and touch need a real browser (the review screenshot gallery covers them for now). Where the list of boards sits (beside the board, or a bottom sheet) moved to the registered feature, where the width of the panel decides. Implemented by Milestone 2 (Kanbus epic chatticus-c5f14c) once the Kanbus-side dependencies in
   docs/BOT_BOARDS.md section 9 have landed. This file is not in features/cucumber-features.txt and no step in
   conversation/features-support/steps/ implements it yet. The contract is docs/BOT_BOARDS.md. Related drafts:
   bot_board_tool.feature, bot_board_access.feature, bot_board_task_migration.feature. Tag: @web (the real Board

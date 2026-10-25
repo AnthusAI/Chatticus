@@ -43,7 +43,9 @@ async function clickFirstVisible(page: Page, locator: ReturnType<Page["getByRole
 /** Shows the list of boards: the Boards button opens the bottom sheet where the list is not beside the board. */
 async function showBoardPicker(page: Page): Promise<boolean> {
   const toggle = page.getByTestId("board-picker-toggle").filter({ visible: true }).first();
-  if ((await toggle.count()) > 0) await toggle.click();
+  const besideTheBoard = page.getByTestId("board-picker-side").filter({ visible: true }).first();
+  await toggle.or(besideTheBoard).first().waitFor({ state: "visible" });
+  if (await toggle.isVisible()) await toggle.click();
   await page.getByTestId("board-picker-bot-entry").filter({ visible: true }).first().waitFor({ state: "visible" });
   return true;
 }
@@ -135,6 +137,16 @@ export const REVIEW_SCREENS: ReadonlyArray<ReviewScreen> = [
     arrange: async (page) => {
       await openPanelPlugin(page, "Board");
       await page.getByTestId("kanbus-board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return showBoardPicker(page);
+    },
+  },
+  {
+    id: "panel-board-picker-full",
+    label: "Board panel, picker, full screen",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Full", exact: true })))) return false;
       return showBoardPicker(page);
     },
   },
