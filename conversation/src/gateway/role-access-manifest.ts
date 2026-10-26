@@ -2,13 +2,26 @@ import { readFileSync } from "node:fs";
 import { ownerSessionTags, supervisorSessionTags } from "./session-tags.ts";
 
 /** The roles whose store access the manifest lists: each is one AWS identity the code runs as. */
-export const ACCESS_ROLES = ["frontDoor", "ownerTurn", "supervisor", "turnExecutor"] as const;
+export const ACCESS_ROLES = ["frontDoor", "ownerTurn", "supervisor", "turnExecutor", "mailIngress", "mailDelivery", "mailStatus"] as const;
 
 /** One of the roles whose store access the manifest lists. */
 export type AccessRole = (typeof ACCESS_ROLES)[number];
 
-/** The stores a role reaches; a row names one of them and a policy names its ARN. `channelEventBus` is the EventBridge bus that carries the reply-delivery event. */
-export const ACCESS_STORES = ["messagingTable", "conversationsTable", "piSessionsBucket", "snapshotBucket", "channelEventBus"] as const;
+/**
+ * The stores a role reaches; a row names one of them and a policy names its ARN. `channelEventBus` is the EventBridge bus
+ * that carries the reply-delivery event. `rawMailBucket` is the raw mail archive, `mailIdentity` the SES domain identity
+ * mail is sent from and `mailConfigurationSet` the SES configuration set every send goes through.
+ */
+export const ACCESS_STORES = [
+	"messagingTable",
+	"conversationsTable",
+	"piSessionsBucket",
+	"snapshotBucket",
+	"channelEventBus",
+	"rawMailBucket",
+	"mailIdentity",
+	"mailConfigurationSet",
+] as const;
 
 /** One of the stores a role reaches. */
 export type AccessStore = (typeof ACCESS_STORES)[number];
@@ -127,7 +140,7 @@ export const exampleKeyOf = (row: AccessRow): string =>
 		.replaceAll("{turnId}", EXAMPLE_SCOPE.turnId);
 
 /** Whether a store is an S3 bucket rather than a DynamoDB table. */
-export const isBucketStore = (store: AccessStore): boolean => store === "piSessionsBucket" || store === "snapshotBucket";
+export const isBucketStore = (store: AccessStore): boolean => store === "piSessionsBucket" || store === "snapshotBucket" || store === "rawMailBucket";
 
 /**
  * The request IAM sees for one row: its action, the resource it names and the condition keys it carries, the same way the
@@ -151,9 +164,9 @@ export function exampleRequestOf(row: AccessRow, arns: StoreArns): ManifestReque
 	};
 }
 
-/** The session tags a role is assumed with in the examples; the Front Door and the turn executor are not assumed and carry none. */
+/** The session tags a role is assumed with in the examples; the Front Door, the turn executor and the mail functions are not assumed and carry none. */
 export function exampleTagsOf(role: AccessRole): Record<string, string> {
-	if (role === "frontDoor" || role === "turnExecutor") return {};
+	if (role === "frontDoor" || role === "turnExecutor" || role === "mailIngress" || role === "mailDelivery" || role === "mailStatus") return {};
 	const tags = role === "ownerTurn" ? ownerSessionTags(EXAMPLE_SCOPE) : supervisorSessionTags(EXAMPLE_SCOPE);
 	return Object.fromEntries(tags.map((tag) => [tag.Key, tag.Value]));
 }

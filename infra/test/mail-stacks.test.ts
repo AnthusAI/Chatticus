@@ -5,6 +5,9 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { buildDedicatedAccountStacks } from "../lib/dedicated-account-stacks";
 import {
+  CHANNELS_EVENT_SOURCE,
+  CONTROL_PLANE_STACK_IDS,
+  CHANNELS_MESSAGE_CREATED_DETAIL_TYPE,
   CHATTICUS_CLOUD_ENVIRONMENTS,
   ENVIRONMENT_ZONES_STACK_IDS,
   MAIL_DOMAINS,
@@ -16,6 +19,8 @@ import {
   type ChatticusCloudEnvironment,
 } from "../lib/environments";
 import { stubWebsiteDeploySource } from "../lib/web-bundle-stub";
+import { CHANNEL_EVENT_SOURCE } from "../../conversation/src/channels/eventbridge-publisher";
+import { CHANNEL_MESSAGE_CREATED } from "../../conversation/src/channels/events";
 
 const ENV = { account: "444444444444", region: "us-east-1" };
 
@@ -211,16 +216,20 @@ describe("the development mail stack: inbound receiving", () => {
     assert.ok(JSON.stringify(rule.Properties.RuleSetName).includes("Fn::ImportValue"));
   });
 
-  it("stores raw mail in S3 only; the Lambda action belongs to the ingress Lambda task", () => {
+  it("stores raw mail in S3 first and then invokes the ingress function asynchronously, so the archive stays the system of record", () => {
     const [rule] = Object.values(mail.findResources("AWS::SES::ReceiptRule")) as Array<{
-      Properties: { Rule: { Actions: Array<Record<string, unknown>> } };
+      Properties: { Rule: { Actions: Array<Record<string, any>> } };
+      DependsOn?: string[];
     }>;
-    assert.equal(rule.Properties.Rule.Actions.length, 1);
-    assert.ok("S3Action" in rule.Properties.Rule.Actions[0]);
-    assert.equal(JSON.stringify(rule).includes("LambdaAction"), false);
-    mail.hasResourceProperties("AWS::SES::ReceiptRule", {
-      Rule: Match.objectLike({ Actions: [{ S3Action: Match.objectLike({ ObjectKeyPrefix: "raw/" }) }] }),
-    });
+    const actions = rule.Properties.Rule.Actions;
+    assert.equal(actions.length, 2);
+    assert.ok("S3Action" in actions[0]!, "the S3 action is first");
+    assert.equal(actions[0]!.S3Action.ObjectKeyPrefix, "raw/");
+    assert.ok("LambdaAction" in actions[1]!, "the Lambda action is second");
+    assert.equal(actions[1]!.LambdaAction.InvocationType, "Event");
+    assert.match(JSON.stringify(actions[1]!.LambdaAction.FunctionArn), /MailIngress/);
+    assert.ok((rule.DependsOn ?? []).some((name) => name.startsWith("LambdasMailIngress")), "the rule is created after the function");
+    assert.ok((rule.DependsOn ?? []).some((name) => name.startsWith("SesMayInvokeIngress")), "the rule is created after the permission");
   });
 
   it("keeps raw mail in one private, encrypted, TLS-only bucket that expires objects after thirty days", () => {
@@ -372,5 +381,156 @@ describe("the deploy role reads the mail stacks and gets no new permission", () 
     const stack = new AccountGitHubDeployStack(app, "DeployDevelopmentPermissions", { env: ENV, githubEnvironment: "development" });
     const text = JSON.stringify(Template.fromStack(stack).toJSON());
     assert.doesNotMatch(text, /"ses:|"route53:|"s3:/);
+  });
+});
+
+
+describe("the development mail stack: deploy order", () => {
+  it("is deployed after the control plane and the shared ingress stack, whose resources it imports, and before nothing", () => {
+    const names = stackOf(developmentApp, MAIL_STACK_IDS.development).dependencies.map((stack) => stack.node.id);
+    assert.ok(names.includes(MAIL_INGRESS_STACK_ID));
+    assert.ok(names.includes(CONTROL_PLANE_STACK_IDS.development));
+    for (const stack of developmentApp.node.children.filter(cdk.Stack.isStack)) {
+      assert.equal(stack.dependencies.some((dependency) => dependency.node.id === MAIL_STACK_IDS.development), false, `${stack.node.id} must not wait for mail`);
+    }
+  });
+});
+
+describe("the development mail stack: the mail functions", () => {
+  type Resource = { Type: string; Properties: Record<string, any>; DependsOn?: string[] };
+  const resources = mail.toJSON().Resources as Record<string, Resource>;
+  const ofType = (type: string): Array<[string, Resource]> => Object.entries(resources).filter(([, resource]) => resource.Type === type);
+  const functionIdOf = (key: string): string => {
+    const found = ofType("AWS::Lambda::Function").find(([id]) => id.startsWith(`Lambdas${key}`) && !id.includes("LogRetention"));
+    assert.ok(found, `no function ${key}`);
+    return found[0];
+  };
+  const roleIdOf = (key: string): string => {
+    const found = ofType("AWS::IAM::Role").find(([id]) => id.startsWith(`Lambdas${key}ServiceRole`));
+    assert.ok(found, `no role ${key}`);
+    return found[0];
+  };
+  const statementsOf = (key: string): Array<Record<string, any>> => {
+    const roleId = roleIdOf(key);
+    return ofType("AWS::IAM::Policy")
+      .filter(([, policy]) => (policy.Properties.Roles as Array<{ Ref: string }>).some((role) => role.Ref === roleId))
+      .flatMap(([, policy]) => policy.Properties.PolicyDocument.Statement as Array<Record<string, any>>);
+  };
+  const actionsOf = (statement: Record<string, any>): string[] => ([] as string[]).concat(statement.Action);
+  const allActions = (key: string): string[] => statementsOf(key).flatMap(actionsOf);
+
+  it("creates exactly the three functions, with no IAM user", () => {
+    const names = ofType("AWS::Lambda::Function").map(([id]) => id).filter((id) => id.startsWith("Lambdas") && !id.includes("LogRetention"));
+    assert.equal(names.length, 3);
+    mail.resourceCountIs("AWS::IAM::User", 0);
+  });
+
+  it("lets only SES of this account, for this one receipt rule, invoke the ingress function", () => {
+    const permission = ofType("AWS::Lambda::Permission").find(([id]) => id.startsWith("SesMayInvokeIngress"))?.[1];
+    assert.ok(permission);
+    assert.equal(permission.Properties.Principal, "ses.amazonaws.com");
+    assert.ok(permission.Properties.SourceAccount);
+    assert.match(JSON.stringify(permission.Properties.SourceArn), /receipt-rule-set\/chatticus-mail-ingress:receipt-rule\/chatticus-development-mail/);
+  });
+
+  it("gives the ingress function s3:GetObject on the raw prefix only, the admission stores and the two turn queues, and no SES, events or secret other than the correlator", () => {
+    const actions = allActions("MailIngress");
+    const raw = statementsOf("MailIngress").filter((statement) => JSON.stringify(statement.Resource).includes("raw/"));
+    assert.equal(raw.length, 1);
+    assert.deepEqual(raw[0]!.Action, "s3:GetObject");
+    assert.equal(actions.some((action) => action.startsWith("ses:") || action.startsWith("events:") || action.startsWith("secretsmanager:")), false);
+    assert.equal(actions.includes("sqs:SendMessage"), true);
+    assert.equal(actions.includes("s3:PutObject"), false);
+  });
+
+  it("gives the delivery function ses:SendEmail on exactly the domain identity and the configuration set, and no read of the raw mail", () => {
+    const send = statementsOf("MailDelivery").filter((statement) => actionsOf(statement).includes("ses:SendEmail"));
+    assert.equal(send.length, 1);
+    assert.equal(send[0]!.Action, "ses:SendEmail");
+    const resources = ([] as unknown[]).concat(send[0]!.Resource).map((resource) => JSON.stringify(resource));
+    assert.equal(resources.length, 2);
+    assert.ok(resources.some((resource) => resource.includes(`identity/${mailDomain}`)));
+    assert.ok(resources.some((resource) => resource.includes("configuration-set/chatticus-development-outbound")));
+    assert.equal(JSON.stringify(send[0]).includes("*"), false);
+    assert.equal(allActions("MailDelivery").some((action) => action.startsWith("events:") || action === "s3:PutObject"), false);
+    assert.equal(statementsOf("MailDelivery").some((statement) => JSON.stringify(statement.Resource).includes("raw/")), false);
+  });
+
+  it("gives the status function neither SES, nor the raw mail, nor the turn queues, nor events: it may only send to its own dead-letter queue", () => {
+    const actions = allActions("MailStatus");
+    assert.equal(actions.some((action) => action.startsWith("ses:") || action.startsWith("events:")), false);
+    for (const statement of statementsOf("MailStatus").filter((candidate) => actionsOf(candidate).some((action) => action.startsWith("sqs:")))) {
+      assert.match(JSON.stringify(statement.Resource), /MailStatusDeadLetter/);
+    }
+    assert.equal(statementsOf("MailStatus").some((statement) => JSON.stringify(statement.Resource).includes("raw/")), false);
+  });
+
+  it("lets every function read the correlator secret by its exact parameter ARN and nothing broader", () => {
+    for (const key of ["MailIngress", "MailDelivery", "MailStatus"]) {
+      const readers = statementsOf(key).filter((statement) => actionsOf(statement).includes("ssm:GetParameter"));
+      assert.equal(readers.length, 1, key);
+      assert.equal(readers[0]!.Action, "ssm:GetParameter");
+      assert.match(JSON.stringify(readers[0]!.Resource), /parameter\/chatticus\/development\/channels\/correlator-secret"/);
+      assert.equal(JSON.stringify(readers[0]!.Resource).includes("*"), false);
+    }
+  });
+
+  it("subscribes the status function to the configuration set topic, which signs with signature version 2", () => {
+    mail.hasResourceProperties("AWS::SNS::Topic", { SignatureVersion: "2" });
+    mail.hasResourceProperties("AWS::SNS::Subscription", { Protocol: "lambda", TopicArn: Match.anyValue() });
+    const subscription = ofType("AWS::SNS::Subscription")[0]![1];
+    assert.match(JSON.stringify(subscription.Properties.Endpoint), /MailStatus/);
+    const permission = ofType("AWS::Lambda::Permission").find(([, candidate]) => candidate.Properties.Principal === "sns.amazonaws.com")?.[1];
+    assert.ok(permission, "SNS may invoke the status function");
+    assert.match(JSON.stringify(permission.Properties.FunctionName), /MailStatus/);
+  });
+
+  it("hands the status function the topic ARN to trust, and the delivery function the configuration set and the web app", () => {
+    const variablesOf = (key: string): Record<string, unknown> => resources[functionIdOf(key)]!.Properties.Environment.Variables;
+    assert.ok(variablesOf("MailStatus")["CHATTICUS_CHANNELS_MAIL_EVENTS_TOPIC_ARN"]);
+    assert.equal(variablesOf("MailDelivery")["CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME"], "chatticus-development-outbound");
+    assert.equal(variablesOf("MailDelivery")["CHATTICUS_CHANNELS_WEB_APP_BASE_URL"], "https://develop.chattic.us");
+    assert.equal(variablesOf("MailIngress")["CHATTICUS_CHANNELS_KILL_SWITCH"], "released");
+    assert.ok(variablesOf("MailIngress")["CHATTICUS_CHANNELS_RAW_MAIL_BUCKET"]);
+    assert.equal(JSON.stringify(variablesOf("MailStatus")).includes("correlator-secret\":"), false);
+  });
+
+  it("routes channel.message.created from chatticus.channels on the default bus to the delivery function", () => {
+    mail.hasResourceProperties("AWS::Events::Rule", {
+      EventBusName: "default",
+      EventPattern: { source: [CHANNELS_EVENT_SOURCE], "detail-type": [CHANNELS_MESSAGE_CREATED_DETAIL_TYPE] },
+      Targets: [Match.objectLike({ Arn: Match.anyValue(), RetryPolicy: { MaximumRetryAttempts: 2, MaximumEventAgeInSeconds: 3600 } })],
+    });
+    const rule = ofType("AWS::Events::Rule")[0]![1];
+    assert.match(JSON.stringify(rule.Properties.Targets), /MailDelivery/);
+    assert.equal(CHANNELS_EVENT_SOURCE, CHANNEL_EVENT_SOURCE);
+    assert.equal(CHANNELS_MESSAGE_CREATED_DETAIL_TYPE, CHANNEL_MESSAGE_CREATED);
+  });
+
+  it("runs a failed invocation again twice and then sends it to the function's own dead-letter queue", () => {
+    const configs = ofType("AWS::Lambda::EventInvokeConfig");
+    assert.equal(configs.length, 3);
+    for (const [, config] of configs) {
+      assert.equal(config.Properties.MaximumRetryAttempts, 2);
+      assert.equal(config.Properties.MaximumEventAgeInSeconds, 3600);
+      assert.ok(config.Properties.DestinationConfig.OnFailure.Destination);
+    }
+    assert.equal(new Set(configs.map(([, config]) => JSON.stringify(config.Properties.DestinationConfig.OnFailure.Destination))).size, 3);
+  });
+
+  it("alarms on the errors and on the dead letters of each function, to the environment's alarm topic", () => {
+    const alarms = ofType("AWS::CloudWatch::Alarm").map(([, alarm]) => alarm.Properties);
+    for (const suffix of ["mailingress", "maildelivery", "mailstatus"]) {
+      for (const kind of ["errors", "dead-letter"]) {
+        const alarm = alarms.find((candidate) => candidate.AlarmName === `chatticus-development-${suffix}-${kind}`);
+        assert.ok(alarm, `${suffix} ${kind}`);
+        assert.equal(JSON.stringify(alarm.AlarmActions).includes("Import"), true);
+      }
+    }
+    assert.equal(alarms.length, 6);
+  });
+
+  it("encrypts nothing with a customer key and adds no VPC, so the status function can fetch the SNS certificate", () => {
+    assert.equal(JSON.stringify(resources[functionIdOf("MailStatus")]!.Properties).includes("VpcConfig"), false);
   });
 });

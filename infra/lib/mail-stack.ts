@@ -3,9 +3,12 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as ses from "aws-cdk-lib/aws-ses";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as sns from "aws-cdk-lib/aws-sns";
 import { Construct } from "constructs";
+import { MailLambdas, type MailApplicationResources } from "./mail-lambdas";
 import {
+  mailConfigurationSetName,
   MAIL_RAW_RETENTION_DAYS,
   MAIL_RECEIPT_RULE_SET_NAME,
   type ChatticusCloudEnvironment,
@@ -21,6 +24,8 @@ export interface MailStackProps extends cdk.StackProps {
    * from the management account (docs/MAIL_INFRASTRUCTURE.md).
    */
   delegationParentZone?: route53.IHostedZone;
+  /** The stores, queues and alarm topic of the same environment's application stacks that the mail functions use. */
+  application: MailApplicationResources;
 }
 
 /** Where the raw message bytes land in the raw mail bucket. */
@@ -42,9 +47,13 @@ export const MAIL_EVENT_TYPES = [
  * set that stores raw mail in a private bucket, and the outbound configuration
  * set whose events go to one SNS topic.
  *
- * The receipt rule has only the S3 action here; the ingress Lambda action is
- * added with the Lambda itself. Rules of other environments are never read or
- * edited: this stack adds one rule named for its own environment.
+ * The receipt rule has two actions in order: the S3 action stores the raw
+ * message first, and the Lambda action then invokes the ingress function
+ * asynchronously, so the archive stays the system of record and a failed
+ * invocation never loses mail. The function and the permission that lets the
+ * rule invoke it exist before the rule names it. Rules of other environments
+ * are never read or edited: this stack adds one rule named for its own
+ * environment.
  *
  * SES stays in the sandbox: nothing here requests production access or a quota.
  */
@@ -53,6 +62,7 @@ export class MailStack extends cdk.Stack {
   public readonly rawMailBucket: s3.Bucket;
   public readonly eventsTopic: sns.Topic;
   public readonly configurationSet: ses.ConfigurationSet;
+  public readonly lambdas: MailLambdas;
 
   constructor(scope: Construct, id: string, props: MailStackProps) {
     super(scope, id, { ...props, terminationProtection: true });
@@ -72,6 +82,7 @@ export class MailStack extends cdk.Stack {
 
     this.eventsTopic = new sns.Topic(this, "MailEventsTopic", {
       topicName: `chatticus-${chatticusEnvironment}-mail-events`,
+      signatureVersion: "2",
     });
     this.eventsTopic.addToResourcePolicy(
       new iam.PolicyStatement({
@@ -84,7 +95,7 @@ export class MailStack extends cdk.Stack {
     );
 
     this.configurationSet = new ses.ConfigurationSet(this, "OutboundConfigurationSet", {
-      configurationSetName: `chatticus-${chatticusEnvironment}-outbound`,
+      configurationSetName: mailConfigurationSetName(chatticusEnvironment),
       reputationMetrics: true,
       suppressionReasons: ses.SuppressionReasons.BOUNCES_AND_COMPLAINTS,
     });
@@ -153,6 +164,29 @@ export class MailStack extends cdk.Stack {
       }),
     );
 
+    const receiptRuleArn = stack.formatArn({
+      service: "ses",
+      resource: "receipt-rule-set",
+      resourceName: `${MAIL_RECEIPT_RULE_SET_NAME}:receipt-rule/${receiptRuleName}`,
+      arnFormat: cdk.ArnFormat.SLASH_RESOURCE_NAME,
+    });
+    this.lambdas = new MailLambdas(this, "Lambdas", {
+      environmentName: chatticusEnvironment,
+      mailDomain,
+      rawMailBucket: this.rawMailBucket,
+      rawMailKeyPrefix: RAW_MAIL_OBJECT_KEY_PREFIX,
+      eventsTopic: this.eventsTopic,
+      configurationSetName: mailConfigurationSetName(chatticusEnvironment),
+      application: props.application,
+    });
+    const sesMayInvokeIngress = new lambda.CfnPermission(this, "SesMayInvokeIngress", {
+      action: "lambda:InvokeFunction",
+      functionName: this.lambdas.ingressFunction.functionName,
+      principal: "ses.amazonaws.com",
+      sourceAccount: stack.account,
+      sourceArn: receiptRuleArn,
+    });
+
     const receiptRule = new ses.CfnReceiptRule(this, "ReceiptRule", {
       ruleSetName: props.receiptRuleSet.ref,
       rule: {
@@ -168,10 +202,18 @@ export class MailStack extends cdk.Stack {
               objectKeyPrefix: RAW_MAIL_OBJECT_KEY_PREFIX,
             },
           },
+          {
+            lambdaAction: {
+              functionArn: this.lambdas.ingressFunction.functionArn,
+              invocationType: "Event",
+            },
+          },
         ],
       },
     });
     receiptRule.node.addDependency(this.rawMailBucket);
+    receiptRule.node.addDependency(sesMayInvokeIngress);
+    receiptRule.node.addDependency(this.lambdas.ingressFunction);
 
     new cdk.CfnOutput(this, "MailDomain", { value: mailDomain });
     new cdk.CfnOutput(this, "MailZoneNameServers", {

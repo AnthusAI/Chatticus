@@ -13,7 +13,9 @@ export type ChannelMetricName =
 	| "inbound_sender_not_in_conversation"
 	| "outbound_sent"
 	| "outbound_failed"
-	| "outbound_gave_up";
+	| "outbound_gave_up"
+	| "status_event_rejected"
+	| "status_event_applied";
 
 /** Counts channel events. Unknown routes are counted, never stored. */
 export interface ChannelMetrics {

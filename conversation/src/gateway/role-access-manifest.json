@@ -322,6 +322,55 @@
 			"keyPattern": "",
 			"exampleKey": "",
 			"note": "The turn executor announces a committed reply that is owed to an external transport; the event carries ids only."
+		},
+		{
+			"role": "mailIngress",
+			"action": "s3:GetObject",
+			"store": "rawMailBucket",
+			"keyPattern": "^raw/[A-Za-z0-9-]+$",
+			"exampleKey": "raw/ses0example1",
+			"keyAlwaysExists": true,
+			"note": "The receipt rule stores the message before it invokes the function, and the function reads only the key the event names; a missing object is a failure to retry either way."
+		},
+		{
+			"role": "mailIngress",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels$",
+			"exampleKey": "{tenantId}#channels",
+			"note": "Admission reads the channel records of the organization: routes, bindings and links."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels$",
+			"exampleKey": "{tenantId}#channels",
+			"note": "Delivery reads the delivery and binding records, and the suppression list, of the organization."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ses:SendEmail",
+			"store": "mailIdentity",
+			"keyPattern": "",
+			"exampleKey": "",
+			"note": "Sending is allowed from the environment's own mail domain identity only."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ses:SendEmail",
+			"store": "mailConfigurationSet",
+			"keyPattern": "",
+			"exampleKey": "",
+			"note": "Sending is allowed through the environment's own configuration set only."
+		},
+		{
+			"role": "mailStatus",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels$",
+			"exampleKey": "{tenantId}#channels",
+			"note": "The status callback reads the delivery by its provider message id and writes the suppression."
 		}
 	],
 	"deniedRows": [
@@ -486,6 +535,114 @@
 			"action": "ssm:GetParameterHistory",
 			"parameter": "correlatorSecretParameter",
 			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
 		}
 	]
 }

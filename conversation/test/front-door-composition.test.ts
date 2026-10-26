@@ -223,6 +223,8 @@ describe("front door composition", () => {
 		CHATTICUS_CHANNELS_MAIL_DOMAIN: "mail.test.example",
 		CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME: CHANNELS_SECRET_PARAMETER_NAME,
 		CHATTICUS_CHANNELS_EVENT_BUS_NAME: "default",
+		CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME: "chatticus-test-outbound",
+		CHATTICUS_CHANNELS_WEB_APP_BASE_URL: "https://hey.example.test",
 	};
 
 	it("reads the channels correlator secret from SSM by name only where the mail domain is set", async () => {
