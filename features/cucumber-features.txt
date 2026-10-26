@@ -183,3 +183,5 @@ features/external_channel_binding.feature
 features/external_conversation_mapping.feature
 features/external_inbound_admission.feature
 features/external_outbound_delivery.feature
+features/email_inbound_parsing.feature
+features/email_threading.feature

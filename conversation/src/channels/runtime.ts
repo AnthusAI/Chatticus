@@ -17,6 +17,8 @@ export interface ChannelsRuntime {
 	readonly killSwitchEngaged: boolean;
 	/** The transport adapters, one per provider this environment can deliver through. */
 	readonly transports: ReadonlyMap<TransportProvider, ChannelTransport>;
+	/** The secret that keys the plus-tag hash which lets a reply find its thread when a mail client drops every header. */
+	readonly correlatorSecret: string;
 	readonly events: ChannelEventPublisher;
 	readonly metrics: ChannelMetrics;
 }

@@ -110,7 +110,7 @@ export async function admitInbound(deps: AdmissionDependencies, transport: Chann
 
 	const botIds = [binding.botId, ...(await readerBotIds(deps, event, binding))];
 	const channel = await mapExternalConversation(
-		{ store: runtime.store, messaging: deps.messaging, ids: deps.ids },
+		{ store: runtime.store, messaging: deps.messaging, ids: deps.ids, correlatorSecret: runtime.correlatorSecret },
 		transport,
 		event,
 		binding,
@@ -165,7 +165,10 @@ export type IngestResult =
  */
 export async function ingestInbound(deps: AdmissionDependencies, transport: ChannelTransport, raw: RawInbound): Promise<IngestResult> {
 	const verified: VerifiedInbound | InboundRefusal = await transport.verifyInbound(raw);
-	if (verified.kind === "refused") return { kind: "refused", refusal: verified };
+	if (verified.kind === "refused") {
+		deps.runtime.metrics.count("inbound_refused", { provider: raw.provider, reason: verified.reason });
+		return { kind: "refused", refusal: verified };
+	}
 	const outcomes: AdmissionOutcome[] = [];
 	for (const event of transport.normalize(verified)) {
 		outcomes.push(await admitInbound(deps, transport, event));

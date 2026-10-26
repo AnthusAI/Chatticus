@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createChannel, createExternalChannel, uuid5InUrlNamespace, type Channel } from "../domain/channels.ts";
 import type { IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
+import { correlatorTagMatchesChannel } from "./channel-correlator.ts";
 import type { ChannelStore } from "./records.ts";
 import type { ChannelTransport, InboundEvent } from "./transport.ts";
 
@@ -22,11 +23,27 @@ export function externalChannelId(tenantId: string, bindingId: string, conversat
 	return uuid5InUrlNamespace(`chatticus:external:${digest}`);
 }
 
+/**
+ * The member's own external channel with the addressed bot whose correlator tag is the hint. Only channels the member
+ * already takes part in are candidates, so the hint can only ever find a thread the sender could reach anyway.
+ */
+async function correlatedChannelId(deps: MappingDependencies, hint: string, tenantId: string, userId: string, addressedBotId: string): Promise<string | null> {
+	const candidates = await deps.messaging.listChannels(tenantId, userId);
+	const match = candidates.find(
+		(candidate) =>
+			candidate.kind === "external" &&
+			candidate.participants.some((participant) => participant.kind === "bot" && participant.actorId === addressedBotId) &&
+			correlatorTagMatchesChannel(deps.correlatorSecret, tenantId, candidate.channelId, hint),
+	);
+	return match === undefined ? null : match.channelId;
+}
+
 /** What the mapping reads and writes. */
 export interface MappingDependencies {
 	readonly store: ChannelStore;
 	readonly messaging: MessagingStore;
 	readonly ids: IdSource;
+	readonly correlatorSecret: string;
 }
 
 /**
@@ -66,6 +83,9 @@ export async function mapExternalConversation(
 			channelId = await deps.store.getMessageChannel(tenantId, bindingId, referenced);
 			if (channelId !== null) break;
 		}
+	}
+	if (channelId === null && event.correlatorHint !== null) {
+		channelId = await correlatedChannelId(deps, event.correlatorHint, tenantId, member.userId, addressedBotId);
 	}
 	let channel: Channel | null = channelId === null ? null : await deps.messaging.getChannel(tenantId, channelId);
 	if (channel === null) {
