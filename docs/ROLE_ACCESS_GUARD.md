@@ -15,6 +15,10 @@ real AWS refuses, or answers differently (a read of a missing S3 key is 404 only
 | Synthesized-policy test | Every row is evaluated against the policy documents CDK synthesizes for the Front Door, the owner scoped role and the supervisor role | `infra/test/role-access-policy.test.ts` |
 | Post-deploy simulation | The same rows put to `iam:SimulatePrincipalPolicy` for the deployed roles (read-only) | `conversation/bin/simulate-role-access.ts` |
 
+The turn executor Lambda is a fourth role, `turnExecutor`: its one row is `events:PutEvents` on the `channelEventBus` store (the
+EventBridge bus of the reply-delivery event), and it is denied the three secret parameters. It makes no recorded request, so the
+coverage hook has nothing to match for it.
+
 The roles: `frontDoor` (the Front Door Lambda role, all of its CDK grants and the snapshot statements), `ownerTurn` (the
 per-turn owner role, `owner-role-policy.json`), `supervisor` (`supervisor-role-policy.json`).
 

@@ -8,7 +8,7 @@ import {
 	type BindingRefusal,
 } from "../../channels/binding-service.ts";
 import type { ChannelBinding, DeliveryRecord } from "../../channels/records.ts";
-import { externalChannelsAvailable, type ChannelsRuntime } from "../../channels/runtime.ts";
+import { externalChannelsAvailable, type ChannelsRuntime, type ChannelsRuntimeSource } from "../../channels/runtime.ts";
 import { PrincipalHttpError, type Principal } from "../../auth/principal.ts";
 import type { Clock, IdSource } from "../app.ts";
 import { declareRoute } from "../route-audience.ts";
@@ -18,8 +18,8 @@ import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDepen
 export interface ChannelBindingRouteDependencies extends UserPrincipalDependencies {
 	clock: Clock;
 	ids: IdSource;
-	/** Present only where external channels are rolled out; absent, every route answers 404. */
-	channels: ChannelsRuntime | null;
+	/** Where the runtime comes from; while it yields nothing, every route answers 404. */
+	channels: ChannelsRuntimeSource;
 }
 
 /** One binding as the HTTP API renders it. */
@@ -131,10 +131,11 @@ async function authorize(c: Context, deps: ChannelBindingRouteDependencies): Pro
 	if (isRefusal(principal)) return principal;
 	if (principal.userId === null) return c.json({ detail: "user credential required" }, 403);
 	const tenantId = pathParameter(c, "tenant_id");
-	if (deps.channels === null || !(await externalChannelsAvailable(deps.channels, tenantId))) return notFound(c);
+	const runtime = await deps.channels();
+	if (runtime === null || !(await externalChannelsAvailable(runtime, tenantId))) return notFound(c);
 	const membership = await deps.store.getMembership(tenantId, principal.userId);
 	if (membership === null) return notFound(c);
-	return { principal, userId: principal.userId, runtime: deps.channels, isOwner: membership.role === "owner" };
+	return { principal, userId: principal.userId, runtime, isOwner: membership.role === "owner" };
 }
 
 function bindingDependencies(deps: ChannelBindingRouteDependencies, runtime: ChannelsRuntime): BindingDependencies {

@@ -19,6 +19,7 @@ export const FIXED_STORE_ARNS: StoreArns = {
 	conversationsTable: `${RECORDED_DYNAMODB_ARN_PREFIX}conversations`,
 	piSessionsBucket: "arn:aws:s3:::pi-sessions",
 	snapshotBucket: "arn:aws:s3:::snapshots",
+	channelEventBus: "arn:aws:events:us-east-1:111122223333:event-bus/default",
 };
 
 /**

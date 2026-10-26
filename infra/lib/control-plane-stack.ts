@@ -21,8 +21,12 @@ import {
 } from "./alarms";
 import { readAlarmNotificationEmail } from "./budgets-config";
 import {
+  CHANNELS_EVENT_BUS_NAME,
   ChatticusCloudEnvironment,
   KANBUS_BOARD_ENVIRONMENTS,
+  MAIL_DOMAINS,
+  channelsCorrelatorSecretParameterName,
+  mailEnabled,
   integrationTestParameterPrefix,
   invokeKeySecretArnParameterName,
   modelGatewaySigningKeyParameterName,
@@ -52,6 +56,9 @@ const KANBUS_ARCHIVE_RETENTION_DAYS = 30;
 
 /** Length of the generated model gateway signing key; the token code requires at least 32. */
 export const MODEL_GATEWAY_SIGNING_KEY_LENGTH = 64;
+
+/** Length of the generated secret that keys the plus-tag hash of external channel mail; at least 32. */
+export const CHANNELS_CORRELATOR_SECRET_LENGTH = 64;
 
 /** Local secondary indexes of the Pi session table; mirrors PI_SESSION_TABLE_KEYS in conversation/src/storage/table-definition.ts. */
 export const CONVERSATIONS_TABLE_LOCAL_SECONDARY_INDEXES = [
@@ -130,6 +137,8 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly turnExecutorFunction: lambdaNodejs.NodejsFunction;
   readonly turnProbeFunction: lambdaNodejs.NodejsFunction;
   readonly computerStarterFunction: lambdaNodejs.NodejsFunction;
+  /** Where mail is enabled (development): keys the plus-tag hash. Read by the FrontDoor only. */
+  readonly channelsCorrelatorSecret?: GeneratedSecureString;
   /** Development only: signs the per-turn model gateway tokens. */
   readonly modelGatewaySigningKey?: GeneratedSecureString;
   /** Development only, and only once ChatticusComputers has the owner task: the assumable ceiling for one Pi session owner. */
@@ -433,6 +442,41 @@ export class ControlPlaneStack extends cdk.Stack {
         target.addEnvironment("CHATTICUS_KANBUS_API_URL", kanbusApi.serviceApiUrl!);
       }
       this.kanbusApi = kanbusApi;
+    }
+
+    if (mailEnabled(environmentName)) {
+      const channelsCorrelatorSecret = new GeneratedSecureString(this, "ChannelsCorrelatorSecretParameter", {
+        parameterName: channelsCorrelatorSecretParameterName(environmentName),
+        valueLength: CHANNELS_CORRELATOR_SECRET_LENGTH,
+        description:
+          "Keys the plus-tag hash that lets a mail reply find its thread when a mail client drops every header. Read by the FrontDoor only.",
+      });
+      frontDoorFunction.node.addDependency(channelsCorrelatorSecret);
+      frontDoorFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["ssm:GetParameter"],
+          resources: [channelsCorrelatorSecret.parameterArn],
+        }),
+      );
+      frontDoorFunction.addEnvironment("CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME", channelsCorrelatorSecret.parameterName);
+      for (const target of [frontDoorFunction, turnExecutorFunction]) {
+        target.addEnvironment("CHATTICUS_CHANNELS_MAIL_DOMAIN", MAIL_DOMAINS[environmentName]);
+        target.addEnvironment("CHATTICUS_CHANNELS_EVENT_BUS_NAME", CHANNELS_EVENT_BUS_NAME);
+        target.addEnvironment("CHATTICUS_CHANNELS_KILL_SWITCH", "released");
+      }
+      turnExecutorFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["events:PutEvents"],
+          resources: [
+            cdk.Stack.of(this).formatArn({
+              service: "events",
+              resource: "event-bus",
+              resourceName: CHANNELS_EVENT_BUS_NAME,
+            }),
+          ],
+        }),
+      );
+      this.channelsCorrelatorSecret = channelsCorrelatorSecret;
     }
 
     if (isDevelopment) {

@@ -314,6 +314,14 @@
 			"keyPattern": "^tenants/[^/]+/computers/[^/]+/(manifest\\.json|snapshot\\.tar\\.gz|index/[0-9a-f]{64}\\.json)$",
 			"exampleKey": "tenants/{tenantId}/computers/{computerId}/snapshot.tar.gz",
 			"note": "The supervisor publishes the snapshot of its computer."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "events:PutEvents",
+			"store": "channelEventBus",
+			"keyPattern": "",
+			"exampleKey": "",
+			"note": "The turn executor announces a committed reply that is owed to an external transport; the event carries ids only."
 		}
 	],
 	"deniedRows": [
@@ -388,6 +396,96 @@
 			"action": "ssm:GetParameterHistory",
 			"parameter": "signingKeyParameter",
 			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameter",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameters",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameter",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameters",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameter",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameters",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
 		}
 	]
 }

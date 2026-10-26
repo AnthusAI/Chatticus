@@ -24,6 +24,12 @@ export interface ChannelsRuntime {
 }
 
 /**
+ * Where the channel runtime of a deployment comes from. It is asked on every channel request, so a runtime that could not
+ * be built yet can appear later; null means external channels do not exist, or are not available, right now.
+ */
+export type ChannelsRuntimeSource = () => Promise<ChannelsRuntime | null>;
+
+/**
  * Whether external channels are on for one organization: the environment kill switch is off and the operator has
  * switched the organization on.
  *
@@ -31,7 +37,10 @@ export interface ChannelsRuntime {
  * @param tenantId The organization.
  * @returns True when bindings may be managed and messages admitted and delivered.
  */
-export async function externalChannelsAvailable(runtime: ChannelsRuntime, tenantId: string): Promise<boolean> {
+export async function externalChannelsAvailable(
+	runtime: Pick<ChannelsRuntime, "killSwitchEngaged"> & { readonly store: Pick<ChannelStore, "getSettings"> },
+	tenantId: string,
+): Promise<boolean> {
 	if (runtime.killSwitchEngaged) return false;
 	return (await runtime.store.getSettings(tenantId)).externalChannelsEnabled;
 }

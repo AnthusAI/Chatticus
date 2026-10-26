@@ -37,6 +37,7 @@ const ROLE_LOGICAL_ID_PATTERNS: Record<AccessRole, RegExp> = {
   frontDoor: /^FrontDoorServiceRole/,
   ownerTurn: /^ComputerOwnerScopedRole/,
   supervisor: /^ComputerSupervisorRole/,
+  turnExecutor: /^TurnExecutorServiceRole/,
 };
 
 const PSEUDO_PARAMETERS: Record<string, string> = {
@@ -118,6 +119,7 @@ function synthesize(): { statements: Record<AccessRole, PolicyStatement[]>; arns
     conversationsTable: textOf(stack.resolve(stack.conversationsTable.tableArn)),
     piSessionsBucket: textOf(stack.resolve(stack.piSessionsBucket.bucketArn)),
     snapshotBucket: `arn:aws:s3:::${SNAPSHOT_BUCKET_NAME}`,
+    channelEventBus: textOf(stack.resolve(stack.formatArn({ service: "events", resource: "event-bus", resourceName: "default" }))),
   };
   return { statements, arns };
 }
@@ -152,8 +154,8 @@ describe("the secret parameters against the policies the ControlPlane stack synt
   const denials = loadRoleAccessDenials();
   const parameterArns = secretParameterArnsOf(ENV.region, ENV.account, "development");
 
-  it("lists a denial for every action and secret parameter of the owner and supervisor roles", () => {
-    assert.equal(denials.length, 2 * 2 * 3);
+  it("lists a denial for every action and secret parameter of the owner, supervisor and turn executor roles", () => {
+    assert.equal(denials.length, 3 * 3 * 3);
   });
 
   for (const denial of denials) {
@@ -173,7 +175,7 @@ describe("the secret parameters against the policies the ControlPlane stack synt
         const actions = JSON.stringify(statement.Action ?? []);
         if (!actions.includes("GetParameterHistory") && !actions.includes("ssm:*")) continue;
         const resources = JSON.stringify(statement.Resource);
-        assert.equal(/operator-key|model-gateway\/signing-key/.test(resources), false, `${role} may read the history of a secret parameter`);
+        assert.equal(/operator-key|model-gateway\/signing-key|channels\/correlator-secret/.test(resources), false, `${role} may read the history of a secret parameter`);
       }
     }
   });

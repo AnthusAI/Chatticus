@@ -596,8 +596,19 @@ What exists, so a later reader does not have to infer it from the code:
   and the HTTP message payload renders it as `origin`. Its absence means the web app.
 - **Delivery.** `commitFinalAnswer` records the delivery and publishes an event with the tenant, message and binding ids
   only. The delivery handler, the sweeper (five attempts, a three minute stale age) and the provider status path are
-  functions of `delivery.ts`; the EventBridge publisher, the rule, the Lambda entry points and the scheduler arrive with
-  the infrastructure tasks.
+  functions of `delivery.ts`; the rule that invokes the delivery handler, the Lambda entry points and the scheduler arrive
+  with the SES adapter and Lambdas task (M1.8), because no delivery handler Lambda exists yet.
+- **Deployment wiring.** `lambdas/channels-composition.ts` builds the runtime from environment variables. External
+  channels exist in a deployment exactly where `CHATTICUS_CHANNELS_MAIL_DOMAIN` is set, which the control plane stack
+  does where the mail stack is built (development only). The same deployment must name the event bus
+  (`CHATTICUS_CHANNELS_EVENT_BUS_NAME`, the account's default bus) and the SSM SecureString that holds the plus-tag secret
+  (`CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME`, `/chatticus/<env>/channels/correlator-secret`, generated once by
+  `GeneratedSecureString`, read by the front door only through `ssm:GetParameter` on that exact ARN). The kill switch is
+  `CHATTICUS_CHANNELS_KILL_SWITCH`, engaged when absent; development releases it, and the per-organization switch decides
+  the rest. The turn executor records a reply delivery and publishes the `channel.message.created` event through a
+  recorder that checks both switches on every reply; its role holds `events:PutEvents` on the default bus and nothing
+  else on events. The transport map is empty until M1.8: the email adapter needs an SES client, a configuration set, a suppression list and the
+  web app base URL, and the ingress and event Lambdas that own those construct it.
 - **Same-organization access to a channel.** A member who is not a participant of an external channel is refused with
   403 by the same participant check every channel uses, not 404. A caller who is not a member of the organization at all
   is refused with 403 by the organization membership check every organization route uses, with the same answer for an
@@ -645,9 +656,6 @@ These are decided, observed and deliberately left open in milestone 1. Each has 
   event. A crash between the commit and the delivery record leaves a committed reply with no owed delivery, and the
   sweeper cannot see it because it lists open deliveries only. Closing the window needs the delivery recorded in the same
   write as the commit, or a reconciliation pass over replies of external turns.
-- **Missing `events:PutEvents` grant.** The turn executor publishes the channel message event, and no infrastructure
-  grant yet lets its role call `events:PutEvents` on the channel event bus. The infrastructure task adds the grant with
-  the bus and the rule; until then the publisher must not be wired in a deployed environment.
 - **Raw MIME parser version.** The parser dependency is pinned to a version with a published advisory about many encoded
   words in one header. It is mitigated by explicit parser limits (header size, nesting depth, part count) and a refusal
   scenario; a bump to a patched version waits until it is at least two weeks old and has a board task.

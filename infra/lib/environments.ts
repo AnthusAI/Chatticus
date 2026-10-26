@@ -250,6 +250,16 @@ export function modelGatewaySigningKeyParameterName(
   return `/chatticus/${environment}/model-gateway/signing-key`;
 }
 
+/** The SSM SecureString parameter that holds the generated secret keying the plus-tag hash of external channel mail. */
+export function channelsCorrelatorSecretParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `/chatticus/${environment}/channels/correlator-secret`;
+}
+
+/** The EventBridge bus that carries the reply-delivery event: the account's default bus, the one the routine wake-ups use. */
+export const CHANNELS_EVENT_BUS_NAME = "default";
+
 export function webParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/web`;
 }

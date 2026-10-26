@@ -4,7 +4,7 @@ import { CreateBucketCommand, GetObjectCommand, S3Client } from "@aws-sdk/client
 import type { GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import type { GetParameterCommand } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { DynamoWriteGate, WRITE_GATE_CACHE_MILLISECONDS } from "../src/migration/migration-state.ts";
 import { createMessagingTable } from "../features-support/messaging-table.ts";
 import { ensureComputer } from "../src/domain/computers.ts";
@@ -216,6 +216,37 @@ describe("front door composition", () => {
 				clientsWith(fakeParameters(PARAMETER_VALUES, [], { [integrationNames[0]!]: "AccessDeniedException" })),
 			),
 		).rejects.toThrow("AccessDeniedException");
+	});
+
+	const CHANNELS_SECRET_PARAMETER_NAME = "/chatticus/test/channels/correlator-secret";
+	const channelsEnvironment = {
+		CHATTICUS_CHANNELS_MAIL_DOMAIN: "mail.test.example",
+		CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME: CHANNELS_SECRET_PARAMETER_NAME,
+		CHATTICUS_CHANNELS_EVENT_BUS_NAME: "default",
+	};
+
+	it("reads the channels correlator secret from SSM by name only where the mail domain is set", async () => {
+		const without: string[] = [];
+		await composeFrontDoorApp(environmentFor(), clientsWith(fakeParameters(PARAMETER_VALUES, without)));
+		expect(without).not.toContain(CHANNELS_SECRET_PARAMETER_NAME);
+		const requested: string[] = [];
+		await composeFrontDoorApp(
+			environmentFor(channelsEnvironment),
+			clientsWith(fakeParameters({ ...PARAMETER_VALUES, [CHANNELS_SECRET_PARAMETER_NAME]: "secret-value" }, requested)),
+		);
+		expect(requested.filter((name) => name === CHANNELS_SECRET_PARAMETER_NAME)).toHaveLength(1);
+	});
+
+	it("keeps serving when the mail domain is set and the channels correlator secret has no value", async () => {
+		const logged: string[] = [];
+		const spy = vi.spyOn(console, "log").mockImplementation((line: string) => void logged.push(line));
+		try {
+			const app = await composeFrontDoorApp(environmentFor(channelsEnvironment), clientsWith(fakeParameters(PARAMETER_VALUES)));
+			expect((await app.request("http://front-door.test/health")).status).toBe(200);
+		} finally {
+			spy.mockRestore();
+		}
+		expect(logged.filter((line) => line.includes("channels_composition_failed"))).toHaveLength(1);
 	});
 
 	it("reads the OpenAI key from its SSM parameter when it is not already set", async () => {

@@ -7,7 +7,8 @@ import type { DeliveryDependencies, SweepDependencies } from "../src/channels/de
 import { EmailChannelTransport } from "../src/channels/email/email-transport.ts";
 import { FakeChannelTransport } from "../src/channels/fake-transport.ts";
 import type { ChannelMetricName, ChannelMetrics } from "../src/channels/metrics.ts";
-import type { ChannelsRuntime } from "../src/channels/runtime.ts";
+import type { ChannelsRuntime, ChannelsRuntimeSource } from "../src/channels/runtime.ts";
+import { ChannelsRuntimeHolder } from "../src/lambdas/channels-composition.ts";
 import type { ReplyDeliveryRecorder } from "../src/channels/delivery.ts";
 import type { ChannelTransport, InboundRefusal, RawInbound, TransportProvider } from "../src/channels/transport.ts";
 import { listMessages } from "../src/domain/messages.ts";
@@ -40,6 +41,14 @@ export type ChannelsScenario = {
 	countedItems: number | null;
 	focusChannel: { channelId: string; tenantId: string; person: string } | null;
 	deliveriesResponse: RecordedResponse | null;
+	/** Set once the scenario composes external channels the way a deployed environment does, from its environment variables. */
+	deployment: DeployedChannels | null;
+};
+
+/** What the production composition built for the scenario's deployment. */
+export type DeployedChannels = {
+	readonly holder: ChannelsRuntimeHolder;
+	readonly recorder: ReplyDeliveryRecorder | undefined;
 };
 
 /** The correlator secret every scenario's runtime uses. */
@@ -69,6 +78,7 @@ export function channelsScenarioOf(world: ChatticusWorld): ChannelsScenario {
 			countedItems: null,
 			focusChannel: null,
 			deliveriesResponse: null,
+			deployment: null,
 		};
 		scenarios.set(world, scenario);
 	}
@@ -97,6 +107,7 @@ export function emailTransportFor(world: ChatticusWorld, metrics: ChannelMetrics
 /** The channel runtime of the scenario when external channels are configured, otherwise undefined. */
 export function channelsRuntimeFor(world: ChatticusWorld): ChannelsRuntime | undefined {
 	const scenario = channelsScenarioOf(world);
+	if (scenario.deployment !== null) return scenario.deployment.holder.current ?? undefined;
 	if (!scenario.configured) return undefined;
 	const events: ChannelEventPublisher = { publish: async (event) => void scenario.published.push(event) };
 	const metrics: ChannelMetrics = { count: (name, dimensions = {}) => void scenario.counted.push({ name, dimensions }) };
@@ -115,6 +126,14 @@ export function channelsRuntimeFor(world: ChatticusWorld): ChannelsRuntime | und
 	};
 }
 
+/** Where the front door of the scenario gets its channel runtime: the deployment's holder, or the scenario's own runtime. */
+export function channelsSourceFor(world: ChatticusWorld): ChannelsRuntimeSource {
+	const deployment = channelsScenarioOf(world).deployment;
+	if (deployment !== null) return deployment.holder.source;
+	const runtime = channelsRuntimeFor(world) ?? null;
+	return async () => runtime;
+}
+
 /** The runtime of a scenario that must have external channels configured. */
 export function requiredChannelsRuntime(world: ChatticusWorld): ChannelsRuntime {
 	const runtime = channelsRuntimeFor(world);
@@ -124,8 +143,12 @@ export function requiredChannelsRuntime(world: ChatticusWorld): ChannelsRuntime 
 
 /** What the turn executor needs to record the replies owed to external transports. */
 export function channelDeliveryFor(world: ChatticusWorld): ReplyDeliveryRecorder | undefined {
+	const deployment = channelsScenarioOf(world).deployment;
+	if (deployment !== null) return deployment.recorder;
 	const runtime = channelsRuntimeFor(world);
-	return runtime === undefined ? undefined : { store: runtime.store, events: runtime.events, clock: world.clock };
+	return runtime === undefined
+		? undefined
+		: { store: runtime.store, events: runtime.events, clock: world.clock, reportPublishFailure: () => undefined };
 }
 
 /** The dependencies of the inbound admission path over the scenario's stores. */
