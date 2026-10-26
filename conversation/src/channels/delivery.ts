@@ -25,6 +25,8 @@ export interface ReplyDeliveryRecorder {
 	readonly store: Pick<ChannelStore, "putDeliveryIfAbsent">;
 	readonly events: ChannelEventPublisher;
 	readonly clock: Clock;
+	/** Called, with names and ids only, when the event could not be published after the delivery was recorded. */
+	readonly reportPublishFailure: (failure: { tenantId: string; messageId: string; bindingId: string; errorName: string }) => void;
 }
 
 /**
@@ -49,7 +51,9 @@ export function replyOriginOf(lines: readonly ChannelLogLine[], turn: { promptMe
 }
 
 /**
- * Record that a committed reply is owed to an external transport and tell the delivery handler, with ids only. Doing it
+ * Record that a committed reply is owed to an external transport and tell the delivery handler, with ids only. A failure to
+ * tell the handler is reported and does not fail the caller: the delivery is already recorded, and the sweeper finds it.
+ * Doing it
  * again for the same reply records nothing new and tells the handler again, which is harmless: the handler is idempotent.
  *
  * @param recorder The delivery store, the event publisher and the clock.
@@ -79,7 +83,16 @@ export async function recordReplyDelivery(
 		createdAt: now,
 		updatedAt: now,
 	});
-	await recorder.events.publish(channelMessageCreatedEvent({ tenantId: reply.tenantId, messageId: reply.messageId, bindingId: origin.bindingId }));
+	try {
+		await recorder.events.publish(channelMessageCreatedEvent({ tenantId: reply.tenantId, messageId: reply.messageId, bindingId: origin.bindingId }));
+	} catch (error) {
+		recorder.reportPublishFailure({
+			tenantId: reply.tenantId,
+			messageId: reply.messageId,
+			bindingId: origin.bindingId,
+			errorName: error instanceof Error ? error.name : "UnknownError",
+		});
+	}
 }
 
 /** What the delivery handler reads and writes. */

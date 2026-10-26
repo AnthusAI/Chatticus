@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { enforceOperatorPrincipal } from "../../auth/operator.ts";
 import { OrganizationsKernelImpl } from "../../domain/organizations.ts";
 import type { Organization } from "../../domain/organizations.ts";
-import type { ChannelsRuntime } from "../../channels/runtime.ts";
+import type { ChannelsRuntimeSource } from "../../channels/runtime.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import { pathParameter } from "../user-principal.ts";
 
@@ -58,8 +58,8 @@ export async function operatorOrganizationHandler(
 export interface OperatorExternalChannelsDependencies {
 	store: MessagingStore;
 	operatorKey: string;
-	/** Present only where external channels are rolled out; absent, the route answers 404. */
-	channels: ChannelsRuntime | null;
+	/** Where the runtime comes from; while it yields nothing, the route answers 404. */
+	channels: ChannelsRuntimeSource;
 }
 
 /**
@@ -72,10 +72,11 @@ export async function operatorExternalChannelsHandler(
 	deps: OperatorExternalChannelsDependencies,
 ): Promise<Response> {
 	enforceOperatorPrincipal(c.req.raw, deps.operatorKey);
-	if (deps.channels === null) return c.json({ detail: "Not found.", code: "not_found" }, 404);
+	const channels = await deps.channels();
+	if (channels === null) return c.json({ detail: "Not found.", code: "not_found" }, 404);
 	const tenantId = pathParameter(c, "tenant_id");
 	const organization = await deps.store.getOrganization(tenantId);
 	if (organization === null) return c.json({ detail: "Not found.", code: "not_found" }, 404);
-	await deps.channels.store.setExternalChannelsEnabled(tenantId, action === "enable");
+	await channels.store.setExternalChannelsEnabled(tenantId, action === "enable");
 	return c.json({ tenant_id: tenantId, external_channels_enabled: action === "enable" }, 200);
 }

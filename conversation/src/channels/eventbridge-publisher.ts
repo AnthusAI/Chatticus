@@ -63,12 +63,19 @@ export type ReplyDeliveryGate = Pick<ChannelsRuntime, "killSwitchEngaged"> & { r
  * @param gate The kill switch and the channel store.
  * @param events The publisher of the bus.
  * @param clock The clock.
+ * @param reportPublishFailure Where a failed publish is reported.
  * @returns The recorder the executor's finalization uses.
  */
-export function gatedReplyDeliveryRecorder(gate: ReplyDeliveryGate, events: ChannelEventPublisher, clock: ReplyDeliveryRecorder["clock"]): ReplyDeliveryRecorder {
+export function gatedReplyDeliveryRecorder(
+	gate: ReplyDeliveryGate,
+	events: ChannelEventPublisher,
+	clock: ReplyDeliveryRecorder["clock"],
+	reportPublishFailure: ReplyDeliveryRecorder["reportPublishFailure"],
+): ReplyDeliveryRecorder {
 	const open = (tenantId: string): Promise<boolean> => externalChannelsAvailable(gate, tenantId);
 	return {
 		clock,
+		reportPublishFailure,
 		store: {
 			putDeliveryIfAbsent: async (delivery) => ((await open(delivery.tenantId)) ? gate.store.putDeliveryIfAbsent(delivery) : false),
 		},

@@ -115,24 +115,82 @@ Feature: A deployed environment builds external channels only where it is config
     When the deployment composes external channels
     Then the deployment read exactly the parameter "/chatticus/test/channels/correlator-secret"
 
-  Scenario: A deployment whose secret parameter has no value does not start
+  Scenario Outline: A broken channel setting keeps channels closed and leaves ordinary traffic unaffected
     Given the deployment releases the kill switch
-    And the deployment's parameter store holds no value under "/chatticus/test/channels/correlator-secret"
+    And the deployment is broken by "<breakage>"
     When the deployment composes external channels
-    Then the deployment refused to start with "The SSM parameter /chatticus/test/channels/correlator-secret has no value."
-
-  Scenario Outline: A deployment that sets the mail domain must set everything else external channels need
-    Given the deployment releases the kill switch
-    And the deployment leaves out the channel variable "<variable>"
-    When the deployment composes external channels
-    Then the deployment refused to start with "The environment variable <variable> is required when CHATTICUS_CHANNELS_MAIL_DOMAIN is set."
+    Then the front door logged 1 channel composition error that names "<named>" and holds no secret
+    And the front door answers its health route
+    When "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
+    Then the channel request is answered as not found
+    When the operator switches external channels on for the organization "Anthus Labs"
+    And "sam@example.com" has a direct channel with the bot "Researcher" in "Anthus Labs"
+    And the model will answer "From the web."
+    And "sam@example.com" posts "Hello" on that channel addressed to the bot "Researcher"
+    And the bot "Researcher" completes its turn
+    Then that channel has 2 messages
+    And the event bus received 0 events
 
     Examples:
-      | variable                                            |
-      | CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME |
-      | CHATTICUS_CHANNELS_EVENT_BUS_NAME                   |
+      | breakage                           | named                                               |
+      | an invalid kill switch value       | CHATTICUS_CHANNELS_KILL_SWITCH                      |
+      | an empty secret parameter          | /chatticus/test/channels/correlator-secret          |
+      | a missing secret parameter name    | CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME |
+      | a missing event bus name           | CHATTICUS_CHANNELS_EVENT_BUS_NAME                   |
 
-  Scenario: A kill switch value that is neither engaged nor released does not start
+  Scenario: A transient parameter read failure heals on the next interval without a redeploy
+    Given the deployment releases the kill switch
+    And the parameter store fails its reads
+    When the deployment composes external channels
+    Then the front door logged 1 channel composition error that names "ThrottlingException" and holds no secret
+    When "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
+    Then the channel request is answered as not found
+    When the parameter store recovers
+    And the clock moves forward 30 seconds
+    And "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
+    Then the channel request is answered as not found
+    And the front door logged 1 channel composition error that names "ThrottlingException" and holds no secret
+    When the clock moves forward 31 seconds
+    And the operator switches external channels on for the organization "Anthus Labs"
+    And "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
+    Then the channel request is accepted
+
+  Scenario: A failure that lasts is logged once per interval and not once per request
+    Given the deployment releases the kill switch
+    And the parameter store fails its reads
+    When the deployment composes external channels
+    And "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
+    And "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
+    Then the front door logged 1 channel composition error that names "ThrottlingException" and holds no secret
+    When the clock moves forward 61 seconds
+    And "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
+    Then the front door logged 2 channel composition errors that name "ThrottlingException" and hold no secret
+
+  Scenario: A broken kill switch value at the executor logs one error and ordinary turns complete
     Given the deployment sets the kill switch to "maybe"
     When the deployment composes external channels
-    Then the deployment refused to start with "must be \"engaged\" or \"released\""
+    And "sam@example.com" has a direct channel with the bot "Researcher" in "Anthus Labs"
+    And the model will answer "From the web."
+    And "sam@example.com" posts "Hello" on that channel addressed to the bot "Researcher"
+    And the bot "Researcher" completes its turn
+    Then that channel has 2 messages
+    And the executor logged 1 channel composition error
+
+  Scenario: A bus that refuses the event does not fail the turn and the delivery stays recorded
+    Given the deployment releases the kill switch
+    And the deployment composes external channels
+    And the operator switches external channels on for the organization "Anthus Labs"
+    And "ryan@example.com" has chosen the mail handle "anthus" for "Anthus Labs"
+    And "ryan@example.com" has created an email binding for the bot "Researcher" in "Anthus Labs"
+    And the email sender "sam.sender@example.test" is linked to "sam@example.com" in "Anthus Labs"
+    And the model will answer "The research is done."
+    And the event bus refuses every event
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    Then 1 delivery was recorded
+    And the executor logged 1 event publish failure naming ids only

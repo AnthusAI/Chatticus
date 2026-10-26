@@ -36,7 +36,7 @@ import { createOpenAiModels } from "../turn/openai-models.ts";
 import { SqsComputerStartQueue, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 import { ModelUserUnderstanding } from "../voice/understanding.ts";
 import type { EventPutter } from "../channels/eventbridge-publisher.ts";
-import { composeChannelsRuntime } from "./channels-composition.ts";
+import { ChannelsRuntimeHolder, composeChannelsRuntime } from "./channels-composition.ts";
 import { resolveOpenAiApiKey, type ParameterReader } from "./openai-key.ts";
 
 /** The AWS clients the front door is composed from; tests inject fakes or emulator-backed clients. */
@@ -217,14 +217,19 @@ export async function composeFrontDoorApp(
 				};
 	const snapshotBucket = environment[SNAPSHOT_BUCKET_VARIABLE] ?? "";
 	const boards = botBoardServiceFromEnvironment(environment, { credentials: () => client.config.credentials(), memberships: store, bots: store });
-	const channels = await composeChannelsRuntime(
-		environment,
-		{ dynamo: client, parameters: clients.parameters, ...(clients.events === undefined ? {} : { events: clients.events }) },
-		messagingTableName,
+	const channels = new ChannelsRuntimeHolder(
+		() =>
+			composeChannelsRuntime(
+				environment,
+				{ dynamo: client, parameters: clients.parameters, ...(clients.events === undefined ? {} : { events: clients.events }) },
+				messagingTableName,
+			),
+		clock,
 	);
+	await channels.source();
 	return createApp({
 		boards,
-		channels,
+		channels: channels.source,
 		snapshotFiles: snapshotBucket === "" ? null : new SnapshotFileService(new S3SnapshotStore(snapshotBucket, clients.s3)),
 		editOverlay:
 			snapshotBucket === ""

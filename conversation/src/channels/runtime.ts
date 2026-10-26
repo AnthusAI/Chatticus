@@ -24,6 +24,12 @@ export interface ChannelsRuntime {
 }
 
 /**
+ * Where the channel runtime of a deployment comes from. It is asked on every channel request, so a runtime that could not
+ * be built yet can appear later; null means external channels do not exist, or are not available, right now.
+ */
+export type ChannelsRuntimeSource = () => Promise<ChannelsRuntime | null>;
+
+/**
  * Whether external channels are on for one organization: the environment kill switch is off and the operator has
  * switched the organization on.
  *
