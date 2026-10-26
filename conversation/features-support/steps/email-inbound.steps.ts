@@ -5,10 +5,9 @@ import { channelCorrelatorTag } from "../../src/channels/channel-correlator.ts";
 import { EmailChannelTransport, emailInboundRequest, type InboundMailEnvelope } from "../../src/channels/email/email-transport.ts";
 import { listMessages } from "../../src/domain/messages.ts";
 import { ingestInbound } from "../../src/channels/inbound-admission.ts";
-import type { ChannelMetrics } from "../../src/channels/metrics.ts";
 import type { ChannelTransport, InboundEvent, RawInbound } from "../../src/channels/transport.ts";
 import { identityOfPerson, tenantIdOfOrganization } from "../bot-board-support.ts";
-import { SCENARIO_CORRELATOR_SECRET, admissionDependenciesFor, channelsScenarioOf, requiredChannelsRuntime } from "../channels-support.ts";
+import { SCENARIO_CORRELATOR_SECRET, admissionDependenciesFor, emailTransportFor, channelsScenarioOf, requiredChannelsRuntime } from "../channels-support.ts";
 import { executorMessageDependencies } from "../front-door.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -38,8 +37,8 @@ function emailScenarioOf(world: ChatticusWorld): EmailScenario {
 class RecordingEmailTransport extends EmailChannelTransport {
 	private readonly recorded: InboundEvent[];
 
-	constructor(mailDomain: string, metrics: ChannelMetrics, recorded: InboundEvent[]) {
-		super({ mailDomain, metrics });
+	constructor(options: ConstructorParameters<typeof EmailChannelTransport>[0], recorded: InboundEvent[]) {
+		super(options);
 		this.recorded = recorded;
 	}
 
@@ -64,7 +63,7 @@ function recipientsOfRaw(raw: string): string[] {
 		.flatMap(addressesIn);
 }
 
-async function deliverRaw(world: ChatticusWorld, rawMessage: Uint8Array, recipients: readonly string[]): Promise<void> {
+export async function deliverRaw(world: ChatticusWorld, rawMessage: Uint8Array, recipients: readonly string[]): Promise<void> {
 	const scenario = channelsScenarioOf(world);
 	const email = emailScenarioOf(world);
 	const verdicts = email.verdicts;
@@ -87,7 +86,15 @@ async function deliverLastEmailRequest(world: ChatticusWorld): Promise<void> {
 	const scenario = channelsScenarioOf(world);
 	const email = emailScenarioOf(world);
 	assert.ok(scenario.lastRequest, "No request has been made");
-	const transport: ChannelTransport = new RecordingEmailTransport(scenario.mailDomain, requiredChannelsRuntime(world).metrics, email.events);
+	const transport: ChannelTransport = emailTransportFor(
+		world,
+		requiredChannelsRuntime(world).metrics,
+		class extends RecordingEmailTransport {
+			constructor(options: ConstructorParameters<typeof EmailChannelTransport>[0]) {
+				super(options, email.events);
+			}
+		},
+	);
 	const originalFetch = globalThis.fetch;
 	globalThis.fetch = (async () => {
 		email.fetchCalls += 1;
@@ -121,7 +128,7 @@ function wrappedIds(list: string): string {
 		.join(" ");
 }
 
-function rawEmailOfTable(world: ChatticusWorld, table: DataTable, bodyOverride?: string): { raw: string; recipients: string[] } {
+export function rawEmailOfTable(world: ChatticusWorld, table: DataTable, bodyOverride?: string): { raw: string; recipients: string[] } {
 	const row = table.rowsHash();
 	const tag = emailScenarioOf(world).knownTag ?? "";
 	const withTag = (value: string | undefined): string | undefined => value?.replace("{tag}", tag).replace(/ AT /g, "@");
