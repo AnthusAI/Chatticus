@@ -129,11 +129,12 @@ export async function deliverChannelMessage(deps: DeliveryDependencies, ids: { t
 	const message = await deps.loadMessage(delivery.tenantId, delivery.channelId, delivery.messageSeq);
 	if (message === null) return fail(deps, delivery, "permanent", "message_missing");
 	const transportBinding = { bindingId: binding.bindingId, tenantId: binding.tenantId, provider: binding.provider, routeKey: binding.routeKey };
+	const channel = await deps.messaging.getChannel(delivery.tenantId, delivery.channelId);
 	const payload = transport.render(message, transportBinding, {
 		conversationKey: delivery.conversationKey,
 		recipientExternalId: delivery.recipientExternalId,
 		inReplyToExternalMessageId: delivery.inReplyToExternalMessageId,
-		subject: null,
+		subject: channel?.name ?? null,
 	});
 	const attempts = delivery.attempts + 1;
 	try {

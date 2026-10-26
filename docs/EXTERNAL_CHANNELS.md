@@ -603,7 +603,29 @@ What exists, so a later reader does not have to infer it from the code:
   is refused with 403 by the organization membership check every organization route uses, with the same answer for an
   existing and a missing channel; only the owner binding routes answer 404 to non-members.
 
+- **Outbound email.** `conversation/src/channels/email/email-transport.ts` renders a reply as one plain text message from the bot
+  address to the sender only, never Cc, with `In-Reply-To` and `References` (the thread root and the message answered, because the
+  port does not carry the replies in between), a subject with a single `Re:` taken from the channel name, `Auto-Submitted: auto-replied`,
+  `X-Chatticus-Origin` (the mail domain), `X-Chatticus-Hops: 1`, and the channel's plus tag on `Reply-To`. The outbound Message-ID is
+  `chatticus.<token>.<mark>@<mail domain>`: the token is a keyed hash of the tenant, the message and the binding (the same reply always
+  gets the same id) and the mark is a keyed hash of the token under the correlator secret. An inbound message whose own Message-ID verifies
+  is refused as `own_outbound_message_id` and counted as `inbound_refused`, whatever its other headers say. `deliver` sends raw content through
+  an injected SES v2 client port (`ses-mail-client.ts`) with the configuration set, and classifies a refusal: throttled and unavailable are
+  retryable; rejected, an unverified sandbox recipient and an SES account suppression are not. SES events arrive through SNS and
+  `applyEmailStatusCallback` moves the delivery to delivered, bounced (permanent bounce, rejection) or complained; a permanent bounce
+  or a complaint adds the recipient to the binding's suppression, which `deliver` checks before it asks SES. Transient bounces change
+  nothing. There is no SES SDK client and no Lambda yet; the Dynamo suppression list is `store/recipient-suppression-store.ts`.
+
 ### Known gaps for M2
+
+- **SES may replace the Message-ID.** The adapter sets its own Message-ID and treats it as the id replies reference. If SES
+  rewrites that header on the wire, replies still thread by plus tag and the conversation key, and our own mail is still marked by
+  `X-Chatticus-Origin`, but the keyed Message-ID check and the sent-id index would not match. The live development smoke test
+  must read a real delivered header before this is relied on.
+- **Complaint scope.** A complaint suppresses the address for the binding only; suppressing it for the whole organization and
+  disabling the binding until an owner reviews it is deliverability work for M2.
+- **Send idempotency across restarts.** SES v2 has no idempotency token. The delivery handler does not send a reply it already
+  recorded as sent, and the transport remembers keys in memory; a crash between the SES call and the delivery write can send twice.
 
 These are decided, observed and deliberately left open in milestone 1. Each has a board task.
 
@@ -618,9 +640,6 @@ These are decided, observed and deliberately left open in milestone 1. Each has 
 - **Missing `events:PutEvents` grant.** The turn executor publishes the channel message event, and no infrastructure
   grant yet lets its role call `events:PutEvents` on the channel event bus. The infrastructure task adds the grant with
   the bus and the rule; until then the publisher must not be wired in a deployed environment.
-- **Own outbound Message-ID check.** An inbound message whose Message-ID is one of our own outbound ids should be
-  dropped and counted. The outbound id format is not defined yet; the outbound rendering task (M1.6) defines it, and the
-  inbound check lands with it. Until then only the `X-Chatticus-Origin` header marks our own mail.
 - **Raw MIME parser version.** The parser dependency is pinned to a version with a published advisory about many encoded
   words in one header. It is mitigated by explicit parser limits (header size, nesting depth, part count) and a refusal
   scenario; a bump to a patched version waits until it is at least two weeks old and has a board task.

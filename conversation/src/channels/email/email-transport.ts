@@ -1,20 +1,22 @@
 import PostalMime, { addressParser } from "postal-mime";
 import type { Address, Email, PostalMimeOptions } from "postal-mime";
 import type { ChannelMetrics } from "../metrics.ts";
-import type {
-	AttachmentReference,
-	ChannelTransport,
-	CommittedMessage,
-	DeliveryReceipt,
-	DeliveryStatusEvent,
-	InboundEvent,
-	InboundRefusal,
-	OutboundPayload,
-	RawInbound,
-	ThreadContext,
-	TransportBinding,
-	TransportCapabilities,
-	VerifiedInbound,
+import { channelCorrelatorTag } from "../channel-correlator.ts";
+import {
+	TransportDeliveryError,
+	type AttachmentReference,
+	type ChannelTransport,
+	type CommittedMessage,
+	type DeliveryReceipt,
+	type DeliveryStatusEvent,
+	type InboundEvent,
+	type InboundRefusal,
+	type OutboundPayload,
+	type RawInbound,
+	type ThreadContext,
+	type TransportBinding,
+	type TransportCapabilities,
+	type VerifiedInbound,
 } from "../transport.ts";
 import { sanitizedAttachmentFileName, sanitizedContentType } from "./attachment-metadata.ts";
 import { automationHintsFromHeaders } from "./automation-headers.ts";
@@ -27,6 +29,11 @@ import {
 	splitPlusTag,
 } from "./email-addresses.ts";
 import { htmlToText } from "./html-to-text.ts";
+import { isOwnOutboundMessageId, outboundMessageId } from "./outbound-message-id.ts";
+import { outboundMimeBytes, replySubject } from "./outbound-mime.ts";
+import type { RecipientSuppressionList } from "./recipient-suppression.ts";
+import { SesSendError, type SesMailClient } from "./ses-mail-client.ts";
+import { sesStatusFacts, type SesStatusFact } from "./ses-event-notification.ts";
 import { stripQuotedReplyAndSignature } from "./quoted-reply.ts";
 
 /** The headers an email `RawInbound` carries beside the raw message: what the mail receiver decided about it. */
@@ -135,7 +142,7 @@ export interface ParsedInboundEmail {
 }
 
 /** Why the email transport refuses a request before any message is read. */
-export type EmailRefusalReason = "malformed_message" | "missing_message_id" | "message_too_large" | "sender_not_authenticated" | "spam_or_virus_detected";
+export type EmailRefusalReason = "malformed_message" | "missing_message_id" | "message_too_large" | "sender_not_authenticated" | "spam_or_virus_detected" | "own_outbound_message_id";
 
 const refuse = (reason: EmailRefusalReason): InboundRefusal => ({ kind: "refused", reason });
 
@@ -195,7 +202,12 @@ function attachmentMetadata(email: Email): AttachmentReference[] {
  * Only a message whose DMARC verdict passed and whose spam and virus verdicts did not fail is read. The sender is the
  * From address, never Reply-To. The conversation key is the first reference, else the in-reply-to message, else the
  * message itself; the subject plays no part. A plus tag on the bot address is carried as a lookup hint and is never
- * checked here. Rendering and sending belong to the outbound email tasks and are not part of this class yet.
+ * checked here. A message whose own Message-ID is one our outbound mail carries is refused, whatever its other headers say.
+ *
+ * The outbound half renders a committed reply as one plain text message, sends it through SES v2 and reads the SES event
+ * notifications that follow. A reply is from the bot's address, to the sender it answers and nobody else, and threads by
+ * In-Reply-To and References. The thread's earlier replies are not on the port, so References is the thread root and the
+ * message answered. A Message-ID is derived from the reply, so a repeated render is the same id.
  */
 export class EmailChannelTransport implements ChannelTransport {
 	readonly provider = "email" as const;
@@ -208,16 +220,41 @@ export class EmailChannelTransport implements ChannelTransport {
 		requiresRecipientOptIn: false,
 		authenticatesSender: "per_message",
 	};
+	private readonly mailDomain: string;
 	private readonly mailDomainSuffix: string;
 	private readonly maximumRawMessageBytes: number;
 	private readonly metrics: ChannelMetrics;
+	private readonly correlatorSecret: string;
+	private readonly mailClient: SesMailClient;
+	private readonly configurationSetName: string;
+	private readonly suppressionList: RecipientSuppressionList;
+	private readonly webAppBaseUrl: string;
+	private readonly receiptsByIdempotencyKey = new Map<string, DeliveryReceipt>();
 
 	/**
-	 * @param options The environment's mail domain, which tells bot addresses from every other address, the metrics sink, and an optional size limit.
+	 * @param options The environment's mail domain, which tells bot addresses from every other address; the metrics sink;
+	 * the deployment's correlator secret, which keys plus tags and our own Message-IDs; the SES client and the configuration
+	 * set every send goes through; the suppression list; the web app's base URL for the link in a cut reply; and an optional
+	 * inbound size limit.
 	 */
-	constructor(options: { readonly mailDomain: string; readonly metrics: ChannelMetrics; readonly maximumRawMessageBytes?: number }) {
+	constructor(options: {
+		readonly mailDomain: string;
+		readonly metrics: ChannelMetrics;
+		readonly correlatorSecret: string;
+		readonly mailClient: SesMailClient;
+		readonly configurationSetName: string;
+		readonly suppressionList: RecipientSuppressionList;
+		readonly webAppBaseUrl: string;
+		readonly maximumRawMessageBytes?: number;
+	}) {
 		this.metrics = options.metrics;
-		this.mailDomainSuffix = `.${options.mailDomain.trim().toLowerCase()}`;
+		this.mailDomain = options.mailDomain.trim().toLowerCase();
+		this.mailDomainSuffix = `.${this.mailDomain}`;
+		this.correlatorSecret = options.correlatorSecret;
+		this.mailClient = options.mailClient;
+		this.configurationSetName = options.configurationSetName;
+		this.suppressionList = options.suppressionList;
+		this.webAppBaseUrl = options.webAppBaseUrl.replace(/\/+$/, "");
 		this.maximumRawMessageBytes = options.maximumRawMessageBytes ?? MAXIMUM_RAW_MESSAGE_BYTES;
 	}
 
@@ -235,6 +272,7 @@ export class EmailChannelTransport implements ChannelTransport {
 		}
 		const sender = soleSender(email);
 		if (sender === null) return refuse("malformed_message");
+		if (isOwnOutboundMessageId(this.correlatorSecret, this.mailDomain, email.messageId ?? "")) return refuse("own_outbound_message_id");
 		if (declaresUnknownCharset(raw.body)) this.metrics.count("inbound_charset_fallback", { provider: "email" });
 		const providerMessageId = raw.headers[EMAIL_INBOUND_HEADERS.providerMessageId] ?? null;
 		if (normalizeMessageId(email.messageId ?? "") === null && providerMessageId === null) return refuse("missing_message_id");
@@ -287,15 +325,101 @@ export class EmailChannelTransport implements ChannelTransport {
 		];
 	}
 
-	render(_message: CommittedMessage, _binding: TransportBinding, _thread: ThreadContext): OutboundPayload {
-		throw new Error("The email transport renders outbound mail in the outbound rendering task, not in the inbound parser");
+	render(message: CommittedMessage, binding: TransportBinding, thread: ThreadContext): OutboundPayload {
+		const botAddress = normalizeEmailAddress(binding.routeKey);
+		const recipient = normalizeEmailAddress(thread.recipientExternalId);
+		const inReplyTo = normalizeMessageId(thread.inReplyToExternalMessageId) ?? thread.inReplyToExternalMessageId;
+		const rootMessageId = normalizeMessageId(thread.conversationKey) ?? inReplyTo;
+		const references = [...new Set([rootMessageId, inReplyTo])];
+		const ownMessageId = outboundMessageId(this.correlatorSecret, this.mailDomain, { tenantId: message.tenantId, messageId: message.messageId, bindingId: binding.bindingId });
+		const { routeAddress } = splitPlusTag(botAddress);
+		const at = routeAddress.lastIndexOf("@");
+		const tag = channelCorrelatorTag(this.correlatorSecret, message.tenantId, message.channelId);
+		const replyToAddress = at <= 0 ? routeAddress : `${routeAddress.slice(0, at)}+${tag}${routeAddress.slice(at)}`;
+		const wrapped = (id: string): string => `<${id}>`;
+		const subject = replySubject(thread.subject);
+		return {
+			provider: "email",
+			recipientExternalId: recipient,
+			conversationKey: thread.conversationKey,
+			inReplyToExternalMessageId: inReplyTo,
+			subject,
+			text: this.boundedReplyText(message.body),
+			headers: {
+				From: routeAddress,
+				To: recipient,
+				"Reply-To": replyToAddress,
+				Date: message.createdAt.toUTCString(),
+				"Message-ID": wrapped(ownMessageId),
+				"In-Reply-To": wrapped(inReplyTo),
+				References: references.map(wrapped).join(" "),
+				"Auto-Submitted": "auto-replied",
+				"X-Chatticus-Origin": this.mailDomain,
+				"X-Chatticus-Hops": "1",
+			},
+		};
 	}
 
-	async deliver(_payload: OutboundPayload, _binding: TransportBinding, _idempotencyKey: string): Promise<DeliveryReceipt> {
-		throw new Error("The email transport sends mail in the SES adapter task, not in the inbound parser");
+	private boundedReplyText(body: string): string {
+		if (body.length <= MAXIMUM_BODY_BYTES) return body;
+		const cut = body.slice(0, MAXIMUM_BODY_BYTES).replace(/[\ud800-\udbff]$/, "");
+		return `${cut.trimEnd()}\n\n[This reply was cut at ${MAXIMUM_BODY_BYTES.toLocaleString("en-US")} characters. Read all of it in Chatticus: ${this.webAppBaseUrl}/chat]`;
 	}
 
-	parseStatus(_raw: RawInbound): DeliveryStatusEvent[] {
-		throw new Error("The email transport reads delivery status in the SES adapter task, not in the inbound parser");
+	async deliver(payload: OutboundPayload, binding: TransportBinding, idempotencyKey: string): Promise<DeliveryReceipt> {
+		const earlier = this.receiptsByIdempotencyKey.get(idempotencyKey);
+		if (earlier !== undefined) return earlier;
+		const recipient = payload.recipientExternalId;
+		const fromAddress = payload.headers["From"] ?? "";
+		if (!isSingleAddress(recipient) || !isSingleAddress(fromAddress)) throw new TransportDeliveryError("permanent", "invalid_recipient");
+		if (await this.suppressionList.isSuppressed(binding.tenantId, binding.bindingId, recipient)) throw new TransportDeliveryError("suppressed", "recipient_suppressed");
+		const rawMessage = outboundMimeBytes({ headers: Object.entries(payload.headers), subject: payload.subject ?? "", text: payload.text });
+		let providerMessageId: string;
+		try {
+			providerMessageId = (await this.mailClient.sendRawEmail({ fromAddress, destinations: [recipient], rawMessage, configurationSetName: this.configurationSetName })).messageId;
+		} catch (error) {
+			throw classifiedSendFailure(error);
+		}
+		const externalMessageId = normalizeMessageId(payload.headers["Message-ID"] ?? "") ?? "";
+		const receipt: DeliveryReceipt = { providerMessageId, externalMessageId };
+		this.receiptsByIdempotencyKey.set(idempotencyKey, receipt);
+		return receipt;
+	}
+
+	parseStatus(raw: RawInbound): DeliveryStatusEvent[] {
+		return this.statusFacts(raw).map((fact) => fact.event);
+	}
+
+	/**
+	 * The status events of one SES notification together with the addresses each one suppresses. The suppression is a
+	 * side effect, so it belongs to the callback processor and not to the pure `parseStatus`.
+	 *
+	 * @param raw The notification exactly as the SNS subscription delivered it.
+	 * @returns The facts, in order.
+	 */
+	statusFacts(raw: RawInbound): SesStatusFact[] {
+		return sesStatusFacts(raw.body);
+	}
+}
+
+const SINGLE_ADDRESS_PATTERN = /^[^\s<>(),;:"\\[\]@]+@[^\s<>(),;:"\\[\]@]+$/;
+
+function isSingleAddress(address: string): boolean {
+	return SINGLE_ADDRESS_PATTERN.test(address);
+}
+
+function classifiedSendFailure(error: unknown): TransportDeliveryError {
+	if (!(error instanceof SesSendError)) return new TransportDeliveryError("retryable", "ses_unavailable");
+	switch (error.kind) {
+		case "throttled":
+			return new TransportDeliveryError("retryable", "ses_throttled");
+		case "unavailable":
+			return new TransportDeliveryError("retryable", "ses_unavailable");
+		case "sandbox_unverified_recipient":
+			return new TransportDeliveryError("permanent", "sandbox_recipient_not_verified");
+		case "suppressed":
+			return new TransportDeliveryError("suppressed", "ses_account_suppressed");
+		case "rejected":
+			return new TransportDeliveryError("permanent", "ses_rejected");
 	}
 }

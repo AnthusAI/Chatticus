@@ -13,9 +13,13 @@ in this order.
 4. `external_outbound_delivery.feature` -- the one outbound path: replies follow the origin of the prompt, are sent once,
    and are tracked through retries and provider callbacks.
 
+5. `email_inbound_parsing.feature` and `email_threading.feature` -- the email transport reads a message, and a thread is one channel.
+6. `email_message_rendering.feature` -- a reply is one plain text mail that threads, says it is automated, and is recognized if it
+   comes back.
+7. `email_delivery_status.feature` -- what SES answers is classified, and a bounce or complaint suppresses the address.
+
 Planned and not yet written, in the order they will join the story:
 
-- Email parsing and threading, and email rendering, against the same port.
-- The SES adapter, its ingress and event Lambdas, and the sandbox proof.
+- The SES client, its ingress and event Lambdas, and the sandbox proof.
 - Trust classes, quarantine, loop prevention, limits and the owner panel.
 - Slack, then Teams, then text messages.
