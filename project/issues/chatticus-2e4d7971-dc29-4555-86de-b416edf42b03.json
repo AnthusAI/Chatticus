@@ -36,10 +36,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-legacy-retire"
       }
+    },
+    {
+      "id": "c2127b31-0b59-4cb1-9c9c-34409bddc5b7",
+      "author": "home",
+      "text": "Legacy retirement 2026-10-26: dev.chattic.us and auth-dev.chattic.us records removed from the management chattic.us zone (backup saved locally, details in chatticus-c7e113); legacy ChatticusWeb and ChatticusAuth stacks deleted; live sites verified 200 throughout. ChatticusThinTurn is the only legacy dev stack left; it was skipped because its recent front-door traffic was an unknown scanner rather than proven own traffic.",
+      "created_at": "2026-10-26T11:03:04.761970Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-30T19:07:56.375945Z",
-  "updated_at": "2026-10-25T15:51:36.960228Z",
+  "updated_at": "2026-10-26T11:03:04.761994Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

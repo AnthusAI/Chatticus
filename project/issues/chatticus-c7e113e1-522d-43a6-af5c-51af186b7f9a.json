@@ -34,10 +34,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-legacy-retire"
       }
+    },
+    {
+      "id": "fdc1ad53-c107-4728-be9c-a8bf2fb98466",
+      "author": "home",
+      "text": "Legacy retirement run 2026-10-26 (owner approved handling the two legacy dev DNS records). DNS: the delegated chattic.us zone lives in the management account; its dev.chattic.us and auth-dev.chattic.us records (A and AAAA each, four record sets) were backed up with the full zone to chatticus-local/ route53-management-chattic-us-backup-20261026.json and then deleted; nothing else touched. Copies of the same names in the undelegated ChatticusDns zone were stack-managed and vanished with their stacks. DELETED (DELETE_COMPLETE, one at a time): ChatticusWeb, then ChatticusAuth (dev Cognito pool had 5 users; list saved to chatticus-local/ legacy-dev-userpool-users-20261026.json; no exports or importers). chattic.us, hey.chattic.us, develop.chattic.us and staging.chattic.us returned 200 before and after each deletion. Secret chatticus/development/oauth/google scheduled for deletion (30 day window, ends 2026-11-25); no remaining stack references it. SKIPPED: ChatticusThinTurn. Its 106 front-door invocations came from a single internet scanner IP probing paths like /admin, /.env and metadata-service proxies, all answered 404; they are not ours and not real use, but the rule was to skip when not provably ours, so the stack remains (messaging table not yet backed up). Owner can confirm deletion of ChatticusThinTurn (and its dev InvokeKey and OperatorKey secrets) after back-up. Still pending: ChatticusThinTurnProduction (eligible after 2026-10-29), ChatticusMarketing and its distribution, Python intake, ChatticusDns zone. Restore: DNS via aws route53 change-resource-record-sets CREATE using the records_to_delete array in the backup file; secret via aws secretsmanager restore-secret within the window.",
+      "created_at": "2026-10-26T11:03:04.642042Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-15T17:21:28.154450Z",
-  "updated_at": "2026-10-25T15:51:36.472607Z",
+  "updated_at": "2026-10-26T11:03:29.626070Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
