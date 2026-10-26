@@ -17,6 +17,9 @@ const ARNS: StoreArns = {
 	piSessionsBucket: "arn:aws:s3:::pi-sessions",
 	snapshotBucket: "arn:aws:s3:::snapshots",
 	channelEventBus: "arn:aws:events:us-east-1:111122223333:event-bus/default",
+	rawMailBucket: "arn:aws:s3:::raw-mail",
+	mailIdentity: "arn:aws:ses:us-east-1:111122223333:identity/mail.example.test",
+	mailConfigurationSet: "arn:aws:ses:us-east-1:111122223333:configuration-set/outbound",
 };
 
 const rows = loadRoleAccessManifest();
@@ -30,7 +33,7 @@ describe("the role access manifest file", () => {
 		for (const row of rows) {
 			expect(ACCESS_ROLES).toContain(row.role);
 			expect(ACCESS_STORES).toContain(row.store);
-			const servicePrefix = isBucketStore(row.store) ? "s3:" : row.store === "channelEventBus" ? "events:" : "dynamodb:";
+			const servicePrefix = isBucketStore(row.store) ? "s3:" : row.store === "channelEventBus" ? "events:" : row.store === "mailIdentity" || row.store === "mailConfigurationSet" ? "ses:" : "dynamodb:";
 			expect(row.action.startsWith(servicePrefix)).toBe(true);
 		}
 	});

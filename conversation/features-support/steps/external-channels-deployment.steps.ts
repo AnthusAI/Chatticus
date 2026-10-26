@@ -4,8 +4,10 @@ import type { PutEventsCommand } from "@aws-sdk/client-eventbridge";
 import type { GetParameterCommand } from "@aws-sdk/client-ssm";
 import type { EventPutter } from "../../src/channels/eventbridge-publisher.ts";
 import {
+	CHANNELS_CONFIGURATION_SET_NAME_VARIABLE,
 	CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME_VARIABLE,
 	CHANNELS_EVENT_BUS_NAME_VARIABLE,
+	CHANNELS_WEB_APP_BASE_URL_VARIABLE,
 	CHANNELS_KILL_SWITCH_VARIABLE,
 	CHANNELS_MAIL_DOMAIN_VARIABLE,
 	ChannelsRuntimeHolder,
@@ -50,6 +52,8 @@ function standardEnvironmentOf(state: DeploymentState, parameterName: string): v
 		[CHANNELS_MAIL_DOMAIN_VARIABLE]: DEPLOYED_MAIL_DOMAIN,
 		[CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME_VARIABLE]: parameterName,
 		[CHANNELS_EVENT_BUS_NAME_VARIABLE]: "default",
+		[CHANNELS_CONFIGURATION_SET_NAME_VARIABLE]: "chatticus-test-outbound",
+		[CHANNELS_WEB_APP_BASE_URL_VARIABLE]: "https://hey.example.test",
 	};
 }
 
@@ -113,6 +117,8 @@ Given("the deployment is broken by {string}", function (this: ChatticusWorld, br
 	else if (breakage === "an empty secret parameter") state.parameters.set(SECRET_PARAMETER_NAME, "");
 	else if (breakage === "a missing secret parameter name") delete state.environment[CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME_VARIABLE];
 	else if (breakage === "a missing event bus name") delete state.environment[CHANNELS_EVENT_BUS_NAME_VARIABLE];
+	else if (breakage === "a missing configuration set name") delete state.environment[CHANNELS_CONFIGURATION_SET_NAME_VARIABLE];
+	else if (breakage === "a missing web app base URL") delete state.environment[CHANNELS_WEB_APP_BASE_URL_VARIABLE];
 	else assert.fail(`Unknown breakage ${breakage}`);
 });
 
@@ -225,4 +231,10 @@ Then("the bus event does not contain the answer text or the sender", function (t
 	const detail = lastBusEntry(this).Detail ?? "";
 	assert.ok(!detail.includes("The research is done."));
 	assert.ok(!detail.includes("sam.sender"));
+});
+
+Then("the composed runtime has an email transport", function (this: ChatticusWorld) {
+	const runtime = channelsScenarioOf(this).deployment?.holder.current;
+	assert.ok(runtime, "The deployment built no runtime");
+	assert.equal(runtime.transports.get("email")?.provider, "email");
 });

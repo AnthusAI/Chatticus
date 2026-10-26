@@ -31,6 +31,8 @@ Feature: A deployed environment builds external channels only where it is config
       | CHATTICUS_CHANNELS_MAIL_DOMAIN                       | mail.develop.example.test                |
       | CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME  | /chatticus/test/channels/correlator-secret |
       | CHATTICUS_CHANNELS_EVENT_BUS_NAME                    | default                                  |
+      | CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME            | chatticus-test-outbound                  |
+      | CHATTICUS_CHANNELS_WEB_APP_BASE_URL                  | https://hey.example.test                 |
     When the deployment composes external channels
     And the operator switches external channels on for the organization "Anthus Labs"
     And "ryan@example.com" chooses the mail handle "anthus" for "Anthus Labs"
@@ -110,6 +112,11 @@ Feature: A deployed environment builds external channels only where it is config
     Then no delivery was recorded
     And the event bus received 0 events
 
+  Scenario: The composed runtime delivers email through the real transport and not through a missing one
+    Given the deployment releases the kill switch
+    When the deployment composes external channels
+    Then the composed runtime has an email transport
+
   Scenario: The plus-tag secret is read from its parameter by the exact name and no other parameter is read
     Given the deployment releases the kill switch
     When the deployment composes external channels
@@ -137,6 +144,8 @@ Feature: A deployed environment builds external channels only where it is config
       | an empty secret parameter          | /chatticus/test/channels/correlator-secret          |
       | a missing secret parameter name    | CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME |
       | a missing event bus name           | CHATTICUS_CHANNELS_EVENT_BUS_NAME                   |
+      | a missing configuration set name   | CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME           |
+      | a missing web app base URL         | CHATTICUS_CHANNELS_WEB_APP_BASE_URL                 |
 
   Scenario: A transient parameter read failure heals on the next interval without a redeploy
     Given the deployment releases the kill switch

@@ -19,24 +19,22 @@ import { createApp } from "../http/app.ts";
 import { LambdaOwnerCredentialBroker, OWNER_CREDENTIAL_BROKER_FUNCTION_NAME_VARIABLE } from "../computer/lambda-owner-credential-broker.ts";
 import type { ModelGatewayDependencies } from "../gateway/model-gateway.ts";
 import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
-import { MessageBodyCache } from "../pi/message-cache.ts";
 import { SnapshotFileService } from "../snapshot/files.ts";
 import { S3SnapshotStore } from "../snapshot/s3.ts";
 import { S3OverlayStore } from "../snapshot/overlay-store.ts";
 import { StoreOverlayAuditSink } from "../domain/file-audit.ts";
-import type { CommitObject } from "../storage/indexed-storage.ts";
 import { DynamoComputerActionStore } from "../store/action-store.ts";
 import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoPolicyStore } from "../store/policy-store.ts";
-import { DynamoTurnAdmission } from "../store/turn-admission-store.ts";
 import { DynamoTurnControlStore } from "../store/turn-store.ts";
 import { DynamoGatewayObservationSink } from "../ledger/gateway-observation.ts";
 import { DynamoModelSpendReader, monthlyModelSpendCeilingUsdFrom } from "../ledger/model-spend.ts";
 import { createOpenAiModels } from "../turn/openai-models.ts";
-import { SqsComputerStartQueue, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
+import { SqsComputerStartQueue } from "../turn/sqs-queues.ts";
 import { ModelUserUnderstanding } from "../voice/understanding.ts";
 import type { EventPutter } from "../channels/eventbridge-publisher.ts";
 import { ChannelsRuntimeHolder, composeChannelsRuntime } from "./channels-composition.ts";
+import { composeMessageDependencies } from "./message-dependencies.ts";
 import { resolveOpenAiApiKey, type ParameterReader } from "./openai-key.ts";
 
 /** The AWS clients the front door is composed from; tests inject fakes or emulator-backed clients. */
@@ -241,20 +239,7 @@ export async function composeFrontDoorApp(
 		clock,
 		ids,
 		store,
-		messages: {
-			mailbox: { client, tableName: messagingTableName },
-			turns: new DynamoTurnAdmission(client, messagingTableName),
-			turnRuns: new SqsTurnRunQueue(clients.sqs, requiredIn(environment, "CHATTICUS_TURN_RUNS_QUEUE_URL")),
-			turnProbes: new SqsTurnProbeQueue(clients.sqs, requiredIn(environment, "CHATTICUS_TURN_PROBES_QUEUE_URL")),
-			listing: {
-				client,
-				s3: clients.s3,
-				messagingTableName,
-				conversationsTableName: requiredIn(environment, "CHATTICUS_CONVERSATIONS_TABLE"),
-				bucket: requiredIn(environment, "CHATTICUS_PI_SESSIONS_BUCKET"),
-				commitCache: new MessageBodyCache<Promise<CommitObject>>(),
-			},
-		},
+		messages: composeMessageDependencies(environment, { dynamo: client, s3: clients.s3, sqs: clients.sqs }, messagingTableName),
 		voice: {
 			understanding: new ModelUserUnderstanding(createOpenAiModels()),
 			ledger: { client, tableName: messagingTableName, prices, now: () => new Date() },

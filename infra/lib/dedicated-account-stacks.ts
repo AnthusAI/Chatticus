@@ -169,8 +169,18 @@ export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccoun
       mailDomain: MAIL_DOMAINS[environmentName],
       receiptRuleSet: mailIngress.ruleSet,
       delegationParentZone: MAIL_DELEGATED_FROM_SITE_ZONE[environmentName] ? zones.siteZone : undefined,
+      application: {
+        messagingTable: thinTurn.messagingTable,
+        conversationsTable: controlPlane.conversationsTable,
+        piSessionsBucket: controlPlane.piSessionsBucket,
+        turnRunsQueue: controlPlane.turnRunsQueue,
+        turnProbesQueue: controlPlane.turnProbesQueue,
+        alarmTopic: controlPlane.alarmTopic,
+        webAppBaseUrl: `https://${hostnames.siteDomain}`,
+      },
       description: `Mail zone, SES identity, receipt rule, raw mail bucket and outbound configuration set (${environmentName}).`,
     });
     mail.addDependency(mailIngress);
+    mail.addDependency(controlPlane);
   }
 }

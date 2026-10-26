@@ -19,6 +19,11 @@ The turn executor Lambda is a fourth role, `turnExecutor`: its one row is `event
 EventBridge bus of the reply-delivery event), and it is denied the three secret parameters. It makes no recorded request, so the
 coverage hook has nothing to match for it.
 
+The three mail functions are three more roles in the mail stack: `mailIngress` (`s3:GetObject` on the raw mail prefix), `mailDelivery`
+(`ses:SendEmail` on the domain identity and the configuration set, the `mailIdentity` and `mailConfigurationSet` stores) and `mailStatus`.
+Each also reads the channel partition of the Messaging table, and each is denied the operator key and the gateway signing key. The
+post-deploy simulation reads their roles from `ChatticusMailDevelopment` and skips them where no mail stack exists.
+
 The roles: `frontDoor` (the Front Door Lambda role, all of its CDK grants and the snapshot statements), `ownerTurn` (the
 per-turn owner role, `owner-role-policy.json`), `supervisor` (`supervisor-role-policy.json`).
 

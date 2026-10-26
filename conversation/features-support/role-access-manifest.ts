@@ -20,6 +20,9 @@ export const FIXED_STORE_ARNS: StoreArns = {
 	piSessionsBucket: "arn:aws:s3:::pi-sessions",
 	snapshotBucket: "arn:aws:s3:::snapshots",
 	channelEventBus: "arn:aws:events:us-east-1:111122223333:event-bus/default",
+	rawMailBucket: "arn:aws:s3:::raw-mail",
+	mailIdentity: "arn:aws:ses:us-east-1:111122223333:identity/mail.scenario.invalid",
+	mailConfigurationSet: "arn:aws:ses:us-east-1:111122223333:configuration-set/scenario-outbound",
 };
 
 /**

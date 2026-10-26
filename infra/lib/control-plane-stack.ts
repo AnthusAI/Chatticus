@@ -24,8 +24,10 @@ import {
   CHANNELS_EVENT_BUS_NAME,
   ChatticusCloudEnvironment,
   KANBUS_BOARD_ENVIRONMENTS,
+  ENVIRONMENT_HOSTNAMES,
   MAIL_DOMAINS,
   channelsCorrelatorSecretParameterName,
+  mailConfigurationSetName,
   mailEnabled,
   integrationTestParameterPrefix,
   invokeKeySecretArnParameterName,
@@ -45,7 +47,7 @@ import { GeneratedSecureString } from "./generated-secure-string";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 import { frontDoorSnapshotPolicyStatements } from "./owner-role-policy";
 
-const CREATE_REQUIRE_BANNER =
+export const CREATE_REQUIRE_BANNER =
   'import { createRequire as topLevelCreateRequire } from "module"; ' +
   "const require = topLevelCreateRequire(import.meta.url);";
 
@@ -459,6 +461,8 @@ export class ControlPlaneStack extends cdk.Stack {
         }),
       );
       frontDoorFunction.addEnvironment("CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME", channelsCorrelatorSecret.parameterName);
+      frontDoorFunction.addEnvironment("CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME", mailConfigurationSetName(environmentName));
+      frontDoorFunction.addEnvironment("CHATTICUS_CHANNELS_WEB_APP_BASE_URL", `https://${ENVIRONMENT_HOSTNAMES[environmentName].siteDomain}`);
       for (const target of [frontDoorFunction, turnExecutorFunction]) {
         target.addEnvironment("CHATTICUS_CHANNELS_MAIL_DOMAIN", MAIL_DOMAINS[environmentName]);
         target.addEnvironment("CHATTICUS_CHANNELS_EVENT_BUS_NAME", CHANNELS_EVENT_BUS_NAME);

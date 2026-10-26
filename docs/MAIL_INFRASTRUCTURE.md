@@ -1,8 +1,8 @@
 # Mail infrastructure (external channels, milestone 1)
 
 This is the AWS side of email for external channels (see `docs/EXTERNAL_CHANNELS.md`). It is CDK only, in `infra/lib/mail-ingress-stack.ts` and
-`infra/lib/mail-stack.ts`. The ingress Lambda, the event Lambda and the SES transport adapter are M1.8; the wiring of the channels runtime into
-the deployed front door is M1.7a. Alarms arrive with the Lambdas.
+`infra/lib/mail-stack.ts`. The three mail Lambdas (ingress, delivery, status) are M1.8 and live in the per-environment mail stack; the wiring of the channels
+runtime into the deployed front door is M1.7a.
 
 ## Shape
 
@@ -13,8 +13,14 @@ the deployed front door is M1.7a. Alarms arrive with the Lambdas.
 - `ChatticusMailDevelopment` (per environment): a retained public hosted zone for the mail domain, an SES domain identity with Easy DKIM and a
   custom MAIL FROM subdomain (`bounce.` below the mail domain), a DMARC record at `p=none` for the mail subdomain only, MX records for the bare
   mail name and a wildcard below it pointing at the SES inbound endpoint, one private raw mail bucket, one receipt rule for this environment's
-  domain with an S3 action under `raw/`, and the outbound configuration set `chatticus-development-outbound` whose send, bounce, complaint,
-  delivery and reject events go to one SNS topic.
+  domain with two actions in order (the S3 action under `raw/` first, then an asynchronous Lambda action that invokes the ingress function),
+  and the outbound configuration set `chatticus-development-outbound` whose send, bounce, complaint, delivery and reject events go to one
+  SNS topic that signs with signature version 2.
+- The three functions, each with its own role, its own dead-letter queue (failed asynchronous invocations run again twice, then land there with the
+  error), an errors alarm and a dead-letter alarm to the environment's alarm topic: `MailIngress` (receipt rule action; reads `raw/*`, admits the message),
+  `MailDelivery` (target of the default-bus rule for `chatticus.channels` / `channel.message.created`; `ses:SendEmail` on the domain identity and
+  the configuration set only) and `MailStatus` (subscribed to the topic; verifies the SNS signature, certificate host and topic ARN, then records
+  the status). The raw archive stays the system of record: a message that landed in a dead-letter queue is replayed from `raw/<ses message id>`.
 - Raw mail is kept 30 days, then expired by a lifecycle rule. The bucket is private, encrypted with S3 managed keys, TLS only, and retained on
   stack delete. SES may put objects under `raw/` only for this account and this one receipt rule.
 - The existing `chattic.us` SES identity is owned by the marketing site (private `Chattic.us-web`, which sends waitlist mail from it). Nothing
@@ -33,6 +39,22 @@ management account change is needed. Production mail uses `mail.chattic.us`, whi
 through the management DNS stack. It is not built or performed by any task in M1.
 
 ## Deploy
+
+The mail stack imports the stores, queues and alarm topic of the same environment's control plane, the Messaging table of thin-turn and the
+site zone, as CloudFormation exports. Merging to develop starts the control plane workflow and the mail workflow together, so the mail
+workflow's first step, `infra/wait-for-control-plane-exports.sh`, waits (every 30 seconds, at most 40 minutes) until every stack the mail template
+imports from is in `CREATE_COMPLETE` or `UPDATE_COMPLETE` and exposes the export names the mail template needs, read from the synthesized template so
+the list cannot drift. It needs no secret and no permission beyond `cloudformation:DescribeStacks`, since an export is an output of its stack. On
+timeout it fails with the stacks that were not ready. Adding the Lambda action to the live rule is safe: the function and the permission that lets
+the rule invoke it are created before the rule is updated, the S3 action stays first, and a failed update leaves the old rule in place.
+
+**Export-lock hazard.** CloudFormation refuses to change or remove an exported value while another stack imports it. A control plane change that
+alters an exported value (replacing the conversations table, the PiSessions bucket, a queue or the alarm topic) fails until the mail stack is
+deployed without the import first. Treat those resources as fixed while mail imports them, or deploy mail without the import before the change.
+
+**Staging and production.** Before mail is enabled there, the mail stack must stop importing from the application stacks: pass the stores, queues
+and topic by SSM parameters or by deterministic names that the application stacks publish, so the stacks deploy in any order and no export lock
+exists. Do not extend `MAIL_ENVIRONMENTS` until that is done.
 
 `.github/workflows/deploy-mail-development.yml` runs on push to `develop`, with OIDC role assumption and no new secrets. It deploys
 `ChatticusMailIngress` first and `ChatticusMailDevelopment` second, each by name through

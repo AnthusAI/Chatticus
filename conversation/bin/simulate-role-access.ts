@@ -62,7 +62,15 @@ const ROLE_LOGICAL_ID_PATTERNS: Record<AccessRole, RegExp> = {
 	ownerTurn: /^ComputerOwnerScopedRole[0-9A-F]+$/,
 	supervisor: /^ComputerSupervisorRole[0-9A-F]+$/,
 	turnExecutor: /^TurnExecutorServiceRole[0-9A-F]+$/,
+	mailIngress: /^LambdasMailIngressServiceRole[0-9A-F]+$/,
+	mailDelivery: /^LambdasMailDeliveryServiceRole[0-9A-F]+$/,
+	mailStatus: /^LambdasMailStatusServiceRole[0-9A-F]+$/,
 };
+
+/** The mail stack of each environment that has one; its three functions hold the mail roles. Staging and production have none while mail is development only. */
+const MAIL_STACKS: Record<string, string | undefined> = { development: "ChatticusMailDevelopment" };
+
+const MAIL_ROLES: readonly AccessRole[] = ["mailIngress", "mailDelivery", "mailStatus"];
 
 class UsageError extends Error {}
 
@@ -81,12 +89,25 @@ async function main(): Promise<void> {
 	const resources =
 		(await new CloudFormationClient({ region: REGION }).send(new DescribeStackResourcesCommand({ StackName: CONTROL_PLANE_STACKS[environment]! }))).StackResources ?? [];
 
-	const roleArns = {} as Record<AccessRole, string>;
+	const mailStackName = MAIL_STACKS[environment];
+	const mailResources =
+		mailStackName === undefined ? [] : ((await new CloudFormationClient({ region: REGION }).send(new DescribeStackResourcesCommand({ StackName: mailStackName }))).StackResources ?? []);
+
+	const roleArns: Partial<Record<AccessRole, string>> = {};
 	for (const role of Object.keys(ROLE_LOGICAL_ID_PATTERNS) as AccessRole[]) {
-		const match = resources.find((resource) => resource.ResourceType === "AWS::IAM::Role" && ROLE_LOGICAL_ID_PATTERNS[role].test(resource.LogicalResourceId ?? ""));
-		if (match?.PhysicalResourceId === undefined) throw new Error(`The ${CONTROL_PLANE_STACKS[environment]} stack has no role for ${role}.`);
+		const isMailRole = MAIL_ROLES.includes(role);
+		if (isMailRole && mailStackName === undefined) continue;
+		const match = (isMailRole ? mailResources : resources).find((resource) => resource.ResourceType === "AWS::IAM::Role" && ROLE_LOGICAL_ID_PATTERNS[role].test(resource.LogicalResourceId ?? ""));
+		if (match?.PhysicalResourceId === undefined) throw new Error(`The ${isMailRole ? mailStackName : CONTROL_PLANE_STACKS[environment]} stack has no role for ${role}.`);
 		roleArns[role] = `arn:aws:iam::${account}:role/${match.PhysicalResourceId}`;
 	}
+	const mailFunctionVariables = async (logicalIdPattern: RegExp): Promise<Record<string, string | undefined>> => {
+		const found = mailResources.find((resource) => resource.ResourceType === "AWS::Lambda::Function" && logicalIdPattern.test(resource.LogicalResourceId ?? ""));
+		if (found?.PhysicalResourceId === undefined) return {};
+		return (await new LambdaClient({ region: REGION }).send(new GetFunctionConfigurationCommand({ FunctionName: found.PhysicalResourceId }))).Environment?.Variables ?? {};
+	};
+	const ingressVariables = await mailFunctionVariables(/^LambdasMailIngress[0-9A-F]+$/);
+	const deliveryVariables = await mailFunctionVariables(/^LambdasMailDelivery[0-9A-F]+$/);
 
 	const frontDoor = resources.find((resource) => resource.ResourceType === "AWS::Lambda::Function" && /^FrontDoor[0-9A-F]+$/.test(resource.LogicalResourceId ?? ""));
 	if (frontDoor?.PhysicalResourceId === undefined) throw new Error("The stack has no FrontDoor function.");
@@ -102,14 +123,19 @@ async function main(): Promise<void> {
 		piSessionsBucket: `arn:aws:s3:::${variable("CHATTICUS_PI_SESSIONS_BUCKET")}`,
 		snapshotBucket: `arn:aws:s3:::${variable("CHATTICUS_SNAPSHOT_BUCKET")}`,
 		channelEventBus: `arn:aws:events:${REGION}:${account}:event-bus/${variables["CHATTICUS_CHANNELS_EVENT_BUS_NAME"] ?? ""}`,
+		rawMailBucket: `arn:aws:s3:::${ingressVariables["CHATTICUS_CHANNELS_RAW_MAIL_BUCKET"] ?? ""}`,
+		mailIdentity: `arn:aws:ses:${REGION}:${account}:identity/${deliveryVariables["CHATTICUS_CHANNELS_MAIL_DOMAIN"] ?? ""}`,
+		mailConfigurationSet: `arn:aws:ses:${REGION}:${account}:configuration-set/${deliveryVariables["CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME"] ?? ""}`,
 	};
 	const eventsEnabled = variables["CHATTICUS_CHANNELS_EVENT_BUS_NAME"] !== undefined;
-	const rows = loadRoleAccessManifest().filter((row) => row.store !== "channelEventBus" || eventsEnabled);
+	const simulated = (role: AccessRole): boolean => roleArns[role] !== undefined;
+	const rows = loadRoleAccessManifest().filter((row) => simulated(row.role) && (row.store !== "channelEventBus" || eventsEnabled));
+	const denials = loadRoleAccessDenials().filter((denial) => simulated(denial.role));
 
 	const iam = new IAMClient({ region: REGION, maxAttempts: IAM_MAX_ATTEMPTS, retryMode: "adaptive" });
 	const groups = simulationGroupsOf([
 		...simulationCasesOf(rows, arns),
-		...denialSimulationCasesOf(loadRoleAccessDenials(), secretParameterArnsOf(REGION, account ?? "", environment)),
+		...denialSimulationCasesOf(denials, secretParameterArnsOf(REGION, account ?? "", environment)),
 	]);
 	const delayMilliseconds = delayMillisecondsOf(process.env);
 	const results: SimulationResult[] = [];
@@ -121,7 +147,7 @@ async function main(): Promise<void> {
 		do {
 			const response = await iam.send(
 				new SimulatePrincipalPolicyCommand({
-					PolicySourceArn: roleArns[group.role],
+					PolicySourceArn: roleArns[group.role]!,
 					ActionNames: [...group.actions],
 					ResourceArns: [group.resourceArn],
 					ContextEntries: group.contextEntries.map((entry) => ({ ...entry, ContextKeyValues: [...entry.ContextKeyValues] })),

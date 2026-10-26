@@ -257,8 +257,19 @@ export function channelsCorrelatorSecretParameterName(
   return `/chatticus/${environment}/channels/correlator-secret`;
 }
 
+/** The SES configuration set every outbound mail of an environment goes through; its events reach the mail events topic. */
+export function mailConfigurationSetName(environment: ChatticusCloudEnvironment): string {
+  return `chatticus-${environment}-outbound`;
+}
+
 /** The EventBridge bus that carries the reply-delivery event: the account's default bus, the one the routine wake-ups use. */
 export const CHANNELS_EVENT_BUS_NAME = "default";
+
+/** The source of every channel event on the bus; the delivery rule matches it together with the detail type. */
+export const CHANNELS_EVENT_SOURCE = "chatticus.channels";
+
+/** The detail type of the event that announces a reply owed to an external transport. */
+export const CHANNELS_MESSAGE_CREATED_DETAIL_TYPE = "channel.message.created";
 
 export function webParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/web`;

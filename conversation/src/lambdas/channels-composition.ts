@@ -1,12 +1,17 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
+import { SESv2Client } from "@aws-sdk/client-sesv2";
 import { GetParameterCommand } from "@aws-sdk/client-ssm";
 import type { ReplyDeliveryRecorder } from "../channels/delivery.ts";
 import { EventBridgeChannelEventPublisher, gatedReplyDeliveryRecorder, type EventPutter } from "../channels/eventbridge-publisher.ts";
+import { EmailChannelTransport } from "../channels/email/email-transport.ts";
+import type { SesMailClient } from "../channels/email/ses-mail-client.ts";
+import { SesV2MailClient } from "../channels/email/ses-v2-mail-client.ts";
 import type { ChannelMetrics } from "../channels/metrics.ts";
 import type { ChannelsRuntime, ChannelsRuntimeSource } from "../channels/runtime.ts";
 import type { ChannelTransport, TransportProvider } from "../channels/transport.ts";
 import { DynamoChannelStore } from "../store/channel-store.ts";
+import { DynamoRecipientSuppressionList } from "../store/recipient-suppression-store.ts";
 import type { ParameterReader } from "./openai-key.ts";
 
 /** Names the mail domain of the environment. External channels exist in a deployment only where this is set. */
@@ -18,6 +23,12 @@ export const CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME_VARIABLE = "CHATTICUS_CHA
 /** Names the EventBridge bus that receives the reply-delivery event. Required wherever the mail domain is set. */
 export const CHANNELS_EVENT_BUS_NAME_VARIABLE = "CHATTICUS_CHANNELS_EVENT_BUS_NAME";
 
+/** Names the SES configuration set every outbound mail goes through. Required wherever the mail domain is set. */
+export const CHANNELS_CONFIGURATION_SET_NAME_VARIABLE = "CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME";
+
+/** Names the base URL of the web app, used in the link of a reply that was cut. Required wherever the mail domain is set. */
+export const CHANNELS_WEB_APP_BASE_URL_VARIABLE = "CHATTICUS_CHANNELS_WEB_APP_BASE_URL";
+
 /** Names the environment kill switch: `engaged` or `released`. Absent means engaged, so nothing is admitted or delivered until a deployment releases it. */
 export const CHANNELS_KILL_SWITCH_VARIABLE = "CHATTICUS_CHANNELS_KILL_SWITCH";
 
@@ -27,6 +38,8 @@ export type ChannelsAwsClients = {
 	readonly parameters: ParameterReader;
 	/** Built from the Lambda's own role when absent. */
 	readonly events?: EventPutter;
+	/** Built from the Lambda's own role when absent. */
+	readonly mail?: SesMailClient;
 };
 
 const named = (environment: Record<string, string | undefined>, name: string): string => {
@@ -88,6 +101,8 @@ export async function composeChannelsRuntime(
 	if (mailDomain === "") return null;
 	const secretParameterName = named(environment, CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME_VARIABLE);
 	const eventBusName = named(environment, CHANNELS_EVENT_BUS_NAME_VARIABLE);
+	const configurationSetName = named(environment, CHANNELS_CONFIGURATION_SET_NAME_VARIABLE);
+	const webAppBaseUrl = named(environment, CHANNELS_WEB_APP_BASE_URL_VARIABLE);
 	const response = await clients.parameters.send(new GetParameterCommand({ Name: secretParameterName, WithDecryption: true }));
 	const correlatorSecret = response.Parameter?.Value ?? "";
 	if (correlatorSecret === "") throw new Error(`The SSM parameter ${secretParameterName} has no value.`);
@@ -97,7 +112,20 @@ export async function composeChannelsRuntime(
 		mailDomain,
 		allowedProviders: ["email"] satisfies TransportProvider[],
 		killSwitchEngaged: killSwitchEngagedIn(environment),
-		transports: new Map<TransportProvider, ChannelTransport>(),
+		transports: new Map<TransportProvider, ChannelTransport>([
+			[
+				"email",
+				new EmailChannelTransport({
+					mailDomain,
+					metrics,
+					correlatorSecret,
+					mailClient: clients.mail ?? new SesV2MailClient(new SESv2Client({})),
+					configurationSetName,
+					suppressionList: new DynamoRecipientSuppressionList(clients.dynamo, messagingTableName),
+					webAppBaseUrl,
+				}),
+			],
+		]),
 		correlatorSecret,
 		events: new EventBridgeChannelEventPublisher(eventsOf(clients), eventBusName),
 		metrics,

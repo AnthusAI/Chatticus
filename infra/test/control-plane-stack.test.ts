@@ -573,6 +573,8 @@ describe("ControlPlaneStack", () => {
         CHATTICUS_CHANNELS_MAIL_DOMAIN: "mail.develop.chattic.us",
         CHATTICUS_CHANNELS_EVENT_BUS_NAME: "default",
         CHATTICUS_CHANNELS_KILL_SWITCH: "released",
+        CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME: "chatticus-development-outbound",
+        CHATTICUS_CHANNELS_WEB_APP_BASE_URL: "https://develop.chattic.us",
       });
     });
 

@@ -188,3 +188,6 @@ features/email_threading.feature
 features/external_channels_deployment.feature
 features/email_message_rendering.feature
 features/email_delivery_status.feature
+features/email_ses_ingress.feature
+features/email_ses_delivery.feature
+features/email_ses_events.feature

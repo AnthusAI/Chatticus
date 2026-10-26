@@ -29,6 +29,9 @@ export function recordedRequestsByRole(world: ChatticusWorld): Readonly<Record<A
 		ownerTurn: recordedOwnerRequestsOf(world),
 		supervisor: recordedSupervisorRequestsOf(world),
 		turnExecutor: [],
+		mailIngress: [],
+		mailDelivery: [],
+		mailStatus: [],
 	};
 }
 

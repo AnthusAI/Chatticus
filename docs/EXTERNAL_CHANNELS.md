@@ -596,8 +596,9 @@ What exists, so a later reader does not have to infer it from the code:
   and the HTTP message payload renders it as `origin`. Its absence means the web app.
 - **Delivery.** `commitFinalAnswer` records the delivery and publishes an event with the tenant, message and binding ids
   only. The delivery handler, the sweeper (five attempts, a three minute stale age) and the provider status path are
-  functions of `delivery.ts`; the rule that invokes the delivery handler, the Lambda entry points and the scheduler arrive
-  with the SES adapter and Lambdas task (M1.8), because no delivery handler Lambda exists yet.
+  functions of `delivery.ts`. The delivery function (`lambdas/mail-delivery.ts`) is the target of an EventBridge rule on the default
+  bus for source `chatticus.channels` and detail type `channel.message.created`; a delivery left retryable fails the invocation so
+  the platform retries it twice. The sweeper has no scheduler yet: a reply whose retries ran out stays retryable until one exists.
 - **Deployment wiring.** `lambdas/channels-composition.ts` builds the runtime from environment variables. External
   channels exist in a deployment exactly where `CHATTICUS_CHANNELS_MAIL_DOMAIN` is set, which the control plane stack
   does where the mail stack is built (development only). The same deployment must name the event bus
@@ -607,8 +608,17 @@ What exists, so a later reader does not have to infer it from the code:
   `CHATTICUS_CHANNELS_KILL_SWITCH`, engaged when absent; development releases it, and the per-organization switch decides
   the rest. The turn executor records a reply delivery and publishes the `channel.message.created` event through a
   recorder that checks both switches on every reply; its role holds `events:PutEvents` on the default bus and nothing
-  else on events. The transport map is empty until M1.8: the email adapter needs an SES client, a configuration set, a suppression list and the
-  web app base URL, and the ingress and event Lambdas that own those construct it.
+  else on events. The runtime registers the email transport, built from the SES v2 client of the function's own role, the configuration set
+  (`CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME`), the DynamoDB suppression list and the web app base URL
+  (`CHATTICUS_CHANNELS_WEB_APP_BASE_URL`); both variables are required wherever the mail domain is set.
+- **The mail functions (M1.8).** Three Lambdas in the mail stack, each with its own role, dead-letter queue and alarms.
+  The ingress function is the second action of the environment's receipt rule, after the S3 action, invoked asynchronously; it reads
+  `raw/<ses message id>`, takes the SPF, DKIM, DMARC, spam and virus verdicts from the receipt event, never from the message, and calls
+  `ingestInbound`. It fails, so that the platform retries, for a message another invocation claimed and has not finished, and for a
+  message whose archive object is missing; anything refused or dropped for a lasting reason is counted and the invocation succeeds.
+  The status function is subscribed to the configuration set's SNS topic (signature version 2) and verifies every notification
+  before `applyEmailStatusCallback` reads it. A Lambda subscription is confirmed by the platform, so a subscription confirmation
+  is never accepted and never fetched.
 - **Same-organization access to a channel.** A member who is not a participant of an external channel is refused with
   403 by the same participant check every channel uses, not 404. A caller who is not a member of the organization at all
   is refused with 403 by the organization membership check every organization route uses, with the same answer for an
@@ -627,11 +637,16 @@ What exists, so a later reader does not have to infer it from the code:
   or a complaint adds the recipient to the binding's suppression, which `deliver` checks before it asks SES. Transient bounces change
   nothing. There is no SES SDK client and no Lambda yet; the Dynamo suppression list is `store/recipient-suppression-store.ts`.
 
-### Preconditions for the SES ingress (M1.8)
+### Preconditions for the SES ingress (M1.8, met by `email/sns-signature.ts` and `email/mail-status-handler.ts`)
 
 `applyEmailStatusCallback` trusts the notification body it is given. Verifying the SNS signature, the signing certificate host and the
 topic ARN is a hard precondition of the ingress that calls it (M1.8), not an optional hardening step: without it, anyone who knows a
-message id can forge a bounce or a complaint for that reply. As defense in depth the processor suppresses only the address the
+message id can forge a bounce or a complaint for that reply. The status function checks, in order: the type is a notification, a
+signature is present, the signature version is 1 or 2, the certificate address is `https://sns.<region>.amazonaws.com/` with the plain
+`SimpleNotificationService-<id>.pem` path and no port, credentials or query, the topic ARN (and the subscription ARN) is the configured
+topic, the timestamp is within two hours back and five minutes forward, and the signature verifies over the canonical string with
+the fetched certificate's key. A rejection is counted as `status_event_rejected` with its reason and is not retried; a certificate that
+cannot be fetched fails the invocation so it is retried. A replay inside the window is harmless because applying a status is idempotent. As defense in depth the processor suppresses only the address the
 reply was sent to and ignores every other address a notification names, and a bounced or complained delivery is final, so a late
 delivery notification cannot revert it.
 
@@ -649,9 +664,8 @@ delivery notification cannot revert it.
 These are decided, observed and deliberately left open in milestone 1. Each has a board task.
 
 - **In-flight inbound.** While a message is claimed and not yet completed, a repeated delivery of it is dropped as
-  `in_flight` and counted as `inbound_duplicate`. The ingress for a real provider must answer that case with a non-2xx
-  status so the provider retries after the claim lease (60 seconds); answering 2xx would lose the message if the first
-  attempt died. The core reports `in_flight`; the ingress must map it.
+  `in_flight` and counted as `inbound_duplicate`. The mail ingress function maps that case to a failed invocation, so the
+  platform retries after the claim lease (60 seconds; the first asynchronous retry runs about a minute later).
 - **Finalize crash window.** `commitFinalAnswer` commits the reply and then records the delivery and publishes the
   event. A crash between the commit and the delivery record leaves a committed reply with no owed delivery, and the
   sweeper cannot see it because it lists open deliveries only. Closing the window needs the delivery recorded in the same
