@@ -15,9 +15,22 @@
       "type": "relates-to"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b99c0e54-2074-4285-a580-7d8cc4591f10",
+      "author": "home",
+      "text": "Legacy marketing distribution E2KIMGDJ4DW3XZ disabled 2026-10-26 at 14:03 UTC, status Deployed at 14:05 UTC. Aliases: none. Config backup (no secrets) saved in the local backup folder as cloudfront-legacy-E2KIMGDJ4DW3XZ-config-backup-20261026.json. Verified chattic.us, www.chattic.us and hey.chattic.us return 200 after the change. Do not delete anything before 2026-11-02 (7 days). Re-enable: get-distribution-config for the id, set Enabled true, update-distribution with the ETag (the backup file holds the original config) in the legacy account.",
+      "created_at": "2026-10-26T14:06:05.294768Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-consolidation2"
+      }
+    }
+  ],
   "created_at": "2026-10-26T12:21:53.919545Z",
-  "updated_at": "2026-10-26T12:21:53.996892Z",
+  "updated_at": "2026-10-26T14:06:05.295055Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

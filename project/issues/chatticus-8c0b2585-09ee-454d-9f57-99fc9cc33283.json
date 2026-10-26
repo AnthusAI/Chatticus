@@ -15,9 +15,22 @@
       "type": "relates-to"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8fd0b6f4-ab45-406d-b328-8ffa49851c0c",
+      "author": "home",
+      "text": "On-demand backup chatticus-legacy-retire-production-messaging-20261026 taken 2026-10-26 on the legacy production messaging table: status AVAILABLE, 97 items, 28149 bytes. No cross-account copy, no standing cross-account policy. Table deletion is not allowed before 2026-10-29. Restore: aws dynamodb restore-table-from-backup into a new legacy table. Lead parity already confirmed (chatticus-eb508a).",
+      "created_at": "2026-10-26T14:06:05.355628Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-consolidation2"
+      }
+    }
+  ],
   "created_at": "2026-10-26T12:21:54.079522Z",
-  "updated_at": "2026-10-26T12:21:54.153909Z",
+  "updated_at": "2026-10-26T14:06:05.355911Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
