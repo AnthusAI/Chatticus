@@ -29,10 +29,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-m1-5"
       }
+    },
+    {
+      "id": "e4b7850a-1d02-42db-9120-50d40d30f967",
+      "author": "home",
+      "text": "PR 644 open into develop, not merged. Both features pass (51 scenarios), full cucumber 2181 passed, vitest and infra green. Added postal-mime 4.0.5. Decisions for review: only a passing DMARC verdict authenticates (DKIM alone refused until M2); unknown charsets fall back to windows-1252 and are read. M1.8 must supply ChannelsRuntime.correlatorSecret. Status stays in progress until review and merge.",
+      "created_at": "2026-10-26T12:44:05.299864Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-5"
+      }
     }
   ],
   "created_at": "2026-10-22T03:57:49.735092Z",
-  "updated_at": "2026-10-26T12:28:17.968021Z",
+  "updated_at": "2026-10-26T12:44:05.300405Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
