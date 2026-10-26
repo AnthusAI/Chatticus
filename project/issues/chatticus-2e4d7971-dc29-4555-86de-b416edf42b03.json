@@ -48,10 +48,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "c55ad7eb-9263-4e08-ba15-5a3401b06198",
+      "author": "home",
+      "text": "Legacy retirement 2026-10-26: ChatticusThinTurn (legacy dev) deleted after an on-demand table backup; all legacy dev stacks (Web, Auth, ThinTurn) are now gone and live sites kept returning 200. Details in chatticus-c7e113.",
+      "created_at": "2026-10-26T11:06:24.340755Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-09-30T19:07:56.375945Z",
-  "updated_at": "2026-10-26T11:03:04.761994Z",
+  "updated_at": "2026-10-26T11:06:24.340782Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

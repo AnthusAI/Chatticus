@@ -46,10 +46,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-bookkeeper"
       }
+    },
+    {
+      "id": "1b68f3c6-3755-4e26-9047-b360f22fb45f",
+      "author": "home",
+      "text": "ChatticusThinTurn (legacy dev) deleted 2026-10-26 after the coordinator accepted the traffic finding (106 requests from one scanner address, all 404). Before deletion the messaging table (5185 items) was backed up on demand as chatticus-legacy-retire-dev-messaging-20261026, status AVAILABLE, in the legacy account. No stack imported its exports. The stack's DeletionPolicy was Delete, so the table, both queues and the dev InvokeKey and OperatorKey secrets went with it (nothing retained, unlike the staging stack); nothing was left to schedule. Live sites returned 200 before and after. Restore: aws dynamodb restore-table-from-backup --profile legacy --target-table-name NEW_NAME --backup-arn ARN_OF_THE_NAMED_BACKUP. Remaining legacy Chatticus stacks: ThinTurnProduction (eligible after 2026-10-29), Marketing and its distribution, Dns, Computers, Snapshots, Budgets, GitHubDeploy.",
+      "created_at": "2026-10-26T11:06:24.274547Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-bookkeeper"
+      }
     }
   ],
   "created_at": "2026-10-15T17:21:28.154450Z",
-  "updated_at": "2026-10-26T11:03:29.626070Z",
+  "updated_at": "2026-10-26T11:06:24.274578Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
