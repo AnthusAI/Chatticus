@@ -231,3 +231,74 @@ Feature: An email thread is one Chatticus channel
     Then the message was dropped as "unlinked_sender"
     And "sam@example.com" has 1 channel of kind "external" in "Anthus Labs"
     And that channel has 1 message
+
+  Scenario: A member who references another member's message id gets no access to that thread
+    Given an email arrives:
+      | from        | sam.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Sam's plan                                       |
+      | id          | sam-root@mail.example.test                       |
+      | body        | A thread that belongs to Sam                     |
+    When an email arrives:
+      | from        | ada.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Re: Sam's plan                                   |
+      | id          | ada-1@mail.example.test                          |
+      | in-reply-to | sam-root@mail.example.test                       |
+      | references  | sam-root@mail.example.test                       |
+      | body        | I know the message id                            |
+    Then the message was dropped as "sender_not_in_conversation"
+    And "ada@example.com" has 0 channels of kind "external" in "Anthus Labs"
+    And "sam@example.com" has 1 channel of kind "external" in "Anthus Labs"
+    And that channel has 1 message
+
+  Scenario: A plus tag from another organization finds nothing in this one
+    Given the organization "Other House" has the owner "olive@example.org"
+    And the organization "Other House" has the bot "Assistant"
+    And external channels are switched on for the organization "Other House"
+    And "olive@example.org" has chosen the mail handle "otherhouse" for "Other House"
+    And "olive@example.org" has created an email binding for the bot "Assistant" in "Other House"
+    And the email sender "olive.sender@example.test" is linked to "olive@example.org" in "Other House"
+    And an email arrives:
+      | from        | sam.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Quarterly plan                                   |
+      | id          | root-1@mail.example.test                         |
+      | body        | Where do we start?                               |
+    And the plus tag of the external channel of "sam@example.com" in "Anthus Labs" is known
+    When an email arrives:
+      | from        | olive.sender@example.test                        |
+      | to          | assistant+{tag}@otherhouse.mail.develop.example.test |
+      | subject     | Borrowed tag                                     |
+      | id          | olive-1@mail.example.test                        |
+      | body        | I have a tag from another house                  |
+    Then the message was admitted
+    And "olive@example.org" has 1 channel of kind "external" in "Other House"
+    And "sam@example.com" has 1 channel of kind "external" in "Anthus Labs"
+    And that channel has 1 message
+
+  Scenario: Two senders who use the same message id are two messages and neither can suppress the other
+    Given an email arrives:
+      | from        | sam.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Sam's plan                                       |
+      | id          | shared-id@mail.example.test                      |
+      | body        | Sam writes first                                 |
+    When an email arrives:
+      | from        | ada.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Ada's plan                                       |
+      | id          | shared-id@mail.example.test                      |
+      | body        | Ada reuses Sam's message id                      |
+    Then the message was admitted
+    And "ada@example.com" has 1 channel of kind "external" in "Anthus Labs"
+    When an email arrives:
+      | from        | sam.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Re: Sam's plan                                   |
+      | id          | sam-reply@mail.example.test                      |
+      | in-reply-to | shared-id@mail.example.test                      |
+      | body        | Sam replies in his own thread                    |
+    Then the message was admitted
+    And "sam@example.com" has 1 channel of kind "external" in "Anthus Labs"
+    And that channel has 2 messages

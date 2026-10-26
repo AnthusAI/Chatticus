@@ -101,7 +101,9 @@ export async function admitInbound(deps: AdmissionDependencies, transport: Chann
 	const membership = link === null ? null : await deps.messaging.getMembership(binding.tenantId, link.userId);
 	if (link === null || membership === null) return dropped(runtime, "unlinked_sender", "inbound_unlinked_sender", { provider: event.provider });
 
-	const claim = await runtime.store.claimInbound(binding.tenantId, binding.bindingId, event.externalMessageId, deps.clock.now(), INBOUND_CLAIM_LEASE_SECONDS);
+	const senderExternalId = event.sender.externalId.trim().toLowerCase();
+	const dedupeKey = `${senderExternalId}|${event.externalMessageId}`;
+	const claim = await runtime.store.claimInbound(binding.tenantId, binding.bindingId, dedupeKey, deps.clock.now(), INBOUND_CLAIM_LEASE_SECONDS);
 	if (claim.kind === "in_flight") return dropped(runtime, "in_flight", "inbound_duplicate");
 	if (claim.kind === "done") {
 		runtime.metrics.count("inbound_duplicate", { provider: event.provider });
@@ -137,11 +139,13 @@ export async function admitInbound(deps: AdmissionDependencies, transport: Chann
 		authorId: link.userId,
 		body: event.text,
 		addressedToBotId: binding.botId,
-		idempotencyKey: `external:${binding.bindingId}:${event.externalMessageId}`,
+		idempotencyKey: `external:${binding.bindingId}:${dedupeKey}`,
 		origin,
 	});
-	await runtime.store.putMessageChannel(binding.tenantId, binding.bindingId, event.externalMessageId, channel.channelId);
-	await runtime.store.completeInbound(binding.tenantId, binding.bindingId, event.externalMessageId, {
+	if ((await runtime.store.getMessageChannel(binding.tenantId, binding.bindingId, event.externalMessageId)) === null) {
+		await runtime.store.putMessageChannel(binding.tenantId, binding.bindingId, event.externalMessageId, channel.channelId);
+	}
+	await runtime.store.completeInbound(binding.tenantId, binding.bindingId, dedupeKey, {
 		channelId: channel.channelId,
 		messageId: posted.message.messageId,
 		turnId: posted.turnId,

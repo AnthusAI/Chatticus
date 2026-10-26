@@ -1,5 +1,6 @@
-import PostalMime from "postal-mime";
-import type { Address, Email } from "postal-mime";
+import PostalMime, { addressParser } from "postal-mime";
+import type { Address, Email, PostalMimeOptions } from "postal-mime";
+import type { ChannelMetrics } from "../metrics.ts";
 import type {
 	AttachmentReference,
 	ChannelTransport,
@@ -15,6 +16,7 @@ import type {
 	TransportCapabilities,
 	VerifiedInbound,
 } from "../transport.ts";
+import { sanitizedAttachmentFileName, sanitizedContentType } from "./attachment-metadata.ts";
 import { automationHintsFromHeaders } from "./automation-headers.ts";
 import {
 	ancestorMessageIds,
@@ -52,6 +54,42 @@ export const NO_TEXT_PLACEHOLDER = "(This message has no text.)";
 export const TRUNCATION_NOTICE = "[Message cut at 100 KB; the full original message is kept in the raw mail archive.]";
 
 const MAXIMUM_DISPLAY_NAME_CHARACTERS = 200;
+const MAXIMUM_SCANNED_CONTENT_TYPES = 1000;
+
+/** The limits handed to the MIME parser so that one hostile message cannot cost more than a bounded amount of work. */
+export const PARSER_LIMITS: PostalMimeOptions = {
+	maxHeadersSize: 131_072,
+	maxNestingDepth: 16,
+	maxPartCount: 200,
+	maxRfc822NestingDepth: 2,
+};
+
+const knownCharsets = new Map<string, boolean>();
+
+function charsetIsKnown(label: string): boolean {
+	let known = knownCharsets.get(label);
+	if (known === undefined) {
+		try {
+			new TextDecoder(label);
+			known = true;
+		} catch {
+			known = false;
+		}
+		knownCharsets.set(label, known);
+	}
+	return known;
+}
+
+function declaresUnknownCharset(rawMessage: string): boolean {
+	let scanned = 0;
+	for (const header of rawMessage.matchAll(/^content-type:[^\r\n]*(?:\r?\n[ \t][^\r\n]*)*/gim)) {
+		scanned += 1;
+		if (scanned > MAXIMUM_SCANNED_CONTENT_TYPES) return false;
+		const label = /charset\s*=\s*"?([^\s";]+)/i.exec(header[0])?.[1];
+		if (label !== undefined && !charsetIsKnown(label.toLowerCase())) return true;
+	}
+	return false;
+}
 
 /** The verdicts and identifiers the mail receiver attached to one raw message. */
 export interface InboundMailEnvelope {
@@ -91,6 +129,7 @@ export function emailInboundRequest(rawMessage: Uint8Array, envelope: InboundMai
 /** A message the transport verified and parsed; the payload of its `VerifiedInbound`. */
 export interface ParsedInboundEmail {
 	readonly email: Email;
+	readonly sender: Mailbox;
 	readonly envelopeRecipients: readonly string[];
 	readonly providerMessageId: string | null;
 }
@@ -102,7 +141,8 @@ const refuse = (reason: EmailRefusalReason): InboundRefusal => ({ kind: "refused
 
 const isVerdict = (value: string | undefined, expected: string): boolean => value?.trim().toUpperCase() === expected;
 
-interface Mailbox {
+/** One address with its decoded display name. */
+export interface Mailbox {
 	readonly name: string;
 	readonly address: string;
 }
@@ -117,6 +157,15 @@ function mailboxesOf(addresses: readonly Address[] | undefined): Mailbox[] {
 		}
 	}
 	return mailboxes.filter((mailbox) => mailbox.address.includes("@"));
+}
+
+function soleSender(email: Email): Mailbox | null {
+	const fromHeaders = email.headers.filter((header) => header.key === "from");
+	if (fromHeaders.length !== 1) return null;
+	const parsed = addressParser(fromHeaders[0]!.value);
+	const only = parsed[0];
+	if (parsed.length !== 1 || only === undefined || only.group !== undefined || only.address === undefined || !only.address.includes("@")) return null;
+	return { name: only.name, address: only.address };
 }
 
 function cleanedDisplayName(name: string): string | null {
@@ -135,7 +184,7 @@ function attachmentMetadata(email: Email): AttachmentReference[] {
 	return email.attachments.map((attachment) => {
 		const content = attachment.content;
 		const sizeBytes = typeof content === "string" ? Buffer.byteLength(content) : content.byteLength;
-		return { storageKey: null, fileName: attachment.filename ?? "", contentType: attachment.mimeType, sizeBytes };
+		return { storageKey: null, fileName: sanitizedAttachmentFileName(attachment.filename), contentType: sanitizedContentType(attachment.mimeType), sizeBytes };
 	});
 }
 
@@ -161,11 +210,13 @@ export class EmailChannelTransport implements ChannelTransport {
 	};
 	private readonly mailDomainSuffix: string;
 	private readonly maximumRawMessageBytes: number;
+	private readonly metrics: ChannelMetrics;
 
 	/**
-	 * @param options The environment's mail domain, which tells bot addresses from every other address, and an optional size limit.
+	 * @param options The environment's mail domain, which tells bot addresses from every other address, the metrics sink, and an optional size limit.
 	 */
-	constructor(options: { readonly mailDomain: string; readonly maximumRawMessageBytes?: number }) {
+	constructor(options: { readonly mailDomain: string; readonly metrics: ChannelMetrics; readonly maximumRawMessageBytes?: number }) {
+		this.metrics = options.metrics;
 		this.mailDomainSuffix = `.${options.mailDomain.trim().toLowerCase()}`;
 		this.maximumRawMessageBytes = options.maximumRawMessageBytes ?? MAXIMUM_RAW_MESSAGE_BYTES;
 	}
@@ -178,24 +229,25 @@ export class EmailChannelTransport implements ChannelTransport {
 		if (!isVerdict(raw.headers[EMAIL_INBOUND_HEADERS.dmarcVerdict], "PASS")) return refuse("sender_not_authenticated");
 		let email: Email;
 		try {
-			email = await PostalMime.parse(Buffer.from(raw.body, "latin1"));
+			email = await PostalMime.parse(Buffer.from(raw.body, "latin1"), PARSER_LIMITS);
 		} catch {
 			return refuse("malformed_message");
 		}
-		if (mailboxesOf(email.from === undefined ? undefined : [email.from])[0] === undefined) return refuse("malformed_message");
+		const sender = soleSender(email);
+		if (sender === null) return refuse("malformed_message");
+		if (declaresUnknownCharset(raw.body)) this.metrics.count("inbound_charset_fallback", { provider: "email" });
 		const providerMessageId = raw.headers[EMAIL_INBOUND_HEADERS.providerMessageId] ?? null;
 		if (normalizeMessageId(email.messageId ?? "") === null && providerMessageId === null) return refuse("missing_message_id");
 		const envelopeRecipients = (raw.headers[EMAIL_INBOUND_HEADERS.envelopeRecipients] ?? "")
 			.split(",")
 			.map(normalizeEmailAddress)
 			.filter((address) => address !== "");
-		const payload: ParsedInboundEmail = { email, envelopeRecipients, providerMessageId };
+		const payload: ParsedInboundEmail = { email, sender, envelopeRecipients, providerMessageId };
 		return { kind: "verified", provider: "email", payload, receivedAt: raw.receivedAt, rawReference: raw.headers[EMAIL_INBOUND_HEADERS.rawReference] ?? null };
 	}
 
 	normalize(verified: VerifiedInbound): InboundEvent[] {
-		const { email, envelopeRecipients, providerMessageId } = verified.payload as ParsedInboundEmail;
-		const sender = mailboxesOf(email.from === undefined ? undefined : [email.from])[0]!;
+		const { email, sender, envelopeRecipients, providerMessageId } = verified.payload as ParsedInboundEmail;
 		const senderAddress = normalizeEmailAddress(sender.address);
 		const ownMessageId = normalizeMessageId(email.messageId ?? "") ?? `${providerMessageId ?? ""}@inbound.invalid`;
 		const inReplyTo = messageIdsOfHeader(email.inReplyTo);
@@ -204,7 +256,11 @@ export class EmailChannelTransport implements ChannelTransport {
 		const toAddresses = mailboxesOf(email.to).map((mailbox) => normalizeEmailAddress(mailbox.address));
 		const ccAddresses = mailboxesOf(email.cc).map((mailbox) => normalizeEmailAddress(mailbox.address));
 		const isBotAddress = (address: string): boolean => splitPlusTag(address).routeAddress.endsWith(this.mailDomainSuffix);
-		const routed = [...toAddresses, ...ccAddresses, ...envelopeRecipients].find(isBotAddress) ?? toAddresses[0] ?? envelopeRecipients[0] ?? "";
+		const deliveredBotAddresses = envelopeRecipients.filter(isBotAddress);
+		const routed =
+			deliveredBotAddresses.find((delivered) => toAddresses.some((address) => splitPlusTag(address).routeAddress === splitPlusTag(delivered).routeAddress)) ??
+			deliveredBotAddresses[0] ??
+			"";
 		const { routeAddress, tag } = splitPlusTag(routed);
 		const routeKeys = (addresses: readonly string[]): string[] => [...new Set(addresses.map((address) => splitPlusTag(address).routeAddress))];
 

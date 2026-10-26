@@ -5,6 +5,7 @@ import { channelCorrelatorTag } from "../../src/channels/channel-correlator.ts";
 import { EmailChannelTransport, emailInboundRequest, type InboundMailEnvelope } from "../../src/channels/email/email-transport.ts";
 import { listMessages } from "../../src/domain/messages.ts";
 import { ingestInbound } from "../../src/channels/inbound-admission.ts";
+import type { ChannelMetrics } from "../../src/channels/metrics.ts";
 import type { ChannelTransport, InboundEvent, RawInbound } from "../../src/channels/transport.ts";
 import { identityOfPerson, tenantIdOfOrganization } from "../bot-board-support.ts";
 import { SCENARIO_CORRELATOR_SECRET, admissionDependenciesFor, channelsScenarioOf, requiredChannelsRuntime } from "../channels-support.ts";
@@ -16,6 +17,7 @@ type Verdicts = { spf: string; dkim: string; dmarc: string; spam: string; virus:
 const PASSING_VERDICTS: Verdicts = { spf: "PASS", dkim: "PASS", dmarc: "PASS", spam: "PASS", virus: "PASS" };
 
 type EmailScenario = {
+	lastElapsedMilliseconds: number;
 	verdicts: Verdicts;
 	readonly events: InboundEvent[];
 	knownTag: string | null;
@@ -27,7 +29,7 @@ const emailScenarios = new WeakMap<ChatticusWorld, EmailScenario>();
 function emailScenarioOf(world: ChatticusWorld): EmailScenario {
 	let scenario = emailScenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { verdicts: PASSING_VERDICTS, events: [], knownTag: null, fetchCalls: 0 };
+		scenario = { lastElapsedMilliseconds: 0, verdicts: PASSING_VERDICTS, events: [], knownTag: null, fetchCalls: 0 };
 		emailScenarios.set(world, scenario);
 	}
 	return scenario;
@@ -36,8 +38,8 @@ function emailScenarioOf(world: ChatticusWorld): EmailScenario {
 class RecordingEmailTransport extends EmailChannelTransport {
 	private readonly recorded: InboundEvent[];
 
-	constructor(mailDomain: string, recorded: InboundEvent[]) {
-		super({ mailDomain });
+	constructor(mailDomain: string, metrics: ChannelMetrics, recorded: InboundEvent[]) {
+		super({ mailDomain, metrics });
 		this.recorded = recorded;
 	}
 
@@ -85,12 +87,13 @@ async function deliverLastEmailRequest(world: ChatticusWorld): Promise<void> {
 	const scenario = channelsScenarioOf(world);
 	const email = emailScenarioOf(world);
 	assert.ok(scenario.lastRequest, "No request has been made");
-	const transport: ChannelTransport = new RecordingEmailTransport(scenario.mailDomain, email.events);
+	const transport: ChannelTransport = new RecordingEmailTransport(scenario.mailDomain, requiredChannelsRuntime(world).metrics, email.events);
 	const originalFetch = globalThis.fetch;
 	globalThis.fetch = (async () => {
 		email.fetchCalls += 1;
 		throw new Error("The email adapter must never fetch remote content");
 	}) as typeof fetch;
+	const startedAt = performance.now();
 	try {
 		const result = await ingestInbound(await admissionDependenciesFor(world), transport, scenario.lastRequest as RawInbound);
 		if (result.kind === "refused") {
@@ -100,6 +103,7 @@ async function deliverLastEmailRequest(world: ChatticusWorld): Promise<void> {
 		scenario.lastRefusal = null;
 		scenario.outcomes.push(...result.outcomes);
 	} finally {
+		email.lastElapsedMilliseconds = performance.now() - startedAt;
 		globalThis.fetch = originalFetch;
 	}
 }
@@ -139,7 +143,7 @@ function rawEmailOfTable(world: ChatticusWorld, table: DataTable, bodyOverride?:
 	for (const extra of (row["headers"] ?? "").split(";;").map((entry) => entry.trim()).filter((entry) => entry !== "")) lines.push(extra);
 	const body = bodyOverride ?? (row["body"] ?? "").replace(/\\n/g, "\n");
 	const raw = crlf(`${lines.join("\n")}\n\n${body}`);
-	const recipients = [row["to"], row["cc"], row["bcc"]].flatMap((value) => addressesIn(withTag(value) ?? ""));
+	const recipients = (row["envelope"] === undefined ? [row["to"], row["cc"], row["bcc"]] : [row["envelope"]]).flatMap((value) => addressesIn(withTag(value) ?? ""));
 	return { raw, recipients };
 }
 
@@ -179,6 +183,21 @@ When("a raw email of {int} megabytes arrives", async function (this: ChatticusWo
 	const head = Buffer.from(crlf("From: sam.sender@example.test\nTo: researcher@anthus.mail.develop.example.test\nSubject: Huge\nMessage-ID: <huge-1@mail.example.test>\n\n"), "latin1");
 	const padding = Buffer.alloc(megabytes * 1024 * 1024, 0x61);
 	await deliverRaw(this, Buffer.concat([head, padding]), []);
+});
+
+When("an HTML email made of {int} repeats of {string} arrives", async function (this: ChatticusWorld, repeats: number, fragment: string) {
+	const head = "From: sam.sender@example.test\nTo: researcher@anthus.mail.develop.example.test\nSubject: Hostile\nMessage-ID: <hostile-1@mail.example.test>\nContent-Type: text/html; charset=utf-8\n\n";
+	await deliverRaw(this, Buffer.from(crlf(head + fragment.replaceAll("{space}", " ").repeat(repeats)), "latin1"), ["researcher@anthus.mail.develop.example.test"]);
+});
+
+When("a raw email with a subject of {int} encoded words arrives", async function (this: ChatticusWorld, words: number) {
+	const subject = "=?UTF-8?B?QQ==?= ".repeat(words);
+	const head = `From: sam.sender@example.test\nTo: researcher@anthus.mail.develop.example.test\nSubject: ${subject}\nMessage-ID: <words-1@mail.example.test>\n\nBody\n`;
+	await deliverRaw(this, Buffer.from(crlf(head), "latin1"), ["researcher@anthus.mail.develop.example.test"]);
+});
+
+Then("the email was processed within {int} seconds", function (this: ChatticusWorld, seconds: number) {
+	assert.ok(emailScenarioOf(this).lastElapsedMilliseconds < seconds * 1000, `Took ${Math.round(emailScenarioOf(this).lastElapsedMilliseconds)} ms`);
 });
 
 When("the same email request is delivered {int} more times", async function (this: ChatticusWorld, times: number) {

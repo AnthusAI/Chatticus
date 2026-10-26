@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { channelCorrelatorTag, correlatorTagMatchesChannel } from "../src/channels/channel-correlator.ts";
+import { UNKNOWN_CONTENT_TYPE, sanitizedAttachmentFileName, sanitizedContentType } from "../src/channels/email/attachment-metadata.ts";
 import { automationHintsFromHeaders } from "../src/channels/email/automation-headers.ts";
 import {
 	MAXIMUM_REFERENCED_MESSAGE_IDS,
@@ -156,5 +157,23 @@ describe("automation headers", () => {
 			listMail: false,
 			ownOrigin: false,
 		});
+	});
+});
+
+describe("attachment metadata", () => {
+	it("keeps only a clean base name", () => {
+		expect(sanitizedAttachmentFileName("../../etc/passwd")).toBe("passwd");
+		expect(sanitizedAttachmentFileName("C:\\Users\\a\\report.pdf")).toBe("report.pdf");
+		expect(sanitizedAttachmentFileName("pass\u0000wd\n")).toBe("passwd");
+		expect(sanitizedAttachmentFileName("..")).toBe("");
+		expect(sanitizedAttachmentFileName(null)).toBe("");
+		expect(sanitizedAttachmentFileName("x".repeat(400))).toHaveLength(255);
+	});
+
+	it("keeps a well formed media type and replaces anything else with the generic binary type", () => {
+		expect(sanitizedContentType("Application/PDF")).toBe("application/pdf");
+		expect(sanitizedContentType("text/plain\u0000")).toBe("text/plain");
+		expect(sanitizedContentType("not a type")).toBe(UNKNOWN_CONTENT_TYPE);
+		expect(sanitizedContentType("")).toBe(UNKNOWN_CONTENT_TYPE);
 	});
 });

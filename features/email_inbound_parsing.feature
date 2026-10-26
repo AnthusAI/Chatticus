@@ -470,6 +470,7 @@ Feature: A raw inbound email becomes one provider-neutral message
       Plain words survive.
       """
     Then the message was admitted
+    And the counter "inbound_charset_fallback" was counted 1 time
     And the latest message on the external channel of "sam@example.com" in "Anthus Labs" contains "Plain words survive."
 
   Scenario Outline: Malformed mail is refused and counted and never throws
@@ -504,3 +505,121 @@ Feature: A raw inbound email becomes one provider-neutral message
     When a raw email of 41 megabytes arrives
     Then the email was refused as "message_too_large"
     And the counter "inbound_refused" was counted 1 time
+
+  Scenario Outline: Hostile HTML cannot hold a worker
+    When an HTML email made of 60000 repeats of "<fragment>" arrives
+    Then the email was processed within 2 seconds
+
+    Examples:
+      | fragment       |
+      | <script{space}      |
+      | <!--                |
+      | <a{space}href=x>    |
+      | <blockquote>        |
+      | <                   |
+
+  Scenario: A header with tens of thousands of encoded words is refused fast and counted
+    When a raw email with a subject of 40000 encoded words arrives
+    Then the email was refused as "malformed_message"
+    And the email was processed within 2 seconds
+    And the counter "inbound_refused" was counted 1 time
+
+  Scenario: A message with two From headers is refused as malformed
+    When this raw email arrives:
+      """
+      From: sam.sender@example.test
+      From: ada.sender@example.test
+      To: researcher@anthus.mail.develop.example.test
+      Subject: Whose message is this
+      Message-ID: <two-from-1@mail.example.test>
+      Content-Type: text/plain; charset=utf-8
+
+      Pick a sender.
+      """
+    Then the email was refused as "malformed_message"
+    And the counter "inbound_refused" was counted 1 time
+
+  Scenario: A From header with two mailboxes is refused as malformed
+    When this raw email arrives:
+      """
+      From: sam.sender@example.test, ada.sender@example.test
+      To: researcher@anthus.mail.develop.example.test
+      Subject: Two people
+      Message-ID: <two-box-1@mail.example.test>
+      Content-Type: text/plain; charset=utf-8
+
+      Pick a sender.
+      """
+    Then the email was refused as "malformed_message"
+    And the counter "inbound_refused" was counted 1 time
+
+  Scenario: A From header in group syntax is refused as malformed
+    When this raw email arrives:
+      """
+      From: Team: sam.sender@example.test;
+      To: researcher@anthus.mail.develop.example.test
+      Subject: A group
+      Message-ID: <group-1@mail.example.test>
+      Content-Type: text/plain; charset=utf-8
+
+      Groups are not senders.
+      """
+    Then the email was refused as "malformed_message"
+    And the counter "inbound_refused" was counted 1 time
+
+  Scenario: A verdict header written inside the message proves nothing
+    Given the next email carries the verdicts:
+      | spf   | PASS |
+      | dkim  | PASS |
+      | dmarc | FAIL |
+      | spam  | PASS |
+      | virus | PASS |
+    When this raw email arrives:
+      """
+      From: sam.sender@example.test
+      To: researcher@anthus.mail.develop.example.test
+      Subject: Trust me
+      Message-ID: <forged-1@mail.example.test>
+      X-Inbound-Dmarc-Verdict: PASS
+      Content-Type: text/plain; charset=utf-8
+
+      My own header says I passed.
+      """
+    Then the email was refused as "sender_not_authenticated"
+    And the bot "Researcher" has 0 turns queued
+
+  Scenario: The envelope recipient decides which bot is addressed, not the To header
+    When an email arrives:
+      | from     | sam.sender@example.test                          |
+      | to       | writer@anthus.mail.develop.example.test          |
+      | envelope | researcher@anthus.mail.develop.example.test      |
+      | subject  | Written for one, delivered to the other          |
+      | id       | envelope-1@mail.example.test                     |
+      | body     | Who gets this                                    |
+    Then the message was admitted
+    And the bot "Researcher" has 1 turn queued
+    And the bot "Writer" has 0 turns queued
+
+  Scenario: Attachment names and types are cleaned at the boundary
+    When this raw email arrives:
+      """
+      From: sam.sender@example.test
+      To: researcher@anthus.mail.develop.example.test
+      Subject: A hostile name
+      Message-ID: <attach-3@mail.example.test>
+      MIME-Version: 1.0
+      Content-Type: multipart/mixed; boundary="b1"
+
+      --b1
+      Content-Type: text/plain; charset=utf-8
+
+      See the file.
+      --b1
+      Content-Type: text/plain; name="x"
+      Content-Disposition: attachment; filename*=UTF-8''..%2F..%2Fetc%2Fpass%00wd%0A
+
+      data
+      --b1--
+      """
+    Then the message was admitted
+    And the parsed email lists the attachment "passwd" of type "text/plain" with 4 bytes and no storage key
