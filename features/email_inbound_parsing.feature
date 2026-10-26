@@ -517,6 +517,9 @@ Feature: A raw inbound email becomes one provider-neutral message
       | <a{space}href=x>    |
       | <blockquote>        |
       | <                   |
+      | <a{space}title={quote}   |
+      | <a{space}x={quote}>      |
+      | <p{space}x='>       |
 
   Scenario: A header with tens of thousands of encoded words is refused fast and counted
     When a raw email with a subject of 40000 encoded words arrives
@@ -566,6 +569,66 @@ Feature: A raw inbound email becomes one provider-neutral message
       """
     Then the email was refused as "malformed_message"
     And the counter "inbound_refused" was counted 1 time
+
+  Scenario Outline: A From header that names more than one address or hides one is refused as malformed
+    Given the Messaging table is counted
+    When this raw email arrives:
+      """
+      From: <from>
+      To: researcher@anthus.mail.develop.example.test
+      Subject: Who is this
+      Message-ID: <ambiguous-from-1@mail.example.test>
+      Content-Type: text/plain; charset=utf-8
+
+      Which address did the receiver vouch for.
+      """
+    Then the email was refused as "malformed_message"
+    And the counter "inbound_refused" was counted 1 time
+    And the Messaging table holds the same items as when it was counted
+
+    Examples:
+      | from                                                              |
+      | ada.sender@example.test <sam.sender@example.test>                 |
+      | "ada.sender@example.test" <sam.sender@example.test>               |
+      | Ada ada.sender@example.test <sam.sender@example.test>             |
+      | =?UTF-8?Q?ada.sender=40example.test?= <sam.sender@example.test>   |
+      | <@relay.example.test:sam.sender@example.test>                     |
+      | sam.sender@ada@example.test                                       |
+      | <sam.sender@example.test@example.test>                            |
+
+  Scenario: A display name without an address in it is still a sender
+    When this raw email arrives:
+      """
+      From: "Sam Sender, Labs" <sam.sender@example.test>
+      To: researcher@anthus.mail.develop.example.test
+      Subject: A plain display name
+      Message-ID: <display-name-2@mail.example.test>
+      Content-Type: text/plain; charset=utf-8
+
+      Hello.
+      """
+    Then the message was admitted
+    And the parsed email is from "sam.sender@example.test" with the display name "Sam Sender, Labs"
+
+  Scenario: A closing angle bracket inside a quoted HTML attribute does not leak the attribute as text
+    When this raw email arrives:
+      """
+      From: sam.sender@example.test
+      To: researcher@anthus.mail.develop.example.test
+      Subject: Quoted attributes
+      Message-ID: <html-attr-1@mail.example.test>
+      Content-Type: text/html; charset=utf-8
+
+      <p title="a > LEAKED-TITLE">Visible text</p>
+      <a href='https://docs.example.test/x' data-note='b > LEAKED-NOTE'>the link</a>
+      <img alt="c > LEAKED-ALT" src="https://tracker.example.test/pixel.gif">
+      <p>Done</p>
+      """
+    Then the message was admitted
+    And the latest message on the external channel of "sam@example.com" in "Anthus Labs" contains "Visible text"
+    And the latest message on the external channel of "sam@example.com" in "Anthus Labs" contains "the link (https://docs.example.test/x)"
+    And the latest message on the external channel of "sam@example.com" in "Anthus Labs" contains "Done"
+    And the latest message on the external channel of "sam@example.com" in "Anthus Labs" does not contain "LEAKED"
 
   Scenario: A verdict header written inside the message proves nothing
     Given the next email carries the verdicts:
@@ -623,3 +686,27 @@ Feature: A raw inbound email becomes one provider-neutral message
       """
     Then the message was admitted
     And the parsed email lists the attachment "passwd" of type "text/plain" with 4 bytes and no storage key
+
+  Scenario: Directional and invisible characters are removed from attachment names
+    When this raw email arrives:
+      """
+      From: sam.sender@example.test
+      To: researcher@anthus.mail.develop.example.test
+      Subject: A disguised name
+      Message-ID: <attach-4@mail.example.test>
+      MIME-Version: 1.0
+      Content-Type: multipart/mixed; boundary="b1"
+
+      --b1
+      Content-Type: text/plain; charset=utf-8
+
+      See the file.
+      --b1
+      Content-Type: text/plain; name="x"
+      Content-Disposition: attachment; filename*=UTF-8''invoice%E2%80%AEgpj.%E2%81%A6exe%E2%80%8F%E2%80%8B%EF%BB%BF%C2%AD
+
+      data
+      --b1--
+      """
+    Then the message was admitted
+    And the parsed email lists the attachment "invoicegpj.exe" of type "text/plain" with 4 bytes and no storage key

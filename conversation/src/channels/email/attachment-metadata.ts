@@ -7,14 +7,14 @@ export const UNKNOWN_CONTENT_TYPE = "application/octet-stream";
 
 /**
  * An attachment file name made safe to record and later show or save: directory parts removed, control characters
- * (including NUL) removed, surrounding whitespace trimmed, and the length capped.
+ * (including NUL), bidirectional override and isolate characters and every other invisible format character removed, surrounding whitespace trimmed, and the length capped.
  *
  * @param declared The name the sender's mail client declared, or null.
  * @returns The cleaned base name; empty when nothing usable remains.
  */
 export function sanitizedAttachmentFileName(declared: string | null): string {
 	if (declared === null) return "";
-	const withoutControls = declared.replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
+	const withoutControls = declared.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]|\p{Cf}/gu, "");
 	const baseName = withoutControls.split(/[\\/]/).pop() ?? "";
 	const cleaned = baseName.trim();
 	return cleaned === "." || cleaned === ".." ? "" : cleaned.slice(0, MAXIMUM_FILE_NAME_CHARACTERS);

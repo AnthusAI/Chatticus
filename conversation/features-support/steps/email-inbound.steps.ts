@@ -194,7 +194,7 @@ When("a raw email of {int} megabytes arrives", async function (this: ChatticusWo
 
 When("an HTML email made of {int} repeats of {string} arrives", async function (this: ChatticusWorld, repeats: number, fragment: string) {
 	const head = "From: sam.sender@example.test\nTo: researcher@anthus.mail.develop.example.test\nSubject: Hostile\nMessage-ID: <hostile-1@mail.example.test>\nContent-Type: text/html; charset=utf-8\n\n";
-	await deliverRaw(this, Buffer.from(crlf(head + fragment.replaceAll("{space}", " ").repeat(repeats)), "latin1"), ["researcher@anthus.mail.develop.example.test"]);
+	await deliverRaw(this, Buffer.from(crlf(head + fragment.replaceAll("{space}", " ").replaceAll("{quote}", '"').repeat(repeats)), "latin1"), ["researcher@anthus.mail.develop.example.test"]);
 });
 
 When("a raw email with a subject of {int} encoded words arrives", async function (this: ChatticusWorld, words: number) {
@@ -321,3 +321,22 @@ Then(
 		assert.ok(text.endsWith(ending), text.slice(-120));
 	},
 );
+
+async function hasConversationEntry(world: ChatticusWorld, person: string, conversationKey: string, organization: string): Promise<boolean> {
+	const tenantId = tenantOf(organization);
+	const userId = identityOfPerson(tenantId, person).userId;
+	const store = requiredChannelsRuntime(world).store;
+	for (const binding of await store.listBindings(tenantId)) {
+		if ((await store.getConversationChannel(tenantId, binding.bindingId, `${userId}|${conversationKey}`)) !== null) return true;
+	}
+	return false;
+}
+
+Then("{string} has no conversation entry for {string} in {string}", async function (this: ChatticusWorld, person: string, conversationKey: string, organization: string) {
+	assert.equal(await hasConversationEntry(this, person, conversationKey, organization), false, `${person} has a conversation entry for ${conversationKey}`);
+});
+
+Then("{string} has a conversation entry for {string} in {string}", async function (this: ChatticusWorld, person: string, conversationKey: string, organization: string) {
+	assert.equal(await hasConversationEntry(this, person, conversationKey, organization), true, `${person} has no conversation entry for ${conversationKey}`);
+});
+
