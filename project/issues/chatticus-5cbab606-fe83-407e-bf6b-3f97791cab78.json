@@ -37,10 +37,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-m1-followups"
       }
+    },
+    {
+      "id": "ce67e613-92b6-4a30-9f64-02ed5d4f530c",
+      "author": "home",
+      "text": "HARD PRECONDITION from the PR 646 review: applyEmailStatusCallback (conversation/src/channels/email/email-status-callback.ts) trusts the SES notification body as received. The M1.8 ingress must verify the SNS signature, the signing certificate host and the topic ARN before it calls it; otherwise anyone who can POST and knows one message id can forge a bounce or complaint. The processor now suppresses only the delivery's own recipient and treats bounced and complained as final, but that is defense in depth, not a substitute. Also documented in docs/EXTERNAL_CHANNELS.md under Preconditions for the SES ingress.",
+      "created_at": "2026-10-26T15:19:21.836485Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-6"
+      }
     }
   ],
   "created_at": "2026-10-22T03:57:50.630104Z",
-  "updated_at": "2026-10-26T12:08:44.247328Z",
+  "updated_at": "2026-10-26T15:19:21.837270Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

@@ -2,7 +2,6 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
 import { GetParameterCommand } from "@aws-sdk/client-ssm";
 import type { ReplyDeliveryRecorder } from "../channels/delivery.ts";
-import { EmailChannelTransport } from "../channels/email/email-transport.ts";
 import { EventBridgeChannelEventPublisher, gatedReplyDeliveryRecorder, type EventPutter } from "../channels/eventbridge-publisher.ts";
 import type { ChannelMetrics } from "../channels/metrics.ts";
 import type { ChannelsRuntime, ChannelsRuntimeSource } from "../channels/runtime.ts";
@@ -93,13 +92,12 @@ export async function composeChannelsRuntime(
 	const correlatorSecret = response.Parameter?.Value ?? "";
 	if (correlatorSecret === "") throw new Error(`The SSM parameter ${secretParameterName} has no value.`);
 	const metrics = loggingChannelMetrics(log);
-	const email: ChannelTransport = new EmailChannelTransport({ mailDomain, metrics });
 	return {
 		store: new DynamoChannelStore(clients.dynamo, messagingTableName),
 		mailDomain,
 		allowedProviders: ["email"] satisfies TransportProvider[],
 		killSwitchEngaged: killSwitchEngagedIn(environment),
-		transports: new Map<TransportProvider, ChannelTransport>([["email", email]]),
+		transports: new Map<TransportProvider, ChannelTransport>(),
 		correlatorSecret,
 		events: new EventBridgeChannelEventPublisher(eventsOf(clients), eventBusName),
 		metrics,

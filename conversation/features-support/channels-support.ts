@@ -4,14 +4,17 @@ import type { ChannelEvent, ChannelEventPublisher } from "../src/channels/events
 import type { AdmissionDependencies, AdmissionOutcome } from "../src/channels/inbound-admission.ts";
 import { dropAutomatedMessages } from "../src/channels/inbound-admission.ts";
 import type { DeliveryDependencies, SweepDependencies } from "../src/channels/delivery.ts";
+import { EmailChannelTransport } from "../src/channels/email/email-transport.ts";
 import { FakeChannelTransport } from "../src/channels/fake-transport.ts";
 import type { ChannelMetricName, ChannelMetrics } from "../src/channels/metrics.ts";
 import type { ChannelsRuntime, ChannelsRuntimeSource } from "../src/channels/runtime.ts";
 import { ChannelsRuntimeHolder } from "../src/lambdas/channels-composition.ts";
 import type { ReplyDeliveryRecorder } from "../src/channels/delivery.ts";
-import type { InboundRefusal, RawInbound, TransportProvider } from "../src/channels/transport.ts";
+import type { ChannelTransport, InboundRefusal, RawInbound, TransportProvider } from "../src/channels/transport.ts";
 import { listMessages } from "../src/domain/messages.ts";
 import { DynamoChannelStore } from "../src/store/channel-store.ts";
+import { DynamoRecipientSuppressionList } from "../src/store/recipient-suppression-store.ts";
+import { FakeSesMailClient } from "./fake-ses-mail-client.ts";
 import type { RecordedResponse } from "./api.ts";
 import { executorMessageDependencies } from "./front-door.ts";
 import type { ChatticusWorld } from "./world.ts";
@@ -25,6 +28,9 @@ export type ChannelsScenario = {
 	killSwitchEngaged: boolean;
 	mailDomain: string;
 	readonly fake: FakeChannelTransport;
+	readonly ses: FakeSesMailClient;
+	configurationSetName: string;
+	webAppBaseUrl: string;
 	readonly published: ChannelEvent[];
 	readonly counted: CountedMetric[];
 	response: RecordedResponse | null;
@@ -59,6 +65,9 @@ export function channelsScenarioOf(world: ChatticusWorld): ChannelsScenario {
 			killSwitchEngaged: false,
 			mailDomain: "mail.scenario.invalid",
 			fake: new FakeChannelTransport(),
+			ses: new FakeSesMailClient(),
+			configurationSetName: "scenario-outbound",
+			webAppBaseUrl: "https://hey.scenario.invalid",
 			published: [],
 			counted: [],
 			response: null,
@@ -76,6 +85,25 @@ export function channelsScenarioOf(world: ChatticusWorld): ChannelsScenario {
 	return scenario;
 }
 
+/** The suppression list of the scenario, in its Messaging table. */
+export function suppressionListFor(world: ChatticusWorld): DynamoRecipientSuppressionList {
+	return new DynamoRecipientSuppressionList(world.messagingTable.client, world.messagingTable.tableName);
+}
+
+/** The email transport of the scenario, sending through its fake SES client. */
+export function emailTransportFor(world: ChatticusWorld, metrics: ChannelMetrics, transportKind: new (options: ConstructorParameters<typeof EmailChannelTransport>[0]) => EmailChannelTransport = EmailChannelTransport): EmailChannelTransport {
+	const scenario = channelsScenarioOf(world);
+	return new transportKind({
+		mailDomain: scenario.mailDomain,
+		metrics,
+		correlatorSecret: SCENARIO_CORRELATOR_SECRET,
+		mailClient: scenario.ses,
+		configurationSetName: scenario.configurationSetName,
+		suppressionList: suppressionListFor(world),
+		webAppBaseUrl: scenario.webAppBaseUrl,
+	});
+}
+
 /** The channel runtime of the scenario when external channels are configured, otherwise undefined. */
 export function channelsRuntimeFor(world: ChatticusWorld): ChannelsRuntime | undefined {
 	const scenario = channelsScenarioOf(world);
@@ -88,7 +116,10 @@ export function channelsRuntimeFor(world: ChatticusWorld): ChannelsRuntime | und
 		mailDomain: scenario.mailDomain,
 		allowedProviders: ["email", "fake"] satisfies TransportProvider[],
 		killSwitchEngaged: scenario.killSwitchEngaged,
-		transports: new Map([["fake", scenario.fake]]),
+		transports: new Map<TransportProvider, ChannelTransport>([
+			["fake", scenario.fake],
+			["email", emailTransportFor(world, metrics)],
+		]),
 		correlatorSecret: SCENARIO_CORRELATOR_SECRET,
 		events,
 		metrics,

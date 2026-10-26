@@ -142,11 +142,12 @@ export async function deliverChannelMessage(deps: DeliveryDependencies, ids: { t
 	const message = await deps.loadMessage(delivery.tenantId, delivery.channelId, delivery.messageSeq);
 	if (message === null) return fail(deps, delivery, "permanent", "message_missing");
 	const transportBinding = { bindingId: binding.bindingId, tenantId: binding.tenantId, provider: binding.provider, routeKey: binding.routeKey };
+	const channel = await deps.messaging.getChannel(delivery.tenantId, delivery.channelId);
 	const payload = transport.render(message, transportBinding, {
 		conversationKey: delivery.conversationKey,
 		recipientExternalId: delivery.recipientExternalId,
 		inReplyToExternalMessageId: delivery.inReplyToExternalMessageId,
-		subject: null,
+		subject: channel?.name ?? null,
 	});
 	const attempts = delivery.attempts + 1;
 	try {
@@ -208,8 +209,9 @@ const STATE_OF_STATUS: Readonly<Record<DeliveryStatusEvent["status"], DeliverySt
 };
 
 /**
- * Apply one provider callback to the delivery it names: delivered, bounced, complained or opted out. A callback for a
- * message this system never sent changes nothing.
+ * Apply one provider callback to the delivery it names: delivered, bounced, complained or opted out. A bounced or
+ * complained delivery is final, so a late delivery notification cannot revert it. A callback for a message this system never
+ * sent changes nothing.
  *
  * @param deps The runtime and clock.
  * @param event The status event.
@@ -218,6 +220,7 @@ const STATE_OF_STATUS: Readonly<Record<DeliveryStatusEvent["status"], DeliverySt
 export async function applyDeliveryStatus(deps: Pick<DeliveryDependencies, "runtime" | "clock">, event: DeliveryStatusEvent): Promise<DeliveryRecord | null> {
 	const delivery = await deps.runtime.store.getDeliveryByProviderMessage(event.provider, event.providerMessageId);
 	if (delivery === null) return null;
+	if (delivery.state === "bounced" || delivery.state === "complained") return delivery;
 	const optedOut = event.status === "opted_out";
 	const next = settled(delivery, STATE_OF_STATUS[event.status], deps.clock.now(), {
 		failureClass: optedOut ? "opted_out" : delivery.failureClass,

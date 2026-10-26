@@ -186,3 +186,5 @@ features/external_outbound_delivery.feature
 features/email_inbound_parsing.feature
 features/email_threading.feature
 features/external_channels_deployment.feature
+features/email_message_rendering.feature
+features/email_delivery_status.feature
