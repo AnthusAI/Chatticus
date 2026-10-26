@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-eb508abb-b846-4653-b1e6-56028f4e3659",
+  "title": "Verify lead parity and retire the legacy intake copy",
+  "description": "Part of story chatticus-e50451 (group G1 of the consolidation plan). The live /api* origin is the new intake Lambda in the Chatticus account; its table has 2 items (1 waitlist, 1 contact) and the legacy production table has the same counts of those prefixes with no writes in 30 days. Compare the two pairs without printing values, record the result, then treat the legacy copy as retire material (it goes with the legacy production thin-turn table). Lead capture must not drop at any step. Owner decision needed: approve the comparison method.\n\nFeature: Leads preserved\n  Scenario: Parity confirmed\n    Given the legacy and new intake items exist\n    When their stored values are compared without being printed\n    Then they match and the legacy copy may be retired",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-26T12:21:53.760783Z",
+  "updated_at": "2026-10-26T12:21:53.837105Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

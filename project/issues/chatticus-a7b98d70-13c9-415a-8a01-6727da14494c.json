@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-a7b98d70-13c9-415a-8a01-6727da14494c",
+  "title": "Retire the legacy DNS stack and decide where the chattic.us apex zone lives",
+  "description": "Part of story chatticus-e50451 (group G7). Legacy ChatticusDns zone (8 records, not delegated: the registrar name servers point at the management zone) and its certificate go after the legacy marketing stack. The live chattic.us zone (21 records) and its stack ChatticusManagementDns are in the management account; reconcile their drift (dev and auth-dev records in the stack but absent in the zone). Owner decision D1: keep the apex in the management account (recommended) or move it into the Chatticus account via a CDK zone, record parity check and registrar name-server swap (owner-only), with rollback by swapping the name servers back. Orphan zones in the old staging account are deleted too. Remove dead stack declarations from the CDK app.\n\nFeature: DNS consolidated\n  Scenario: Names keep resolving\n    Given the registrar points at the chosen live zone\n    When the legacy zone and orphan zones are deleted\n    Then chattic.us, www, hey, staging, develop and auth names resolve",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-26T12:21:54.711194Z",
+  "updated_at": "2026-10-26T12:21:54.790848Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

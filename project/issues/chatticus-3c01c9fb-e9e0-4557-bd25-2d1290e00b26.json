@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-3c01c9fb-e9e0-4557-bd25-2d1290e00b26",
+  "title": "Retire the legacy marketing distribution, stack and buckets",
+  "description": "Part of story chatticus-e50451 (group G2). Legacy ChatticusMarketing stack (distribution with no aliases, site bucket, CloudFront functions), two retained marketing buckets, and the marketing deploy role. Steps: disable the distribution for 7 days (requests were seen on 2026-10-21 and 2026-10-24 UTC, about 77 per day, unexplained and likely scanners), delete the stack before the DNS stack (it imports the zone id and certificate), empty and delete retained buckets, delete the marketing deploy role stack after confirming the website repo uses the Chatticus account role. Rollback: re-enable the distribution.\n\nFeature: Legacy marketing retired\n  Scenario: Live site keeps serving\n    Given the legacy distribution was disabled for 7 days\n    When the legacy stack and buckets are deleted\n    Then chattic.us and www keep serving from the Chatticus account",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-26T12:21:53.919545Z",
+  "updated_at": "2026-10-26T12:21:53.996892Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

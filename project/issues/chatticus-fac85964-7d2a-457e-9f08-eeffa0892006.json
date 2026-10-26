@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-fac85964-7d2a-457e-9f08-eeffa0892006",
+  "title": "Retire legacy deploy roles, budget stack and lab IAM user",
+  "description": "Part of story chatticus-e50451 (group G6). Legacy ChatticusGitHubDeploy (three roles), ChatticusBudgets (50 USD account budget and email topic), and the lab IAM user that still has two active access keys (last used 2026-09-08; hard control forbids standing IAM keys). Owner or workflow logs confirm every GitHub environment assumes the Chatticus-account roles first. Deactivate keys, wait 7 days, delete keys and user.\n\nFeature: Standing credentials removed\n  Scenario: No Chatticus IAM user or key remains\n    Given the keys were deactivated for 7 days\n    When the user and keys are deleted\n    Then deploys still succeed with OIDC roles in the Chatticus account",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-26T12:21:54.554444Z",
+  "updated_at": "2026-10-26T12:21:54.629407Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

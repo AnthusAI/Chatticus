@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-680c5850-b520-4471-aa70-7a063429ebde",
+  "title": "Close the old staging and development accounts and the lab accounts",
+  "description": "Part of story chatticus-e50451 (group G8). Old staging account leftovers (empty tables and buckets, two Cognito pools, two orphan zones, queues, secrets in recovery until about 2026-11-22, ECR repo, budget, bootstrap) go, then the owner closes it (see chatticus-356da5). The old development account holds only bootstrap for Chatticus, but also unrelated Apricity marketing stacks that must move or be closed deliberately first. Two standalone lab customer accounts hold Chatticus test stacks; owner decides invite or close. Owner-only actions. Confirm whether both old accounts are still organization members.\n\nFeature: Old accounts closed\n  Scenario: Nothing Chatticus remains in them\n    Given leftovers were reviewed\n    When the owner closes the accounts\n    Then the Chatticus account holds every Chatticus resource",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-26T12:21:54.879379Z",
+  "updated_at": "2026-10-26T12:21:54.956892Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
