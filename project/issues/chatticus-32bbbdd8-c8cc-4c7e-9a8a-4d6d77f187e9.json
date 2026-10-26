@@ -21,9 +21,22 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "baa3331f-7142-4275-b9e3-fdedbb7d65d4",
+      "author": "home",
+      "text": "Known gap from M1.5 review: define the outbound Message-ID format here, then add the inbound check that drops and counts a message whose Message-ID is one of our own outbound ids (docs/EXTERNAL_CHANNELS.md known gaps). Until then only the X-Chatticus-Origin header marks our own mail; X-Chatticus-Hops above 3 is subsumed by that header.",
+      "created_at": "2026-10-26T13:13:14.731102Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-5"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:50.167193Z",
-  "updated_at": "2026-10-22T03:58:10.975415Z",
+  "updated_at": "2026-10-26T13:13:14.731346Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
