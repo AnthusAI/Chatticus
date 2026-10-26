@@ -329,8 +329,15 @@
 			"store": "rawMailBucket",
 			"keyPattern": "^raw/[A-Za-z0-9-]+$",
 			"exampleKey": "raw/ses0example1",
-			"keyAlwaysExists": true,
-			"note": "The receipt rule stores the message before it invokes the function, and the function reads only the key the event names; a missing object is a failure to retry either way."
+			"note": "The receipt rule stores the message before it invokes the function, and the function reads only the key the event names; the role may list the bucket for the raw prefix, so a missing object answers 404 and not 403."
+		},
+		{
+			"role": "mailIngress",
+			"action": "s3:ListBucket",
+			"store": "rawMailBucket",
+			"keyPattern": "^raw/",
+			"exampleKey": "raw/",
+			"note": "Listing is allowed only for the raw prefix, which is what lets S3 tell a missing key from a forbidden one."
 		},
 		{
 			"role": "mailIngress",

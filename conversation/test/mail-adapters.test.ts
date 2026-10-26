@@ -3,7 +3,7 @@ import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { classifySesV2Failure, SesV2MailClient } from "../src/channels/email/ses-v2-mail-client.ts";
 import { SesSendError } from "../src/channels/email/ses-mail-client.ts";
 import { S3RawMailReader } from "../src/channels/email/raw-mail-store.ts";
-import { isSnsSigningCertificateUrl, snsNotificationCanonicalString } from "../src/channels/email/sns-signature.ts";
+import { CERTIFICATE_CACHE_ENTRIES, HttpsSigningCertificateSource, snsNotificationCanonicalString, snsSigningCertificateHref } from "../src/channels/email/sns-signature.ts";
 import { lazyHandler } from "../src/lambdas/mail-composition.ts";
 
 const failure = (name: string, message = "", status = 400) => Object.assign(new Error(message), { name, $metadata: { httpStatusCode: status } });
@@ -56,19 +56,30 @@ describe("the SES v2 mail client", () => {
 });
 
 describe("the raw mail archive reader", () => {
-	it("returns the bytes, null for a missing key, and rethrows every other failure", async () => {
+	it("returns the bytes, reports a missing key, and rethrows every other failure", async () => {
 		const bytes = new Uint8Array([7, 8]);
-		expect(await new S3RawMailReader({ send: async () => ({ Body: { transformToByteArray: async () => bytes } as never }) }, "bucket").read("raw/a")).toEqual(bytes);
-		expect(await new S3RawMailReader({ send: async () => Promise.reject(Object.assign(new Error("x"), { name: "NoSuchKey" })) }, "bucket").read("raw/a")).toBeNull();
-		await expect(new S3RawMailReader({ send: async () => Promise.reject(Object.assign(new Error("denied"), { name: "AccessDenied" })) }, "bucket").read("raw/a")).rejects.toThrow("denied");
+		const body = { transformToByteArray: async () => bytes } as never;
+		expect(await new S3RawMailReader({ send: async () => ({ Body: body, ContentLength: 2 }) }, "bucket").read("raw/a", 10)).toEqual({ kind: "found", bytes });
+		expect(await new S3RawMailReader({ send: async () => Promise.reject(Object.assign(new Error("x"), { name: "NoSuchKey" })) }, "bucket").read("raw/a", 10)).toEqual({ kind: "missing" });
+		await expect(new S3RawMailReader({ send: async () => Promise.reject(Object.assign(new Error("denied"), { name: "AccessDenied" })) }, "bucket").read("raw/a", 10)).rejects.toThrow("denied");
+	});
+
+	it("refuses an object above the limit by its content length without reading the body", async () => {
+		let bodyRead = false;
+		let destroyed = false;
+		const body = { transformToByteArray: async () => ((bodyRead = true), new Uint8Array()), destroy: () => void (destroyed = true) } as never;
+		const reader = new S3RawMailReader({ send: async () => ({ Body: body, ContentLength: 11 }) }, "bucket");
+		expect(await reader.read("raw/a", 10)).toEqual({ kind: "too_large", sizeBytes: 11 });
+		expect(bodyRead).toBe(false);
+		expect(destroyed).toBe(true);
 	});
 });
 
 describe("the SNS signing helpers", () => {
-	it("accepts only the SNS endpoint of the region over https with the plain certificate path", () => {
-		expect(isSnsSigningCertificateUrl("https://sns.us-east-1.amazonaws.com/SimpleNotificationService-abc123.pem", "us-east-1")).toBe(true);
-		expect(isSnsSigningCertificateUrl("https://sns.us-east-1.amazonaws.com/SimpleNotificationService-abc123.pem", "eu-west-1")).toBe(false);
-		expect(isSnsSigningCertificateUrl("not a url", "us-east-1")).toBe(false);
+	it("returns the canonical address of a certificate served by SNS of the region and nothing else", () => {
+		expect(snsSigningCertificateHref("https://sns.us-east-1.amazonaws.com/SimpleNotificationService-abc123.pem", "us-east-1")).toBe("https://sns.us-east-1.amazonaws.com/SimpleNotificationService-abc123.pem");
+		expect(snsSigningCertificateHref("https://sns.us-east-1.amazonaws.com/SimpleNotificationService-abc123.pem", "eu-west-1")).toBeNull();
+		expect(snsSigningCertificateHref("not a url", "us-east-1")).toBeNull();
 	});
 
 	it("builds the canonical string in alphabetical order and leaves out an absent subject", () => {
@@ -91,5 +102,19 @@ describe("the lazily composed handler", () => {
 		expect(await handler(1)).toBe(2);
 		expect(await handler(2)).toBe(3);
 		expect(compositions).toBe(2);
+	});
+});
+
+describe("the signing certificate source", () => {
+	it("keeps at most the configured number of certificates, dropping the oldest, and fetches each address once while it is cached", async () => {
+		let fetches = 0;
+		const fetcher = (async () => ((fetches += 1), new Response("pem"))) as unknown as typeof fetch;
+		const source = new HttpsSigningCertificateSource(() => new Date(0), fetcher);
+		for (let index = 0; index <= CERTIFICATE_CACHE_ENTRIES; index += 1) await source.fetch(`https://sns.us-east-1.amazonaws.com/SimpleNotificationService-${index}.pem`);
+		expect(fetches).toBe(CERTIFICATE_CACHE_ENTRIES + 1);
+		await source.fetch(`https://sns.us-east-1.amazonaws.com/SimpleNotificationService-${CERTIFICATE_CACHE_ENTRIES}.pem`);
+		expect(fetches).toBe(CERTIFICATE_CACHE_ENTRIES + 1);
+		await source.fetch("https://sns.us-east-1.amazonaws.com/SimpleNotificationService-0.pem");
+		expect(fetches).toBe(CERTIFICATE_CACHE_ENTRIES + 2);
 	});
 });

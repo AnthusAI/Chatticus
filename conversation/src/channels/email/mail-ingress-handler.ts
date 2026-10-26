@@ -1,6 +1,6 @@
 import { ingestInbound, type AdmissionDependencies, type AdmissionOutcome } from "../inbound-admission.ts";
 import type { ChannelTransport } from "../transport.ts";
-import { emailInboundRequest, type InboundMailEnvelope } from "./email-transport.ts";
+import { MAXIMUM_RAW_MESSAGE_BYTES, emailInboundRequest, type InboundMailEnvelope } from "./email-transport.ts";
 import type { RawMailReader } from "./raw-mail-store.ts";
 
 /** Where the mail receiver stores the raw message of each received mail, below the message id. */
@@ -96,11 +96,16 @@ export async function handleMailReceipt(deps: MailIngressDependencies, event: Se
 			continue;
 		}
 		const key = `${RAW_MAIL_KEY_PREFIX}${messageId}`;
-		const raw = await deps.archive.read(key);
-		if (raw === null) {
+		const read = await deps.archive.read(key, MAXIMUM_RAW_MESSAGE_BYTES);
+		if (read.kind === "missing") {
 			failure ??= new RawMailMissingError(key);
 			continue;
 		}
+		if (read.kind === "too_large") {
+			deps.admission.runtime.metrics.count("inbound_refused", { provider: "email", reason: "message_too_large" });
+			continue;
+		}
+		const raw = read.bytes;
 		const envelope: InboundMailEnvelope = {
 			spfVerdict: verdictOf(receipt.spfVerdict),
 			dkimVerdict: verdictOf(receipt.dkimVerdict),

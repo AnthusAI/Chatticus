@@ -435,10 +435,14 @@ describe("the development mail stack: the mail functions", () => {
 
   it("gives the ingress function s3:GetObject on the raw prefix only, the admission stores and the two turn queues, and no SES, events or secret other than the correlator", () => {
     const actions = allActions("MailIngress");
-    const raw = statementsOf("MailIngress").filter((statement) => JSON.stringify(statement.Resource).includes("raw/"));
+    const raw = statementsOf("MailIngress").filter((statement) => JSON.stringify(statement.Resource).includes("raw/") && actionsOf(statement).includes("s3:GetObject"));
     assert.equal(raw.length, 1);
     assert.deepEqual(raw[0]!.Action, "s3:GetObject");
     assert.equal(actions.some((action) => action.startsWith("ses:") || action.startsWith("events:") || action.startsWith("secretsmanager:")), false);
+    const listing = statementsOf("MailIngress").filter((statement) => actionsOf(statement).includes("s3:ListBucket"));
+    assert.equal(listing.length, 1);
+    assert.deepEqual(listing[0]!.Condition, { "ForAllValues:StringLike": { "s3:prefix": ["raw/*"] } });
+    assert.equal(statementsOf("MailDelivery").concat(statementsOf("MailStatus")).some((statement) => JSON.stringify(statement.Resource).includes("RawMailBucket")), false);
     assert.equal(actions.includes("sqs:SendMessage"), true);
     assert.equal(actions.includes("s3:PutObject"), false);
   });

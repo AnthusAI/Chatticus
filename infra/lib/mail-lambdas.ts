@@ -160,6 +160,13 @@ export class MailLambdas extends Construct {
     this.ingressFunction.addToRolePolicy(
       new iam.PolicyStatement({ actions: ["s3:GetObject"], resources: [props.rawMailBucket.arnForObjects(`${props.rawMailKeyPrefix}*`)] }),
     );
+    this.ingressFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:ListBucket"],
+        resources: [props.rawMailBucket.bucketArn],
+        conditions: { "ForAllValues:StringLike": { "s3:prefix": [`${props.rawMailKeyPrefix}*`] } },
+      }),
+    );
 
     this.deliveryFunction = mailFunction(
       "delivery",

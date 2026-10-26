@@ -197,6 +197,14 @@ Feature: Mail the receiving service stored reaches the addressed bot exactly onc
       | raw/other/object |
       | not a key        |
 
+  Scenario: A message above the receiver's size limit is refused by its size alone, without reading it
+    Given the raw mail archive holds a message "ses-inbound-14" of 41 megabytes
+    When SES invokes the ingress function for the message "ses-inbound-14"
+    Then the ingress function succeeded
+    And nothing was admitted
+    And the counter "inbound_refused" was counted 1 time
+    And the ingress function did not read the body of the archive object
+
   Scenario: One event naming several messages admits each of them
     Given the raw mail archive holds the message "ses-inbound-11":
       | from    | sam.sender@example.test                     |

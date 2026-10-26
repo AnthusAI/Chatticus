@@ -77,14 +77,28 @@ Feature: SES delivery events change a delivery only when SNS signed them for the
       | https://sns.us-east-1.amazonaws.com/SimpleNotificationService-test.pem?x=1        | signing_certificate_url |
       | https://sns.us-east-1.amazonaws.com/SimpleNotificationService-test.txt            | signing_certificate_url |
 
-  Scenario: A notification for another topic is rejected even when its signature is valid
+  Scenario Outline: A certificate address the URL parser rewrites is fetched only in its canonical form
+    When SNS delivers a signed SES "Delivery" event for the last sent mail whose certificate is at "<certificate url>"
+    Then the status function succeeded
+    And the only certificate fetched was "https://sns.us-east-1.amazonaws.com/SimpleNotificationService-test.pem"
+    And the delivery of the reply is "delivered"
+
+    Examples:
+      | certificate url                                                                    |
+      | https://sns.us-east-1.amazonaws.com:443/SimpleNotificationService-test.pem         |
+      | https://sns.us-east-1.amazonaws.com/%2e%2e/SimpleNotificationService-test.pem      |
+      | https://SNS.US-EAST-1.AMAZONAWS.COM/SimpleNotificationService-test.pem             |
+      | https://sns.us-east-1.amazonaws.com/Simple{tab}NotificationService-test.pem        |
+      | https://sns.us-east-1.amaz{newline}onaws.com/SimpleNotificationService-test.pem    |
+
+  Scenario: A notification for another topic is rejected by the topic check alone, even though its signature is valid and its subscription is ours
     When SNS delivers a signed SES "Bounce" of type "Permanent" event for the last sent mail to "sam.sender@example.test" from the topic "arn:aws:sns:us-east-1:111122223333:some-other-topic"
     Then the status function succeeded
     And the notification was rejected as "topic_arn"
     And the delivery of the reply is "sent"
     And "sam.sender@example.test" is not suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
 
-  Scenario: A notification whose subscription belongs to another topic is rejected
+  Scenario: A notification for our topic whose subscription belongs to another topic is rejected by the subscription check alone
     When SNS delivers a signed SES "Delivery" event for the last sent mail with the subscription of another topic
     Then the status function succeeded
     And the notification was rejected as "topic_arn"

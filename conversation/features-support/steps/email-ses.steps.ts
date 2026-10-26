@@ -9,7 +9,7 @@ import { deliverChannelMessage } from "../../src/channels/delivery.ts";
 import { RetryableDeliveryError, handleChannelMessageCreated, type ChannelMessageCreatedBusEvent } from "../../src/channels/email/mail-delivery-handler.ts";
 import { InboundInFlightError, RawMailMissingError, handleMailReceipt, type SesReceiptEvent } from "../../src/channels/email/mail-ingress-handler.ts";
 import { handleSesStatusEvent, type SnsEvent } from "../../src/channels/email/mail-status-handler.ts";
-import type { RawMailReader } from "../../src/channels/email/raw-mail-store.ts";
+import type { RawMailRead, RawMailReader } from "../../src/channels/email/raw-mail-store.ts";
 import type { SigningCertificateSource } from "../../src/channels/email/sns-signature.ts";
 import { INBOUND_CLAIM_LEASE_SECONDS, dropAutomatedMessages } from "../../src/channels/inbound-admission.ts";
 import { tenantIdOfOrganization } from "../bot-board-support.ts";
@@ -29,10 +29,15 @@ const PASSING: Verdicts = { spf: "PASS", dkim: "PASS", dmarc: "PASS", spam: "PAS
 class FakeArchive implements RawMailReader {
 	readonly objects = new Map<string, Uint8Array>();
 	readonly reads: string[] = [];
+	bodiesServed = 0;
 
-	async read(key: string): Promise<Uint8Array | null> {
+	async read(key: string, maximumBytes: number): Promise<RawMailRead> {
 		this.reads.push(key);
-		return this.objects.get(key) ?? null;
+		const object = this.objects.get(key);
+		if (object === undefined) return { kind: "missing" };
+		if (object.length > maximumBytes) return { kind: "too_large", sizeBytes: object.length };
+		this.bodiesServed += 1;
+		return { kind: "found", bytes: object };
 	}
 }
 
@@ -133,6 +138,17 @@ Given("the raw mail archive holds the raw message {string}:", function (this: Ch
 Given("SES reports the verdicts of the message {string}:", function (this: ChatticusWorld, sesMessageId: string, table: DataTable) {
 	const row = table.rowsHash();
 	sesOf(this).verdicts.set(sesMessageId, { spf: row["spf"]!, dkim: row["dkim"]!, dmarc: row["dmarc"]!, spam: row["spam"]!, virus: row["virus"]! });
+});
+
+Given("the raw mail archive holds a message {string} of {int} megabytes", function (this: ChatticusWorld, sesMessageId: string, megabytes: number) {
+	const head = Buffer.from(crlfText("From: sam.sender@example.test\nTo: researcher@anthus.mail.develop.example.test\nSubject: Huge\nMessage-ID: <huge-1@mail.example.test>\n\n"), "latin1");
+	const scenario = sesOf(this);
+	scenario.archive.objects.set(`raw/${sesMessageId}`, Buffer.concat([head, Buffer.alloc(megabytes * 1024 * 1024, 0x61)]));
+	scenario.recipients.set(sesMessageId, [BOT_ADDRESS]);
+});
+
+Then("the ingress function did not read the body of the archive object", function (this: ChatticusWorld) {
+	assert.equal(sesOf(this).archive.bodiesServed, 0);
 });
 
 function receiptRecord(world: ChatticusWorld, sesMessageId: string): NonNullable<SesReceiptEvent["Records"]>[number] {
@@ -334,7 +350,7 @@ function notificationOf(world: ChatticusWorld, message: string, options: SignOpt
 	const scenario = sesOf(world);
 	const keys = testKeys();
 	const version = options.version ?? "2";
-	const certificateUrl = options.certificateUrl ?? `https://sns.${scenario.region}.amazonaws.com/SimpleNotificationService-test.pem`;
+	const certificateUrl = (options.certificateUrl ?? `https://sns.${scenario.region}.amazonaws.com/SimpleNotificationService-test.pem`).replaceAll("{tab}", "\t").replaceAll("{newline}", "\n");
 	const stamped = new Date(world.clock.now().getTime() + (options.offsetSeconds ?? 0) * 1000);
 	const notification: Notification = {
 		Type: options.type ?? "Notification",
@@ -356,7 +372,7 @@ function notificationOf(world: ChatticusWorld, message: string, options: SignOpt
 		record: [
 			{
 				EventSource: "aws:sns",
-				EventSubscriptionArn: `${options.subscriptionTopicArn ?? options.topicArn ?? scenario.topicArn}:subscription-1`,
+				EventSubscriptionArn: `${options.subscriptionTopicArn ?? scenario.topicArn}:subscription-1`,
 				Sns: notification,
 			},
 		],
@@ -405,6 +421,14 @@ Given("SNS signs with a generated test key pair for the topic {string} in {strin
 
 When("SNS delivers a signed SES {string} event for the last sent mail", async function (this: ChatticusWorld, eventType: string) {
 	await signedAndDelivered(this, sesEventBody(this, eventType, null, null, false));
+});
+
+When("SNS delivers a signed SES {string} event for the last sent mail whose certificate is at {string}", async function (this: ChatticusWorld, eventType: string, certificateUrl: string) {
+	await signedAndDelivered(this, sesEventBody(this, eventType, null, null, false), { certificateUrl });
+});
+
+Then("the only certificate fetched was {string}", function (this: ChatticusWorld, href: string) {
+	assert.deepEqual(sesOf(this).certificates.fetched, [href]);
 });
 
 When("SNS delivers a signed SES {string} event for the last sent mail with signature version {string}", async function (this: ChatticusWorld, eventType: string, version: string) {

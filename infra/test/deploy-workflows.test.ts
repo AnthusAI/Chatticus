@@ -219,6 +219,22 @@ describe("deploy workflow YAML", () => {
         ]);
       });
 
+      it("development: the mail workflow first waits, within a bound, for the control plane exports the mail stack imports, with no secret and no extra permission", () => {
+        const workflow = readFileSync(join(workflowsDir, "deploy-mail-development.yml"), "utf8");
+        const wait = workflow.indexOf("run: sh wait-for-control-plane-exports.sh");
+        const firstDeploy = workflow.indexOf("run: sh deploy-chatticus-");
+        assert.ok(wait > -1, "the wait step exists");
+        assert.ok(wait < firstDeploy, "the wait step runs before the first deploy step");
+        const script = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../wait-for-control-plane-exports.sh"), "utf8");
+        assert.match(script, /WAIT_POLL_SECONDS="\$\{WAIT_POLL_SECONDS:-30\}"/);
+        assert.match(script, /WAIT_MAXIMUM_POLLS="\$\{WAIT_MAXIMUM_POLLS:-80\}"/);
+        assert.match(script, /CREATE_COMPLETE \| UPDATE_COMPLETE/);
+        assert.match(script, /exit 1/);
+        assert.match(script, /describe-stacks/);
+        assert.doesNotMatch(script, /list-exports/);
+        assert.doesNotMatch(workflow, /secrets\.(?!AWS_DEPLOY_ROLE_ARN)/);
+      });
+
       it("mail is deployed for development only: no staging or production mail workflow and no script mapping", () => {
         const script = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../deploy-chatticus-dedicated-account.sh"), "utf8");
         assert.match(script, /^  development:mail-ingress\) STACK="ChatticusMailIngress" ;;$/m);

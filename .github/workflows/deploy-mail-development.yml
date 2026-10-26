@@ -37,6 +37,12 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Wait for the control plane exports that the mail stack imports (up to 40 minutes)
+        working-directory: infra
+        env:
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
+        run: sh wait-for-control-plane-exports.sh
+
       - name: Deploy the shared mail ingress stack (account-wide receipt rule set, development only in M1)
         working-directory: infra
         env:

@@ -40,11 +40,21 @@ through the management DNS stack. It is not built or performed by any task in M1
 
 ## Deploy
 
-The mail stack now imports the stores, queues and alarm topic of the same environment's control plane, so `ChatticusControlPlaneDevelopment`
-must be deployed before `ChatticusMailDevelopment` on the first deploy after this change (its template gains the exports). If the mail workflow runs
-first it fails at stack creation of the change set ("No export named ..."), before anything changed, and is simply run again after the control plane
-deploy. Adding the Lambda action to the live rule is safe: the function and the permission that lets the rule invoke it are created before the rule
-is updated, the S3 action stays first, and a failed update leaves the old rule in place.
+The mail stack imports the stores, queues and alarm topic of the same environment's control plane, the Messaging table of thin-turn and the
+site zone, as CloudFormation exports. Merging to develop starts the control plane workflow and the mail workflow together, so the mail
+workflow's first step, `infra/wait-for-control-plane-exports.sh`, waits (every 30 seconds, at most 40 minutes) until every stack the mail template
+imports from is in `CREATE_COMPLETE` or `UPDATE_COMPLETE` and exposes the export names the mail template needs, read from the synthesized template so
+the list cannot drift. It needs no secret and no permission beyond `cloudformation:DescribeStacks`, since an export is an output of its stack. On
+timeout it fails with the stacks that were not ready. Adding the Lambda action to the live rule is safe: the function and the permission that lets
+the rule invoke it are created before the rule is updated, the S3 action stays first, and a failed update leaves the old rule in place.
+
+**Export-lock hazard.** CloudFormation refuses to change or remove an exported value while another stack imports it. A control plane change that
+alters an exported value (replacing the conversations table, the PiSessions bucket, a queue or the alarm topic) fails until the mail stack is
+deployed without the import first. Treat those resources as fixed while mail imports them, or deploy mail without the import before the change.
+
+**Staging and production.** Before mail is enabled there, the mail stack must stop importing from the application stacks: pass the stores, queues
+and topic by SSM parameters or by deterministic names that the application stacks publish, so the stacks deploy in any order and no export lock
+exists. Do not extend `MAIL_ENVIRONMENTS` until that is done.
 
 `.github/workflows/deploy-mail-development.yml` runs on push to `develop`, with OIDC role assumption and no new secrets. It deploys
 `ChatticusMailIngress` first and `ChatticusMailDevelopment` second, each by name through

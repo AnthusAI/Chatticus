@@ -54,21 +54,23 @@ const CERTIFICATE_PATH_PATTERN = /^\/SimpleNotificationService-[A-Za-z0-9]+\.pem
 const text = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 /**
- * Whether an address is a signing certificate that SNS of the region serves: https, exactly `sns.<region>.amazonaws.com`,
- * no port, no credentials, no query, and the plain path SNS uses.
+ * The canonical address of a signing certificate that SNS of the region serves, or null when the address is not one: https,
+ * exactly `sns.<region>.amazonaws.com`, no port, no credentials, no query, and the plain path SNS uses. The check is made on
+ * the parsed address, and the parsed form is what is returned, so the address that is fetched and cached is the one that was
+ * checked, whatever rewriting the parser applied (default port, dot segments, host case, embedded tabs and newlines).
  *
  * @param address The SigningCertUrl of the notification.
  * @param region The region of the topic.
- * @returns True when the address may be fetched.
+ * @returns The canonical address, or null when it may not be fetched.
  */
-export function isSnsSigningCertificateUrl(address: string, region: string): boolean {
+export function snsSigningCertificateHref(address: string, region: string): string | null {
 	let parsed: URL;
 	try {
 		parsed = new URL(address);
 	} catch {
-		return false;
+		return null;
 	}
-	return (
+	const acceptable =
 		parsed.protocol === "https:" &&
 		parsed.hostname === `sns.${region}.amazonaws.com` &&
 		parsed.port === "" &&
@@ -76,8 +78,8 @@ export function isSnsSigningCertificateUrl(address: string, region: string): boo
 		parsed.password === "" &&
 		parsed.search === "" &&
 		parsed.hash === "" &&
-		CERTIFICATE_PATH_PATTERN.test(parsed.pathname)
-	);
+		CERTIFICATE_PATH_PATTERN.test(parsed.pathname);
+	return acceptable ? parsed.href : null;
 }
 
 /**
@@ -126,8 +128,8 @@ export async function verifySnsNotification(fields: SnsNotificationFields, optio
 	if (signature === null) return rejected("unsigned");
 	const algorithm = fields.SignatureVersion === "1" ? "RSA-SHA1" : fields.SignatureVersion === "2" ? "RSA-SHA256" : null;
 	if (algorithm === null) return rejected("signature_version");
-	const certificateUrl = text(fields.SigningCertUrl);
-	if (certificateUrl === null || !isSnsSigningCertificateUrl(certificateUrl, options.region)) return rejected("signing_certificate_url");
+	const certificateUrl = snsSigningCertificateHref(text(fields.SigningCertUrl) ?? "", options.region);
+	if (certificateUrl === null) return rejected("signing_certificate_url");
 	if (fields.TopicArn !== options.expectedTopicArn) return rejected("topic_arn");
 	if (!timestampIsRecent(fields.Timestamp as string, options.now())) return rejected("timestamp");
 	const pem = await options.certificates.fetch(certificateUrl);
@@ -142,6 +144,9 @@ export async function verifySnsNotification(fields: SnsNotificationFields, optio
 
 /** How long a fetched certificate is kept in the process. */
 export const CERTIFICATE_CACHE_SECONDS = 60 * 60;
+
+/** How many certificates are kept in the process; the oldest is dropped first. */
+export const CERTIFICATE_CACHE_ENTRIES = 8;
 
 const MAXIMUM_CERTIFICATE_BYTES = 16 * 1024;
 
@@ -168,7 +173,9 @@ export class HttpsSigningCertificateSource implements SigningCertificateSource {
 		if (!response.ok) throw new Error(`The signing certificate answered ${response.status}.`);
 		const pem = await response.text();
 		if (pem.length > MAXIMUM_CERTIFICATE_BYTES) throw new Error("The signing certificate is too large.");
+		this.cache.delete(url);
 		this.cache.set(url, { pem, fetchedAt: nowMilliseconds });
+		while (this.cache.size > CERTIFICATE_CACHE_ENTRIES) this.cache.delete(this.cache.keys().next().value as string);
 		return pem;
 	}
 }
