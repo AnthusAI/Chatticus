@@ -17,6 +17,7 @@ import {
   CONTROL_PLANE_STACK_IDS,
   SNAPSHOT_STACK_IDS,
   peerEnvironmentsInSameAccount,
+  MAIL_DOMAINS,
   stackIdsOfEnvironment,
   type ChatticusCloudEnvironment,
 } from "../lib/environments";
@@ -63,6 +64,7 @@ const synthesized: Record<ChatticusCloudEnvironment, SynthesizedTemplates> = {
 };
 
 const ACCOUNT_LEVEL_STACK_NAMES = ["ChatticusBudgets"];
+const MAIL_INGRESS_STACK_NAMES = ["ChatticusMailIngress"];
 const LIVE_PRODUCTION_STACK_NAMES = [
   "ChatticusAccountDeploy",
   "ChatticusAuditTrail",
@@ -77,6 +79,8 @@ const LIVE_PRODUCTION_STACK_NAMES = [
   "ChatticusWebProduction",
 ];
 const NEW_DEVELOPMENT_STACK_NAMES = [
+  "ChatticusMailDevelopment",
+  "ChatticusMailIngress",
   "ChatticusAccountDeployDevelopment",
   "ChatticusAuthDevelopment",
   "ChatticusBudgets",
@@ -119,6 +123,7 @@ describe("development, staging and production in one AWS account", () => {
       const expected = [
         ...stackIdsOfEnvironment(environment),
         ...ACCOUNT_LEVEL_STACK_NAMES,
+        ...(environment === "development" ? MAIL_INGRESS_STACK_NAMES : []),
         ...(environment === "production" ? ["ChatticusAuditTrail"] : []),
       ].sort();
       const actual = stackNamesOf(environment);
@@ -154,13 +159,13 @@ describe("development, staging and production in one AWS account", () => {
   });
 
   it("builds for development the suffixed copies, which do not exist in this account yet", () => {
-    assert.deepEqual(stackNamesOf("development"), NEW_DEVELOPMENT_STACK_NAMES);
+    assert.deepEqual(stackNamesOf("development"), [...NEW_DEVELOPMENT_STACK_NAMES].sort());
   });
 
   it("names every stack of the three environments from the one set of id maps, with no development-only special case", () => {
     assert.deepEqual(
       stackIdsOfEnvironment("development").sort(),
-      NEW_DEVELOPMENT_STACK_NAMES.filter((name) => name !== "ChatticusBudgets"),
+      NEW_DEVELOPMENT_STACK_NAMES.filter((name) => name !== "ChatticusBudgets" && !MAIL_INGRESS_STACK_NAMES.includes(name)).sort(),
     );
     for (const environment of ["development", "staging"] as const) {
       for (const stackId of stackIdsOfEnvironment(environment)) {
@@ -181,7 +186,8 @@ describe("development, staging and production in one AWS account", () => {
       const { siteDomain, authDomain } = ENVIRONMENT_HOSTNAMES[environment];
       const templates = synthesized[environment];
       const zoneNames = resourcesOf(templates, ["AWS::Route53::HostedZone"]).map((entry) => entry.resource.Properties?.Name).sort();
-      assert.deepEqual(zoneNames, [`${authDomain}.`, `${siteDomain}.`].sort(), environment);
+      const mailZoneNames = environment === "development" ? [`${MAIL_DOMAINS.development}.`] : [];
+      assert.deepEqual(zoneNames, [`${authDomain}.`, `${siteDomain}.`, ...mailZoneNames].sort(), environment);
       const cognitoDomains = resourcesOf(templates, ["AWS::Cognito::UserPoolDomain"]).map((entry) => entry.resource.Properties?.Domain);
       assert.deepEqual(cognitoDomains, [authDomain], environment);
       const distributions = resourcesOf(templates, ["AWS::CloudFront::Distribution"]).map(
