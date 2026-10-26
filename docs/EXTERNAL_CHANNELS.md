@@ -604,7 +604,7 @@ What exists, so a later reader does not have to infer it from the code:
   existing and a missing channel; only the owner binding routes answer 404 to non-members.
 
 - **Outbound email.** `conversation/src/channels/email/email-transport.ts` renders a reply as one plain text message from the bot
-  address to the sender only, never Cc, with `In-Reply-To` and `References` (the thread root and the message answered, because the
+  address to the sender only, never Cc, with `In-Reply-To` and `References` (the thread root and the message answered, left out when oversized or malformed and capped at 900 characters, because the
   port does not carry the replies in between), a subject with a single `Re:` taken from the channel name, `Auto-Submitted: auto-replied`,
   `X-Chatticus-Origin` (the mail domain), `X-Chatticus-Hops: 1`, and the channel's plus tag on `Reply-To`. The outbound Message-ID is
   `chatticus.<token>.<mark>@<mail domain>`: the token is a keyed hash of the tenant, the message and the binding (the same reply always
@@ -615,6 +615,14 @@ What exists, so a later reader does not have to infer it from the code:
   `applyEmailStatusCallback` moves the delivery to delivered, bounced (permanent bounce, rejection) or complained; a permanent bounce
   or a complaint adds the recipient to the binding's suppression, which `deliver` checks before it asks SES. Transient bounces change
   nothing. There is no SES SDK client and no Lambda yet; the Dynamo suppression list is `store/recipient-suppression-store.ts`.
+
+### Preconditions for the SES ingress (M1.8)
+
+`applyEmailStatusCallback` trusts the notification body it is given. Verifying the SNS signature, the signing certificate host and the
+topic ARN is a hard precondition of the ingress that calls it (M1.8), not an optional hardening step: without it, anyone who knows a
+message id can forge a bounce or a complaint for that reply. As defense in depth the processor suppresses only the address the
+reply was sent to and ignores every other address a notification names, and a bounced or complained delivery is final, so a late
+delivery notification cannot revert it.
 
 ### Known gaps for M2
 

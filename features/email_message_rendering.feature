@@ -150,3 +150,33 @@ Feature: A bot's reply is rendered as one plain text email that threads and cann
       | body    | Where do we start?                                               |
     Then the message was admitted
     And the counter "inbound_refused" was counted 0 times
+
+  Scenario Outline: An address that is not plain printable ASCII is never mailed
+    When the email transport sends a reply to "<recipient>" in a thread whose subject is "Plan"
+    Then the fake SES was asked to send 0 mails
+    And the last send failed as "permanent" with the reason "invalid_recipient"
+
+    Examples:
+      | recipient                      |
+      | sam\0.sender@example.test      |
+      | sam\t.sender@example.test      |
+      | säm.sender@example.test    |
+      | sam.sender@example.test\u007f  |
+
+  Scenario: Long message ids keep the References header within the line limit and still send
+    When the email transport sends a reply to "sam.sender@example.test" answering a message id of 450 characters in a thread rooted at a message id of 450 characters
+    Then the fake SES was asked to send 1 mail
+    And the sent mail has a "References" header of at most 998 characters that names the answered message
+    And the sent mail has an "In-Reply-To" header of at most 998 characters
+
+  Scenario: A message id too large to put in a header is left out and the reply still sends
+    When the email transport sends a reply to "sam.sender@example.test" answering a message id of 900 characters in a thread rooted at a message id of 900 characters
+    Then the fake SES was asked to send 1 mail
+    And the sent mail has no "In-Reply-To" header
+    And the sent mail has no "References" header
+
+  Scenario: A message id that is not a single id is left out and the reply still sends
+    When the email transport sends a reply to "sam.sender@example.test" answering the message id "two ids@mail.example.test <x@y>" in a thread rooted at "root-1@mail.example.test"
+    Then the fake SES was asked to send 1 mail
+    And the sent mail has no "In-Reply-To" header
+    And the sent mail has the header "References" of "<root-1@mail.example.test>"

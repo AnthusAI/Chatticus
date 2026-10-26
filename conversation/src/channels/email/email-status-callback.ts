@@ -7,8 +7,12 @@ import type { RecipientSuppressionList } from "./recipient-suppression.ts";
 
 /**
  * Apply one SES notification: move each delivery it names to delivered, bounced or complained, and suppress the
- * recipients of a permanent bounce or a complaint for the binding that sent the mail. A notification for a message this
- * system never sent changes nothing and suppresses nobody.
+ * recipient of a permanent bounce or a complaint for the binding that sent the mail. Only the address the reply was sent to
+ * is ever suppressed: any other address a notification names is ignored, so a forged notification cannot suppress addresses
+ * of its choosing. A notification for a message this system never sent changes nothing and suppresses nobody.
+ *
+ * The body is trusted as received. The ingress that calls this must first verify the SNS signature, the signing
+ * certificate host and the topic ARN; without that check anyone who knows a message id can forge a bounce for it.
  *
  * @param deps The runtime and clock, and the suppression list the email transport checks before every send.
  * @param transport The email transport that reads the notification.
@@ -25,11 +29,12 @@ export async function applyEmailStatusCallback(
 		const delivery = await applyDeliveryStatus(deps, fact.event);
 		if (delivery === null) continue;
 		changed.push(delivery);
-		for (const address of fact.suppressAddresses) {
+		const recipient = normalizeEmailAddress(delivery.recipientExternalId);
+		for (const address of fact.suppressAddresses.map(normalizeEmailAddress).filter((candidate) => candidate === recipient)) {
 			await deps.suppressionList.suppress({
 				tenantId: delivery.tenantId,
 				bindingId: delivery.bindingId,
-				address: normalizeEmailAddress(address),
+				address,
 				reason: fact.event.reason ?? fact.event.status,
 				suppressedAt: deps.clock.now(),
 			});

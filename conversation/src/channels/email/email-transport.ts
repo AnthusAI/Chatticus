@@ -30,7 +30,7 @@ import {
 } from "./email-addresses.ts";
 import { htmlToText } from "./html-to-text.ts";
 import { isOwnOutboundMessageId, outboundMessageId } from "./outbound-message-id.ts";
-import { outboundMimeBytes, replySubject } from "./outbound-mime.ts";
+import { isUsableHeaderMessageId, outboundMimeBytes, referencesHeaderIds, replySubject } from "./outbound-mime.ts";
 import type { RecipientSuppressionList } from "./recipient-suppression.ts";
 import { SesSendError, type SesMailClient } from "./ses-mail-client.ts";
 import { sesStatusFacts, type SesStatusFact } from "./ses-event-notification.ts";
@@ -50,6 +50,9 @@ export const EMAIL_INBOUND_HEADERS = {
 
 /** The most text of one message that enters a channel. */
 export const MAXIMUM_BODY_BYTES = 100_000;
+
+/** The most characters of one reply that leave in a message; a longer reply is cut. */
+export const MAXIMUM_OUTBOUND_REPLY_CHARACTERS = 100_000;
 
 /** The largest raw message the adapter will parse; the mail receiver itself accepts at most 40 MB. */
 export const MAXIMUM_RAW_MESSAGE_BYTES = 40 * 1024 * 1024;
@@ -325,12 +328,18 @@ export class EmailChannelTransport implements ChannelTransport {
 		];
 	}
 
+	/**
+	 * Render one reply as a plain text message payload. The thread subject is the name of the external channel, which was
+	 * made from the subject of an inbound message and is therefore text a sender controls: it is cleaned to one line here, and
+	 * a future route that lets a member rename the channel must not put private text into it.
+	 */
 	render(message: CommittedMessage, binding: TransportBinding, thread: ThreadContext): OutboundPayload {
 		const botAddress = normalizeEmailAddress(binding.routeKey);
 		const recipient = normalizeEmailAddress(thread.recipientExternalId);
 		const inReplyTo = normalizeMessageId(thread.inReplyToExternalMessageId) ?? thread.inReplyToExternalMessageId;
 		const rootMessageId = normalizeMessageId(thread.conversationKey) ?? inReplyTo;
-		const references = [...new Set([rootMessageId, inReplyTo])];
+		const answeredIsUsable = isUsableHeaderMessageId(inReplyTo);
+		const references = referencesHeaderIds([rootMessageId, ...(answeredIsUsable ? [inReplyTo] : [])]);
 		const ownMessageId = outboundMessageId(this.correlatorSecret, this.mailDomain, { tenantId: message.tenantId, messageId: message.messageId, bindingId: binding.bindingId });
 		const { routeAddress } = splitPlusTag(botAddress);
 		const at = routeAddress.lastIndexOf("@");
@@ -351,8 +360,8 @@ export class EmailChannelTransport implements ChannelTransport {
 				"Reply-To": replyToAddress,
 				Date: message.createdAt.toUTCString(),
 				"Message-ID": wrapped(ownMessageId),
-				"In-Reply-To": wrapped(inReplyTo),
-				References: references.map(wrapped).join(" "),
+				...(answeredIsUsable ? { "In-Reply-To": wrapped(inReplyTo) } : {}),
+				...(references.length > 0 ? { References: references.map(wrapped).join(" ") } : {}),
 				"Auto-Submitted": "auto-replied",
 				"X-Chatticus-Origin": this.mailDomain,
 				"X-Chatticus-Hops": "1",
@@ -361,9 +370,9 @@ export class EmailChannelTransport implements ChannelTransport {
 	}
 
 	private boundedReplyText(body: string): string {
-		if (body.length <= MAXIMUM_BODY_BYTES) return body;
-		const cut = body.slice(0, MAXIMUM_BODY_BYTES).replace(/[\ud800-\udbff]$/, "");
-		return `${cut.trimEnd()}\n\n[This reply was cut at ${MAXIMUM_BODY_BYTES.toLocaleString("en-US")} characters. Read all of it in Chatticus: ${this.webAppBaseUrl}/chat]`;
+		if (body.length <= MAXIMUM_OUTBOUND_REPLY_CHARACTERS) return body;
+		const cut = body.slice(0, MAXIMUM_OUTBOUND_REPLY_CHARACTERS).replace(/[\ud800-\udbff]$/, "");
+		return `${cut.trimEnd()}\n\n[This reply was cut at ${MAXIMUM_OUTBOUND_REPLY_CHARACTERS.toLocaleString("en-US")} characters. Read all of it in Chatticus: ${this.webAppBaseUrl}/chat]`;
 	}
 
 	async deliver(payload: OutboundPayload, binding: TransportBinding, idempotencyKey: string): Promise<DeliveryReceipt> {
@@ -402,7 +411,7 @@ export class EmailChannelTransport implements ChannelTransport {
 	}
 }
 
-const SINGLE_ADDRESS_PATTERN = /^[^\s<>(),;:"\\[\]@]+@[^\s<>(),;:"\\[\]@]+$/;
+const SINGLE_ADDRESS_PATTERN = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+$/;
 
 function isSingleAddress(address: string): boolean {
 	return SINGLE_ADDRESS_PATTERN.test(address);

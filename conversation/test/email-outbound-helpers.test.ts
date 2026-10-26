@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isOwnOutboundMessageId, outboundMessageId } from "../src/channels/email/outbound-message-id.ts";
-import { DEFAULT_REPLY_SUBJECT, encodedHeaderValue, outboundMimeBytes, replySubject, singleLineHeaderText } from "../src/channels/email/outbound-mime.ts";
+import { DEFAULT_REPLY_SUBJECT, MAXIMUM_REFERENCES_CHARACTERS, encodedHeaderValue, isUsableHeaderMessageId, referencesHeaderIds, outboundMimeBytes, replySubject, singleLineHeaderText } from "../src/channels/email/outbound-mime.ts";
 import { sesStatusFacts } from "../src/channels/email/ses-event-notification.ts";
 
 const reply = { tenantId: "tenant-1", messageId: "message-1", bindingId: "binding-1" };
@@ -83,5 +83,25 @@ describe("ses status facts", () => {
 		expect(sesStatusFacts("nonsense")).toEqual([]);
 		expect(sesStatusFacts("null")).toEqual([]);
 		expect(sesStatusFacts(wrap({ eventType: "Delivery" }))).toEqual([]);
+	});
+});
+
+describe("threading header ids", () => {
+	it("accepts one plain id and refuses everything else", () => {
+		expect(isUsableHeaderMessageId("a@b.test")).toBe(true);
+		expect(isUsableHeaderMessageId("a b@c.test")).toBe(false);
+		expect(isUsableHeaderMessageId("<a@b.test>")).toBe(false);
+		expect(isUsableHeaderMessageId("a@@b.test")).toBe(false);
+		expect(isUsableHeaderMessageId("\u00e4@b.test")).toBe(false);
+		expect(isUsableHeaderMessageId(`${"x".repeat(500)}@b.test`)).toBe(false);
+	});
+
+	it("drops the oldest ids until the header fits and keeps the newest", () => {
+		const root = `${"r".repeat(440)}@b.test`;
+		const answered = `${"a".repeat(440)}@b.test`;
+		const ids = referencesHeaderIds([root, "middle@b.test", answered]);
+		expect(ids.at(-1)).toBe(answered);
+		expect(ids.reduce((total, id) => total + id.length + 3, 0)).toBeLessThanOrEqual(MAXIMUM_REFERENCES_CHARACTERS);
+		expect(referencesHeaderIds(["bad id@b.test", "ok@b.test", "ok@b.test"])).toEqual(["ok@b.test"]);
 	});
 });

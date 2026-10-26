@@ -154,3 +154,113 @@ Feature: What SES says about a sent reply is recorded, and an address that bounc
       | {"Type":"SubscriptionConfirmation","Message":"confirm"}                                                                                                                         |
       | this is not json                                                                                                                                                                |
       | {"Type":"Notification","Message":"not json either"}                                                                                                                              |
+
+  Scenario: A bounce that names a different address suppresses nobody
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Bounce" of type "Permanent" for the last sent mail to "victim@example.test"
+    Then "victim@example.test" is not suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
+    And "sam.sender@example.test" is not suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
+
+  Scenario: A complaint that names a different address suppresses nobody
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Complaint" for the last sent mail to "victim@example.test"
+    Then "victim@example.test" is not suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
+    And "sam.sender@example.test" is not suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
+
+  Scenario: A bounce that names the recipient in another letter case still suppresses the recipient
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Bounce" of type "Permanent" for the last sent mail to "SAM.Sender@Example.test"
+    Then "sam.sender@example.test" is suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
+
+  Scenario: A late delivery notification cannot revert a bounce
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Bounce" of type "Permanent" for the last sent mail to "sam.sender@example.test"
+    And SES reports "Delivery" for the last sent mail
+    Then the delivery of the reply is "bounced"
+
+  Scenario: A late delivery notification cannot revert a complaint
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Complaint" for the last sent mail to "sam.sender@example.test"
+    And SES reports "Delivery" for the last sent mail
+    Then the delivery of the reply is "complained"
+
+  Scenario: A complaint after a delivery is still recorded
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Delivery" for the last sent mail
+    And SES reports "Complaint" for the last sent mail to "sam.sender@example.test"
+    Then the delivery of the reply is "complained"
+
+  Scenario: A bounce suppresses the recipient for one binding only
+    Given the organization "Anthus Labs" has the bot "Analyst"
+    And "ryan@example.com" has created an email binding for the bot "Analyst" in "Anthus Labs"
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Bounce" of type "Permanent" for the last sent mail to "sam.sender@example.test"
+    Then "sam.sender@example.test" is suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
+    And "sam.sender@example.test" is not suppressed for the email binding of the bot "Analyst" in "Anthus Labs"
+
+  Scenario: A bounce suppresses the recipient for one organization only
+    Given the organization "Beta Works" has the owner "bea@example.com"
+    And the organization "Beta Works" has the bot "Scout"
+    And external channels are switched on for the organization "Beta Works"
+    And "bea@example.com" has chosen the mail handle "beta" for "Beta Works"
+    And "bea@example.com" has created an email binding for the bot "Scout" in "Beta Works"
+    When an email arrives:
+      | from    | sam.sender@example.test                     |
+      | to      | researcher@anthus.mail.develop.example.test |
+      | subject | Quarterly plan                              |
+      | id      | root-1@mail.example.test                    |
+      | body    | Where do we start?                          |
+    And the bot "Researcher" completes its turn
+    And the delivery handler runs for the reply
+    And SES reports "Bounce" of type "Permanent" for the last sent mail to "sam.sender@example.test"
+    Then "sam.sender@example.test" is suppressed for the email binding of the bot "Researcher" in "Anthus Labs"
+    And "sam.sender@example.test" is not suppressed for the email binding of the bot "Scout" in "Beta Works"

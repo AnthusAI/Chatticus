@@ -52,6 +52,38 @@ export function encodedHeaderValue(value: string): string {
 	return words.join("\r\n ");
 }
 
+/** The longest message id kept in an In-Reply-To or References header. */
+export const MAXIMUM_HEADER_MESSAGE_ID_CHARACTERS = 450;
+
+/** The most characters the ids of one References header may take together, so the line stays under the 998 character limit. */
+export const MAXIMUM_REFERENCES_CHARACTERS = 900;
+
+const HEADER_MESSAGE_ID_PATTERN = /^[\x21-\x3b\x3d\x3f\x41-\x7e]+@[\x21-\x3b\x3d\x3f\x41-\x7e]+$/;
+
+/**
+ * Whether an id can be written into a threading header: one id of printable ASCII with a single at sign, no angle
+ * brackets or whitespace, and within the length limit.
+ *
+ * @param messageId A normalized message id without angle brackets.
+ * @returns True when the id is safe and small enough to send.
+ */
+export function isUsableHeaderMessageId(messageId: string): boolean {
+	return messageId.length <= MAXIMUM_HEADER_MESSAGE_ID_CHARACTERS && HEADER_MESSAGE_ID_PATTERN.test(messageId);
+}
+
+/**
+ * The ids of a References header: the usable ones only, oldest first, with the oldest dropped until the header fits.
+ * The newest id, the one answered, is kept whenever it is usable.
+ *
+ * @param ids The thread's ids, oldest first.
+ * @returns The ids to write.
+ */
+export function referencesHeaderIds(ids: readonly string[]): string[] {
+	const usable = [...new Set(ids.filter(isUsableHeaderMessageId))];
+	while (usable.length > 1 && usable.reduce((total, id) => total + id.length + 3, 0) > MAXIMUM_REFERENCES_CHARACTERS) usable.shift();
+	return usable;
+}
+
 /** The headers and body of one outbound message; header values are plain text and are encoded when written. */
 export interface OutboundMimeMessage {
 	readonly headers: ReadonlyArray<readonly [name: string, value: string]>;

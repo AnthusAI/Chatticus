@@ -12,7 +12,7 @@ import { deliverRaw, rawEmailOfTable } from "./email-inbound.steps.ts";
 const BOT_ADDRESS = "researcher@anthus.mail.develop.example.test";
 
 type OutboundScenario = { transport: EmailChannelTransport | null; lastFailure: TransportDeliveryError | null; lastIdempotencyKey: string; lastPayloadInput: DirectReply | null; directSends: number };
-type DirectReply = { recipient: string; subject: string | null; body: string };
+type DirectReply = { recipient: string; subject: string | null; body: string; inReplyTo?: string; root?: string };
 
 const outboundScenarios = new WeakMap<ChatticusWorld, OutboundScenario>();
 
@@ -25,7 +25,13 @@ function outboundScenarioOf(world: ChatticusWorld): OutboundScenario {
 	return scenario;
 }
 
-const decodedEscapes = (text: string): string => text.replace(/\\r/g, "\r").replace(/\\n/g, "\n");
+const decodedEscapes = (text: string): string =>
+	text
+		.replace(/\\r/g, "\r")
+		.replace(/\\n/g, "\n")
+		.replace(/\\t/g, "\t")
+		.replace(/\\0/g, "\u0000")
+		.replace(/\\u([0-9a-f]{4})/gi, (_match, code: string) => String.fromCharCode(Number.parseInt(code, 16)));
 
 function lastSend(world: ChatticusWorld): { request: { rawMessage: Uint8Array; destinations: readonly string[]; configurationSetName: string }; messageId: string } {
 	const sends = channelsScenarioOf(world).ses.sends;
@@ -126,9 +132,9 @@ async function sendDirectly(world: ChatticusWorld, reply: DirectReply, idempoten
 	const transport = (scenario.transport ??= emailTransportFor(world, requiredChannelsRuntime(world).metrics));
 	const binding = { bindingId: "direct-binding-1", tenantId: tenantIdOfOrganization("Anthus Labs"), provider: "email" as const, routeKey: BOT_ADDRESS };
 	const payload = transport.render(DIRECT_MESSAGE(world, reply.body), binding, {
-		conversationKey: "root-1@mail.example.test",
+		conversationKey: reply.root ?? "root-1@mail.example.test",
 		recipientExternalId: reply.recipient,
-		inReplyToExternalMessageId: "root-1@mail.example.test",
+		inReplyToExternalMessageId: reply.inReplyTo ?? "root-1@mail.example.test",
 		subject: reply.subject,
 	});
 	scenario.lastFailure = null;
@@ -145,6 +151,34 @@ async function sendDirectly(world: ChatticusWorld, reply: DirectReply, idempoten
 When("the email transport sends a reply to {string} in a thread whose subject is {string}", async function (this: ChatticusWorld, recipient: string, subject: string) {
 	outboundScenarioOf(this).directSends += 1;
 	await sendDirectly(this, { recipient: decodedEscapes(recipient), subject: decodedEscapes(subject), body: "Hello." }, `direct-${outboundScenarioOf(this).directSends}`);
+});
+
+const idOfLength = (characters: number): string => `${"x".repeat(characters - "@mail.example.test".length)}@mail.example.test`;
+
+When(
+	"the email transport sends a reply to {string} answering a message id of {int} characters in a thread rooted at a message id of {int} characters",
+	async function (this: ChatticusWorld, recipient: string, answeredLength: number, rootLength: number) {
+		const answered = idOfLength(answeredLength).replace(/^x/, "a");
+		await sendDirectly(this, { recipient, subject: "Plan", body: "Hello.", inReplyTo: answered, root: idOfLength(rootLength) }, "direct-long-ids");
+	},
+);
+
+When(
+	"the email transport sends a reply to {string} answering the message id {string} in a thread rooted at {string}",
+	async function (this: ChatticusWorld, recipient: string, answered: string, root: string) {
+		await sendDirectly(this, { recipient, subject: "Plan", body: "Hello.", inReplyTo: answered, root }, "direct-odd-ids");
+	},
+);
+
+Then("the sent mail has a {string} header of at most {int} characters that names the answered message", async function (this: ChatticusWorld, name: string, limit: number) {
+	const value = headerValues(await parsedLastSend(this), name)[0] ?? "";
+	assert.ok(value.length > 0 && value.length <= limit, `The header has ${value.length} characters`);
+	assert.ok(value.includes(`<${outboundScenarioOf(this).lastPayloadInput?.inReplyTo}>`), "The header does not name the answered message");
+});
+
+Then("the sent mail has an {string} header of at most {int} characters", async function (this: ChatticusWorld, name: string, limit: number) {
+	const value = headerValues(await parsedLastSend(this), name)[0] ?? "";
+	assert.ok(value.length > 0 && value.length <= limit, `The header has ${value.length} characters`);
 });
 
 When("the email transport sends a reply of {int} characters to {string}", async function (this: ChatticusWorld, characters: number, recipient: string) {
