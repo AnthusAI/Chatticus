@@ -34,6 +34,14 @@ export type ChannelsScenario = {
 	countedItems: number | null;
 	focusChannel: { channelId: string; tenantId: string; person: string } | null;
 	deliveriesResponse: RecordedResponse | null;
+	/** Set once the scenario composes external channels the way a deployed environment does, from its environment variables. */
+	deployment: DeployedChannels | null;
+};
+
+/** What the production composition built for the scenario's deployment. */
+export type DeployedChannels = {
+	readonly runtime: ChannelsRuntime | null;
+	readonly recorder: ReplyDeliveryRecorder | undefined;
 };
 
 /** The correlator secret every scenario's runtime uses. */
@@ -60,6 +68,7 @@ export function channelsScenarioOf(world: ChatticusWorld): ChannelsScenario {
 			countedItems: null,
 			focusChannel: null,
 			deliveriesResponse: null,
+			deployment: null,
 		};
 		scenarios.set(world, scenario);
 	}
@@ -69,6 +78,7 @@ export function channelsScenarioOf(world: ChatticusWorld): ChannelsScenario {
 /** The channel runtime of the scenario when external channels are configured, otherwise undefined. */
 export function channelsRuntimeFor(world: ChatticusWorld): ChannelsRuntime | undefined {
 	const scenario = channelsScenarioOf(world);
+	if (scenario.deployment !== null) return scenario.deployment.runtime ?? undefined;
 	if (!scenario.configured) return undefined;
 	const events: ChannelEventPublisher = { publish: async (event) => void scenario.published.push(event) };
 	const metrics: ChannelMetrics = { count: (name, dimensions = {}) => void scenario.counted.push({ name, dimensions }) };
@@ -93,6 +103,8 @@ export function requiredChannelsRuntime(world: ChatticusWorld): ChannelsRuntime 
 
 /** What the turn executor needs to record the replies owed to external transports. */
 export function channelDeliveryFor(world: ChatticusWorld): ReplyDeliveryRecorder | undefined {
+	const deployment = channelsScenarioOf(world).deployment;
+	if (deployment !== null) return deployment.recorder;
 	const runtime = channelsRuntimeFor(world);
 	return runtime === undefined ? undefined : { store: runtime.store, events: runtime.events, clock: world.clock };
 }

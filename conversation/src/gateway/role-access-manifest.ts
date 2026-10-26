@@ -2,13 +2,13 @@ import { readFileSync } from "node:fs";
 import { ownerSessionTags, supervisorSessionTags } from "./session-tags.ts";
 
 /** The roles whose store access the manifest lists: each is one AWS identity the code runs as. */
-export const ACCESS_ROLES = ["frontDoor", "ownerTurn", "supervisor"] as const;
+export const ACCESS_ROLES = ["frontDoor", "ownerTurn", "supervisor", "turnExecutor"] as const;
 
 /** One of the roles whose store access the manifest lists. */
 export type AccessRole = (typeof ACCESS_ROLES)[number];
 
-/** The four stores a role reaches; a row names one of them and a policy names its ARN. */
-export const ACCESS_STORES = ["messagingTable", "conversationsTable", "piSessionsBucket", "snapshotBucket"] as const;
+/** The stores a role reaches; a row names one of them and a policy names its ARN. `channelEventBus` is the EventBridge bus that carries the reply-delivery event. */
+export const ACCESS_STORES = ["messagingTable", "conversationsTable", "piSessionsBucket", "snapshotBucket", "channelEventBus"] as const;
 
 /** One of the stores a role reaches. */
 export type AccessStore = (typeof ACCESS_STORES)[number];
@@ -35,7 +35,7 @@ export type AccessRow = {
 };
 
 /** The SSM parameters that hold a generated runtime key; the roles that run a turn or a supervisor must never read them. */
-export const SECRET_PARAMETERS = ["operatorKeyParameter", "signingKeyParameter"] as const;
+export const SECRET_PARAMETERS = ["operatorKeyParameter", "signingKeyParameter", "correlatorSecretParameter"] as const;
 
 /** One of the SSM parameters that hold a generated runtime key. */
 export type SecretParameter = (typeof SECRET_PARAMETERS)[number];
@@ -57,6 +57,7 @@ export type AccessDenialRow = {
 export const SECRET_PARAMETER_PATHS: Readonly<Record<SecretParameter, string>> = {
 	operatorKeyParameter: "/chatticus/{environment}/thin-turn/operator-key",
 	signingKeyParameter: "/chatticus/development/model-gateway/signing-key",
+	correlatorSecretParameter: "/chatticus/{environment}/channels/correlator-secret",
 };
 
 /** The ARN of each secret parameter in one account and region. */
@@ -73,7 +74,11 @@ export type SecretParameterArns = Readonly<Record<SecretParameter, string>>;
 export function secretParameterArnsOf(region: string, account: string, environment: string): SecretParameterArns {
 	const arnOf = (parameter: SecretParameter): string =>
 		`arn:aws:ssm:${region}:${account}:parameter${SECRET_PARAMETER_PATHS[parameter].replace("{environment}", environment)}`;
-	return { operatorKeyParameter: arnOf("operatorKeyParameter"), signingKeyParameter: arnOf("signingKeyParameter") };
+	return {
+		operatorKeyParameter: arnOf("operatorKeyParameter"),
+		signingKeyParameter: arnOf("signingKeyParameter"),
+		correlatorSecretParameter: arnOf("correlatorSecretParameter"),
+	};
 }
 
 /** The file of the role access manifest; the infra stack tests and the post-deploy simulation read this same file. */
@@ -146,9 +151,9 @@ export function exampleRequestOf(row: AccessRow, arns: StoreArns): ManifestReque
 	};
 }
 
-/** The session tags a role is assumed with in the examples; the Front Door is not assumed and carries none. */
+/** The session tags a role is assumed with in the examples; the Front Door and the turn executor are not assumed and carry none. */
 export function exampleTagsOf(role: AccessRole): Record<string, string> {
-	if (role === "frontDoor") return {};
+	if (role === "frontDoor" || role === "turnExecutor") return {};
 	const tags = role === "ownerTurn" ? ownerSessionTags(EXAMPLE_SCOPE) : supervisorSessionTags(EXAMPLE_SCOPE);
 	return Object.fromEntries(tags.map((tag) => [tag.Key, tag.Value]));
 }

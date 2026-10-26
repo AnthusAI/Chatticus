@@ -185,3 +185,4 @@ features/external_inbound_admission.feature
 features/external_outbound_delivery.feature
 features/email_inbound_parsing.feature
 features/email_threading.feature
+features/external_channels_deployment.feature

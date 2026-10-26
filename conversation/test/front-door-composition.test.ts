@@ -218,6 +218,31 @@ describe("front door composition", () => {
 		).rejects.toThrow("AccessDeniedException");
 	});
 
+	const CHANNELS_SECRET_PARAMETER_NAME = "/chatticus/test/channels/correlator-secret";
+	const channelsEnvironment = {
+		CHATTICUS_CHANNELS_MAIL_DOMAIN: "mail.test.example",
+		CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME: CHANNELS_SECRET_PARAMETER_NAME,
+		CHATTICUS_CHANNELS_EVENT_BUS_NAME: "default",
+	};
+
+	it("reads the channels correlator secret from SSM by name only where the mail domain is set", async () => {
+		const without: string[] = [];
+		await composeFrontDoorApp(environmentFor(), clientsWith(fakeParameters(PARAMETER_VALUES, without)));
+		expect(without).not.toContain(CHANNELS_SECRET_PARAMETER_NAME);
+		const requested: string[] = [];
+		await composeFrontDoorApp(
+			environmentFor(channelsEnvironment),
+			clientsWith(fakeParameters({ ...PARAMETER_VALUES, [CHANNELS_SECRET_PARAMETER_NAME]: "secret-value" }, requested)),
+		);
+		expect(requested.filter((name) => name === CHANNELS_SECRET_PARAMETER_NAME)).toHaveLength(1);
+	});
+
+	it("fails clearly when the mail domain is set and the channels correlator secret has no value", async () => {
+		await expect(composeFrontDoorApp(environmentFor(channelsEnvironment), clientsWith(fakeParameters(PARAMETER_VALUES)))).rejects.toThrow(
+			`The SSM parameter ${CHANNELS_SECRET_PARAMETER_NAME} has no value.`,
+		);
+	});
+
 	it("reads the OpenAI key from its SSM parameter when it is not already set", async () => {
 		const environment = environmentFor({ OPENAI_API_KEY: undefined, OPENAI_API_KEY_PARAMETER: "/chatticus/test/key" });
 		await composeFrontDoorApp(

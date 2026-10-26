@@ -31,7 +31,10 @@ export interface ChannelsRuntime {
  * @param tenantId The organization.
  * @returns True when bindings may be managed and messages admitted and delivered.
  */
-export async function externalChannelsAvailable(runtime: ChannelsRuntime, tenantId: string): Promise<boolean> {
+export async function externalChannelsAvailable(
+	runtime: Pick<ChannelsRuntime, "killSwitchEngaged"> & { readonly store: Pick<ChannelStore, "getSettings"> },
+	tenantId: string,
+): Promise<boolean> {
 	if (runtime.killSwitchEngaged) return false;
 	return (await runtime.store.getSettings(tenantId)).externalChannelsEnabled;
 }

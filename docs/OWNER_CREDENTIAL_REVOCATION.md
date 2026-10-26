@@ -425,7 +425,7 @@ statement `Effect` `Deny`, `Action` `*`, `Resource` `*`, `Condition` `DateLessTh
    ```sh
    cd conversation && npx tsx bin/simulate-role-access.ts --environment development
    ```
-   Expect `PASS role access development: 42 of 42 allowed (frontDoor 12, ownerTurn 28, supervisor 2)`. (Run read-only on
+   Expect `PASS role access development: 43 of 43 allowed (frontDoor 12, ownerTurn 28, supervisor 2, turnExecutor 1)`. (Run read-only on
    development while writing this page and again by the second reader, before any deny existed.) If the SDK complains the SSO token is expired although the
    AWS CLI works, export the CLI's credentials first: `eval "$(aws configure export-credentials --profile chatticus-production --format env)"`.
 3. The deny proof is section 3.3 with the real `T`, and the live proof is the next step: the broker still issues.

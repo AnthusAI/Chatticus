@@ -61,6 +61,7 @@ const ROLE_LOGICAL_ID_PATTERNS: Record<AccessRole, RegExp> = {
 	frontDoor: /^FrontDoorServiceRole[0-9A-F]+$/,
 	ownerTurn: /^ComputerOwnerScopedRole[0-9A-F]+$/,
 	supervisor: /^ComputerSupervisorRole[0-9A-F]+$/,
+	turnExecutor: /^TurnExecutorServiceRole[0-9A-F]+$/,
 };
 
 class UsageError extends Error {}
@@ -100,11 +101,14 @@ async function main(): Promise<void> {
 		conversationsTable: `arn:aws:dynamodb:${REGION}:${account}:table/${variable("CHATTICUS_CONVERSATIONS_TABLE")}`,
 		piSessionsBucket: `arn:aws:s3:::${variable("CHATTICUS_PI_SESSIONS_BUCKET")}`,
 		snapshotBucket: `arn:aws:s3:::${variable("CHATTICUS_SNAPSHOT_BUCKET")}`,
+		channelEventBus: `arn:aws:events:${REGION}:${account}:event-bus/${variables["CHATTICUS_CHANNELS_EVENT_BUS_NAME"] ?? ""}`,
 	};
+	const eventsEnabled = variables["CHATTICUS_CHANNELS_EVENT_BUS_NAME"] !== undefined;
+	const rows = loadRoleAccessManifest().filter((row) => row.store !== "channelEventBus" || eventsEnabled);
 
 	const iam = new IAMClient({ region: REGION, maxAttempts: IAM_MAX_ATTEMPTS, retryMode: "adaptive" });
 	const groups = simulationGroupsOf([
-		...simulationCasesOf(loadRoleAccessManifest(), arns),
+		...simulationCasesOf(rows, arns),
 		...denialSimulationCasesOf(loadRoleAccessDenials(), secretParameterArnsOf(REGION, account ?? "", environment)),
 	]);
 	const delayMilliseconds = delayMillisecondsOf(process.env);

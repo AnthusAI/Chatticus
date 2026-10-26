@@ -13,6 +13,7 @@ import { consumeRunJob } from "../turn/executor.ts";
 import { createOpenAiModels, DEFAULT_TURN_MODEL } from "../turn/openai-models.ts";
 import { SqsComputerStartQueue, SqsRunVisibility, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 import type { ExecutorDeps, TurnExecutionJob } from "../turn/types.ts";
+import { composeReplyDeliveryRecorder } from "./channels-composition.ts";
 import { resolveOpenAiApiKey } from "./openai-key.ts";
 
 type SqsRecord = { readonly body: string; readonly receiptHandle: string };
@@ -45,14 +46,17 @@ async function executorDeps(): Promise<SharedDeps> {
 	const messagingTableName = requiredEnvironment("CHATTICUS_MESSAGING_TABLE");
 	const messaging = new DynamoMessagingStore(client, messagingTableName);
 	const boards = botBoardServiceFromEnvironment(process.env, { credentials: () => client.config.credentials(), memberships: messaging, bots: messaging });
+	const clock = { now: () => new Date() };
+	const channelDelivery = composeReplyDeliveryRecorder(process.env, { dynamo: client }, messagingTableName, clock);
 	cachedDeps = {
 		turns: {
 			store: new DynamoTurnControlStore(client, messagingTableName),
-			clock: { now: () => new Date() },
+			clock,
 			ids: { next: () => randomUUID() },
 		},
 		messaging,
 		...(boards === null ? {} : { boards }),
+		...(channelDelivery === undefined ? {} : { channelDelivery }),
 		client,
 		s3: new S3Client({}),
 		messagingTableName,

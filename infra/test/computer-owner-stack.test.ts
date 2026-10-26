@@ -170,11 +170,14 @@ describe("ControlPlane model gateway signing key", () => {
   const template = synthControlPlane("development", { computerHostStart: "noop" });
 
   it("is a generated SecureString of 64 characters under the fixed development name, retained and never in the template", () => {
-    const [resource] = Object.values(resourcesOfType(template, "Custom::GeneratedSecureString"));
-    assert.equal(resource!.Properties.ParameterName, SIGNING_KEY_PARAMETER_NAME);
-    assert.ok(resource!.Properties.ValueLength >= 32);
-    assert.equal(resource!.Properties.ValueLength, 64);
-    assert.equal(resource!.DeletionPolicy, "Retain");
+    const resource = Object.values(resourcesOfType(template, "Custom::GeneratedSecureString")).find(
+      (candidate) => candidate.Properties.ParameterName === SIGNING_KEY_PARAMETER_NAME,
+    );
+    assert.ok(resource, "the signing key is one of the generated SecureStrings of the stack");
+    assert.equal(resource.Properties.ParameterName, SIGNING_KEY_PARAMETER_NAME);
+    assert.ok(resource.Properties.ValueLength >= 32);
+    assert.equal(resource.Properties.ValueLength, 64);
+    assert.equal(resource.DeletionPolicy, "Retain");
     assert.equal(JSON.stringify(template.toJSON()).includes("Custom::AWS"), false);
   });
 
