@@ -7,6 +7,8 @@ import {
   CONTROL_PLANE_STACK_IDS,
   ENVIRONMENT_CERTIFICATES_STACK_IDS,
   ENVIRONMENT_ZONES_STACK_IDS,
+  MAIL_INGRESS_STACK_ID,
+  MAIL_STACK_IDS,
   SNAPSHOT_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
@@ -39,6 +41,7 @@ const SHARED_STACKS: Record<string, string> = {
   ChatticusEnvironmentZones: "dns",
   ChatticusEnvironmentCertificates: "dns",
   ChatticusIntegrationTest: "integration-test",
+  [MAIL_INGRESS_STACK_ID]: "mail-ingress",
 };
 
 const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, string]> = [
@@ -51,6 +54,7 @@ const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, stri
   [ENVIRONMENT_ZONES_STACK_IDS, "dns"],
   [ENVIRONMENT_CERTIFICATES_STACK_IDS, "dns"],
   [ACCOUNT_DEPLOY_STACK_IDS, "deploy"],
+  [MAIL_STACK_IDS, "mail"],
 ];
 
 /**

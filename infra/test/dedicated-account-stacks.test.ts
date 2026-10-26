@@ -45,6 +45,8 @@ describe("dedicated account mode", () => {
       "ChatticusAuthDevelopment",
       "ChatticusComputersDevelopment",
       "ChatticusControlPlaneDevelopment",
+      "ChatticusMailDevelopment",
+      "ChatticusMailIngress",
       ENVIRONMENT_CERTIFICATES_STACK_IDS.development,
       ENVIRONMENT_ZONES_STACK_IDS.development,
       "ChatticusSnapshotsDevelopment",

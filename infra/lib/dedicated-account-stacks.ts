@@ -6,6 +6,8 @@ import { BudgetsStack } from "./budgets-stack";
 import type { BudgetsConfig } from "./budgets-config";
 import { ComputerStack } from "./computer-stack";
 import { EnvironmentCertificatesStack } from "./environment-certificates-stack";
+import { MailIngressStack } from "./mail-ingress-stack";
+import { MailStack } from "./mail-stack";
 import { EnvironmentZonesStack } from "./environment-zones-stack";
 import {
   AUTH_STACK_IDS,
@@ -15,6 +17,11 @@ import {
   ENVIRONMENT_HOSTNAMES,
   ENVIRONMENT_CERTIFICATES_STACK_IDS,
   ENVIRONMENT_ZONES_STACK_IDS,
+  MAIL_DELEGATED_FROM_SITE_ZONE,
+  MAIL_DOMAINS,
+  MAIL_INGRESS_STACK_ID,
+  MAIL_STACK_IDS,
+  mailEnabled,
   SNAPSHOT_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
@@ -150,4 +157,20 @@ export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccoun
       `Cognito user pool (${environmentName}) with Google federation and ` +
       "custom auth domain for SPA authorization code + PKCE.",
   });
+
+  if (mailEnabled(environmentName)) {
+    const mailIngress = new MailIngressStack(app, MAIL_INGRESS_STACK_ID, {
+      env,
+      description: "Account-wide SES receipt rule set and its activation, shared by every environment's mail.",
+    });
+    const mail = new MailStack(app, MAIL_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      mailDomain: MAIL_DOMAINS[environmentName],
+      receiptRuleSet: mailIngress.ruleSet,
+      delegationParentZone: MAIL_DELEGATED_FROM_SITE_ZONE[environmentName] ? zones.siteZone : undefined,
+      description: `Mail zone, SES identity, receipt rule, raw mail bucket and outbound configuration set (${environmentName}).`,
+    });
+    mail.addDependency(mailIngress);
+  }
 }

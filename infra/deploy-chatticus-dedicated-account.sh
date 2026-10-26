@@ -25,7 +25,7 @@ cd "$(dirname "$0")"
 
 usage() {
   echo "usage: sh deploy-chatticus-dedicated-account.sh development|staging|production STACK" >&2
-  echo "STACK: budgets audit-trail snapshots computers zones certificates thin-turn control-plane web auth" >&2
+  echo "STACK: budgets audit-trail snapshots computers zones certificates thin-turn control-plane web auth (development only: mail-ingress mail)" >&2
   exit 2
 }
 
@@ -46,6 +46,8 @@ case "$ENVIRONMENT:$2" in
   development:control-plane) STACK="ChatticusControlPlaneDevelopment" ;;
   development:web) STACK="ChatticusWebDevelopment" ;;
   development:auth) STACK="ChatticusAuthDevelopment" ;;
+  development:mail-ingress) STACK="ChatticusMailIngress" ;;
+  development:mail) STACK="ChatticusMailDevelopment" ;;
   staging:snapshots) STACK="ChatticusSnapshotsStaging" ;;
   staging:computers) STACK="ChatticusComputersStaging" ;;
   staging:zones) STACK="ChatticusEnvironmentZonesStaging" ;;
