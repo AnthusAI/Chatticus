@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-3e713a86-88ae-4f9a-a0de-10fc38819c0f",
+  "title": "Tighten mail Lambda roles: messaging table and pi-sessions bucket access",
+  "description": "The three mail functions hold read and write on the whole Messaging table and the ingress and delivery functions read the whole Conversations table and PiSessions bucket, mirroring the front door. Narrow them to the key shapes each function uses, with manifest rows and recorded-request coverage. Found in the PR 648 review.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-26T19:18:32.206931Z",
+  "updated_at": "2026-10-26T19:18:32.206959Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-m1-8"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
