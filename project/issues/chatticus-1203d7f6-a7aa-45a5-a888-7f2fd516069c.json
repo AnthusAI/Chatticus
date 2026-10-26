@@ -36,10 +36,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-wiring"
       }
+    },
+    {
+      "id": "1b3b4cf4-a3e4-4d9a-a9d0-096a0db0830e",
+      "author": "home",
+      "text": "Closed by PR 648: composeChannelsRuntime now registers the real EmailChannelTransport (SES v2 client, configuration set, suppression list, web app base URL; two new required variables), and the default-bus rule for chatticus.channels / channel.message.created targets the new delivery Lambda.",
+      "created_at": "2026-10-26T18:24:43.618945Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-8"
+      }
     }
   ],
   "created_at": "2026-10-26T12:08:29.492621Z",
-  "updated_at": "2026-10-26T16:51:19.813127Z",
+  "updated_at": "2026-10-26T18:24:43.619217Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
