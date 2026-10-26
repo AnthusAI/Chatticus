@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-wiring"
       }
+    },
+    {
+      "id": "64c1ddfa-4fd8-4fbe-89d7-325fa8a5cf1a",
+      "author": "home",
+      "text": "PR 645 merged with develop (PR 646). The composition registers no transport: EmailChannelTransport now needs an SES client port implementation, configuration set, suppression list and web app base URL, which only the M1.8 ingress and event Lambdas own. M1.8 must construct the transport there (with the correlator secret from the same SSM parameter) and register it, or add it to composeChannelsRuntime once those dependencies exist. Until then delivery for email bindings ends as permanent no_transport.",
+      "created_at": "2026-10-26T16:51:19.812367Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-wiring"
+      }
     }
   ],
   "created_at": "2026-10-26T12:08:29.492621Z",
-  "updated_at": "2026-10-26T15:08:03.564992Z",
+  "updated_at": "2026-10-26T16:51:19.813127Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
