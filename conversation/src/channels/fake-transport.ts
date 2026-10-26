@@ -111,6 +111,7 @@ export class FakeChannelTransport implements ChannelTransport {
 			externalMessageId: input.externalMessageId,
 			conversationKey: input.conversationKey ?? input.externalMessageId,
 			referencedExternalMessageIds: input.referencedExternalMessageIds ?? [],
+			correlatorHint: null,
 			subject: input.subject ?? null,
 			sender: { externalId: input.senderExternalId, displayName: null, assertion: "request_signature_user_claim" },
 			text: input.text ?? "",

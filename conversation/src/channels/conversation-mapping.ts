@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createChannel, createExternalChannel, uuid5InUrlNamespace, type Channel } from "../domain/channels.ts";
 import type { IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
+import { correlatorTagMatchesChannel } from "./channel-correlator.ts";
 import type { ChannelStore } from "./records.ts";
 import type { ChannelTransport, InboundEvent } from "./transport.ts";
 
@@ -22,18 +23,34 @@ export function externalChannelId(tenantId: string, bindingId: string, conversat
 	return uuid5InUrlNamespace(`chatticus:external:${digest}`);
 }
 
+/**
+ * The member's own external channel with the addressed bot whose correlator tag is the hint. Only channels the member
+ * already takes part in are candidates, so the hint can only ever find a thread the sender could reach anyway.
+ */
+async function correlatedChannelId(deps: MappingDependencies, hint: string, tenantId: string, userId: string, addressedBotId: string): Promise<string | null> {
+	const candidates = await deps.messaging.listChannels(tenantId, userId);
+	const match = candidates.find(
+		(candidate) =>
+			candidate.kind === "external" &&
+			candidate.participants.some((participant) => participant.kind === "bot" && participant.actorId === addressedBotId) &&
+			correlatorTagMatchesChannel(deps.correlatorSecret, tenantId, candidate.channelId, hint),
+	);
+	return match === undefined ? null : match.channelId;
+}
+
 /** What the mapping reads and writes. */
 export interface MappingDependencies {
 	readonly store: ChannelStore;
 	readonly messaging: MessagingStore;
 	readonly ids: IdSource;
+	readonly correlatorSecret: string;
 }
 
 /**
  * Find or open the one Chatticus channel an external conversation is.
  *
  * A pair conversation (a direct message, a text) is the member's existing direct channel with the bot. A thread
- * conversation is found by its conversation key, then by any earlier message it references, and otherwise opens a new
+ * conversation is found by its conversation key scoped to the sending member, then by any earlier message it references, and otherwise opens a new
  * external channel named from the subject, with the addressed bot, the bots that were copied and the member as
  * participants. Either way the conversation key and the message are indexed so a later message finds the channel.
  *
@@ -60,17 +77,21 @@ export async function mapExternalConversation(
 		await deps.store.putConversationChannelIfAbsent(tenantId, bindingId, event.conversationKey, direct.channelId);
 		return direct;
 	}
-	let channelId = await deps.store.getConversationChannel(tenantId, bindingId, event.conversationKey);
+	const memberConversationKey = `${member.userId}|${event.conversationKey}`;
+	let channelId = await deps.store.getConversationChannel(tenantId, bindingId, memberConversationKey);
 	if (channelId === null) {
 		for (const referenced of event.referencedExternalMessageIds) {
 			channelId = await deps.store.getMessageChannel(tenantId, bindingId, referenced);
 			if (channelId !== null) break;
 		}
 	}
+	if (channelId === null && event.correlatorHint !== null) {
+		channelId = await correlatedChannelId(deps, event.correlatorHint, tenantId, member.userId, addressedBotId);
+	}
 	let channel: Channel | null = channelId === null ? null : await deps.messaging.getChannel(tenantId, channelId);
 	if (channel === null) {
 		const name = event.subject === null ? null : event.subject.slice(0, MAXIMUM_NAME_CHARACTERS);
-		const deterministicId = externalChannelId(tenantId, bindingId, event.conversationKey);
+		const deterministicId = externalChannelId(tenantId, bindingId, memberConversationKey);
 		const existing = await deps.messaging.getChannel(tenantId, deterministicId);
 		if (existing !== null) {
 			channel = existing;
@@ -83,7 +104,7 @@ export async function mapExternalConversation(
 			channel = await deps.messaging.putChannelIfAbsent(created);
 		}
 	}
-	const indexed = await deps.store.putConversationChannelIfAbsent(tenantId, bindingId, event.conversationKey, channel.channelId);
+	const indexed = await deps.store.putConversationChannelIfAbsent(tenantId, bindingId, memberConversationKey, channel.channelId);
 	if (indexed !== channel.channelId) return null;
 	if (!channel.participants.some((participant) => participant.kind === "bot" && participant.actorId === addressedBotId)) return null;
 	return channel;

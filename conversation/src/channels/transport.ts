@@ -37,9 +37,9 @@ export interface InboundRefusal {
 	readonly reason: string;
 }
 
-/** An attachment already stored, referenced by its storage key. */
+/** An attachment of an inbound message; its storage key is null while only its metadata has been recorded. */
 export interface AttachmentReference {
-	readonly storageKey: string;
+	readonly storageKey: string | null;
 	readonly fileName: string;
 	readonly contentType: string;
 	readonly sizeBytes: number;
@@ -74,6 +74,8 @@ export interface InboundEvent {
 	readonly externalMessageId: string;
 	readonly conversationKey: string;
 	readonly referencedExternalMessageIds: readonly string[];
+	/** A provider hint for finding the conversation when every threading reference is missing; never authorizes anything. */
+	readonly correlatorHint: string | null;
 	readonly subject: string | null;
 	readonly sender: InboundSender;
 	readonly text: string;

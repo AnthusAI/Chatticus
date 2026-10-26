@@ -240,8 +240,11 @@ SES attaches verdicts to every inbound message. The ingress Lambda requires all 
 treated as authenticated; otherwise the sender is treated as `unknown` regardless of the allowlist:
 
 1. SES spam verdict not FAIL and virus verdict not FAIL.
-2. DMARC verdict PASS for the `From` domain, or DKIM PASS aligned with the `From` domain. SPF alone is not accepted
-   because forwarding breaks it and it authenticates the envelope, not the visible `From`.
+2. DMARC verdict PASS for the `From` domain. In milestone 1 nothing else authenticates a sender: a DKIM pass alone is
+   refused, because the receiver does not say which domain signed, so alignment with the `From` domain cannot be checked
+   (the `dkim_aligned` assertion is reserved for milestone 2, when the signing domain is read). SPF alone is never
+   accepted because forwarding breaks it and it authenticates the envelope, not the visible `From`. A message with more
+   than one `From` header, more than one mailbox in `From`, or a group in `From` is refused as malformed.
 3. The `From` address (not the display name, not `Reply-To`) matches a linked member address or a guest admission.
 4. The message is not an automated message (section 5).
 
@@ -270,7 +273,8 @@ status) when any of these hold: empty or null return path; `Auto-Submitted` othe
 `mailer-daemon`, `postmaster` or `noreply` style on a denylist; our own `X-Chatticus-Origin` header present.
 
 **Our own mail says what it is.** Bot replies carry `Auto-Submitted: auto-replied`, `X-Chatticus-Origin` with the
-environment, and `X-Chatticus-Hops` with a counter. An inbound message with hops above 3 is dropped. This stops two
+environment, and `X-Chatticus-Hops` with a counter. An inbound message with hops above 3 is dropped; in milestone 1 every message that carries the origin header is dropped,
+which covers any hop count. This stops two
 Chatticus deployments, or a bot and an external auto-responder that ignores the headers, from looping.
 
 **Bot-to-bot never uses email.** Bots in one organization talk through the channel, as in [Messaging](MESSAGING.md).
@@ -614,3 +618,12 @@ These are decided, observed and deliberately left open in milestone 1. Each has 
 - **Missing `events:PutEvents` grant.** The turn executor publishes the channel message event, and no infrastructure
   grant yet lets its role call `events:PutEvents` on the channel event bus. The infrastructure task adds the grant with
   the bus and the rule; until then the publisher must not be wired in a deployed environment.
+- **Own outbound Message-ID check.** An inbound message whose Message-ID is one of our own outbound ids should be
+  dropped and counted. The outbound id format is not defined yet; the outbound rendering task (M1.6) defines it, and the
+  inbound check lands with it. Until then only the `X-Chatticus-Origin` header marks our own mail.
+- **Raw MIME parser version.** The parser dependency is pinned to a version with a published advisory about many encoded
+  words in one header. It is mitigated by explicit parser limits (header size, nesting depth, part count) and a refusal
+  scenario; a bump to a patched version waits until it is at least two weeks old and has a board task.
+- **Same-organization Message-ID reuse.** Conversation keys are scoped to the sending member so one member reusing
+  another member's Message-ID neither suppresses nor joins that member's thread, and the inbound deduplication key
+  includes the sender.

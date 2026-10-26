@@ -1,6 +1,8 @@
 /** Names of the counters the channel features keep; they carry no message text and no address. */
 export type ChannelMetricName =
 	| "inbound_received"
+	| "inbound_refused"
+	| "inbound_charset_fallback"
 	| "inbound_admitted"
 	| "inbound_unknown_route"
 	| "inbound_duplicate"

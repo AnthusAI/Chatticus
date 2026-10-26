@@ -36,6 +36,9 @@ export type ChannelsScenario = {
 	deliveriesResponse: RecordedResponse | null;
 };
 
+/** The correlator secret every scenario's runtime uses. */
+export const SCENARIO_CORRELATOR_SECRET = "scenario-correlator-secret";
+
 const scenarios = new WeakMap<ChatticusWorld, ChannelsScenario>();
 
 /** The channel features' state for this scenario, created on first use. */
@@ -75,6 +78,7 @@ export function channelsRuntimeFor(world: ChatticusWorld): ChannelsRuntime | und
 		allowedProviders: ["email", "fake"] satisfies TransportProvider[],
 		killSwitchEngaged: scenario.killSwitchEngaged,
 		transports: new Map([["fake", scenario.fake]]),
+		correlatorSecret: SCENARIO_CORRELATOR_SECRET,
 		events,
 		metrics,
 	};
