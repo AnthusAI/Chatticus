@@ -49,6 +49,22 @@ function decodeEntities(text: string): string {
 	});
 }
 
+function indexOfTagEnd(source: string, start: number): number {
+	let quote = "";
+	let previousSignificant = "";
+	for (let index = start; index < source.length; index += 1) {
+		const character = source[index]!;
+		if (quote !== "") {
+			if (character === quote) quote = "";
+			continue;
+		}
+		if (character === ">") return index;
+		if ((character === '"' || character === "'") && previousSignificant === "=") quote = character;
+		if (character !== " " && character !== "\t" && character !== "\n" && character !== "\r" && character !== "\f") previousSignificant = character;
+	}
+	return -1;
+}
+
 function withQuotePrefixes(text: string): string {
 	let depth = 0;
 	const lines: string[] = [];
@@ -65,7 +81,7 @@ function withQuotePrefixes(text: string): string {
  * million characters is ignored. Scripts, styles, comments and every image are dropped, so a tracking pixel or a remote
  * image is never mentioned, let alone fetched. Links keep their address in parentheses, list items become dashes, block
  * elements become lines, and quoted blocks become lines starting with a greater-than sign so the quoted reply stripper
- * treats them like quoted plain text. A tag that is never closed, or a comment or script that never ends, drops the rest
+ * treats them like quoted plain text. A closing angle bracket inside a quoted attribute value does not end the tag. A tag that is never closed, or a comment or script that never ends, drops the rest
  * of the document instead of being searched for again.
  *
  * @param html The HTML part of the message, already decoded to text.
@@ -125,7 +141,7 @@ export function htmlToText(html: string): string {
 			position = end + 3;
 			continue;
 		}
-		const close = source.indexOf(">", open + 1);
+		const close = indexOfTagEnd(source, open + 1);
 		if (close < 0) break;
 		position = close + 1;
 		const tagText = source.slice(open + 1, Math.min(close, open + 1 + MAXIMUM_TAG_CHARACTERS));

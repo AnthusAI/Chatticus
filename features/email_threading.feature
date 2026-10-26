@@ -302,3 +302,23 @@ Feature: An email thread is one Chatticus channel
     Then the message was admitted
     And "sam@example.com" has 1 channel of kind "external" in "Anthus Labs"
     And that channel has 2 messages
+
+  Scenario: A reply dropped because its sender is not in the conversation leaves no conversation entry for that sender
+    Given an email arrives:
+      | from        | sam.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Sam's plan                                       |
+      | id          | sam-root@mail.example.test                       |
+      | body        | A thread that belongs to Sam                     |
+    When an email arrives:
+      | from        | ada.sender@example.test                          |
+      | to          | researcher@anthus.mail.develop.example.test      |
+      | subject     | Re: Sam's plan                                   |
+      | id          | ada-1@mail.example.test                          |
+      | in-reply-to | sam-root@mail.example.test                       |
+      | references  | sam-root@mail.example.test                       |
+      | body        | I know the message id                            |
+    Then the message was dropped as "sender_not_in_conversation"
+    And "ada@example.com" has no conversation entry for "sam-root@mail.example.test" in "Anthus Labs"
+    And "sam@example.com" has a conversation entry for "sam-root@mail.example.test" in "Anthus Labs"
+

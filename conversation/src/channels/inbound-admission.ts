@@ -3,7 +3,7 @@ import { postMessage, type MessageDependencies } from "../domain/messages.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import { normalizedRouteKey } from "../store/channel-store.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
-import { mapExternalConversation } from "./conversation-mapping.ts";
+import { indexExternalConversation, mapExternalConversation } from "./conversation-mapping.ts";
 import type { ChannelMetricName } from "./metrics.ts";
 import type { ChannelBinding } from "./records.ts";
 import { externalChannelsAvailable, type ChannelsRuntime } from "./runtime.ts";
@@ -111,8 +111,9 @@ export async function admitInbound(deps: AdmissionDependencies, transport: Chann
 	}
 
 	const botIds = [binding.botId, ...(await readerBotIds(deps, event, binding))];
+	const mappingDependencies = { store: runtime.store, messaging: deps.messaging, ids: deps.ids, correlatorSecret: runtime.correlatorSecret };
 	const channel = await mapExternalConversation(
-		{ store: runtime.store, messaging: deps.messaging, ids: deps.ids, correlatorSecret: runtime.correlatorSecret },
+		mappingDependencies,
 		transport,
 		event,
 		binding,
@@ -122,6 +123,9 @@ export async function admitInbound(deps: AdmissionDependencies, transport: Chann
 	if (channel === null) return dropped(runtime, "bot_not_in_conversation", "inbound_bot_not_in_conversation", { provider: event.provider });
 	if (!channel.participants.some((participant) => participant.kind === "human" && participant.actorId === link.userId)) {
 		return dropped(runtime, "sender_not_in_conversation", "inbound_sender_not_in_conversation", { provider: event.provider });
+	}
+	if (!(await indexExternalConversation(mappingDependencies, transport, event, binding, { userId: link.userId }, channel))) {
+		return dropped(runtime, "bot_not_in_conversation", "inbound_bot_not_in_conversation", { provider: event.provider });
 	}
 
 	const origin: MessageOrigin = {

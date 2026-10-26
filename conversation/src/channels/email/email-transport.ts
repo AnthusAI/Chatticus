@@ -169,12 +169,23 @@ function mailboxesOf(addresses: readonly Address[] | undefined): Mailbox[] {
 	return mailboxes.filter((mailbox) => mailbox.address.includes("@"));
 }
 
+const STRICT_SENDER_ADDRESS_PATTERN = /^[^\s@<>()\\",;:[\]]+@[^\s@<>()\\",;:[\]]+$/;
+
+/**
+ * The one mailbox of the From header, or null when the header does not name exactly one unambiguous address. The receiver's
+ * DMARC verdict vouches for one address, so any form in which a second address could hide is refused outright: more than
+ * one at sign anywhere in the raw header, an at sign in the decoded display name, obsolete route syntax, and any address
+ * that is not a plain local part and domain.
+ */
 function soleSender(email: Email): Mailbox | null {
 	const fromHeaders = email.headers.filter((header) => header.key === "from");
 	if (fromHeaders.length !== 1) return null;
-	const parsed = addressParser(fromHeaders[0]!.value);
+	const rawValue = fromHeaders[0]!.value;
+	if (rawValue.split("@").length !== 2) return null;
+	const parsed = addressParser(rawValue);
 	const only = parsed[0];
-	if (parsed.length !== 1 || only === undefined || only.group !== undefined || only.address === undefined || !only.address.includes("@")) return null;
+	if (parsed.length !== 1 || only === undefined || only.group !== undefined || only.address === undefined) return null;
+	if (only.name.includes("@") || !STRICT_SENDER_ADDRESS_PATTERN.test(only.address)) return null;
 	return { name: only.name, address: only.address };
 }
 

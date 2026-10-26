@@ -52,7 +52,8 @@ export interface MappingDependencies {
  * A pair conversation (a direct message, a text) is the member's existing direct channel with the bot. A thread
  * conversation is found by its conversation key scoped to the sending member, then by any earlier message it references, and otherwise opens a new
  * external channel named from the subject, with the addressed bot, the bots that were copied and the member as
- * participants. Either way the conversation key and the message are indexed so a later message finds the channel.
+ * participants. Nothing is indexed here: the caller indexes the conversation with indexExternalConversation once the sender
+ * is known to take part in the channel, so a message that is dropped leaves no entry behind.
  *
  * @param deps The stores and identifiers.
  * @param transport The transport the event arrived on; its granularity decides the shape.
@@ -60,7 +61,7 @@ export interface MappingDependencies {
  * @param binding The binding the event was routed to.
  * @param member The member the sender is linked to.
  * @param botIds The addressed bot first, then the bots that read.
- * @returns The channel, or null when the conversation is indexed to another channel or the channel has no place for the addressed bot.
+ * @returns The channel, or null when the channel has no place for the addressed bot.
  */
 export async function mapExternalConversation(
 	deps: MappingDependencies,
@@ -73,9 +74,7 @@ export async function mapExternalConversation(
 	const { tenantId, bindingId } = binding;
 	const addressedBotId = botIds[0]!;
 	if (transport.capabilities.conversationGranularity === "pair") {
-		const direct = await createChannel(tenantId, member.userId, [addressedBotId], { kind: "direct" }, { store: deps.messaging, ids: deps.ids });
-		await deps.store.putConversationChannelIfAbsent(tenantId, bindingId, event.conversationKey, direct.channelId);
-		return direct;
+		return await createChannel(tenantId, member.userId, [addressedBotId], { kind: "direct" }, { store: deps.messaging, ids: deps.ids });
 	}
 	const memberConversationKey = `${member.userId}|${event.conversationKey}`;
 	let channelId = await deps.store.getConversationChannel(tenantId, bindingId, memberConversationKey);
@@ -104,8 +103,31 @@ export async function mapExternalConversation(
 			channel = await deps.messaging.putChannelIfAbsent(created);
 		}
 	}
-	const indexed = await deps.store.putConversationChannelIfAbsent(tenantId, bindingId, memberConversationKey, channel.channelId);
-	if (indexed !== channel.channelId) return null;
 	if (!channel.participants.some((participant) => participant.kind === "bot" && participant.actorId === addressedBotId)) return null;
 	return channel;
+}
+
+/**
+ * Record the channel a conversation resolved to, so a later message of the same conversation finds it. Called only after
+ * the sender has been admitted to the channel; a dropped message never writes an entry.
+ *
+ * @param deps The stores and identifiers.
+ * @param transport The transport the event arrived on; its granularity decides the key.
+ * @param event The inbound event.
+ * @param binding The binding the event was routed to.
+ * @param member The member the sender is linked to.
+ * @param channel The channel the conversation resolved to.
+ * @returns False when the conversation is already indexed to a different channel.
+ */
+export async function indexExternalConversation(
+	deps: MappingDependencies,
+	transport: ChannelTransport,
+	event: InboundEvent,
+	binding: { tenantId: string; bindingId: string },
+	member: { userId: string },
+	channel: Channel,
+): Promise<boolean> {
+	const key = transport.capabilities.conversationGranularity === "pair" ? event.conversationKey : `${member.userId}|${event.conversationKey}`;
+	const indexed = await deps.store.putConversationChannelIfAbsent(binding.tenantId, binding.bindingId, key, channel.channelId);
+	return transport.capabilities.conversationGranularity === "pair" || indexed === channel.channelId;
 }
