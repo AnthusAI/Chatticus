@@ -219,12 +219,14 @@ describe("deploy workflow YAML", () => {
         ]);
       });
 
-      it("development: the mail workflow first waits, within a bound, for the control plane exports the mail stack imports, with no secret and no extra permission", () => {
+      it("development: the mail workflow deploys the ingress stack, then waits, within a bound, for the control plane exports the mail stack imports, with no secret and no extra permission", () => {
         const workflow = readFileSync(join(workflowsDir, "deploy-mail-development.yml"), "utf8");
         const wait = workflow.indexOf("run: sh wait-for-control-plane-exports.sh");
-        const firstDeploy = workflow.indexOf("run: sh deploy-chatticus-");
+        const ingressDeploy = workflow.indexOf("run: sh deploy-chatticus-dedicated-account.sh development mail-ingress");
+        const mailDeploy = workflow.indexOf("run: sh deploy-chatticus-dedicated-account.sh development mail\n");
         assert.ok(wait > -1, "the wait step exists");
-        assert.ok(wait < firstDeploy, "the wait step runs before the first deploy step");
+        assert.ok(ingressDeploy > -1 && ingressDeploy < wait, "the ingress stack, which the mail stack imports and this workflow creates, deploys before the wait");
+        assert.ok(wait < mailDeploy, "the wait step runs before the mail stack deploy");
         const script = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../wait-for-control-plane-exports.sh"), "utf8");
         assert.match(script, /WAIT_POLL_SECONDS="\$\{WAIT_POLL_SECONDS:-30\}"/);
         assert.match(script, /WAIT_MAXIMUM_POLLS="\$\{WAIT_MAXIMUM_POLLS:-80\}"/);
