@@ -1,4 +1,5 @@
 import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import type { MessageOrigin } from "../domain/channels.ts";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { type CommitObjectCache, IndexedStorage } from "../storage/indexed-storage.ts";
 import { storageIdFor } from "../storage/storage-support.ts";
@@ -29,6 +30,8 @@ export type ListedMessage = {
 	body: string;
 	addressed_to_bot_id: string | null;
 	created_at: string;
+	/** Where the message came from when it arrived over an external transport; absent means the web app. */
+	origin?: MessageOrigin;
 	/** The tool calls of the turn a bot message ends; absent when the turn used no tool or the message is not a bot answer. */
 	activity?: ToolActivityItem[];
 };
@@ -96,6 +99,7 @@ export async function listChannelMessages(
 					author_id: line.authorId,
 					addressed_to_bot_id: line.addressedToBotId,
 					created_at: line.createdAt,
+					...(line.origin === undefined ? {} : { origin: line.origin }),
 				},
 				body: body().then((text) => text ?? ""),
 			});
@@ -113,6 +117,7 @@ export async function listChannelMessages(
 					author_id: item.authorId,
 					addressed_to_bot_id: item.addressedToBotId,
 					created_at: item.createdAt,
+					...(item.origin === undefined ? {} : { origin: item.origin }),
 				},
 				body: Promise.resolve(item.body),
 			});

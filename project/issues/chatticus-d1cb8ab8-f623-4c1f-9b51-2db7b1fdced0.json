@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-d1cb8ab8-f623-4c1f-9b51-2db7b1fdced0",
+  "title": "DLQ replay tool for the mail ingress from the raw archive",
+  "description": "A failed ingress invocation lands in the function dead-letter queue with the event and the error, and the raw message stays in the archive for 30 days. Build an operator tool that replays a dead-lettered receipt event (or a raw archive key) through the ingress handler idempotently, and a runbook entry for it. Found in the PR 648 review.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-26T19:18:32.371007Z",
+  "updated_at": "2026-10-26T19:18:32.371048Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-m1-8"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

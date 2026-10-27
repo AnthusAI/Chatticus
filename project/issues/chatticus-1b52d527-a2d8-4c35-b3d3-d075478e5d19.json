@@ -3,16 +3,29 @@
   "title": "M1: Channel transport port and email in the SES sandbox",
   "description": "Smallest vertical slice of external channels. Introduce the provider-neutral channel transport port and channel binding service, an in-memory fake transport that makes every behavior Gherkin-testable, and email through Amazon SES working end to end in the development environment while the account is in the SES sandbox.\n\nWhy first: it proves the abstraction (one inbound path, one outbound path, one channel per external conversation) against the hardest common transport, and it needs no Amazon request. Inbound receiving is not restricted by the sandbox; outbound goes to verified identities and the SES mailbox simulator.\n\nScope: binding records and owner routes; external channel kind and message origin; inbound admission pipeline; outbound delivery path with EventBridge wake-up and delivery records; email parsing, threading and rendering; CDK for the mail domain, receipt rule and event destinations; ingress and event Lambdas; live proof with one owner-verified address.\nOut of scope: trust classes beyond a single linked test member, quarantine, guests, rate limits, web UI (M2).\n\nExit criteria: all M1 features pass in cucumber-js with the fake transport; the development environment receives a real email at a bot address and answers the verified sender in the same thread; the acceptance runner check passes; nothing was asked of Amazon.\n\nContract: initiative description (draft docs/EXTERNAL_CHANNELS.draft.md).",
   "type": "epic",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-b10a407e-b5bd-4f5b-90a9-af1de587a11b",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "429df72c-8f77-4bd9-9d46-816c7647a51e",
+      "author": "home",
+      "text": "Owner approved the M1 infra plan. Filed M1.7a (wiring of the ChannelsRuntime, EventBridge publisher and PutEvents grant, chatticus-1203d7) ahead of M1.8. STOP raised on decision 7: the marketing site (private repo, stack marketing-stack) creates and sends from the chattic.us SES identity (waitlist confirmation mail via sesv2 SendEmail), so the existing identity is depended on, not unused. The mail subdomain identity is a separate identity and does not touch it. Awaiting the owner before building the mail infra task chatticus-a2be22.",
+      "created_at": "2026-10-26T12:08:44.308871Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-5"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:55:31.668190Z",
-  "updated_at": "2026-10-22T03:57:46.946079Z",
+  "updated_at": "2026-10-26T12:08:44.308892Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

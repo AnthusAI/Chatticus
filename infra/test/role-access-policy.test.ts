@@ -5,6 +5,9 @@ import { Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
 import { ownerTaskDefinitionFamily } from "../lib/computer-stack";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
+import { MAIL_DOMAINS, mailConfigurationSetName } from "../lib/environments";
+import { MailIngressStack } from "../lib/mail-ingress-stack";
+import { MailStack } from "../lib/mail-stack";
 import { policyAllows, type PolicyStatement } from "../../conversation/features-support/iam-policy-evaluator";
 import {
   ACCESS_ROLES,
@@ -37,6 +40,10 @@ const ROLE_LOGICAL_ID_PATTERNS: Record<AccessRole, RegExp> = {
   frontDoor: /^FrontDoorServiceRole/,
   ownerTurn: /^ComputerOwnerScopedRole/,
   supervisor: /^ComputerSupervisorRole/,
+  turnExecutor: /^TurnExecutorServiceRole/,
+  mailIngress: /^LambdasMailIngressServiceRole/,
+  mailDelivery: /^LambdasMailDeliveryServiceRole/,
+  mailStatus: /^LambdasMailStatusServiceRole/,
 };
 
 const PSEUDO_PARAMETERS: Record<string, string> = {
@@ -97,8 +104,23 @@ function synthesize(): { statements: Record<AccessRole, PolicyStatement[]>; arns
     sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
   });
   const stack = new ControlPlaneStack(app, "ControlPlane", { env: ENV, chatticusEnvironment: "development", messagingTable });
-  const template = Template.fromStack(stack);
-  const policies = Object.values(template.findResources("AWS::IAM::Policy")) as Array<{
+  const mailIngress = new MailIngressStack(app, "MailIngress", { env: ENV });
+  const mail = new MailStack(app, "Mail", {
+    env: ENV,
+    chatticusEnvironment: "development",
+    mailDomain: MAIL_DOMAINS.development,
+    receiptRuleSet: mailIngress.ruleSet,
+    application: {
+      messagingTable,
+      conversationsTable: stack.conversationsTable,
+      piSessionsBucket: stack.piSessionsBucket,
+      turnRunsQueue: stack.turnRunsQueue,
+      turnProbesQueue: stack.turnProbesQueue,
+      alarmTopic: stack.alarmTopic,
+      webAppBaseUrl: "https://develop.chattic.us",
+    },
+  });
+  const policies = [...Object.values(Template.fromStack(stack).findResources("AWS::IAM::Policy")), ...Object.values(Template.fromStack(mail).findResources("AWS::IAM::Policy"))] as Array<{
     Properties: { Roles?: Array<{ Ref?: string }>; PolicyDocument: { Statement: Array<Record<string, CloudFormationValue>> } };
   }>;
   const statements = Object.fromEntries(
@@ -118,6 +140,10 @@ function synthesize(): { statements: Record<AccessRole, PolicyStatement[]>; arns
     conversationsTable: textOf(stack.resolve(stack.conversationsTable.tableArn)),
     piSessionsBucket: textOf(stack.resolve(stack.piSessionsBucket.bucketArn)),
     snapshotBucket: `arn:aws:s3:::${SNAPSHOT_BUCKET_NAME}`,
+    channelEventBus: textOf(stack.resolve(stack.formatArn({ service: "events", resource: "event-bus", resourceName: "default" }))),
+    rawMailBucket: textOf(mail.resolve(mail.rawMailBucket.bucketArn)),
+    mailIdentity: textOf(mail.resolve(mail.formatArn({ service: "ses", resource: "identity", resourceName: MAIL_DOMAINS.development }))),
+    mailConfigurationSet: textOf(mail.resolve(mail.formatArn({ service: "ses", resource: "configuration-set", resourceName: mailConfigurationSetName("development") }))),
   };
   return { statements, arns };
 }
@@ -152,8 +178,8 @@ describe("the secret parameters against the policies the ControlPlane stack synt
   const denials = loadRoleAccessDenials();
   const parameterArns = secretParameterArnsOf(ENV.region, ENV.account, "development");
 
-  it("lists a denial for every action and secret parameter of the owner and supervisor roles", () => {
-    assert.equal(denials.length, 2 * 2 * 3);
+  it("lists a denial for every action and secret parameter of the owner, supervisor, turn executor and mail roles", () => {
+    assert.equal(denials.length, 3 * 3 * 3 + 3 * 3 * 2);
   });
 
   for (const denial of denials) {
@@ -173,7 +199,7 @@ describe("the secret parameters against the policies the ControlPlane stack synt
         const actions = JSON.stringify(statement.Action ?? []);
         if (!actions.includes("GetParameterHistory") && !actions.includes("ssm:*")) continue;
         const resources = JSON.stringify(statement.Resource);
-        assert.equal(/operator-key|model-gateway\/signing-key/.test(resources), false, `${role} may read the history of a secret parameter`);
+        assert.equal(/operator-key|model-gateway\/signing-key|channels\/correlator-secret/.test(resources), false, `${role} may read the history of a secret parameter`);
       }
     }
   });

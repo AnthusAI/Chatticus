@@ -2,6 +2,8 @@ import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { computerRepositoryNamePrefix } from "./computer-stack";
 import {
+  MAIL_INGRESS_STACK_ID,
+  mailEnabled,
   stackIdsOfEnvironment,
   type ChatticusCloudEnvironment,
 } from "./environments";
@@ -73,7 +75,8 @@ export function deployRoleStatements(
       resourceName: `cdk-${CDK_BOOTSTRAP_QUALIFIER}-${kind}-${stack.account}-${stack.region}`,
     }),
   );
-  const readableStackArns = [...stackIdsOfEnvironment(environment), CDK_TOOLKIT_STACK_NAME].map((stackId) =>
+  const sharedMailStackIds = mailEnabled(environment) ? [MAIL_INGRESS_STACK_ID] : [];
+  const readableStackArns = [...stackIdsOfEnvironment(environment), ...sharedMailStackIds, CDK_TOOLKIT_STACK_NAME].map((stackId) =>
     stack.formatArn({ service: "cloudformation", resource: "stack", resourceName: `${stackId}/*` }),
   );
   const environmentParameterArn = stack.formatArn({

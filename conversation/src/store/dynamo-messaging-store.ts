@@ -16,7 +16,7 @@ import {
 	UpdateItemCommand,
 	type AttributeValue,
 } from "@aws-sdk/client-dynamodb";
-import type { ActorKind, Channel, ChannelMessageRecord } from "../domain/channels.ts";
+import type { ActorKind, Channel, ChannelMessageRecord, MessageOrigin } from "../domain/channels.ts";
 import type {
 	Identity,
 	Invitation,
@@ -453,6 +453,7 @@ export class DynamoMessagingStore implements MessagingStore {
 				body: decoded.body,
 				addressedToBotId: decoded.addressedToBotId ?? null,
 				createdAt: new Date(decoded.createdAt),
+				...(decoded.origin === undefined ? {} : { origin: JSON.parse(decoded.origin) as MessageOrigin }),
 			},
 			turnId: decoded.turnId ?? null,
 		};
@@ -479,6 +480,7 @@ export class DynamoMessagingStore implements MessagingStore {
 				addressedToBotId: message.addressedToBotId ?? undefined,
 				createdAt: message.createdAt.toISOString(),
 				turnId: turnId ?? undefined,
+				origin: message.origin === undefined ? undefined : JSON.stringify(message.origin),
 			}),
 		);
 	}

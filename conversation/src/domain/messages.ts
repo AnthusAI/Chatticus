@@ -8,7 +8,7 @@ import { ActorNotInChannelError, IdempotencyKeyReuseError, IdempotencyReservatio
 import { householdConversationGrant } from "../policy/capability-policy.ts";
 import type { MessagingStore, PostIdempotencyReservation } from "../store/messaging-store.ts";
 import { pythonRepr } from "./bots.ts";
-import { type ActorKind, type Channel, type ChannelMessageRecord, requireChannelTenant } from "./channels.ts";
+import { type ActorKind, type Channel, type ChannelMessageRecord, type MessageOrigin, requireChannelTenant } from "./channels.ts";
 import type { FaultPlan } from "../turn/fault-plan.ts";
 import { logicalEnqueueId, requestLogicalEnqueue } from "../turn/probes.ts";
 import type { TurnAdmission, TurnProbeQueue, TurnRunQueue } from "./turn-admission.ts";
@@ -43,6 +43,8 @@ export type PostMessageRequest = {
 	body: string;
 	addressedToBotId: string | null;
 	idempotencyKey: string | null;
+	/** Where the message came from when it arrived over an external transport; absent means the web app. */
+	origin?: MessageOrigin;
 	/** When false the addressed turn is created but no run job is published (the fence probe path). */
 	enqueueTurn?: boolean;
 };
@@ -225,6 +227,7 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 		body: request.body,
 		addressedToBotId: request.addressedToBotId,
 		createdAt: reservation?.createdAt ?? deps.clock.now(),
+		...(request.origin === undefined ? {} : { origin: request.origin }),
 	};
 	const itemFor = (botId: string): MailboxItem => ({
 		tenantId: channel.tenantId,
@@ -237,6 +240,7 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 		addressedToBotId: message.addressedToBotId,
 		body: message.body,
 		createdAt: message.createdAt.toISOString(),
+		...(message.origin === undefined ? {} : { origin: message.origin }),
 	});
 	const participatingBotIds = channel.participants
 		.filter((participant) => participant.kind === "bot")
@@ -334,6 +338,7 @@ export async function listMessages(deps: MessageDependencies, request: ListMessa
 		body: entry.body,
 		addressedToBotId: entry.addressed_to_bot_id,
 		createdAt: new Date(entry.created_at),
+		...(entry.origin === undefined ? {} : { origin: entry.origin }),
 		...(entry.activity === undefined ? {} : { activity: entry.activity }),
 	}));
 }

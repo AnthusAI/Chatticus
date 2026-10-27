@@ -45,7 +45,7 @@ Rules for the whole page:
 | Model gateway token | signed with the key; audience `model-gateway` | supervisor memory, child over the socket | at most 3600 s | model calls of one turn |
 | Invoke key | secret `InvokeKey...`, SSM `/chatticus/<environment>/thin-turn/invoke-key-secret-arn` | CloudFront origin header | until rotated | CloudFront, then the Front Door |
 | Operator key | SSM SecureString `/chatticus/<environment>/thin-turn/operator-key` (CDK construct id `OperatorKeyParameter`, thin-turn stack); its name is in `CHATTICUS_OPERATOR_KEY_PARAMETER_NAME` on the Front Door, which holds `ssm:GetParameter` on that exact ARN | `infra/lib/thin-turn-stack.ts` | until recreated | `POST /operator/orgs/{tenant_id}/{enable,suspend,reinstate}` |
-| Retired secrets | Secrets Manager `ModelGatewaySigningKey...` (development ControlPlane stack) and `OperatorKey...` (each thin-turn stack), both retained | the same stacks | until deleted | nothing reads them; they hold the **old** values, so a leak of an old value is still a leak until they are deleted after the deploy is verified (follow-up ticket) |
+| Retired secrets | Secrets Manager `ModelGatewaySigningKey...` (development ControlPlane stack) and `OperatorKey...` (each thin-turn stack); no template references them any more | none (retained, orphaned) | until their scheduled deletion completes | nothing reads them; they hold the **old** values, so a leak of an old value is still a leak until the deletion window ends (30 days after scheduling) |
 
 ### 0.1 Set up the shell once (READ-ONLY)
 
@@ -425,7 +425,7 @@ statement `Effect` `Deny`, `Action` `*`, `Resource` `*`, `Condition` `DateLessTh
    ```sh
    cd conversation && npx tsx bin/simulate-role-access.ts --environment development
    ```
-   Expect `PASS role access development: 42 of 42 allowed (frontDoor 12, ownerTurn 28, supervisor 2)`. (Run read-only on
+   Expect `PASS role access development: 43 of 43 allowed (frontDoor 12, ownerTurn 28, supervisor 2, turnExecutor 1)`. (Run read-only on
    development while writing this page and again by the second reader, before any deny existed.) If the SDK complains the SSO token is expired although the
    AWS CLI works, export the CLI's credentials first: `eval "$(aws configure export-credentials --profile chatticus-production --format env)"`.
 3. The deny proof is section 3.3 with the real `T`, and the live proof is the next step: the broker still issues.
@@ -781,7 +781,7 @@ the environment:
       for unexplained model spend; anything found is reported to the organization's owner.
 - [ ] If the key was recreated, the parameter is at version 1 and `ssm:GetParameter` on it is limited to the Front Door,
       the ComputerStarter and the broker (`aws iam` review of who else can read it), and no principal can call `GetParameterHistory`
-      on it. The retired Secrets Manager secrets (section 0) are deleted once the deploy is verified, because they hold old key values.
+      on it. The retired Secrets Manager secrets (section 0) are scheduled for deletion once the production deploy is verified, because they hold old key values.
 - [ ] Unpublished work lost by stopped computers was listed per tenant and the owners told.
 - [ ] A live computer turn works (10.1) and the revoked credential is dead (10.2).
 - [ ] The follow-ups are Kanbus issues. Three exist and are the gaps of this runbook: the CDK switch for the deny

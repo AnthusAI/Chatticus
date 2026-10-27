@@ -77,6 +77,12 @@ The control-plane sink adapters in ``capability_sinks`` enforce these
 kernels before file, credential, egress, connector, and consequential
 operations run. Full Lambda and HTTP worker wiring remains incremental.
 
+## External channels
+
+An approval is never accepted from an external channel. A message that arrived by email, text or chat is text, not
+evidence of an approval, a rule or a ceiling change. A turn started from outside may notify that approval is needed and
+point to the app; the decision is a signed-in POST. See [External channels](EXTERNAL_CHANNELS.md) section 6.
+
 ## Exclusions (v1)
 
 - iOS or push as an approval client (v3)

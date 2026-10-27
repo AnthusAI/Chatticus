@@ -7,6 +7,10 @@ const ARNS: StoreArns = {
 	conversationsTable: "arn:aws:dynamodb:us-east-1:111122223333:table/conversations",
 	piSessionsBucket: "arn:aws:s3:::pi-sessions",
 	snapshotBucket: "arn:aws:s3:::snapshots",
+	channelEventBus: "arn:aws:events:us-east-1:111122223333:event-bus/default",
+	rawMailBucket: "arn:aws:s3:::raw-mail",
+	mailIdentity: "arn:aws:ses:us-east-1:111122223333:identity/mail.example.test",
+	mailConfigurationSet: "arn:aws:ses:us-east-1:111122223333:configuration-set/outbound",
 };
 
 const tableRow: AccessRow = {
@@ -53,7 +57,7 @@ describe("the post-deploy summary line", () => {
 
 	it("says PASS and counts the cases per role when every case is allowed", () => {
 		expect(simulationSummaryOf("development", [{ simulationCase: first!, decision: "allowed" }, { simulationCase: second!, decision: "allowed" }])).toBe(
-			"PASS role access development: 2 of 2 allowed (frontDoor 2, ownerTurn 0, supervisor 0)",
+			"PASS role access development: 2 of 2 allowed (frontDoor 2, ownerTurn 0, supervisor 0, turnExecutor 0, mailIngress 0, mailDelivery 0, mailStatus 0)",
 		);
 	});
 
@@ -133,7 +137,7 @@ describe("the denial cases put to the IAM policy simulator", () => {
 	it("passes a denial that was denied and fails one that was allowed", () => {
 		const [only] = denialSimulationCasesOf([denial], arns);
 		expect(simulationSummaryOf("development", [{ simulationCase: only!, decision: "implicitDeny" }])).toBe(
-			"PASS role access development: 0 of 0 allowed, 1 of 1 denied as required (frontDoor 0, ownerTurn 0, supervisor 1)",
+			"PASS role access development: 0 of 0 allowed, 1 of 1 denied as required (frontDoor 0, ownerTurn 0, supervisor 1, turnExecutor 0, mailIngress 0, mailDelivery 0, mailStatus 0)",
 		);
 		const line = simulationSummaryOf("development", [{ simulationCase: only!, decision: "allowed" }]);
 		expect(line.startsWith("FAIL role access development")).toBe(true);

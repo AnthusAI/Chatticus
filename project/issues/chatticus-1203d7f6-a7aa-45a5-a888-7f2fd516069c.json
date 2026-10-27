@@ -1,0 +1,64 @@
+{
+  "id": "chatticus-1203d7f6-a7aa-45a5-a888-7f2fd516069c",
+  "title": "M1.7a: Wire ChannelsRuntime, the EventBridge publisher and PutEvents grant into the deployed front door",
+  "description": "Gap found in the M1 infra plan (owner approved adding this ticket ahead of M1.8). Merged code is dark in a deployed environment: lambdas/front-door-composition.ts builds no ChannelsRuntime, there is no EventBridge publisher implementation, and the turn executor role has no events:PutEvents grant. Build the ChannelsRuntime in the front door composition (DynamoChannelStore, mail domain from environments.ts, kill switch from an environment variable defaulting to engaged, transport selection), add the EventBridge publisher for channel.message.created, and grant the turn executor events:PutEvents plus write on the tenant channels deliveries partition. Acceptance: a Gherkin scenario drives the composed runtime through the in-process composition root; infra test asserts the PutEvents grant is scoped to the bus; no behavior fork. Blocks M1.8 (SES ingress Lambda, event Lambda and adapter). Contract: docs/EXTERNAL_CHANNELS.md section 17.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2ecf1e12-b7e4-4a83-a64c-7376ab6116b4",
+      "author": "home",
+      "text": "PR 645 (ts/channels-runtime-wiring). Built: ChannelsRuntime composition for the front door (mail domain variable gates existence, kill switch engaged by default, correlator secret from generated SSM SecureString /chatticus/<env>/channels/correlator-secret by exact ARN), EventBridge publisher for channel.message.created on the default bus (the only bus; no custom routine wake-up bus exists), gated reply recorder for the turn executor, events:PutEvents for the turn executor on that bus only, role-access manifest turnExecutor role and channelEventBus row, correlator secret denial rows, simulator update. Development only, matching MAIL_ENVIRONMENTS. NOT built: the EventBridge rule targeting the delivery handler, because no delivery handler Lambda exists yet. Wiring step for M1.6/M1.8: add a rule on the default bus matching source chatticus.channels and detail-type channel.message.created targeting the handler Lambda, plus the Lambda invoke permission, and extend infra tests; the email transport in the runtime cannot render or send until M1.6.",
+      "created_at": "2026-10-26T15:08:00.281737Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-wiring"
+      }
+    },
+    {
+      "id": "64c1ddfa-4fd8-4fbe-89d7-325fa8a5cf1a",
+      "author": "home",
+      "text": "PR 645 merged with develop (PR 646). The composition registers no transport: EmailChannelTransport now needs an SES client port implementation, configuration set, suppression list and web app base URL, which only the M1.8 ingress and event Lambdas own. M1.8 must construct the transport there (with the correlator secret from the same SSM parameter) and register it, or add it to composeChannelsRuntime once those dependencies exist. Until then delivery for email bindings ends as permanent no_transport.",
+      "created_at": "2026-10-26T16:51:19.812367Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-wiring"
+      }
+    },
+    {
+      "id": "1b3b4cf4-a3e4-4d9a-a9d0-096a0db0830e",
+      "author": "home",
+      "text": "Closed by PR 648: composeChannelsRuntime now registers the real EmailChannelTransport (SES v2 client, configuration set, suppression list, web app base URL; two new required variables), and the default-bus rule for chatticus.channels / channel.message.created targets the new delivery Lambda.",
+      "created_at": "2026-10-26T18:24:43.618945Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-8"
+      }
+    }
+  ],
+  "created_at": "2026-10-26T12:08:29.492621Z",
+  "updated_at": "2026-10-26T18:24:43.619217Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-m1-5"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

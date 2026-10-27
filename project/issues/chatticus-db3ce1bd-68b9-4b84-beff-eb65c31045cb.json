@@ -1,0 +1,50 @@
+{
+  "id": "chatticus-db3ce1bd-68b9-4b84-beff-eb65c31045cb",
+  "title": "Harden inbound email parsing: ambiguous From forms, attribute text, bidi filenames",
+  "description": "Non-blocking findings from the focused re-review of the inbound email parsing PR, to fix before the ingress Lambda is wired (M1.8) or in M2 at the latest. (1) Sender ambiguity: a From with an unquoted address followed by an angle-bracket address, a display name that contains an at sign, or two address-like tokens is accepted as the angle-bracket address; the receiver DMARC verdict could refer to the other one. Refuse when the display name contains an at sign or more than one address-like token appears in the raw From; also refuse obsolete route syntax and multi-at forms outright instead of relying on identity lookup. (2) html-to-text ends a tag at the first closing angle bracket, so a closing angle bracket inside a quoted attribute leaks the rest of the attribute as body text; make the tag scanner quote-aware. (3) sanitizedAttachmentFileName does not strip bidirectional override characters such as U+202E. (4) When a reply is dropped as sender_not_in_conversation the sender's own conversation-key index entry has already been written; write it only after admission. Gherkin first, red then green. Origin: review of PR 644.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "f52338b0-c970-4402-ac2b-ad03d5f57407",
+      "author": "home",
+      "text": "Implementation started: Gherkin first in email_inbound_parsing.feature and email_threading.feature, red then green. Branch ts/email-parsing-hardening.",
+      "created_at": "2026-10-26T17:23:46.916271Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-hardening"
+      }
+    },
+    {
+      "id": "c990fe9a-5745-4e58-b37f-8bbc369b3b75",
+      "author": "home",
+      "text": "All four items implemented and green: PR https://github.com/AnthusAI/Chatticus/pull/647 (branch ts/email-parsing-hardening). Scenarios added to email_inbound_parsing.feature and email_threading.feature; vitest, typecheck, infra tests and the full cucumber suite pass (suite run in chunks because of local port exhaustion). Awaiting review; not merged.",
+      "created_at": "2026-10-26T19:17:32.386452Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-hardening"
+      }
+    }
+  ],
+  "created_at": "2026-10-26T13:45:28.077401Z",
+  "updated_at": "2026-10-26T19:17:32.388087Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "orchestrator-m15"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

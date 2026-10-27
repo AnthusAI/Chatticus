@@ -1,0 +1,195 @@
+import assert from "node:assert/strict";
+import { ScanCommand } from "@aws-sdk/client-dynamodb";
+import type { ChannelEvent, ChannelEventPublisher } from "../src/channels/events.ts";
+import type { AdmissionDependencies, AdmissionOutcome } from "../src/channels/inbound-admission.ts";
+import { dropAutomatedMessages } from "../src/channels/inbound-admission.ts";
+import type { DeliveryDependencies, SweepDependencies } from "../src/channels/delivery.ts";
+import { EmailChannelTransport } from "../src/channels/email/email-transport.ts";
+import { FakeChannelTransport } from "../src/channels/fake-transport.ts";
+import type { ChannelMetricName, ChannelMetrics } from "../src/channels/metrics.ts";
+import type { ChannelsRuntime, ChannelsRuntimeSource } from "../src/channels/runtime.ts";
+import { ChannelsRuntimeHolder } from "../src/lambdas/channels-composition.ts";
+import type { ReplyDeliveryRecorder } from "../src/channels/delivery.ts";
+import type { ChannelTransport, InboundRefusal, RawInbound, TransportProvider } from "../src/channels/transport.ts";
+import { listMessages } from "../src/domain/messages.ts";
+import { DynamoChannelStore } from "../src/store/channel-store.ts";
+import { DynamoRecipientSuppressionList } from "../src/store/recipient-suppression-store.ts";
+import { FakeSesMailClient } from "./fake-ses-mail-client.ts";
+import type { RecordedResponse } from "./api.ts";
+import { executorMessageDependencies } from "./front-door.ts";
+import type { ChatticusWorld } from "./world.ts";
+
+/** One counter increment the scenario's metrics recorded. */
+export type CountedMetric = { readonly name: ChannelMetricName; readonly dimensions: Readonly<Record<string, string>> };
+
+/** Everything the external channel features keep for the length of one scenario. */
+export type ChannelsScenario = {
+	configured: boolean;
+	killSwitchEngaged: boolean;
+	mailDomain: string;
+	readonly fake: FakeChannelTransport;
+	readonly ses: FakeSesMailClient;
+	configurationSetName: string;
+	webAppBaseUrl: string;
+	readonly published: ChannelEvent[];
+	readonly counted: CountedMetric[];
+	response: RecordedResponse | null;
+	operatorResponse: RecordedResponse | null;
+	lastRequest: RawInbound | null;
+	readonly outcomes: AdmissionOutcome[];
+	lastRefusal: InboundRefusal | null;
+	countedItems: number | null;
+	focusChannel: { channelId: string; tenantId: string; person: string } | null;
+	deliveriesResponse: RecordedResponse | null;
+	/** Set once the scenario composes external channels the way a deployed environment does, from its environment variables. */
+	deployment: DeployedChannels | null;
+};
+
+/** What the production composition built for the scenario's deployment. */
+export type DeployedChannels = {
+	readonly holder: ChannelsRuntimeHolder;
+	readonly recorder: ReplyDeliveryRecorder | undefined;
+};
+
+/** The correlator secret every scenario's runtime uses. */
+export const SCENARIO_CORRELATOR_SECRET = "scenario-correlator-secret";
+
+const scenarios = new WeakMap<ChatticusWorld, ChannelsScenario>();
+
+/** The channel features' state for this scenario, created on first use. */
+export function channelsScenarioOf(world: ChatticusWorld): ChannelsScenario {
+	let scenario = scenarios.get(world);
+	if (scenario === undefined) {
+		scenario = {
+			configured: false,
+			killSwitchEngaged: false,
+			mailDomain: "mail.scenario.invalid",
+			fake: new FakeChannelTransport(),
+			ses: new FakeSesMailClient(),
+			configurationSetName: "scenario-outbound",
+			webAppBaseUrl: "https://hey.scenario.invalid",
+			published: [],
+			counted: [],
+			response: null,
+			operatorResponse: null,
+			lastRequest: null,
+			outcomes: [],
+			lastRefusal: null,
+			countedItems: null,
+			focusChannel: null,
+			deliveriesResponse: null,
+			deployment: null,
+		};
+		scenarios.set(world, scenario);
+	}
+	return scenario;
+}
+
+/** The suppression list of the scenario, in its Messaging table. */
+export function suppressionListFor(world: ChatticusWorld): DynamoRecipientSuppressionList {
+	return new DynamoRecipientSuppressionList(world.messagingTable.client, world.messagingTable.tableName);
+}
+
+/** The email transport of the scenario, sending through its fake SES client. */
+export function emailTransportFor(world: ChatticusWorld, metrics: ChannelMetrics, transportKind: new (options: ConstructorParameters<typeof EmailChannelTransport>[0]) => EmailChannelTransport = EmailChannelTransport): EmailChannelTransport {
+	const scenario = channelsScenarioOf(world);
+	return new transportKind({
+		mailDomain: scenario.mailDomain,
+		metrics,
+		correlatorSecret: SCENARIO_CORRELATOR_SECRET,
+		mailClient: scenario.ses,
+		configurationSetName: scenario.configurationSetName,
+		suppressionList: suppressionListFor(world),
+		webAppBaseUrl: scenario.webAppBaseUrl,
+	});
+}
+
+/** The channel runtime of the scenario when external channels are configured, otherwise undefined. */
+export function channelsRuntimeFor(world: ChatticusWorld): ChannelsRuntime | undefined {
+	const scenario = channelsScenarioOf(world);
+	if (scenario.deployment !== null) return scenario.deployment.holder.current ?? undefined;
+	if (!scenario.configured) return undefined;
+	const events: ChannelEventPublisher = { publish: async (event) => void scenario.published.push(event) };
+	const metrics: ChannelMetrics = { count: (name, dimensions = {}) => void scenario.counted.push({ name, dimensions }) };
+	return {
+		store: new DynamoChannelStore(world.messagingTable.client, world.messagingTable.tableName),
+		mailDomain: scenario.mailDomain,
+		allowedProviders: ["email", "fake"] satisfies TransportProvider[],
+		killSwitchEngaged: scenario.killSwitchEngaged,
+		transports: new Map<TransportProvider, ChannelTransport>([
+			["fake", scenario.fake],
+			["email", emailTransportFor(world, metrics)],
+		]),
+		correlatorSecret: SCENARIO_CORRELATOR_SECRET,
+		events,
+		metrics,
+	};
+}
+
+/** Where the front door of the scenario gets its channel runtime: the deployment's holder, or the scenario's own runtime. */
+export function channelsSourceFor(world: ChatticusWorld): ChannelsRuntimeSource {
+	const deployment = channelsScenarioOf(world).deployment;
+	if (deployment !== null) return deployment.holder.source;
+	const runtime = channelsRuntimeFor(world) ?? null;
+	return async () => runtime;
+}
+
+/** The runtime of a scenario that must have external channels configured. */
+export function requiredChannelsRuntime(world: ChatticusWorld): ChannelsRuntime {
+	const runtime = channelsRuntimeFor(world);
+	assert.ok(runtime, "External channels are not configured in this scenario");
+	return runtime;
+}
+
+/** What the turn executor needs to record the replies owed to external transports. */
+export function channelDeliveryFor(world: ChatticusWorld): ReplyDeliveryRecorder | undefined {
+	const deployment = channelsScenarioOf(world).deployment;
+	if (deployment !== null) return deployment.recorder;
+	const runtime = channelsRuntimeFor(world);
+	return runtime === undefined
+		? undefined
+		: { store: runtime.store, events: runtime.events, clock: world.clock, reportPublishFailure: () => undefined };
+}
+
+/** The dependencies of the inbound admission path over the scenario's stores. */
+export async function admissionDependenciesFor(world: ChatticusWorld): Promise<AdmissionDependencies> {
+	return {
+		runtime: requiredChannelsRuntime(world),
+		messaging: world.messagingStore(),
+		messages: await executorMessageDependencies(world),
+		ids: world.ids,
+		clock: world.clock,
+		automation: dropAutomatedMessages,
+	};
+}
+
+/** The dependencies of the delivery handler and the sweeper over the scenario's stores. */
+export async function deliveryDependenciesFor(world: ChatticusWorld): Promise<SweepDependencies & DeliveryDependencies> {
+	const messages = await executorMessageDependencies(world);
+	return {
+		runtime: requiredChannelsRuntime(world),
+		clock: world.clock,
+		messaging: world.messagingStore(),
+		loadMessage: async (tenantId, channelId, seq) => {
+			const listed = await listMessages(messages, { tenantId, channelId, afterSeq: seq - 1 });
+			const found = listed.find((message) => message.seq === seq);
+			return found === undefined
+				? null
+				: { messageId: found.messageId, channelId: found.channelId, tenantId: found.tenantId, seq: found.seq, body: found.body, createdAt: found.createdAt };
+		},
+	};
+}
+
+/** How many items the scenario's Messaging table holds right now. */
+export async function messagingItemCount(world: ChatticusWorld): Promise<number> {
+	let total = 0;
+	let exclusiveStartKey: Record<string, any> | undefined;
+	do {
+		const page = await world.messagingTable.client.send(
+			new ScanCommand({ TableName: world.messagingTable.tableName, Select: "COUNT", ExclusiveStartKey: exclusiveStartKey }),
+		);
+		total += page.Count ?? 0;
+		exclusiveStartKey = page.LastEvaluatedKey;
+	} while (exclusiveStartKey !== undefined);
+	return total;
+}

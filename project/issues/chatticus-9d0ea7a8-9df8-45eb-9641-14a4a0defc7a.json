@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-9d0ea7a8-9df8-45eb-9641-14a4a0defc7a",
+  "title": "Retire legacy Chatticus Cognito pools and secrets",
+  "description": "Part of story chatticus-e50451 (group G4). Four legacy Cognito pools (staging x2 with 0 users, production with about 1 user and 0 users) and legacy secrets (three google oauth secrets and one invoke key in recovery windows ending about 2026-11-24 to 2026-11-25, plus two retained secrets with no deletion scheduled). After the windows, delete pools and retained secrets. Owner removes the legacy callback URLs from the Google OAuth client. Users re-link by email through Google federation, nothing to move.\n\nFeature: Legacy auth retired\n  Scenario: No legacy pool or secret remains\n    Given the recovery windows have passed\n    When the legacy pools and secrets are deleted\n    Then sign-in in every environment still works from the Chatticus account",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-26T12:21:54.235738Z",
+  "updated_at": "2026-10-26T12:21:54.311690Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

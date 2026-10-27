@@ -28,6 +28,10 @@ export function recordedRequestsByRole(world: ChatticusWorld): Readonly<Record<A
 		frontDoor: frontDoorRequestsOf(world),
 		ownerTurn: recordedOwnerRequestsOf(world),
 		supervisor: recordedSupervisorRequestsOf(world),
+		turnExecutor: [],
+		mailIngress: [],
+		mailDelivery: [],
+		mailStatus: [],
 	};
 }
 

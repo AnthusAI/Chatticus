@@ -1,0 +1,43 @@
+{
+  "id": "chatticus-8c0b2585-09ee-454d-9f57-99fc9cc33283",
+  "title": "Back up and retire legacy production thin-turn (blocked until 2026-10-29)",
+  "description": "Part of story chatticus-e50451 (group G3). Legacy ChatticusThinTurnProduction: table (97 items, 28 KB), 2 queues, 4 Lambdas with a public Function URL, scheduler group, active invoke-key secret, 7 SSM parameters, plus the retained legacy staging table (62 items) and queues and 3 openai-api-key SSM parameters. Blocked until 2026-10-29 (front door last invoked 2026-10-14). Steps: on-demand backup named like the existing retire backups, owner decision on whether the 97 items (vs 39 in the Chatticus-account table) are needed and, if so, an owner-run script archive into the Chatticus account (no standing cross-account policy), then delete the stack and retained items. Consider rotating the vendor key whose three copies existed. Rollback: restore the backup in the legacy account.\n\nFeature: Legacy thin-turn retired\n  Scenario: State preserved then removed\n    Given a verified backup of the production table\n    When the legacy thin-turn stack and leftovers are deleted\n    Then no Chatticus thin-turn resource remains in the legacy account",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "8fd0b6f4-ab45-406d-b328-8ffa49851c0c",
+      "author": "home",
+      "text": "On-demand backup chatticus-legacy-retire-production-messaging-20261026 taken 2026-10-26 on the legacy production messaging table: status AVAILABLE, 97 items, 28149 bytes. No cross-account copy, no standing cross-account policy. Table deletion is not allowed before 2026-10-29. Restore: aws dynamodb restore-table-from-backup into a new legacy table. Lead parity already confirmed (chatticus-eb508a).",
+      "created_at": "2026-10-26T14:06:05.355628Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-consolidation2"
+      }
+    }
+  ],
+  "created_at": "2026-10-26T12:21:54.079522Z",
+  "updated_at": "2026-10-26T14:06:05.355911Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

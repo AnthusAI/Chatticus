@@ -419,7 +419,7 @@ describe("ControlPlaneStack", () => {
         ...JSON.stringify(Template.fromStack(controlPlane).toJSON()).matchAll(/"Fn::ImportValue":"([^"]+)"/g),
       ].map((match) => match[1]!);
       const secretExports = exportedNames.filter((name) => /secret-arn|InvokeKey|OperatorKey/i.test(name));
-      assert.ok(secretExports.length >= 2, "the thin-turn stack still exports its secret ARNs for the web stack");
+      assert.ok(secretExports.length >= 1, "the thin-turn stack still exports its invoke key secret ARN for the web stack");
       for (const imported of importedNames) {
         assert.ok(!secretExports.includes(imported), `the control plane does not import ${imported}`);
         assert.doesNotMatch(imported, /InvokeKey|OperatorKey|secret/i);
@@ -523,6 +523,99 @@ describe("ControlPlaneStack", () => {
 
     it("is never created in production", () => {
       assert.equal(parameterCount(synthControlPlane("production", withRole)), 0);
+    });
+  });
+
+  describe("external channels wiring", () => {
+    const secretParameterName = "/chatticus/development/channels/correlator-secret";
+    const policiesOf = (template: Template): Array<{ roles: string; statements: Record<string, any>[] }> =>
+      Object.values(template.findResources("AWS::IAM::Policy")).map((policy) => ({
+        roles: JSON.stringify(policy.Properties.Roles),
+        statements: policy.Properties.PolicyDocument.Statement as Record<string, any>[],
+      }));
+    const actionsOf = (statement: Record<string, any>): string[] => ([] as string[]).concat(statement.Action);
+    const channelVariablesOf = (template: Template, description: string): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(functionByDescription(template, description).Environment.Variables as Record<string, string>).filter(([name]) =>
+          name.startsWith("CHATTICUS_CHANNELS_"),
+        ),
+      );
+
+    it("creates the plus-tag secret once as a generated SecureString in development and nowhere else", () => {
+      const generated = (template: Template): Record<string, any>[] =>
+        Object.values(template.findResources("Custom::GeneratedSecureString")).map((resource) => resource.Properties);
+      assert.equal(generated(development).filter((properties) => properties.ParameterName === secretParameterName).length, 1);
+      assert.ok(generated(development).find((properties) => properties.ParameterName === secretParameterName)!.ValueLength >= 32);
+      for (const name of ["staging", "production"] as const) {
+        const template = synthControlPlane(name);
+        assert.equal(JSON.stringify(template.toJSON()).includes("channels/correlator-secret"), false, `${name} has no channels secret`);
+      }
+    });
+
+    it("lets only the FrontDoor read the secret, on its exact ARN, with no wildcard and no Secrets Manager", () => {
+      const readers = policiesOf(development).flatMap((policy) =>
+        policy.statements
+          .filter((statement) => JSON.stringify(statement.Resource).includes("channels/correlator-secret"))
+          .filter((statement) => actionsOf(statement).some((action) => action.startsWith("ssm:Get")))
+          .map((statement) => ({ roles: policy.roles, statement })),
+      );
+      assert.equal(readers.length, 1);
+      assert.match(readers[0]!.roles, /FrontDoorServiceRole/);
+      assert.deepEqual(readers[0]!.statement.Action, "ssm:GetParameter");
+      assert.equal(JSON.stringify(readers[0]!.statement.Resource).includes("*"), false);
+      assert.equal(typeof readers[0]!.statement.Resource === "string" || Object.keys(readers[0]!.statement.Resource).length === 1, true);
+    });
+
+    it("hands the FrontDoor the parameter name and the mail settings, never the secret value", () => {
+      const variables = channelVariablesOf(development, "TypeScript front door");
+      assert.deepEqual(variables, {
+        CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME: secretParameterName,
+        CHATTICUS_CHANNELS_MAIL_DOMAIN: "mail.develop.chattic.us",
+        CHATTICUS_CHANNELS_EVENT_BUS_NAME: "default",
+        CHATTICUS_CHANNELS_KILL_SWITCH: "released",
+        CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME: "chatticus-development-outbound",
+        CHATTICUS_CHANNELS_WEB_APP_BASE_URL: "https://develop.chattic.us",
+      });
+    });
+
+    it("hands the executor the mail settings and the bus but not the secret", () => {
+      assert.deepEqual(channelVariablesOf(development, "SQS TurnRuns consumer"), {
+        CHATTICUS_CHANNELS_MAIL_DOMAIN: "mail.develop.chattic.us",
+        CHATTICUS_CHANNELS_EVENT_BUS_NAME: "default",
+        CHATTICUS_CHANNELS_KILL_SWITCH: "released",
+      });
+    });
+
+    it("sets no channel variable on any function outside development, so nothing changes there", () => {
+      for (const name of ["staging", "production"] as const) {
+        const template = synthControlPlane(name);
+        for (const description of ["TypeScript front door", "SQS TurnRuns consumer"]) {
+          assert.deepEqual(channelVariablesOf(template, description), {});
+        }
+      }
+    });
+
+    it("lets only the turn executor put events, and only on the default bus of the stack's account and region", () => {
+      const grants = policiesOf(development).flatMap((policy) =>
+        policy.statements
+          .filter((statement) => actionsOf(statement).some((action) => action.startsWith("events:")))
+          .map((statement) => ({ roles: policy.roles, statement })),
+      );
+      assert.equal(grants.length, 1);
+      assert.match(grants[0]!.roles, /TurnExecutorServiceRole/);
+      assert.deepEqual(grants[0]!.statement.Action, "events:PutEvents");
+      assert.equal(grants[0]!.statement.Effect, "Allow");
+      assert.match(JSON.stringify(grants[0]!.statement.Resource), /:events:us-east-1:111111111111:event-bus\/default"/);
+      assert.equal(JSON.stringify(grants[0]!.statement.Resource).includes("*"), false);
+    });
+
+    it("grants no events permission outside development", () => {
+      for (const name of ["staging", "production"] as const) {
+        const grants = policiesOf(synthControlPlane(name)).flatMap((policy) =>
+          policy.statements.filter((statement) => actionsOf(statement).some((action) => action.startsWith("events:"))),
+        );
+        assert.deepEqual(grants, []);
+      }
     });
   });
 

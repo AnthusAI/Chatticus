@@ -3,7 +3,7 @@
   "title": "M1.2: External channel kind, message origin and conversation index",
   "description": "Extend the channel model without adding a thread object: ChannelKind gains external, ActorKind gains external, ChannelMessageRecord gains an optional origin block (binding_id, provider, external_message_id, conversation_key, sender_external_id, assertion; absent means web). Add the conv index (binding + conversation key to channel_id) and the emsg index (normalized Message-ID to channel_id). Implement find-or-create for thread-granularity (new external channel named from the subject, participants = addressed bots plus the linked member) and pair-granularity (the member's existing direct channel via directChannelId). Update codecs and listing; existing messages without origin keep working because absence means web.\n\nAcceptance criteria:\n- A first message with a new conversation key creates one external channel; a second with the same key lands in that channel\n- A pair-granularity message from a linked member lands in the member's existing direct channel with that bot\n- Channel listing and message listing show origin; web-only channels are unchanged\n- The external channel appears in the linked member's channel list; other members get 404\n- Idempotent: replaying the same external message id creates no second channel or message\n\nGherkin: features/external_conversation_mapping.feature\n\nDepends on: M1.1\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -17,9 +17,22 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f144ae2f-0309-4db9-9cbb-32974b3019b1",
+      "author": "home",
+      "text": "M1.2 implemented in PR 641 (https://github.com/AnthusAI/Chatticus/pull/641): features/external_conversation_mapping.feature. External channel and author kinds, origin through mailbox, channel log, listing and HTTP payload, conv and emsg indexes, thread mapping with a deterministic channel id, pair mapping to the existing direct channel. Deviation: a non-participant member of an external channel gets 403 from the existing participant check, not 404. Awaiting review and merge.",
+      "created_at": "2026-10-25T16:45:57.410488Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-channels-m1"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:48.874136Z",
-  "updated_at": "2026-10-22T03:58:09.882783Z",
+  "updated_at": "2026-10-25T16:46:10.599739Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

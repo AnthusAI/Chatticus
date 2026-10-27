@@ -81,6 +81,11 @@ protocol.
 
 The human is not the router. The human still sees the same channel.
 
+A person outside the app is not a bot and not a second bus either. A message that arrives by email, and later Slack, Teams
+or text, passes one admission path and becomes an ordinary message in one ordinary channel, carrying an `origin`. A bot's
+reply goes back over that transport only when the turn's prompt arrived over it. See
+[External channels](EXTERNAL_CHANNELS.md).
+
 ## The cloud API
 
 Nothing bills while nobody is working. The API is per-request, and the
@@ -292,6 +297,9 @@ latency is invisible: routine wake-ups, starting a worker, and
 would wait a second for; buffer what you are rendering live.
 
 ### HTTP surface
+
+The owner routes for external channel bindings (`/orgs/{tenant_id}/channel-bindings`, `/mail-handle`,
+`/external-identities`) and the operator switch are described in [External channels](EXTERNAL_CHANNELS.md) section 17.
 
 | Path | Use |
 | --- | --- |

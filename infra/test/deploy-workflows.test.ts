@@ -58,6 +58,11 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
     script: "deploy-chatticus-dedicated-account.sh production thin-turn",
     pushBranch: null,
   },
+  "deploy-mail-development.yml": {
+    environment: "development",
+    script: "deploy-chatticus-dedicated-account.sh development mail",
+    pushBranch: "develop",
+  },
   "deploy-web-development.yml": {
     environment: "development",
     script: "deploy-chatticus-dedicated-account.sh development web",
@@ -207,6 +212,41 @@ describe("deploy workflow YAML", () => {
         assert.deepEqual(deployRunLines("deploy-thinturn-development.yml"), [THIN_TURN_SCRIPT(environment)]);
       });
 
+      it("development: the mail workflow deploys the shared ingress stack first, then the development mail stack, and nothing else", () => {
+        assert.deepEqual(deployRunLines("deploy-mail-development.yml"), [
+          "deploy-chatticus-dedicated-account.sh development mail-ingress",
+          "deploy-chatticus-dedicated-account.sh development mail",
+        ]);
+      });
+
+      it("development: the mail workflow deploys the ingress stack, then waits, within a bound, for the control plane exports the mail stack imports, with no secret and no extra permission", () => {
+        const workflow = readFileSync(join(workflowsDir, "deploy-mail-development.yml"), "utf8");
+        const wait = workflow.indexOf("run: sh wait-for-control-plane-exports.sh");
+        const ingressDeploy = workflow.indexOf("run: sh deploy-chatticus-dedicated-account.sh development mail-ingress");
+        const mailDeploy = workflow.indexOf("run: sh deploy-chatticus-dedicated-account.sh development mail\n");
+        assert.ok(wait > -1, "the wait step exists");
+        assert.ok(ingressDeploy > -1 && ingressDeploy < wait, "the ingress stack, which the mail stack imports and this workflow creates, deploys before the wait");
+        assert.ok(wait < mailDeploy, "the wait step runs before the mail stack deploy");
+        const script = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../wait-for-control-plane-exports.sh"), "utf8");
+        assert.match(script, /WAIT_POLL_SECONDS="\$\{WAIT_POLL_SECONDS:-30\}"/);
+        assert.match(script, /WAIT_MAXIMUM_POLLS="\$\{WAIT_MAXIMUM_POLLS:-80\}"/);
+        assert.match(script, /CREATE_COMPLETE \| UPDATE_COMPLETE/);
+        assert.match(script, /exit 1/);
+        assert.match(script, /describe-stacks/);
+        assert.doesNotMatch(script, /list-exports/);
+        assert.doesNotMatch(workflow, /secrets\.(?!AWS_DEPLOY_ROLE_ARN)/);
+      });
+
+      it("mail is deployed for development only: no staging or production mail workflow and no script mapping", () => {
+        const script = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../deploy-chatticus-dedicated-account.sh"), "utf8");
+        assert.match(script, /^  development:mail-ingress\) STACK="ChatticusMailIngress" ;;$/m);
+        assert.match(script, /^  development:mail\) STACK="ChatticusMailDevelopment" ;;$/m);
+        assert.doesNotMatch(script, /^  (staging|production):mail/m);
+        assert.equal(deployWorkflowFiles().some((name) => /^deploy-mail-(staging|production)\.yml$/.test(name)), false);
+        const mailWorkflow = readFileSync(join(workflowsDir, "deploy-mail-development.yml"), "utf8");
+        assert.doesNotMatch(mailWorkflow, /secrets\.(?!AWS_DEPLOY_ROLE_ARN)/);
+      });
+
       it("development: every stack is deployed by exactly one workflow", () => {
         const owners = new Map<string, string[]>();
         for (const fileName of deployWorkflowFiles().filter((name) => name.endsWith("-development.yml"))) {
@@ -233,7 +273,9 @@ describe("deploy workflow YAML", () => {
       const names = deployWorkflowFiles().filter((name) => name.endsWith(`-${environment}.yml`));
       assert.deepEqual(
         names,
-        ["auth", "controlplane", "thinturn", "web"].map((kind) => `deploy-${kind}-${environment}.yml`),
+        [...(environment === "development" ? ["auth", "controlplane", "mail", "thinturn", "web"] : ["auth", "controlplane", "thinturn", "web"])].map(
+          (kind) => `deploy-${kind}-${environment}.yml`,
+        ),
       );
     });
   }
@@ -253,7 +295,7 @@ describe("deploy workflow YAML", () => {
   }
 
   const DEVELOPMENT_PUSH_WORKFLOWS = [
-    ...["auth", "controlplane", "thinturn", "web"].map((kind) => ({
+    ...["auth", "controlplane", "mail", "thinturn", "web"].map((kind) => ({
       fileName: `deploy-${kind}-development.yml`,
       group: `deploy-${kind}-development`,
     })),
@@ -291,7 +333,7 @@ describe("deploy workflow YAML", () => {
     });
 
     it("checks out the commit the run was triggered for, so a replaced pending run is always superseded by a later commit", () => {
-      for (const kind of ["auth", "controlplane", "thinturn", "web"]) {
+      for (const kind of ["auth", "controlplane", "mail", "thinturn", "web"]) {
         const contents = readFileSync(join(workflowsDir, `deploy-${kind}-development.yml`), "utf8");
         assert.match(contents, /- uses: actions\/checkout@v4\n        with:\n          ref: \$\{\{ github\.sha \}\}\n/, kind);
       }

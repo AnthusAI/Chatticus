@@ -14,6 +14,14 @@ export type ChatticusCloudEnvironment = (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[nu
  */
 export const KANBUS_BOARD_ENVIRONMENTS: readonly ChatticusCloudEnvironment[] = ["development"];
 
+/**
+ * The environments whose mail stack (mail zone, SES identity, receipt rule, raw mail bucket and outbound configuration
+ * set) is built. A documented rollout switch, not a behavior fork: extending mail to staging and then production is a
+ * one-line change here plus the matching deploy workflow and deploy script entries. Development goes first by the
+ * owner's decision, see docs/MAIL_INFRASTRUCTURE.md.
+ */
+export const MAIL_ENVIRONMENTS: readonly ChatticusCloudEnvironment[] = ["development"];
+
 export const THIN_TURN_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusThinTurnDevelopment",
   staging: "ChatticusThinTurnStaging",
@@ -70,6 +78,47 @@ export const ENVIRONMENT_CERTIFICATES_STACK_IDS: Record<ChatticusCloudEnvironmen
   staging: "ChatticusEnvironmentCertificatesStaging",
   production: "ChatticusEnvironmentCertificates",
 };
+
+export const MAIL_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusMailDevelopment",
+  staging: "ChatticusMailStaging",
+  production: "ChatticusMailProduction",
+};
+
+/**
+ * The shared mail ingress stack. It owns the one active SES receipt rule set of the account and region, which all
+ * three environments share, so it has a single unsuffixed id and is deployed first and by name.
+ */
+export const MAIL_INGRESS_STACK_ID = "ChatticusMailIngress";
+
+/** The name of the account's single receipt rule set, owned by the shared mail ingress stack. */
+export const MAIL_RECEIPT_RULE_SET_NAME = "chatticus-mail-ingress";
+
+/** Days raw inbound mail stays in the raw mail bucket before the lifecycle rule expires it. */
+export const MAIL_RAW_RETENTION_DAYS = 30;
+
+/**
+ * The domain each environment receives and sends bot mail on. Staging and development sit below their own site name
+ * and are delegated from that environment's site zone inside the same account. Production uses mail.chattic.us, which
+ * needs one NS record in the management account's chattic.us zone, added by the owner later (docs/MAIL_INFRASTRUCTURE.md).
+ */
+export const MAIL_DOMAINS: Record<ChatticusCloudEnvironment, string> = {
+  development: "mail.develop.chattic.us",
+  staging: "mail.staging.chattic.us",
+  production: "mail.chattic.us",
+};
+
+/** Whether an environment's mail zone is delegated by an NS record in its own site zone, in the same account. */
+export const MAIL_DELEGATED_FROM_SITE_ZONE: Record<ChatticusCloudEnvironment, boolean> = {
+  development: true,
+  staging: true,
+  production: false,
+};
+
+/** Whether the mail stack of an environment is built. */
+export function mailEnabled(environment: ChatticusCloudEnvironment): boolean {
+  return MAIL_ENVIRONMENTS.includes(environment);
+}
 
 export const ACCOUNT_DEPLOY_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusAccountDeployDevelopment",
@@ -157,7 +206,8 @@ export const WEB_CROSS_ORIGIN_ISOLATION: Record<ChatticusCloudEnvironment, boole
 
 /** Every stack id that belongs to exactly one environment, shared-by-name stacks included. */
 export function stackIdsOfEnvironment(environment: ChatticusCloudEnvironment): string[] {
-  return [
+  const mailStackIds = mailEnabled(environment) ? [MAIL_STACK_IDS[environment]] : [];
+  return [...mailStackIds, ...[
     THIN_TURN_STACK_IDS,
     CONTROL_PLANE_STACK_IDS,
     WEB_STACK_IDS,
@@ -167,7 +217,7 @@ export function stackIdsOfEnvironment(environment: ChatticusCloudEnvironment): s
     ENVIRONMENT_ZONES_STACK_IDS,
     ENVIRONMENT_CERTIFICATES_STACK_IDS,
     ACCOUNT_DEPLOY_STACK_IDS,
-  ].map((ids) => ids[environment]);
+  ].map((ids) => ids[environment])];
 }
 
 export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment): string {
@@ -200,11 +250,26 @@ export function modelGatewaySigningKeyParameterName(
   return `/chatticus/${environment}/model-gateway/signing-key`;
 }
 
-export function operatorKeySecretArnParameterName(
+/** The SSM SecureString parameter that holds the generated secret keying the plus-tag hash of external channel mail. */
+export function channelsCorrelatorSecretParameterName(
   environment: ChatticusCloudEnvironment,
 ): string {
-  return `${thinTurnParameterPrefix(environment)}/operator-key-secret-arn`;
+  return `/chatticus/${environment}/channels/correlator-secret`;
 }
+
+/** The SES configuration set every outbound mail of an environment goes through; its events reach the mail events topic. */
+export function mailConfigurationSetName(environment: ChatticusCloudEnvironment): string {
+  return `chatticus-${environment}-outbound`;
+}
+
+/** The EventBridge bus that carries the reply-delivery event: the account's default bus, the one the routine wake-ups use. */
+export const CHANNELS_EVENT_BUS_NAME = "default";
+
+/** The source of every channel event on the bus; the delivery rule matches it together with the detail type. */
+export const CHANNELS_EVENT_SOURCE = "chatticus.channels";
+
+/** The detail type of the event that announces a reply owed to an external transport. */
+export const CHANNELS_MESSAGE_CREATED_DETAIL_TYPE = "channel.message.created";
 
 export function webParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/web`;

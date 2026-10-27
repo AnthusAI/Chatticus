@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
+import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { botBoardServiceFromEnvironment } from "../board/bot-board-service-factory.ts";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
@@ -13,6 +14,7 @@ import { consumeRunJob } from "../turn/executor.ts";
 import { createOpenAiModels, DEFAULT_TURN_MODEL } from "../turn/openai-models.ts";
 import { SqsComputerStartQueue, SqsRunVisibility, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 import type { ExecutorDeps, TurnExecutionJob } from "../turn/types.ts";
+import { replyDeliveryRecorderOrNothing } from "./channels-composition.ts";
 import { resolveOpenAiApiKey } from "./openai-key.ts";
 
 type SqsRecord = { readonly body: string; readonly receiptHandle: string };
@@ -34,6 +36,7 @@ type SharedDeps = Omit<ExecutorDeps, "runVisibility" | "remainingMilliseconds">;
 let cachedDeps: SharedDeps | null = null;
 let cachedRunsQueueUrl = "";
 let cachedSqs: SQSClient | null = null;
+let cachedEvents: EventBridgeClient | null = null;
 
 async function executorDeps(): Promise<SharedDeps> {
 	if (cachedDeps !== null) return cachedDeps;
@@ -98,10 +101,13 @@ function jobFrom(record: SqsRecord): TurnExecutionJob {
 export async function handler(event: TurnRunsEvent, context: TurnRunsContext): Promise<void> {
 	for (const record of event.Records) {
 		const shared = await executorDeps();
+		cachedEvents ??= new EventBridgeClient({});
+		const channelDelivery = replyDeliveryRecorderOrNothing(process.env, { dynamo: shared.client, events: cachedEvents }, shared.messagingTableName, shared.turns.clock);
 		await consumeRunJob(
 			jobFrom(record),
 			{
 				...shared,
+				...(channelDelivery === undefined ? {} : { channelDelivery }),
 				runVisibility: new SqsRunVisibility(cachedSqs!, cachedRunsQueueUrl, record.receiptHandle),
 				remainingMilliseconds: () => context.getRemainingTimeInMillis(),
 			},

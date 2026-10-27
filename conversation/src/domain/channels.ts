@@ -11,11 +11,30 @@ import { botById, pythonRepr } from "./bots.ts";
 
 export { ActorNotInChannelError, ChannelNotFoundError, ChannelTenantMismatchError, InvalidChannelIdentityError };
 
-/** Who can author a channel message. */
-export type ActorKind = "human" | "bot";
+/** Who can author a channel message. An external author is an admitted outsider; a member who writes from outside is still a human. */
+export type ActorKind = "human" | "bot" | "external";
 
-/** Canonical identity of a conversation. */
-export type ChannelKind = "direct" | "named";
+/** Canonical identity of a conversation. An external channel is one conversation that arrived over an external transport. */
+export type ChannelKind = "direct" | "named" | "external";
+
+/** How a transport proved who sent a message. */
+export type MessageOriginAssertion =
+	| "dmarc_aligned"
+	| "dkim_aligned"
+	| "request_signature_user_claim"
+	| "carrier_number_unverified";
+
+/**
+ * Where a message came from when it did not come from the web app. An absent origin means the web app.
+ */
+export type MessageOrigin = {
+	bindingId: string;
+	provider: string;
+	externalMessageId: string;
+	conversationKey: string;
+	senderExternalId: string;
+	assertion: MessageOriginAssertion;
+};
 
 /** A human or bot that can read and post in a channel. */
 export interface ChannelParticipant {
@@ -44,6 +63,8 @@ export interface ChannelMessageRecord {
 	body: string;
 	addressedToBotId: string | null;
 	createdAt: Date;
+	/** Present only when the message arrived over an external transport. */
+	origin?: MessageOrigin;
 }
 
 /** What the channel functions read and write. */
@@ -62,6 +83,11 @@ export function uuid5(namespace: string, name: string): string {
 	bytes[8] = (bytes[8]! & 0x3f) | 0x80;
 	const hex = bytes.toString("hex");
 	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Version 5 UUID of `name` in the URL namespace. */
+export function uuid5InUrlNamespace(name: string): string {
+	return uuid5(NAMESPACE_URL, name);
 }
 
 function pythonJsonString(value: string): string {
@@ -155,6 +181,41 @@ export async function createChannel(
 	if (idempotencyKey !== null) {
 		await deps.store.putChannelIdempotency(tenantId, idempotencyKey, channel);
 	}
+	return channel;
+}
+
+/**
+ * Open the external channel of one external conversation: a new channel named from the subject, with the member (when
+ * the sender is a member) and every bot on the conversation as participants.
+ *
+ * @param tenantId Organization.
+ * @param input The member the conversation is shown to, the bots that read it, and the name to show.
+ * @param deps Store and identifiers.
+ * @returns The stored channel.
+ * @throws BotNotFoundError If a bot id is unknown.
+ */
+export async function createExternalChannel(
+	tenantId: string,
+	input: { memberUserId: string | null; botIds: string[]; name: string | null },
+	deps: ChannelDependencies,
+): Promise<Channel> {
+	const participants: ChannelParticipant[] = [];
+	if (input.memberUserId !== null) {
+		participants.push({ kind: "human", actorId: input.memberUserId });
+	}
+	for (const botId of [...new Set(input.botIds)]) {
+		const bot = await botById(tenantId, botId, deps);
+		participants.push({ kind: "bot", actorId: bot.botId });
+	}
+	const channel: Channel = {
+		channelId: deps.ids.next(),
+		tenantId,
+		kind: "external",
+		name: input.name === null || input.name.trim() === "" ? null : input.name.trim(),
+		participants,
+		nextSeq: 1,
+	};
+	await deps.store.putChannel(channel);
 	return channel;
 }
 

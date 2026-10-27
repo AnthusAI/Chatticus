@@ -7,7 +7,6 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
@@ -22,8 +21,14 @@ import {
 } from "./alarms";
 import { readAlarmNotificationEmail } from "./budgets-config";
 import {
+  CHANNELS_EVENT_BUS_NAME,
   ChatticusCloudEnvironment,
   KANBUS_BOARD_ENVIRONMENTS,
+  ENVIRONMENT_HOSTNAMES,
+  MAIL_DOMAINS,
+  channelsCorrelatorSecretParameterName,
+  mailConfigurationSetName,
+  mailEnabled,
   integrationTestParameterPrefix,
   invokeKeySecretArnParameterName,
   modelGatewaySigningKeyParameterName,
@@ -42,7 +47,7 @@ import { GeneratedSecureString } from "./generated-secure-string";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 import { frontDoorSnapshotPolicyStatements } from "./owner-role-policy";
 
-const CREATE_REQUIRE_BANNER =
+export const CREATE_REQUIRE_BANNER =
   'import { createRequire as topLevelCreateRequire } from "module"; ' +
   "const require = topLevelCreateRequire(import.meta.url);";
 
@@ -53,6 +58,9 @@ const KANBUS_ARCHIVE_RETENTION_DAYS = 30;
 
 /** Length of the generated model gateway signing key; the token code requires at least 32. */
 export const MODEL_GATEWAY_SIGNING_KEY_LENGTH = 64;
+
+/** Length of the generated secret that keys the plus-tag hash of external channel mail; at least 32. */
+export const CHANNELS_CORRELATOR_SECRET_LENGTH = 64;
 
 /** Local secondary indexes of the Pi session table; mirrors PI_SESSION_TABLE_KEYS in conversation/src/storage/table-definition.ts. */
 export const CONVERSATIONS_TABLE_LOCAL_SECONDARY_INDEXES = [
@@ -131,6 +139,8 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly turnExecutorFunction: lambdaNodejs.NodejsFunction;
   readonly turnProbeFunction: lambdaNodejs.NodejsFunction;
   readonly computerStarterFunction: lambdaNodejs.NodejsFunction;
+  /** Where mail is enabled (development): keys the plus-tag hash. Read by the FrontDoor only. */
+  readonly channelsCorrelatorSecret?: GeneratedSecureString;
   /** Development only: signs the per-turn model gateway tokens. */
   readonly modelGatewaySigningKey?: GeneratedSecureString;
   /** Development only, and only once ChatticusComputers has the owner task: the assumable ceiling for one Pi session owner. */
@@ -436,16 +446,44 @@ export class ControlPlaneStack extends cdk.Stack {
       this.kanbusApi = kanbusApi;
     }
 
-    if (isDevelopment) {
-      new secretsmanager.Secret(this, "ModelGatewaySigningKey", {
+    if (mailEnabled(environmentName)) {
+      const channelsCorrelatorSecret = new GeneratedSecureString(this, "ChannelsCorrelatorSecretParameter", {
+        parameterName: channelsCorrelatorSecretParameterName(environmentName),
+        valueLength: CHANNELS_CORRELATOR_SECRET_LENGTH,
         description:
-          "Retired: the model gateway signing key now lives in the SSM SecureString /chatticus/development/model-gateway/signing-key. Nothing reads this secret; delete it after the deploy is verified.",
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-        generateSecretString: {
-          passwordLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
-          excludePunctuation: true,
-        },
+          "Keys the plus-tag hash that lets a mail reply find its thread when a mail client drops every header. Read by the FrontDoor only.",
       });
+      frontDoorFunction.node.addDependency(channelsCorrelatorSecret);
+      frontDoorFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["ssm:GetParameter"],
+          resources: [channelsCorrelatorSecret.parameterArn],
+        }),
+      );
+      frontDoorFunction.addEnvironment("CHATTICUS_CHANNELS_CORRELATOR_SECRET_PARAMETER_NAME", channelsCorrelatorSecret.parameterName);
+      frontDoorFunction.addEnvironment("CHATTICUS_CHANNELS_CONFIGURATION_SET_NAME", mailConfigurationSetName(environmentName));
+      frontDoorFunction.addEnvironment("CHATTICUS_CHANNELS_WEB_APP_BASE_URL", `https://${ENVIRONMENT_HOSTNAMES[environmentName].siteDomain}`);
+      for (const target of [frontDoorFunction, turnExecutorFunction]) {
+        target.addEnvironment("CHATTICUS_CHANNELS_MAIL_DOMAIN", MAIL_DOMAINS[environmentName]);
+        target.addEnvironment("CHATTICUS_CHANNELS_EVENT_BUS_NAME", CHANNELS_EVENT_BUS_NAME);
+        target.addEnvironment("CHATTICUS_CHANNELS_KILL_SWITCH", "released");
+      }
+      turnExecutorFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["events:PutEvents"],
+          resources: [
+            cdk.Stack.of(this).formatArn({
+              service: "events",
+              resource: "event-bus",
+              resourceName: CHANNELS_EVENT_BUS_NAME,
+            }),
+          ],
+        }),
+      );
+      this.channelsCorrelatorSecret = channelsCorrelatorSecret;
+    }
+
+    if (isDevelopment) {
       const modelGatewaySigningKey = new GeneratedSecureString(this, "ModelGatewaySigningKeyParameter", {
         parameterName: modelGatewaySigningKeyParameterName(environmentName),
         valueLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,

@@ -182,3 +182,15 @@ features/generated_secure_string.feature
 features/embedded_chat.feature
 features/embedded_admission.feature
 features/embedded_server_core.feature
+features/external_channel_binding.feature
+features/external_conversation_mapping.feature
+features/external_inbound_admission.feature
+features/external_outbound_delivery.feature
+features/email_inbound_parsing.feature
+features/email_threading.feature
+features/external_channels_deployment.feature
+features/email_message_rendering.feature
+features/email_delivery_status.feature
+features/email_ses_ingress.feature
+features/email_ses_delivery.feature
+features/email_ses_events.feature

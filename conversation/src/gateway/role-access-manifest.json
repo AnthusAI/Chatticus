@@ -196,6 +196,14 @@
 		},
 		{
 			"role": "ownerTurn",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels#deliveries$",
+			"exampleKey": "{tenantId}#channels#deliveries",
+			"note": "Completing a turn whose prompt arrived over an external transport records the reply owed, once, as a delivery and an open entry."
+		},
+		{
+			"role": "ownerTurn",
 			"action": "dynamodb:GetItem",
 			"store": "messagingTable",
 			"keyPattern": "^[^#]+#computer#actions$",
@@ -306,6 +314,70 @@
 			"keyPattern": "^tenants/[^/]+/computers/[^/]+/(manifest\\.json|snapshot\\.tar\\.gz|index/[0-9a-f]{64}\\.json)$",
 			"exampleKey": "tenants/{tenantId}/computers/{computerId}/snapshot.tar.gz",
 			"note": "The supervisor publishes the snapshot of its computer."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "events:PutEvents",
+			"store": "channelEventBus",
+			"keyPattern": "",
+			"exampleKey": "",
+			"note": "The turn executor announces a committed reply that is owed to an external transport; the event carries ids only."
+		},
+		{
+			"role": "mailIngress",
+			"action": "s3:GetObject",
+			"store": "rawMailBucket",
+			"keyPattern": "^raw/[A-Za-z0-9-]+$",
+			"exampleKey": "raw/ses0example1",
+			"note": "The receipt rule stores the message before it invokes the function, and the function reads only the key the event names; the role may list the bucket for the raw prefix, so a missing object answers 404 and not 403."
+		},
+		{
+			"role": "mailIngress",
+			"action": "s3:ListBucket",
+			"store": "rawMailBucket",
+			"keyPattern": "^raw/",
+			"exampleKey": "raw/",
+			"note": "Listing is allowed only for the raw prefix, which is what lets S3 tell a missing key from a forbidden one."
+		},
+		{
+			"role": "mailIngress",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels$",
+			"exampleKey": "{tenantId}#channels",
+			"note": "Admission reads the channel records of the organization: routes, bindings and links."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels$",
+			"exampleKey": "{tenantId}#channels",
+			"note": "Delivery reads the delivery and binding records, and the suppression list, of the organization."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ses:SendEmail",
+			"store": "mailIdentity",
+			"keyPattern": "",
+			"exampleKey": "",
+			"note": "Sending is allowed from the environment's own mail domain identity only."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ses:SendEmail",
+			"store": "mailConfigurationSet",
+			"keyPattern": "",
+			"exampleKey": "",
+			"note": "Sending is allowed through the environment's own configuration set only."
+		},
+		{
+			"role": "mailStatus",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channels$",
+			"exampleKey": "{tenantId}#channels",
+			"note": "The status callback reads the delivery by its provider message id and writes the suppression."
 		}
 	],
 	"deniedRows": [
@@ -380,6 +452,204 @@
 			"action": "ssm:GetParameterHistory",
 			"parameter": "signingKeyParameter",
 			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameter",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameters",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameter",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameters",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "supervisor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameter",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameters",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "turnExecutor",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailIngress",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailDelivery",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "mailStatus",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
 		}
 	]
 }

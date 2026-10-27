@@ -25,6 +25,7 @@ import { probeQueueOf, runQueueOf, TURN_RUN_QUEUE } from "./turn-queues.ts";
 import { CognitoTestKeys } from "./test-jwt.ts";
 import { staticInvokeKeySource, type InvokeKeySource } from "../src/auth/invoke-key-source.ts";
 import { boardAuditSinkOf, boardProvisionerFor } from "./bot-board-support.ts";
+import { channelsSourceFor } from "./channels-support.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 /** The environment name a scenario's front door runs as, and so the budget environment its spend pause reads. */
@@ -119,6 +120,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		computer: computerHandoffDependenciesFor(world),
 		boards: boardProvisionerFor(world),
 		boardAudit: boardAuditSinkOf(world),
+		channels: channelsSourceFor(world),
 		budgetRollups: world.store,
 		streamTiming: { ...DEFAULT_STREAM_TIMING, minimumPollMilliseconds: 5, maximumPollMilliseconds: 25 },
 		streamClock: world.streamClock,

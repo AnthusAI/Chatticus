@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-c239b412-bda3-4c6a-9712-72839334365f",
+  "title": "Document and bound the at-least-once duplicate send risk (no SES idempotency token)",
+  "description": "SES v2 has no idempotency token and the transport remembers keys in memory, so a crash between the SES call and the delivery write, or a retried invocation on a new container, can send a reply twice. Document the bound in docs/EXTERNAL_CHANNELS.md and add a durable send marker or a conditional write before the call if the risk is not acceptable. Found in the PR 648 review.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-1b52d527-a2d8-4c35-b3d3-d075478e5d19",
+  "labels": [
+    "channels"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-26T19:18:32.289343Z",
+  "updated_at": "2026-10-26T19:18:32.289382Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-m1-8"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-f586f92d-78db-43c8-9b9b-218f1f654045",
+  "title": "Retire legacy computers, snapshots and image build resources",
+  "description": "Part of story chatticus-e50451 (group G5). Legacy ChatticusComputers (ECS cluster with zero tasks, VPC without NAT, 13 images in ECR totalling 3.97 GB last pulled 2026-09-07), ChatticusSnapshots (18 test objects, 5 KB), CodeBuild project and log group. Before deleting, verify the external account named in the ECR repository policy (a customer or lab account) holds its own image copy. Delete computers before snapshots (exports are imported).\n\nFeature: Legacy computers retired\n  Scenario: Image pull still works for customers\n    Given the customer account holds its own image\n    When the legacy repository and stacks are deleted\n    Then a customer computer still starts",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-26T12:21:54.397576Z",
+  "updated_at": "2026-10-26T12:21:54.473223Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

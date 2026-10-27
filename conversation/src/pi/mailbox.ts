@@ -1,3 +1,4 @@
+import type { MessageOrigin } from "../domain/channels.ts";
 import {
 	type AttributeValue,
 	ConditionalCheckFailedException,
@@ -19,6 +20,8 @@ export type MailboxItem = {
 	addressedToBotId: string | null;
 	body: string;
 	createdAt: string;
+	/** Where the message came from when it arrived over an external transport; absent means the web app. */
+	origin?: MessageOrigin;
 };
 
 export type MailboxStore = { client: DynamoDBClient; tableName: string };
@@ -73,6 +76,7 @@ export async function allocateSeq(store: MailboxStore, tenantId: string, channel
  * @returns The attributes, keyed by the bot session's mailbox partition and the zero padded sequence.
  */
 export const mailboxItemAttributes = (item: MailboxItem): Record<string, AttributeValue> => ({
+	...(item.origin === undefined ? {} : { origin: { S: JSON.stringify(item.origin) } }),
 	pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) },
 	sk: { S: mailboxSortKey(item.seq) },
 	tenant_id: { S: item.tenantId },
@@ -160,6 +164,7 @@ export async function list(
 				addressedToBotId: addressed === "" ? null : addressed,
 				body: raw.body?.S ?? "",
 				createdAt: raw.created_at?.S ?? "",
+				...(raw.origin?.S === undefined ? {} : { origin: JSON.parse(raw.origin.S) as MessageOrigin }),
 			});
 		}
 		startKey = page.LastEvaluatedKey;

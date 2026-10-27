@@ -1,3 +1,18 @@
+## [0.52.0](https://github.com/AnthusAI/Chatticus/compare/v0.51.0...v0.52.0) (2026-10-24)
+
+### Features
+
+* account-level management-event audit trail, ChatticusAuditTrail (chatticus-b5ddda) ([#625](https://github.com/AnthusAI/Chatticus/issues/625)) ([29658dd](https://github.com/AnthusAI/Chatticus/commit/29658dded7852fa3f37c131ff74b01d6e09eb0c5))
+* bot board service, provisioning and board tool (chatticus-c5f14c phase 2a) ([#628](https://github.com/AnthusAI/Chatticus/issues/628)) ([dec820d](https://github.com/AnthusAI/Chatticus/commit/dec820dbf4e56af7378c43aa44131ed6a7c9bb05))
+* deploy Kanbus's board service in the development control plane stack, nothing calls it yet (chatticus-c5f14c) ([#624](https://github.com/AnthusAI/Chatticus/issues/624)) ([cd10609](https://github.com/AnthusAI/Chatticus/commit/cd10609c485f1baeac3307d8d39eadb8b141a17b))
+* front door routes for a bot's board and a live board acceptance check (chatticus-c5f14c phase 2b) ([#632](https://github.com/AnthusAI/Chatticus/issues/632)) ([7663a8e](https://github.com/AnthusAI/Chatticus/commit/7663a8e4c880fae55459c23073620f9b65b0a083))
+* operator key and model gateway signing key move to SSM SecureString, created by infrastructure code (chatticus-a170754a) ([6d90b90](https://github.com/AnthusAI/Chatticus/commit/6d90b90e1618d5476ff1e015cde208cb4ecdcf46))
+
+### Bug Fixes
+
+* a board response without a Kanbus error code is no longer reported as card not found ([#629](https://github.com/AnthusAI/Chatticus/issues/629)) ([ff2f61c](https://github.com/AnthusAI/Chatticus/commit/ff2f61c5c7ab0e64aaed09e1df1a73f62eb7f48d))
+* make real_web_workspace browser scenarios deterministic (chatticus-4ffd0d) ([#626](https://github.com/AnthusAI/Chatticus/issues/626)) ([352b97a](https://github.com/AnthusAI/Chatticus/commit/352b97a9c7948a9656459bb56bc153f6a723237c))
+
 ## [0.51.0](https://github.com/AnthusAI/Chatticus/compare/v0.50.0...v0.51.0) (2026-10-20)
 
 ### Features

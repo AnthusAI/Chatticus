@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-e5045113-257d-4437-86af-09715ece3d0a",
+  "title": "Consolidate all Chatticus AWS resources into the Chatticus account",
+  "description": "Owner direction 2026-10-26: move every Chatticus-related AWS resource into the Chatticus (chatticus-production) account. Read-only inventory found that everything live already runs there except the chattic.us Route 53 zone in the management account; the rest outside is retire material in the legacy account, leftovers in the old staging and development accounts, and two lab accounts. Leads are safe: the live /api* origin is the new intake Lambda in the Chatticus account and its table holds the 2 migrated lead items. Plan (draft, uncommitted in the working tree): docs/ACCOUNT_CONSOLIDATION_PLAN.draft.md. Overlaps with chatticus-c7e113 (legacy retirement) and chatticus-356da5 (close old staging account); the tasks here are the per-group executable steps. Blocked until 2026-10-29: legacy production thin-turn retirement. Owner decisions needed: apex zone location, need for legacy production messaging data, lead parity check, access key removal.\n\nFeature: Single-account Chatticus\n  Scenario: Nothing Chatticus remains outside the Chatticus account\n    Given the retire windows have passed and backups are verified\n    When the inventory is rerun across the legacy, staging, development and management accounts\n    Then every Chatticus resource is in the Chatticus account and the live sites keep serving",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-26T12:20:45.972759Z",
+  "updated_at": "2026-10-26T12:20:45.972823Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "sonnet-consolidation"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

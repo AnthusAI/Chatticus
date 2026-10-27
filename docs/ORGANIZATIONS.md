@@ -298,6 +298,13 @@ spend scales with the organizations inside it. That is the right shape,
 since an organization that does no work costs nothing, but it belongs in
 the deployment's budget expectations.
 
+## External channels
+
+An organization can be reached from outside the app by email, and later Slack, Teams and text. The organization owns the
+bindings, chooses a mail handle for its addresses, and admits who may write to its bots; members read. Nothing outside
+the organization is trusted by default, and domain-wide auto-join stays excluded. See
+[External channels](EXTERNAL_CHANNELS.md).
+
 ## Non-requirements (v1)
 
 State these so a customer knows what they are buying.

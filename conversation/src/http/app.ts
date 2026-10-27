@@ -23,6 +23,9 @@ import type { BoardAuditSink } from "../board/board-audit.ts";
 import { logBoardAuditRecord } from "../board/board-audit.ts";
 import type { BotBoardService } from "../board/bot-board-service.ts";
 import { registerBotBoardRoutes } from "./routes/bot-boards.ts";
+import type { ChannelsRuntimeSource } from "../channels/runtime.ts";
+import { registerChannelBindingRoutes } from "./routes/channel-bindings.ts";
+import { operatorExternalChannelsHandler } from "./routes/operator.ts";
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
 import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
@@ -120,6 +123,7 @@ export function invokeKeysMatch(provided: string, expected: string): boolean {
 
 const INVOKE_HEADER = "X-Chatticus-Invoke-Key";
 const TENANT_HEADER = "X-Tenant-Id";
+const NO_CHANNELS: ChannelsRuntimeSource = async () => null;
 
 /**
  * Dependencies required to create an HTTP application.
@@ -179,6 +183,8 @@ export interface AppDeps {
 	boards?: BotBoardService | null;
 	/** Receives one record for each denied board request; defaults to a structured log line. */
 	boardAudit?: BoardAuditSink;
+	/** External channels: where the binding store, the mail domain, the kill switch and the transports come from. Absent, or while it yields nothing, the binding routes answer 404. */
+	channels?: ChannelsRuntimeSource | null;
 }
 
 /**
@@ -341,6 +347,7 @@ export function createApp(deps: AppDeps): Hono {
 		listUserBotsHandler(c, userRoutes),
 	);
 	registerBotBoardRoutes(app, { ...userRoutes, clock: deps.clock, boards: deps.boards ?? null, audit: deps.boardAudit ?? logBoardAuditRecord });
+	registerChannelBindingRoutes(app, { ...userRoutes, clock: deps.clock, channels: deps.channels ?? NO_CHANNELS });
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/channels", audience: "user" }, (c) =>
 		listUserChannelsHandler(c, userRoutes),
 	);
@@ -560,6 +567,12 @@ export function createApp(deps: AppDeps): Hono {
 	for (const action of ["enable", "suspend", "reinstate"] as const) {
 		declareRoute(app, { method: "POST", path: `/operator/orgs/:tenant_id/${action}`, audience: "operator" }, (c) =>
 			operatorOrganizationHandler(c, action, { store, operatorKey, deploymentAwsAccountId: deps.deploymentAwsAccountId }),
+		);
+	}
+
+	for (const action of ["enable", "disable"] as const) {
+		declareRoute(app, { method: "POST", path: `/operator/orgs/:tenant_id/external-channels/${action}`, audience: "operator" }, (c) =>
+			operatorExternalChannelsHandler(c, action, { store, operatorKey, channels: deps.channels ?? NO_CHANNELS }),
 		);
 	}
 

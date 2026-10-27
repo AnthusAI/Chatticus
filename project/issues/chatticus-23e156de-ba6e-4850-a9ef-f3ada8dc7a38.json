@@ -3,7 +3,7 @@
   "title": "M1.5: Email inbound parsing and threading",
   "description": "Pure email adapter functions: parse raw MIME (headers, text/plain, text/html converted to text, quoted-reply stripping with the original kept in S3, attachment extraction to S3 references), normalize addresses (case, plus tag split), derive the conversation key from References/In-Reply-To/Message-ID, and the plus-tag HMAC correlator as a lookup hint only. Cap body text at 100 KB with a reference to the raw object. Behavior is in Gherkin through the fake pipeline; parsers and normalizers are unit tests.\n\nAcceptance criteria:\n- A reply that quotes an earlier Message-ID lands in the same channel even when References is stripped\n- A changed subject does not split a thread; an unknown reference starts a new channel\n- HTML-only mail becomes readable text; tracking pixels and remote images are never fetched\n- A plus-tagged address with a bad HMAC still routes by headers or starts a new thread; the tag never authorizes anything\n- Non-UTF-8 charsets and malformed MIME do not crash the ingress; they produce a counted refusal\n\nGherkin: features/email_threading.feature and features/email_inbound_parsing.feature\n\nDepends on: M1.3\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -17,9 +17,34 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9b601bce-1361-4406-aa2c-9097485fb8ea",
+      "author": "home",
+      "text": "Started M1.5 in worktree channels-m1-5 on branch ts/email-inbound-parsing. Features email_inbound_parsing and email_threading written first, then EmailChannelTransport (inbound half), parser helpers, plus-tag correlator. PR to follow.",
+      "created_at": "2026-10-26T12:28:00.730072Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-5"
+      }
+    },
+    {
+      "id": "e4b7850a-1d02-42db-9120-50d40d30f967",
+      "author": "home",
+      "text": "PR 644 open into develop, not merged. Both features pass (51 scenarios), full cucumber 2181 passed, vitest and infra green. Added postal-mime 4.0.5. Decisions for review: only a passing DMARC verdict authenticates (DKIM alone refused until M2); unknown charsets fall back to windows-1252 and are read. M1.8 must supply ChannelsRuntime.correlatorSecret. Status stays in progress until review and merge.",
+      "created_at": "2026-10-26T12:44:05.299864Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-5"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:49.735092Z",
-  "updated_at": "2026-10-22T03:58:10.500882Z",
+  "updated_at": "2026-10-26T12:44:05.300405Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

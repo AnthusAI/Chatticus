@@ -130,7 +130,6 @@ Feature: The computer supervisor role reaches the snapshot of one computer and n
 
     Examples:
       | action                         | resource                                                           |
-      | secretsmanager:GetSecretValue  | arn:aws:secretsmanager:us-east-1:111111111111:secret:signing-key   |
       | ssm:GetParameter               | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/anything    |
       | ssm:GetParameter               | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/model-gateway/signing-key |
       | ssm:GetParameterHistory        | arn:aws:ssm:us-east-1:111111111111:parameter/chatticus/development/model-gateway/signing-key |

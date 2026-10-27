@@ -3,7 +3,7 @@
   "title": "M1.8: SES ingress Lambda, event Lambda and SES transport adapter",
   "description": "Implement the SES adapter behind the port with injected AWS clients: ingress Lambda (receipt rule invocation: read verdicts, fetch raw MIME from S3, produce RawInbound, call admitInbound; idempotent on SES message id), SES SendEmail delivery with configuration set and raw headers, and the event Lambda that maps SES bounce, complaint, delivery and reject events to delivery status events (suppression handling is completed in M2.8). Ingress composes the same dependencies as the front door composition; it does not call the front door over HTTP.\n\nAcceptance criteria:\n- Fake SES and S3 clients drive the full path in cucumber-js: raw mail in, turn, reply out, status in\n- Lambda retries do not duplicate messages or turns\n- SES verdict fields are carried into the sender assertion (consumed by M2.2)\n- Unknown recipient domains and unknown routes drop silently with a counted metric\n- Bounce and complaint events from the mailbox simulator payload shapes are parsed\n\nGherkin: features/email_ses_ingress.feature\n\nDepends on: M1.5, M1.6, M1.7\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,52 @@
     {
       "target": "chatticus-a2be22c6-5fa9-4fa9-b18e-39147e4b72c4",
       "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-1203d7f6-a7aa-45a5-a888-7f2fd516069c",
+      "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9c384069-0471-48c9-a51e-0eadf9e79128",
+      "author": "home",
+      "text": "Known gap from the PR 641 review (see docs/EXTERNAL_CHANNELS.md, Known gaps for M2): admission reports a repeated delivery of a claimed but unfinished message as in_flight. The SES ingress must answer that case with a non-2xx status so the provider retries after the 60 second claim lease; a 2xx would lose the message if the first attempt died.",
+      "created_at": "2026-10-25T17:21:00.277963Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-followups"
+      }
+    },
+    {
+      "id": "ce67e613-92b6-4a30-9f64-02ed5d4f530c",
+      "author": "home",
+      "text": "HARD PRECONDITION from the PR 646 review: applyEmailStatusCallback (conversation/src/channels/email/email-status-callback.ts) trusts the SES notification body as received. The M1.8 ingress must verify the SNS signature, the signing certificate host and the topic ARN before it calls it; otherwise anyone who can POST and knows one message id can forge a bounce or complaint. The processor now suppresses only the delivery's own recipient and treats bounced and complained as final, but that is defense in depth, not a substitute. Also documented in docs/EXTERNAL_CHANNELS.md under Preconditions for the SES ingress.",
+      "created_at": "2026-10-26T15:19:21.836485Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-6"
+      }
+    },
+    {
+      "id": "3c1dffc9-71f1-4db8-9ca2-ee069e863969",
+      "author": "home",
+      "text": "PR 648 (ts/mail-ingress-lambdas) built: ingress, delivery and status Lambdas in the mail stack (development only). Receipt rule: S3 action first, then an asynchronous Lambda action; per-function role, DLQ and alarms; SNS signature, certificate host, topic and timestamp verification before any status is applied; in-flight claim and missing archive object fail the invocation for retry; role access manifest rows for mailIngress, mailDelivery and mailStatus. Not verified without Amazon: real SES message-id rewriting, a real SNS signature, deploy permissions. Deviation: a Lambda subscription never receives SubscriptionConfirmation, so the status function rejects it. First deploy order: control plane, then mail. Gap: the delivery sweeper has no scheduler yet.",
+      "created_at": "2026-10-26T18:24:43.545940Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-8"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:50.630104Z",
-  "updated_at": "2026-10-22T03:58:11.409Z",
+  "updated_at": "2026-10-26T18:24:43.680477Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

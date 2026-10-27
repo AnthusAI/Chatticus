@@ -12,9 +12,34 @@
     "channels"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "81d3eddd-dcc8-4165-af0a-53335da0e437",
+      "author": "home",
+      "text": "Known gap from the PR 641 review (see docs/EXTERNAL_CHANNELS.md, Known gaps for M2): no infrastructure grant yet lets the turn executor role call events:PutEvents on the channel event bus. Add the grant with the bus and the rule; until then the event publisher must not be wired in a deployed environment.",
+      "created_at": "2026-10-25T17:21:00.354985Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-followups"
+      }
+    },
+    {
+      "id": "ce145aaf-1fe1-4c32-be7f-d14523ba5da5",
+      "author": "home",
+      "text": "PR 643 (branch ts/mail-ingress-infra): shared ChatticusMailIngress, development MailStack with S3-only receipt rule, development-only switch, deploy-mail-development workflow, docs/MAIL_INFRASTRUCTURE.md. Infra tests green (893). Not deployed, no AWS calls. Deferred to M1.8: Lambda action, event Lambda, alarms. Owner approved decision 7 (marketing identity left untouched).",
+      "created_at": "2026-10-26T12:23:02.150199Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "sonnet-m1-5"
+      }
+    }
+  ],
   "created_at": "2026-10-22T03:57:50.372657Z",
-  "updated_at": "2026-10-22T03:57:50.372802Z",
+  "updated_at": "2026-10-26T12:23:02.150228Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

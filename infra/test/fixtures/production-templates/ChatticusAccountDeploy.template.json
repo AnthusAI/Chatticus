@@ -666,6 +666,22 @@
                       {
                         "Ref": "AWS::AccountId"
                       },
+                      ":stack/ChatticusMailDevelopment/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":cloudformation:us-east-1:",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
                       ":stack/ChatticusSnapshotsDevelopment/*"
                     ]
                   ]
