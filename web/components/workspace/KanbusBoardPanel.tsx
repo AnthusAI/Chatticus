@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { listBots } from "@/lib/api";
+import { BoardWorkspaceController, type BoardSelectionStore } from "@/lib/board-workspace-controller";
+import { botBoardsApiFor } from "@/lib/bot-boards-api";
 import { computerFilesApiFor } from "@/lib/computer-files-api";
 import type { ActiveOrg } from "@/lib/membership-state";
-import { KanbusBoardController } from "@/lib/kanbus-board-controller";
+import { boardPickerLayoutFor } from "@/lib/board-picker-layout";
 import "@/styles/kanbus-board.css";
 import { KanbusBoardPanelFrame } from "./KanbusBoardPanelFrame";
 
@@ -16,18 +19,55 @@ type Props = {
   theme: "light" | "dark";
 };
 
-/** The Board tab. The controller reads the workspace's Kanbus project; this component tells it when the tab is showing. */
+function browserSelectionStore(org: ActiveOrg): BoardSelectionStore {
+  const key = `chatticus.board.selection.${org.tenantId}.${org.userId}`;
+  return {
+    read: () => window.localStorage.getItem(key),
+    write: (value) => window.localStorage.setItem(key, value),
+  };
+}
+
+/** The Board tab. The controller reads the project board from the workspace and the bot boards from the front door; this component tells it when the tab is showing. */
 export function KanbusBoardPanel({ org, active, theme }: Props) {
-  const [controller] = useState(() => new KanbusBoardController({ api: computerFilesApiFor(org) }));
+  const [controller] = useState(
+    () =>
+      new BoardWorkspaceController({
+        filesApi: computerFilesApiFor(org),
+        botBoardsApi: botBoardsApiFor(org),
+        listBots: () => listBots(org),
+        selectionStore: browserSelectionStore(org),
+      }),
+  );
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  const handlers = useMemo(() => ({ onRefresh: () => void controller.refresh() }), [controller]);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [panelWidth, setPanelWidth] = useState(0);
+  const handlers = useMemo(
+    () => ({
+      onRefresh: () => void controller.refresh(),
+      onSelect: controller.select.bind(controller),
+      onTogglePicker: () => (controller.getSnapshot().picker.open ? controller.closePicker() : controller.openPicker()),
+    }),
+    [controller],
+  );
 
   useEffect(() => {
     controller.setActive(active);
-    return () => controller.setActive(false);
   }, [controller, active]);
 
   useEffect(() => () => controller.dispose(), [controller]);
 
-  return <KanbusBoardPanelFrame snapshot={snapshot} handlers={handlers} theme={theme} />;
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (wrapper === null) return undefined;
+    setPanelWidth(wrapper.clientWidth);
+    const observer = new ResizeObserver(() => setPanelWidth(wrapper.clientWidth));
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="h-full min-h-0">
+      <KanbusBoardPanelFrame snapshot={snapshot} handlers={handlers} theme={theme} layout={boardPickerLayoutFor(panelWidth)} />
+    </div>
+  );
 }

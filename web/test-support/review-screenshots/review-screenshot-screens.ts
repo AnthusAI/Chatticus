@@ -40,6 +40,20 @@ async function clickFirstVisible(page: Page, locator: ReturnType<Page["getByRole
   return true;
 }
 
+/** The panel measures itself after it is resized (for example by the Full button), so the layout is read only after this long. */
+const LAYOUT_SETTLE_MILLISECONDS = 400;
+
+/** Shows the list of boards: the Boards button opens the bottom sheet where the list is not beside the board. */
+async function showBoardPicker(page: Page): Promise<boolean> {
+  const toggle = page.getByTestId("board-picker-toggle").filter({ visible: true }).first();
+  const besideTheBoard = page.getByTestId("board-picker-side").filter({ visible: true }).first();
+  await toggle.or(besideTheBoard).first().waitFor({ state: "visible" });
+  await page.waitForTimeout(LAYOUT_SETTLE_MILLISECONDS);
+  if (!(await besideTheBoard.isVisible())) await toggle.click();
+  await page.getByTestId("board-picker-bot-entry").filter({ visible: true }).first().waitFor({ state: "visible" });
+  return true;
+}
+
 async function openPlanningChannel(page: Page): Promise<void> {
   const planning = page.getByRole("button", { name: /Planning/ }).filter({ visible: true }).first();
   const openRoster = page.getByRole("button", { name: "Open bots and channels" }).filter({ visible: true }).first();
@@ -117,6 +131,65 @@ export const REVIEW_SCREENS: ReadonlyArray<ReviewScreen> = [
       const fillsWorkspace = await clickFirstVisible(page, page.getByRole("button", { name: "Full", exact: true }));
       if (!fillsWorkspace) return false;
       await page.getByTestId("kanbus-board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
+    id: "panel-board-picker",
+    label: "Board panel, picker open",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      await page.getByTestId("kanbus-board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return showBoardPicker(page);
+    },
+  },
+  {
+    id: "panel-board-picker-full",
+    label: "Board panel, picker, full screen",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Full", exact: true })))) return false;
+      return showBoardPicker(page);
+    },
+  },
+  {
+    id: "panel-board-bot",
+    label: "Board panel, a bot board",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      await showBoardPicker(page);
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Bot board: Pi" })))) return false;
+      await page.getByText("Pi's board").filter({ visible: true }).first().waitFor({ state: "visible" });
+      await page.getByText("Draft the Kanbus panel plan").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
+    id: "panel-board-bot-without-board",
+    label: "Board panel, a bot with no board yet",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      await showBoardPicker(page);
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: /Bot board: Scout/ })))) return false;
+      await page.getByText("Scout has no board yet").filter({ visible: true }).first().waitFor({ state: "visible" });
+      return true;
+    },
+  },
+  {
+    id: "panel-board-bot-full",
+    label: "Board panel, a bot board, full screen",
+    signedIn: true,
+    arrange: async (page) => {
+      await openPanelPlugin(page, "Board");
+      const fillsWorkspace = await clickFirstVisible(page, page.getByRole("button", { name: "Full", exact: true }));
+      if (!fillsWorkspace) return false;
+      await showBoardPicker(page);
+      if (!(await clickFirstVisible(page, page.getByRole("button", { name: "Bot board: Pi" })))) return false;
+      await page.getByText("Draft the Kanbus panel plan").filter({ visible: true }).first().waitFor({ state: "visible" });
       return true;
     },
   },
