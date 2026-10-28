@@ -52,9 +52,9 @@ function resolveImport(from: string, specifier: string): string | null {
 
 function exportedFiles(): string[] {
   const pkg = JSON.parse(readFileSync(join(webRoot, "..", "package.json"), "utf8")) as {
-    exports?: Record<string, string>;
+    exports?: Record<string, string | Record<string, string>>;
   };
-  return Object.values(pkg.exports ?? {}).flatMap((target) => {
+  return Object.values(pkg.exports ?? {}).flatMap((entry) => typeof entry === "string" ? [entry] : Object.values(entry)).flatMap((target) => {
     const path = resolve(webRoot, "..", target);
     const star = path.indexOf("*");
     if (star === -1) return existsSync(path) ? [path] : [];

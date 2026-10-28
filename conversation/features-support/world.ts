@@ -31,6 +31,7 @@ import { ScenarioStreamClock } from "./stream-clock.ts";
 import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
 import type { MembersCliProcessResult } from "./members-cli-process.ts";
+import type { Storage } from "@earendil-works/pi-durable";
 import type { ScenarioPiStorage } from "./pi-storage.ts";
 import type { SpendCeilingScenarioState } from "./spend-ceiling.ts";
 import type { OperatorScenarioState } from "./steps/operator.steps.ts";
@@ -116,6 +117,7 @@ export class ChatticusWorld extends World {
 	turnOperationErrors: Error[] = [];
 	latestTurnResponse: RecordedResponse | null = null;
 	testOwnerEmails: Map<string, string> = new Map();
+	memorySessionStorages: Map<string, Storage> = new Map();
 	directChannelPayloads: Array<Record<string, any>> = [];
 	namedChannelPayload: Record<string, any> | null = null;
 	createBotResponse: RecordedResponse | null = null;

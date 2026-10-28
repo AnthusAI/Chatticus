@@ -125,5 +125,5 @@ When("another host editor reads the private conversation", async function (this:
 });
 
 Then("the embedded server refuses the read", function (this: ChatticusWorld) {
-	assert.equal(scenarioOf(this).foreignReadResponse?.status, 404);
+	assert.equal(scenarioOf(this).foreignReadResponse?.status, 403);
 });

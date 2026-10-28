@@ -8,7 +8,7 @@ import {
 	wordCount,
 } from "../voice/understanding.ts";
 import { requireChannelTenant } from "./channels.ts";
-import { listMessages, type Message, type MessageDependencies, postMessage, requireParticipant } from "./messages.ts";
+import { listMessages, type Message, type MessageDependencies, postMessage, requireParticipant, scopedPostIdempotencyKey } from "./messages.ts";
 
 /** A voice understanding call whose cost could not be recorded. It names the organization and the error, never the line. */
 export type VoiceCostRecordingFailure = {
@@ -80,8 +80,15 @@ export async function postVoiceMessage(
 	const channel = await requireChannelTenant(request.channelId, request.tenantId, deps.messages);
 	requireParticipant(channel, "human", request.authorId);
 	requireParticipant(channel, "bot", request.addressedToBotId);
-	if (request.idempotencyKey !== null) {
-		const earlier = await deps.messages.store.getPostIdempotency(request.tenantId, request.idempotencyKey);
+	const scopedIdempotencyKey = scopedPostIdempotencyKey({
+		tenantId: request.tenantId,
+		channelId: request.channelId,
+		authorKind: "human",
+		authorId: request.authorId,
+		idempotencyKey: request.idempotencyKey,
+	});
+	if (scopedIdempotencyKey !== null) {
+		const earlier = await deps.messages.store.getPostIdempotency(request.tenantId, scopedIdempotencyKey);
 		if (earlier !== null) {
 			return { understood: earlier.message.body, degraded: false, message: earlier.message, turnId: earlier.turnId };
 		}

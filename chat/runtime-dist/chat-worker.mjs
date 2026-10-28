@@ -439,7 +439,8 @@ var draftLine = (draft, entryId) => ({
   authorId: draft.authorId,
   addressedToBotId: draft.addressedToBotId,
   createdAt: draft.createdAt,
-  entryId
+  entryId,
+  ...draft.origin === void 0 ? {} : { origin: draft.origin }
 });
 async function appendLine(session, line, context = BACKGROUND_CONTEXT) {
   return session.commit(async (tx) => {
@@ -3261,6 +3262,7 @@ async function allocateSeq(store, tenantId, channelId) {
   return Number(updated) - 1;
 }
 var mailboxItemAttributes = (item) => ({
+  ...item.origin === void 0 ? {} : { origin: { S: JSON.stringify(item.origin) } },
   pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) },
   sk: { S: mailboxSortKey(item.seq) },
   tenant_id: { S: item.tenantId },
@@ -3320,7 +3322,8 @@ async function list(store, tenantId, botId, channelId, afterSeq = 0) {
         authorId: raw.author_id?.S ?? "",
         addressedToBotId: addressed === "" ? null : addressed,
         body: raw.body?.S ?? "",
-        createdAt: raw.created_at?.S ?? ""
+        createdAt: raw.created_at?.S ?? "",
+        ...raw.origin?.S === void 0 ? {} : { origin: JSON.parse(raw.origin.S) }
       });
     }
     startKey = page2.LastEvaluatedKey;
@@ -5021,6 +5024,55 @@ function createAgentEventListener(writer, coalescer, thinking, attemptId, delive
 // conversation/src/turn/finalize.ts
 import { ROOT_CONVERSATION_ID as ROOT_CONVERSATION_ID2 } from "@earendil-works/pi-durable";
 
+// conversation/src/channels/events.ts
+var CHANNEL_MESSAGE_CREATED = "channel.message.created";
+function channelMessageCreatedEvent(ids) {
+  return {
+    detailType: CHANNEL_MESSAGE_CREATED,
+    detail: { tenant_id: ids.tenantId, message_id: ids.messageId, binding_id: ids.bindingId }
+  };
+}
+
+// conversation/src/channels/delivery.ts
+function replyOriginOf(lines, turn, replySeq) {
+  if (turn.promptMessageSeq === null) return null;
+  const promptSeq = turn.promptMessageSeq;
+  const prompt = lines.find((line) => line.seq === promptSeq);
+  if (prompt?.origin === void 0) return null;
+  const inputs = lines.filter((line) => line.authorKind !== "bot" && line.addressedToBotId === turn.botId && line.seq >= promptSeq && line.seq < replySeq && line.origin !== void 0).sort((left, right) => right.seq - left.seq);
+  return inputs[0]?.origin ?? prompt.origin;
+}
+async function recordReplyDelivery(recorder, reply, origin) {
+  const now = recorder.clock.now();
+  await recorder.store.putDeliveryIfAbsent({
+    tenantId: reply.tenantId,
+    messageId: reply.messageId,
+    bindingId: origin.bindingId,
+    channelId: reply.channelId,
+    messageSeq: reply.messageSeq,
+    conversationKey: origin.conversationKey,
+    recipientExternalId: origin.senderExternalId,
+    inReplyToExternalMessageId: origin.externalMessageId,
+    state: "pending",
+    attempts: 0,
+    failureClass: null,
+    reasonCode: null,
+    providerMessageId: null,
+    createdAt: now,
+    updatedAt: now
+  });
+  try {
+    await recorder.events.publish(channelMessageCreatedEvent({ tenantId: reply.tenantId, messageId: reply.messageId, bindingId: origin.bindingId }));
+  } catch (error) {
+    recorder.reportPublishFailure({
+      tenantId: reply.tenantId,
+      messageId: reply.messageId,
+      bindingId: origin.bindingId,
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+  }
+}
+
 // conversation/src/ledger/call-cost.ts
 import {
   AssistantEntry,
@@ -5742,6 +5794,12 @@ async function commitFinalAnswer(inputs, answerEntryId) {
       createdAt
     });
   }
+  if (deps.channelDelivery !== void 0) {
+    const origin = replyOriginOf(log?.lines ?? [], turn, messageSeq);
+    if (origin !== null) {
+      await recordReplyDelivery(deps.channelDelivery, { tenantId: turn.tenantId, channelId: turn.channelId, messageId, messageSeq }, origin);
+    }
+  }
   return { messageSeq, body };
 }
 
@@ -6044,7 +6102,8 @@ var draftOf = (item) => ({
   authorKind: item.authorKind,
   authorId: item.authorId,
   addressedToBotId: item.addressedToBotId,
-  createdAt: item.createdAt
+  createdAt: item.createdAt,
+  ...item.origin === void 0 ? {} : { origin: item.origin }
 });
 var delay = (milliseconds) => {
   let timer;

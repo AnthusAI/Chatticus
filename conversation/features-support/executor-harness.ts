@@ -202,7 +202,9 @@ export async function executorDepsFor(
 		piSessionsBucket: piStorage.bucket,
 		models,
 		...(options.computerlessMemorySession
-			? { executionProfile: "computerless" as const, sessionFactory: createMemoryOwnerSessionFactory() }
+			? { executionProfile: "computerless" as const, sessionFactory: createMemoryOwnerSessionFactory((session, storageId) => {
+						world.memorySessionStorages.set(storageId, session.storage);
+					}) }
 			: {}),
 		model: { provider: "openai", modelId: scenario.scripted.modelId, thinkingLevel: "minimal" },
 		ledger: ledgerDependenciesFor(world),

@@ -895,6 +895,9 @@ function encode4(value) {
   if (value.turnId !== void 0) {
     item.turn_id = { S: value.turnId };
   }
+  if (value.origin !== void 0) {
+    item.origin = { S: value.origin };
+  }
   return item;
 }
 function decode4(item) {
@@ -951,7 +954,8 @@ function decode4(item) {
     body,
     addressedToBotId,
     createdAt,
-    turnId: item.turn_id?.S
+    turnId: item.turn_id?.S,
+    origin: item.origin?.S
   };
 }
 
@@ -1744,7 +1748,8 @@ var DynamoMessagingStore = class {
         authorId: decoded.authorId,
         body: decoded.body,
         addressedToBotId: decoded.addressedToBotId ?? null,
-        createdAt: new Date(decoded.createdAt)
+        createdAt: new Date(decoded.createdAt),
+        ...decoded.origin === void 0 ? {} : { origin: JSON.parse(decoded.origin) }
       },
       turnId: decoded.turnId ?? null
     };
@@ -1764,7 +1769,8 @@ var DynamoMessagingStore = class {
         body: message.body,
         addressedToBotId: message.addressedToBotId ?? void 0,
         createdAt: message.createdAt.toISOString(),
-        turnId: turnId ?? void 0
+        turnId: turnId ?? void 0,
+        origin: message.origin === void 0 ? void 0 : JSON.stringify(message.origin)
       })
     );
   }
@@ -3413,6 +3419,7 @@ async function allocateSeq(store, tenantId, channelId) {
   return Number(updated) - 1;
 }
 var mailboxItemAttributes = (item) => ({
+  ...item.origin === void 0 ? {} : { origin: { S: JSON.stringify(item.origin) } },
   pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) },
   sk: { S: mailboxSortKey(item.seq) },
   tenant_id: { S: item.tenantId },
@@ -3472,7 +3479,8 @@ async function list(store, tenantId, botId, channelId, afterSeq = 0) {
         authorId: raw.author_id?.S ?? "",
         addressedToBotId: addressed === "" ? null : addressed,
         body: raw.body?.S ?? "",
-        createdAt: raw.created_at?.S ?? ""
+        createdAt: raw.created_at?.S ?? "",
+        ...raw.origin?.S === void 0 ? {} : { origin: JSON.parse(raw.origin.S) }
       });
     }
     startKey = page2.LastEvaluatedKey;
@@ -5915,7 +5923,8 @@ var draftLine = (draft, entryId) => ({
   authorId: draft.authorId,
   addressedToBotId: draft.addressedToBotId,
   createdAt: draft.createdAt,
-  entryId
+  entryId,
+  ...draft.origin === void 0 ? {} : { origin: draft.origin }
 });
 async function appendLine(session, line, context = BACKGROUND_CONTEXT3) {
   return session.commit(async (tx) => {
@@ -8694,6 +8703,55 @@ function createAgentEventListener(writer, coalescer, thinking, attemptId, delive
 // conversation/src/turn/finalize.ts
 import { ROOT_CONVERSATION_ID as ROOT_CONVERSATION_ID3 } from "@earendil-works/pi-durable";
 
+// conversation/src/channels/events.ts
+var CHANNEL_MESSAGE_CREATED = "channel.message.created";
+function channelMessageCreatedEvent(ids) {
+  return {
+    detailType: CHANNEL_MESSAGE_CREATED,
+    detail: { tenant_id: ids.tenantId, message_id: ids.messageId, binding_id: ids.bindingId }
+  };
+}
+
+// conversation/src/channels/delivery.ts
+function replyOriginOf(lines, turn, replySeq) {
+  if (turn.promptMessageSeq === null) return null;
+  const promptSeq = turn.promptMessageSeq;
+  const prompt = lines.find((line) => line.seq === promptSeq);
+  if (prompt?.origin === void 0) return null;
+  const inputs = lines.filter((line) => line.authorKind !== "bot" && line.addressedToBotId === turn.botId && line.seq >= promptSeq && line.seq < replySeq && line.origin !== void 0).sort((left, right) => right.seq - left.seq);
+  return inputs[0]?.origin ?? prompt.origin;
+}
+async function recordReplyDelivery(recorder, reply, origin) {
+  const now2 = recorder.clock.now();
+  await recorder.store.putDeliveryIfAbsent({
+    tenantId: reply.tenantId,
+    messageId: reply.messageId,
+    bindingId: origin.bindingId,
+    channelId: reply.channelId,
+    messageSeq: reply.messageSeq,
+    conversationKey: origin.conversationKey,
+    recipientExternalId: origin.senderExternalId,
+    inReplyToExternalMessageId: origin.externalMessageId,
+    state: "pending",
+    attempts: 0,
+    failureClass: null,
+    reasonCode: null,
+    providerMessageId: null,
+    createdAt: now2,
+    updatedAt: now2
+  });
+  try {
+    await recorder.events.publish(channelMessageCreatedEvent({ tenantId: reply.tenantId, messageId: reply.messageId, bindingId: origin.bindingId }));
+  } catch (error) {
+    recorder.reportPublishFailure({
+      tenantId: reply.tenantId,
+      messageId: reply.messageId,
+      bindingId: origin.bindingId,
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+  }
+}
+
 // conversation/src/ledger/call-cost.ts
 import {
   AssistantEntry,
@@ -9352,6 +9410,12 @@ async function commitFinalAnswer(inputs, answerEntryId) {
       createdAt
     });
   }
+  if (deps.channelDelivery !== void 0) {
+    const origin = replyOriginOf(log?.lines ?? [], turn, messageSeq);
+    if (origin !== null) {
+      await recordReplyDelivery(deps.channelDelivery, { tenantId: turn.tenantId, channelId: turn.channelId, messageId, messageSeq }, origin);
+    }
+  }
   return { messageSeq, body };
 }
 
@@ -9789,7 +9853,8 @@ var draftOf = (item) => ({
   authorKind: item.authorKind,
   authorId: item.authorId,
   addressedToBotId: item.addressedToBotId,
-  createdAt: item.createdAt
+  createdAt: item.createdAt,
+  ...item.origin === void 0 ? {} : { origin: item.origin }
 });
 var delay = (milliseconds) => {
   let timer;
@@ -10901,7 +10966,8 @@ async function listChannelMessages(dependencies, tenantId, channelId, botIds, af
           author_kind: line.authorKind,
           author_id: line.authorId,
           addressed_to_bot_id: line.addressedToBotId,
-          created_at: line.createdAt
+          created_at: line.createdAt,
+          ...line.origin === void 0 ? {} : { origin: line.origin }
         },
         body: body().then((text3) => text3 ?? "")
       });
@@ -10918,7 +10984,8 @@ async function listChannelMessages(dependencies, tenantId, channelId, botIds, af
           author_kind: item.authorKind,
           author_id: item.authorId,
           addressed_to_bot_id: item.addressedToBotId,
-          created_at: item.createdAt
+          created_at: item.createdAt,
+          ...item.origin === void 0 ? {} : { origin: item.origin }
         },
         body: Promise.resolve(item.body)
       });
@@ -11077,7 +11144,8 @@ async function postMessage(deps, request) {
     authorId: request.authorId,
     body: request.body,
     addressedToBotId: request.addressedToBotId,
-    createdAt: reservation?.createdAt ?? deps.clock.now()
+    createdAt: reservation?.createdAt ?? deps.clock.now(),
+    ...request.origin === void 0 ? {} : { origin: request.origin }
   };
   const itemFor = (botId) => ({
     tenantId: channel.tenantId,
@@ -11089,7 +11157,8 @@ async function postMessage(deps, request) {
     authorId: message.authorId,
     addressedToBotId: message.addressedToBotId,
     body: message.body,
-    createdAt: message.createdAt.toISOString()
+    createdAt: message.createdAt.toISOString(),
+    ...message.origin === void 0 ? {} : { origin: message.origin }
   });
   const participatingBotIds = channel.participants.filter((participant) => participant.kind === "bot").map((participant) => participant.actorId);
   for (const botId of participatingBotIds) {
@@ -11177,6 +11246,7 @@ async function listMessages(deps, request) {
     body: entry.body,
     addressedToBotId: entry.addressed_to_bot_id,
     createdAt: new Date(entry.created_at),
+    ...entry.origin === void 0 ? {} : { origin: entry.origin },
     ...entry.activity === void 0 ? {} : { activity: entry.activity }
   }));
 }
@@ -11186,6 +11256,16 @@ function tenantIdForRequest(c, principal, deps) {
   const tenantId = deps.tenantIdForPrincipal?.(principal) ?? pathParameter(c, "tenant_id");
   if (!tenantId.trim()) throw new Error("The host principal did not provide a tenant scope.");
   return tenantId;
+}
+function originPayload(origin) {
+  return {
+    binding_id: origin.bindingId,
+    provider: origin.provider,
+    external_message_id: origin.externalMessageId,
+    conversation_key: origin.conversationKey,
+    sender_external_id: origin.senderExternalId,
+    assertion: origin.assertion
+  };
 }
 function messagePayload(message) {
   return {
@@ -11198,6 +11278,7 @@ function messagePayload(message) {
     body: message.body,
     addressed_to_bot_id: message.addressedToBotId,
     created_at: message.createdAt.toISOString(),
+    ...message.origin === void 0 ? {} : { origin: originPayload(message.origin) },
     ...message.activity === void 0 ? {} : { activity: message.activity }
   };
 }

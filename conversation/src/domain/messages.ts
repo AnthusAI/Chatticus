@@ -55,7 +55,10 @@ export type PostMessageResult = { message: Message; turnId: string | null };
 /** Which messages to list. */
 export type ListMessagesRequest = { tenantId: string; channelId: string; afterSeq?: number };
 
-function scopedPostIdempotencyKey(request: PostMessageRequest): string | null {
+/** The stored key of an idempotent post: the caller key scoped to its tenant, channel and author. */
+export function scopedPostIdempotencyKey(
+	request: Pick<PostMessageRequest, "tenantId" | "channelId" | "authorKind" | "authorId" | "idempotencyKey">,
+): string | null {
 	if (request.idempotencyKey === null) return null;
 	return createHash("sha256")
 		.update(JSON.stringify([request.tenantId, request.channelId, request.authorKind, request.authorId, request.idempotencyKey]))

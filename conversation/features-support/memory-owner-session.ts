@@ -4,8 +4,10 @@ import type { OwnerSession, OwnerSessionFactory } from "../src/pi/session.ts";
 
 /** A test-only owner session backed by Pi's in-memory storage. */
 
-export function memoryOwnerSessionFactory(onOpen?: (session: OwnerSession) => void): OwnerSessionFactory {
-	return async (_storageId, dependencies) => {
+export function memoryOwnerSessionFactory(
+	onOpen?: (session: OwnerSession, storageId: string) => void,
+): OwnerSessionFactory {
+	return async (storageId, dependencies) => {
 		const storage = new MemoryStorage();
 		const harnessStorage = new Proxy(storage, {
 			get(target, property) {
@@ -27,7 +29,7 @@ export function memoryOwnerSessionFactory(onOpen?: (session: OwnerSession) => vo
 			fence: 1,
 			close: () => harness.close(withoutAbortSignal(dependencies.context)),
 		};
-		onOpen?.(session);
+		onOpen?.(session, storageId);
 		return session;
 	};
 }

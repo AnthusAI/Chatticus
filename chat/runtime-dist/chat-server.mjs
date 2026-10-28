@@ -2154,6 +2154,7 @@ async function allocateSeq(store, tenantId, channelId) {
   return Number(updated) - 1;
 }
 var mailboxItemAttributes = (item) => ({
+  ...item.origin === void 0 ? {} : { origin: { S: JSON.stringify(item.origin) } },
   pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) },
   sk: { S: mailboxSortKey(item.seq) },
   tenant_id: { S: item.tenantId },
@@ -2213,7 +2214,8 @@ async function list(store, tenantId, botId, channelId, afterSeq = 0) {
         authorId: raw.author_id?.S ?? "",
         addressedToBotId: addressed === "" ? null : addressed,
         body: raw.body?.S ?? "",
-        createdAt: raw.created_at?.S ?? ""
+        createdAt: raw.created_at?.S ?? "",
+        ...raw.origin?.S === void 0 ? {} : { origin: JSON.parse(raw.origin.S) }
       });
     }
     startKey = page2.LastEvaluatedKey;
@@ -2515,7 +2517,8 @@ async function listChannelMessages(dependencies, tenantId, channelId, botIds, af
           author_kind: line.authorKind,
           author_id: line.authorId,
           addressed_to_bot_id: line.addressedToBotId,
-          created_at: line.createdAt
+          created_at: line.createdAt,
+          ...line.origin === void 0 ? {} : { origin: line.origin }
         },
         body: body().then((text2) => text2 ?? "")
       });
@@ -2532,7 +2535,8 @@ async function listChannelMessages(dependencies, tenantId, channelId, botIds, af
           author_kind: item.authorKind,
           author_id: item.authorId,
           addressed_to_bot_id: item.addressedToBotId,
-          created_at: item.createdAt
+          created_at: item.createdAt,
+          ...item.origin === void 0 ? {} : { origin: item.origin }
         },
         body: Promise.resolve(item.body)
       });
@@ -2820,7 +2824,8 @@ async function postMessage(deps, request) {
     authorId: request.authorId,
     body: request.body,
     addressedToBotId: request.addressedToBotId,
-    createdAt: reservation?.createdAt ?? deps.clock.now()
+    createdAt: reservation?.createdAt ?? deps.clock.now(),
+    ...request.origin === void 0 ? {} : { origin: request.origin }
   };
   const itemFor = (botId) => ({
     tenantId: channel.tenantId,
@@ -2832,7 +2837,8 @@ async function postMessage(deps, request) {
     authorId: message.authorId,
     addressedToBotId: message.addressedToBotId,
     body: message.body,
-    createdAt: message.createdAt.toISOString()
+    createdAt: message.createdAt.toISOString(),
+    ...message.origin === void 0 ? {} : { origin: message.origin }
   });
   const participatingBotIds = channel.participants.filter((participant) => participant.kind === "bot").map((participant) => participant.actorId);
   for (const botId of participatingBotIds) {
@@ -2920,6 +2926,7 @@ async function listMessages(deps, request) {
     body: entry.body,
     addressedToBotId: entry.addressed_to_bot_id,
     createdAt: new Date(entry.created_at),
+    ...entry.origin === void 0 ? {} : { origin: entry.origin },
     ...entry.activity === void 0 ? {} : { activity: entry.activity }
   }));
 }
@@ -2929,6 +2936,16 @@ function tenantIdForRequest(c, principal, deps) {
   const tenantId = deps.tenantIdForPrincipal?.(principal) ?? pathParameter(c, "tenant_id");
   if (!tenantId.trim()) throw new Error("The host principal did not provide a tenant scope.");
   return tenantId;
+}
+function originPayload(origin) {
+  return {
+    binding_id: origin.bindingId,
+    provider: origin.provider,
+    external_message_id: origin.externalMessageId,
+    conversation_key: origin.conversationKey,
+    sender_external_id: origin.senderExternalId,
+    assertion: origin.assertion
+  };
 }
 function messagePayload(message) {
   return {
@@ -2941,6 +2958,7 @@ function messagePayload(message) {
     body: message.body,
     addressed_to_bot_id: message.addressedToBotId,
     created_at: message.createdAt.toISOString(),
+    ...message.origin === void 0 ? {} : { origin: originPayload(message.origin) },
     ...message.activity === void 0 ? {} : { activity: message.activity }
   };
 }
