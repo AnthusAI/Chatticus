@@ -117,6 +117,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Smoke-test packed shared chat runtime
+        run: npm run test:chat-runtime-package
+
       - name: Typecheck
         working-directory: conversation
         run: npm run typecheck

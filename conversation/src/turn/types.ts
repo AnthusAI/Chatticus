@@ -12,7 +12,7 @@ import type { MessagingStore } from "../store/messaging-store.ts";
 import type { TurnDependencies } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue, TurnRunVisibility } from "../domain/turn-admission.ts";
 import type { ComputerToolHandoff } from "../pi/computer-tools.ts";
-import type { OwnerSessionDependencies } from "../pi/session.ts";
+import type { OwnerSessionDependencies, OwnerSessionFactory } from "../pi/session.ts";
 import type { ComputerHandoffDependencies } from "./park.ts";
 import type { FaultPlan } from "./fault-plan.ts";
 
@@ -75,6 +75,10 @@ export type ExecutorDeps = {
 	readonly conversationsTableName: string;
 	readonly piSessionsBucket: string;
 	readonly models: Models;
+	/** Replaces the normal fenced DynamoDB owner session when an environment supplies its own session backend. */
+	readonly sessionFactory?: OwnerSessionFactory;
+	/** Runs only the shared conversation tools and prompt, without computer, task or board capabilities. */
+	readonly executionProfile?: "chatticus" | "computerless";
 	readonly model: TurnModel;
 	readonly ledger: VendorLedgerDependencies;
 	/** Which kind of owner this is; the turn index names the owner kind that last recorded a turn's cost. */

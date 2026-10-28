@@ -9,7 +9,16 @@ import { withoutOwner, type Computer } from "../src/store/codecs/computer.ts";
 import type { FileAuditRecord } from "../src/store/codecs/file-audit.ts";
 import { isExpired, type LiveFileOperation, type LiveFileOperationStatus } from "../src/store/codecs/live-file-operation.ts";
 import { DuplicateBotNameError } from "../src/http/errors.ts";
-import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerCredentialsRenewal, OwnerDispatchRecord } from "../src/store/messaging-store.ts";
+import type {
+	FileAuditFinish,
+	MessagingStore,
+	OwnerBootstrapRecord,
+	OwnerCredentialsRenewal,
+	OwnerDispatchRecord,
+	PostIdempotencyReservation,
+	PostIdempotencyCandidate,
+	PostIdempotencyReservationResult,
+} from "../src/store/messaging-store.ts";
 
 /** In-memory messaging store for scenarios that do not need DynamoDB. */
 export class InMemoryMessagingStore implements MessagingStore {
@@ -30,6 +39,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 	private readonly tasks = new Map<string, Task>();
 	private readonly liveFileOperations = new Map<string, LiveFileOperation>();
 	private readonly fileAudits = new Map<string, FileAuditRecord>();
+	private readonly postReservations = new Map<string, { fingerprint: string; reservation: PostIdempotencyReservation; result: { message: ChannelMessageRecord; turnId: string | null } | null }>();
 
 	async getIdentityByEmail(email: string): Promise<Identity | null> {
 		return this.identities.get(email) ?? null;
@@ -215,6 +225,64 @@ export class InMemoryMessagingStore implements MessagingStore {
 		turnId: string | null,
 	): Promise<void> {
 		this.postIdempotency.set(`${tenantId}\u0000${idempotencyKey}`, { message, turnId });
+	}
+
+	async reservePostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		fingerprint: string,
+		candidate: PostIdempotencyCandidate,
+		now: Date,
+	): Promise<PostIdempotencyReservationResult> {
+		const key = `${tenantId}\u0000${idempotencyKey}`;
+		const existing = this.postReservations.get(key);
+		if (existing === undefined) {
+			const reservation = { ...candidate, seq: null, admission: null };
+			this.postReservations.set(key, { fingerprint, reservation, result: null });
+			return { state: "owner", reservation: { ...reservation } };
+		}
+		if (existing.fingerprint !== fingerprint) return { state: "conflict" };
+		if (existing.result !== null) return { state: "completed", result: existing.result };
+		if (existing.reservation.leaseExpiresAt > now) return { state: "busy" };
+		const reservation = { ...existing.reservation, ownerId: candidate.ownerId, leaseExpiresAt: candidate.leaseExpiresAt };
+		this.postReservations.set(key, { ...existing, reservation });
+		return { state: "owner", reservation };
+	}
+
+	async recordPostIdempotencyAdmission(
+		tenantId: string,
+		idempotencyKey: string,
+		ownerId: string,
+		admission: { turnId: string; kind: "started" | "steered" },
+		now: Date,
+	): Promise<boolean> {
+		const entry = this.postReservations.get(`${tenantId}\u0000${idempotencyKey}`);
+		if (entry === undefined || entry.result !== null || entry.reservation.ownerId !== ownerId || entry.reservation.leaseExpiresAt <= now) return false;
+		entry.reservation.admission = admission;
+		return true;
+	}
+
+	async setPostIdempotencySequence(tenantId: string, idempotencyKey: string, ownerId: string, seq: number, now: Date): Promise<number | null> {
+		const entry = this.postReservations.get(`${tenantId}\u0000${idempotencyKey}`);
+		if (entry === undefined || entry.result !== null || entry.reservation.ownerId !== ownerId || entry.reservation.leaseExpiresAt <= now) return null;
+		if (entry.reservation.seq === null) entry.reservation.seq = seq;
+		return entry.reservation.seq;
+	}
+
+	async completePostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		ownerId: string,
+		message: ChannelMessageRecord,
+		turnId: string | null,
+		now: Date,
+	): Promise<boolean> {
+		const key = `${tenantId}\u0000${idempotencyKey}`;
+		const entry = this.postReservations.get(key);
+		if (entry === undefined || entry.result !== null || entry.reservation.ownerId !== ownerId || entry.reservation.leaseExpiresAt <= now) return false;
+		entry.result = { message, turnId };
+		this.postIdempotency.set(key, entry.result);
+		return true;
 	}
 
 	async getChannelIdempotency(tenantId: string, idempotencyKey: string): Promise<Channel | null> {

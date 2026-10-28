@@ -3,7 +3,7 @@ import type { IntegrationTestAuthConfig } from "../src/auth/integration-test.ts"
 import type { SignupMode } from "../src/domain/signup-mode.ts";
 import { createApp } from "../src/http/app.ts";
 import { DEFAULT_STREAM_TIMING } from "../src/http/stream.ts";
-import type { CommitObject } from "../src/storage/indexed-storage.ts";
+import { IndexedStorage, type CommitObject } from "../src/storage/indexed-storage.ts";
 import { MessageBodyCache } from "../src/pi/message-cache.ts";
 import { DynamoWriteGate } from "../src/migration/migration-state.ts";
 import { DynamoPolicyStore } from "../src/store/policy-store.ts";
@@ -79,6 +79,15 @@ function messageDependencies(world: ChatticusWorld, piStorage: ScenarioPiStorage
 			conversationsTableName: piStorage.tableName,
 			bucket: piStorage.bucket,
 			commitCache: new MessageBodyCache<Promise<CommitObject>>(),
+			openExistingStorage: async (storageId: string) =>
+				world.memorySessionStorages.get(storageId) ??
+				IndexedStorage.openExisting({
+					client: listingClients.client,
+					s3: listingClients.s3,
+					tableName: piStorage.tableName,
+					bucket: piStorage.bucket,
+					storageId,
+				}),
 		},
 	};
 }

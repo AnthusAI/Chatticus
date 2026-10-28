@@ -193,13 +193,15 @@ class TurnAttempt {
 		}
 		this.bot = bot;
 		this.channel = channel;
-		const session = await openOwnerSession(storageIdFor(this.job.tenantId, this.job.botId, this.turn.channelId), {
+		const sessionDependencies = {
 			client: this.deps.client,
 			s3: this.deps.s3,
 			tableName: this.deps.conversationsTableName,
 			bucket: this.deps.piSessionsBucket,
 			models: this.deps.models,
-			extensions: [
+			extensions: this.deps.executionProfile === "computerless"
+				? chatticusExtensions({ systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }) })
+				: [
 				...chatticusExtensions({
 					systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
 				}),
@@ -222,7 +224,11 @@ class TurnAttempt {
 				retry: { maxRetries: this.tuning.retry.maxRetries, baseDelayMs: this.tuning.retry.baseDelayMilliseconds },
 				compaction: { keepRecentTokens: this.tuning.compaction.keepRecentTokens },
 			},
-		});
+		};
+		const session = await (this.deps.sessionFactory ?? openOwnerSession)(
+			storageIdFor(this.job.tenantId, this.job.botId, this.turn.channelId),
+			sessionDependencies,
+		);
 		this.session = session;
 		await recordStorageFence(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, session.fence);
 		await this.readJournal();
@@ -320,17 +326,20 @@ class TurnAttempt {
 	}
 
 	private parkDependencies(): ParkDependencies {
+		const computer = this.deps.computer;
+		if (computer === undefined) throw new Error("Computer handoff is unavailable for this execution profile.");
 		return {
 			turns: this.deps.turns,
 			messaging: this.deps.messaging,
 			turnRuns: this.deps.turnRuns,
 			turnProbes: this.deps.turnProbes,
-			computer: this.deps.computer,
+			computer,
 			faults: this.deps.faults,
 		};
 	}
 
 	private computerHandoff(): ComputerToolHandoff {
+		if (this.deps.computer === undefined) throw new Error("Computer handoff is unavailable for this execution profile.");
 		const { tenantId, turnId } = this.job;
 		return {
 			lookup: (call) => this.deps.computer.actions.getByCall(tenantId, turnId, call.callId),

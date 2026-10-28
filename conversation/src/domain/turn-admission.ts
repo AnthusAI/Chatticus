@@ -30,6 +30,17 @@ export type StartTurnRequest = {
 	readonly startedEventId: string;
 	/** The turn the pointer is expected to name now, or null when the pointer must not exist yet. */
 	readonly expectedPointerTurnId: string | null;
+	/** The channel message that must be committed with the turn's initial admission. */
+	readonly initialItem?: MailboxItem;
+	/** When present, the reservation outcome is committed with this admission in DynamoDB. */
+	readonly reservationFence?: AdmissionReservationFence;
+};
+
+export type AdmissionReservationFence = {
+	readonly tenantId: string;
+	readonly idempotencyKey: string;
+	readonly ownerId: string;
+	readonly now: Date;
 };
 
 /** Writing the turn control record and pointer, the part of turn handling that message admission needs. */
@@ -47,13 +58,13 @@ export interface TurnAdmission {
 	 *
 	 * @returns false when that condition failed, so the caller must look again.
 	 */
-	steerTurn(turnId: string, item: MailboxItem): Promise<boolean>;
+	steerTurn(turnId: string, item: MailboxItem, fence?: AdmissionReservationFence): Promise<boolean>;
 	/**
 	 * Remember that the run job named by `enqueueId` was requested for the turn.
 	 *
 	 * @returns true the first time, false when the id was already recorded.
 	 */
-	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean>;
+	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string, fence?: AdmissionReservationFence): Promise<boolean>;
 }
 
 /** The job the front door hands the queue when a message starts a turn. */

@@ -5,8 +5,8 @@ import {
   presentToolArguments,
   type ToolCardModel,
   type TurnActivity,
-} from "@/lib/turn-activity";
-import { cn } from "@/lib/utils";
+} from "../client/turn-activity";
+import { cn } from "./utils";
 
 const CODE_BLOCK_CLASS =
   "max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-surface-raised px-3 py-2 font-mono text-xs leading-5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25";

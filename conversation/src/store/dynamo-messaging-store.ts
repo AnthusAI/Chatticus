@@ -49,7 +49,16 @@ import { formatIsoDateTime } from "./codecs/util.ts";
 import * as workerCodec from "./codecs/worker.ts";
 import type { Worker } from "./codecs/worker.ts";
 import { computerRecordKey, fileAuditKey, fileAuditPartition, liveFileOperationKey, liveFileOperationPartition, postIdempotencyKey } from "./keys.ts";
-import type { FileAuditFinish, MessagingStore, OwnerBootstrapRecord, OwnerCredentialsRenewal, OwnerDispatchRecord } from "./messaging-store.ts";
+import type {
+	FileAuditFinish,
+	MessagingStore,
+	OwnerBootstrapRecord,
+	OwnerCredentialsRenewal,
+	OwnerDispatchRecord,
+	PostIdempotencyCandidate,
+	PostIdempotencyReservation,
+	PostIdempotencyReservationResult,
+} from "./messaging-store.ts";
 import { retryTransient } from "./transient-retry.ts";
 
 type Item = Record<string, AttributeValue>;
@@ -474,6 +483,145 @@ export class DynamoMessagingStore implements MessagingStore {
 				origin: message.origin === undefined ? undefined : JSON.stringify(message.origin),
 			}),
 		);
+	}
+
+	async reservePostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		fingerprint: string,
+		candidate: PostIdempotencyCandidate,
+		now: Date,
+	): Promise<PostIdempotencyReservationResult> {
+		const key = postIdempotencyKey(tenantId, idempotencyKey);
+		const pendingItem: Item = {
+			pk: { S: key.pk }, sk: { S: key.sk }, tenant_id: { S: tenantId },
+			reservation_state: { S: "pending" }, request_fingerprint: { S: fingerprint },
+			reservation_owner: { S: candidate.ownerId }, lease_expires_at: { N: String(candidate.leaseExpiresAt.getTime()) },
+			message_id: { S: candidate.messageId }, created_at: { S: candidate.createdAt.toISOString() },
+			...(candidate.reservedTurnId === null ? {} : { reserved_turn_id: { S: candidate.reservedTurnId } }),
+			...(candidate.startedEventId === null ? {} : { started_event_id: { S: candidate.startedEventId } }),
+		};
+		try {
+			await this.client.send(new PutItemCommand({
+				TableName: this.tableName,
+				Item: pendingItem,
+				ConditionExpression: "attribute_not_exists(pk)",
+			}));
+			return { state: "owner", reservation: { ...candidate, seq: null, admission: null } };
+		} catch (error) {
+			if (!(error instanceof ConditionalCheckFailedException)) throw error;
+		}
+
+		let existing = await this.get(key.pk, key.sk);
+		if (existing === null) return { state: "busy" };
+		if (existing.request_fingerprint?.S !== fingerprint) return { state: "conflict" };
+		if (existing.reservation_state?.S !== "pending") {
+			if (existing.reservation_state?.S === "complete") {
+				const result = await this.getPostIdempotency(tenantId, idempotencyKey);
+				return result === null ? { state: "busy" } : { state: "completed", result };
+			}
+			return { state: "conflict" };
+		}
+		const leaseExpiresAt = Number(existing.lease_expires_at?.N ?? "0");
+		if (leaseExpiresAt <= now.getTime()) {
+			try {
+				const updated = await this.client.send(new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+					UpdateExpression: "SET reservation_owner = :owner, lease_expires_at = :lease",
+					ConditionExpression: "reservation_state = :pending AND request_fingerprint = :fingerprint AND lease_expires_at <= :now",
+					ExpressionAttributeValues: {
+						":owner": { S: candidate.ownerId }, ":lease": { N: String(candidate.leaseExpiresAt.getTime()) },
+						":pending": { S: "pending" }, ":fingerprint": { S: fingerprint }, ":now": { N: String(now.getTime()) },
+					}, ReturnValues: "ALL_NEW",
+				}));
+				existing = updated.Attributes ?? existing;
+			} catch (error) {
+				if (!(error instanceof ConditionalCheckFailedException)) throw error;
+				return { state: "busy" };
+			}
+			return { state: "owner", reservation: this.decodePostReservation(existing) };
+		}
+		return { state: "busy" };
+	}
+
+	async setPostIdempotencySequence(
+		tenantId: string,
+		idempotencyKey: string,
+		ownerId: string,
+		seq: number,
+		now: Date,
+	): Promise<number | null> {
+		const key = postIdempotencyKey(tenantId, idempotencyKey);
+		try {
+			const result = await this.client.send(new UpdateItemCommand({
+				TableName: this.tableName,
+				Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+				UpdateExpression: "SET #seq = if_not_exists(#seq, :seq)",
+				ConditionExpression: "reservation_state = :pending AND reservation_owner = :owner AND lease_expires_at > :now",
+				ExpressionAttributeNames: { "#seq": "seq" },
+				ExpressionAttributeValues: { ":seq": { N: String(seq) }, ":pending": { S: "pending" }, ":owner": { S: ownerId }, ":now": { N: String(now.getTime()) } },
+				ReturnValues: "ALL_NEW",
+			}));
+			const stored = result.Attributes?.seq?.N;
+			return stored === undefined ? null : Number(stored);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return null;
+			throw error;
+		}
+	}
+
+	async completePostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		ownerId: string,
+		message: ChannelMessageRecord,
+		turnId: string | null,
+		now: Date,
+	): Promise<boolean> {
+		const key = postIdempotencyKey(tenantId, idempotencyKey);
+		try {
+			await this.client.send(new UpdateItemCommand({
+				TableName: this.tableName,
+				Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+				UpdateExpression: "SET reservation_state = :complete, channel_id = :channel, message_id = :message, seq = :seq, author_kind = :author_kind, author_id = :author_id, body = :body, addressed_to_bot_id = :addressed, created_at = :created" + (turnId === null ? " REMOVE turn_id" : ", turn_id = :turn"),
+				ConditionExpression: "reservation_state = :pending AND reservation_owner = :owner AND lease_expires_at > :now",
+				ExpressionAttributeValues: {
+					":complete": { S: "complete" }, ":pending": { S: "pending" }, ":owner": { S: ownerId }, ":now": { N: String(now.getTime()) },
+					":channel": { S: message.channelId }, ":message": { S: message.messageId }, ":seq": { N: String(message.seq) },
+					":author_kind": { S: message.authorKind }, ":author_id": { S: message.authorId }, ":body": { S: message.body },
+					":addressed": { S: message.addressedToBotId ?? "" }, ":created": { S: message.createdAt.toISOString() },
+					...(turnId === null ? {} : { ":turn": { S: turnId } }),
+				},
+			}));
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return false;
+			throw error;
+		}
+	}
+
+	private decodePostReservation(item: Item): PostIdempotencyReservation {
+		const ownerId = item.reservation_owner?.S;
+		const messageId = item.message_id?.S;
+		const createdAt = item.created_at?.S;
+		const lease = item.lease_expires_at?.N;
+		if (ownerId === undefined || messageId === undefined || createdAt === undefined || lease === undefined) {
+			throw new Error("malformed post idempotency reservation");
+		}
+		return {
+			ownerId,
+			messageId,
+			createdAt: new Date(createdAt),
+			leaseExpiresAt: new Date(Number(lease)),
+			seq: item.seq?.N === undefined ? null : Number(item.seq.N),
+			reservedTurnId: item.reserved_turn_id?.S ?? null,
+			startedEventId: item.started_event_id?.S ?? null,
+			admission: item.admitted_turn_id?.S === undefined ? null : {
+				turnId: item.admitted_turn_id.S,
+				kind: item.admission_kind?.S === "steered" ? "steered" : "started",
+			},
+		};
 	}
 
 	async putMessage(message: ChannelMessageRecord): Promise<void> {

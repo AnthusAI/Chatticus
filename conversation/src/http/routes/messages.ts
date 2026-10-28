@@ -3,11 +3,20 @@ import { assertActingUserId, assertCallerParticipatesInChannel } from "../acting
 import { listMessages, type Message, type MessageDependencies, postMessage } from "../../domain/messages.ts";
 import type { ToolActivityItem } from "../../pi/message-activity.ts";
 import type { ActorKind, MessageOrigin } from "../../domain/channels.ts";
+import type { Principal } from "../../auth/principal.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
 
 /** Everything the message routes depend on. */
 export interface MessageRouteDependencies extends UserPrincipalDependencies {
 	messages: MessageDependencies;
+	/** Embedded hosts derive tenant scope from the verified principal instead of a browser path parameter. */
+	tenantIdForPrincipal?: (principal: Principal) => string;
+}
+
+function tenantIdForRequest(c: Context, principal: Principal, deps: MessageRouteDependencies): string {
+	const tenantId = deps.tenantIdForPrincipal?.(principal) ?? pathParameter(c, "tenant_id");
+	if (!tenantId.trim()) throw new Error("The host principal did not provide a tenant scope.");
+	return tenantId;
 }
 
 /** One message as the HTTP API renders it. */
@@ -119,7 +128,7 @@ export async function postChannelMessageHandler(c: Context, deps: MessageRouteDe
 	}
 	assertActingUserId(principal, body.authorId);
 	const result = await postMessage(deps.messages, {
-		tenantId: pathParameter(c, "tenant_id"),
+		tenantId: tenantIdForRequest(c, principal, deps),
 		channelId: pathParameter(c, "channel_id"),
 		authorKind: body.authorKind,
 		authorId: body.authorId,
@@ -137,13 +146,14 @@ export async function listChannelMessagesHandler(c: Context, deps: MessageRouteD
 	if (isRefusal(principal)) {
 		return principal;
 	}
-	await assertCallerParticipatesInChannel(principal, pathParameter(c, "tenant_id"), pathParameter(c, "channel_id"), deps.messages);
+	const tenantId = tenantIdForRequest(c, principal, deps);
+	await assertCallerParticipatesInChannel(principal, tenantId, pathParameter(c, "channel_id"), deps.messages);
 	const after = Number(c.req.query("after") ?? "0");
 	if (!Number.isInteger(after) || after < 0) {
 		return c.json({ detail: "after must be a non-negative integer" }, 422);
 	}
 	const messages = await listMessages(deps.messages, {
-		tenantId: pathParameter(c, "tenant_id"),
+		tenantId,
 		channelId: pathParameter(c, "channel_id"),
 		afterSeq: after,
 	});

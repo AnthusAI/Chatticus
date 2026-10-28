@@ -3,7 +3,7 @@ import type { S3Client } from "@aws-sdk/client-s3";
 import type { Context } from "@earendil-works/chord";
 import { withoutAbortSignal } from "@earendil-works/chord/context";
 import type { Models } from "@earendil-works/pi-ai/models";
-import { createRegistry, type Extension, Harness, type HarnessOptions, type HarnessSettings } from "@earendil-works/pi-durable";
+import { createRegistry, type Extension, Harness, type HarnessOptions, type HarnessSettings, type Storage } from "@earendil-works/pi-durable";
 import { IndexedStorage, type SnapshotPolicy } from "../storage/indexed-storage.ts";
 
 export type OwnerStorageDependencies = {
@@ -27,10 +27,13 @@ export type OwnerSessionDependencies = OwnerStorageDependencies & {
 
 export type OwnerSession = {
 	readonly harness: Harness;
-	readonly storage: IndexedStorage;
+	readonly storage: Storage;
 	readonly fence: number;
 	close(): Promise<void>;
 };
+
+/** Factory for the Pi owner session used by one worker attempt. */
+export type OwnerSessionFactory = (storageId: string, dependencies: OwnerSessionDependencies) => Promise<OwnerSession>;
 
 /**
  * Allocate a fresh fence for the session and open its storage under that fence.

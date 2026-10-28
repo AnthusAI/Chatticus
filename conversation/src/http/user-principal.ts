@@ -14,6 +14,8 @@ export interface UserPrincipalDependencies {
 	verifier: IdTokenVerifier | null;
 	membershipCache: MembershipCache<CachedMembership>;
 	integrationTest: IntegrationTestAuthConfig | null;
+	/** A host that already verified identity and membership may inject its server-derived principal. */
+	resolveHostPrincipal?: (request: Request) => Promise<Principal | null>;
 }
 
 /** Per-application membership cache for organization user routes. */
@@ -32,6 +34,23 @@ export async function resolveUserPrincipal(
 	deps: UserPrincipalDependencies,
 	options: { requireEnabledMember: boolean } = { requireEnabledMember: true },
 ): Promise<Principal | Response> {
+	if (deps.resolveHostPrincipal !== undefined) {
+		const principal = await deps.resolveHostPrincipal(c.req.raw);
+		if (principal === null) return c.json({ detail: "host identity is not authorized" }, 401);
+		if (
+			principal.kind !== "user" ||
+			principal.userId === null ||
+			!principal.userId.trim() ||
+			!principal.tenantId.trim() ||
+			principal.organizationStatus !== "enabled"
+		) {
+			return c.json({ detail: "host identity is not authorized" }, 403);
+		}
+		if (options.requireEnabledMember && principal.role !== "owner" && principal.role !== "member") {
+			return c.json({ detail: "host identity is not authorized" }, 403);
+		}
+		return principal;
+	}
 	if (deps.verifier === null) {
 		return c.json({ detail: "Cognito verifier is not configured." }, 503);
 	}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "../../chat/styles.css";
 
 const display = localFont({
   src: [

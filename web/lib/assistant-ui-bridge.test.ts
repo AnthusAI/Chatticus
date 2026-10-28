@@ -153,7 +153,7 @@ describe("convertChatticusThreadMessage", () => {
       botNames,
     );
     assert.equal(converted.role, "assistant");
-    assert.equal(converted.metadata?.custom?.authorBotName, "Ada");
+    assert.equal(converted.metadata?.custom?.authorLabel, "Ada");
     assert.equal(converted.metadata?.custom?.createdAt, "2026-01-01T12:00:05.000Z");
     assert.equal(converted.metadata?.custom?.isStreaming, false);
   });

@@ -30,6 +30,7 @@ export async function ensureTestOrganization(world: ChatticusWorld, tenantId: st
 }
 
 const usersPathPattern = /^\/orgs\/[^/]+\/users\/([^/]+)\//;
+const turnPathPattern = /^\/orgs\/([^/]+)\/turns\/([^/?]+)/;
 const channelPathPattern = /^\/orgs\/([^/]+)\/channels\/([^/?]+)/;
 
 async function actingUserIdFor(world: ChatticusWorld, path: string, body: unknown): Promise<string | null> {
@@ -47,6 +48,13 @@ async function actingUserIdFor(world: ChatticusWorld, path: string, body: unknow
 	const channelMatch = channelPathPattern.exec(path);
 	if (channelMatch !== null) {
 		const channel = await world.messagingStore().getChannel(channelMatch[1] ?? "", channelMatch[2] ?? "");
+		return channel === null ? null : primaryHumanParticipant(channel);
+	}
+	const turnMatch = turnPathPattern.exec(path);
+	if (turnMatch !== null) {
+		const tenantId = turnMatch[1] ?? "";
+		const turn = await world.turnControlStore().getTurn(tenantId, turnMatch[2] ?? "");
+		const channel = turn === null ? null : await world.messagingStore().getChannel(tenantId, turn.channelId);
 		return channel === null ? null : primaryHumanParticipant(channel);
 	}
 	return null;

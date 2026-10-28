@@ -7,8 +7,9 @@ import type { VendorLedgerDependencies } from "../src/ledger/vendor-ledger.ts";
 import { defaultVendorPriceBook } from "../src/ledger/vendor-prices.ts";
 import type { TurnControlStore, TurnDependencies } from "../src/domain/turns.ts";
 import type { TurnRunJob } from "../src/domain/turn-admission.ts";
-import { executeTurn } from "../src/turn/executor.ts";
+import { consumeRunJob, executeTurn } from "../src/turn/executor.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionOutcome } from "../src/turn/types.ts";
+import { memoryOwnerSessionFactory as createMemoryOwnerSessionFactory } from "./memory-owner-session.ts";
 import { ScriptedProvider, type ScriptedHold } from "./fakes/scripted-provider.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { TURN_RUN_QUEUE } from "./front-door.ts";
@@ -176,6 +177,10 @@ export type ExecutorOptions = {
 	tuning?: Partial<ExecutorTuning>;
 	/** Run only the queued job of this turn, when the bot has queued jobs for several turns. */
 	turnId?: string;
+	/** Use Pi's in-memory session backend and the worker's computerless extension profile. */
+	computerlessMemorySession?: boolean;
+	/** Run through the production queue consumer and acknowledge after the turn settles. */
+	throughRunConsumer?: boolean;
 };
 
 /** The executor's dependencies over the scenario's tables, clock, identifiers and scripted model. */
@@ -196,6 +201,11 @@ export async function executorDepsFor(
 		conversationsTableName: piStorage.tableName,
 		piSessionsBucket: piStorage.bucket,
 		models,
+		...(options.computerlessMemorySession
+			? { executionProfile: "computerless" as const, sessionFactory: createMemoryOwnerSessionFactory((session, storageId) => {
+						world.memorySessionStorages.set(storageId, session.storage);
+					}) }
+			: {}),
 		model: { provider: "openai", modelId: scenario.scripted.modelId, thinkingLevel: "minimal" },
 		ledger: ledgerDependenciesFor(world),
 		ownerKind: "lambda",
@@ -235,7 +245,12 @@ export function startBotTurn(
 		scenario.scripted.reply(defaultScriptedAnswer(scenario.scripted.callCount + 1));
 	}
 	const run = executorDepsFor(world, scenario, options)
-		.then((deps) => executeTurn({ tenantId: job.tenantId, turnId: job.turnId, botId: job.botId }, deps))
+		.then((deps) => {
+			const turnJob = { tenantId: job.tenantId, turnId: job.turnId, botId: job.botId };
+			return options.throughRunConsumer
+				? consumeRunJob(turnJob, deps, async () => undefined)
+				: executeTurn(turnJob, deps);
+		})
 		.then((outcome) => {
 			scenario.outcomes.push(outcome);
 			return outcome;
