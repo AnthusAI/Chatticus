@@ -149,15 +149,15 @@ describe("ControlPlaneStack", () => {
     }
   });
 
-  it("creates three queues, each with a dead-letter queue", () => {
+  it("creates four queues, each with a dead-letter queue", () => {
     const queues = Object.values(development.findResources("AWS::SQS::Queue"));
-    assert.equal(queues.length, 6);
+    assert.equal(queues.length, 8);
     const withDeadLetter = queues.filter((queue) => queue.Properties.RedrivePolicy !== undefined);
-    assert.equal(withDeadLetter.length, 3);
+    assert.equal(withDeadLetter.length, 4);
     const visibilityTimeouts = withDeadLetter
       .map((queue) => queue.Properties.VisibilityTimeout)
       .sort((left, right) => left - right);
-    assert.deepEqual(visibilityTimeouts, [360, 360, 1800]);
+    assert.deepEqual(visibilityTimeouts, [300, 360, 360, 1800]);
   });
 
   it("sizes each Lambda as designed on Node 22 arm64", () => {
@@ -255,7 +255,7 @@ describe("ControlPlaneStack", () => {
 
   it("consumes each queue with batch size 1 and reports start failures per item", () => {
     const mappings = Object.values(development.findResources("AWS::Lambda::EventSourceMapping"));
-    assert.equal(mappings.length, 3);
+    assert.equal(mappings.length, 4);
     for (const mapping of mappings) {
       assert.equal(mapping.Properties.BatchSize, 1);
     }
@@ -449,16 +449,13 @@ describe("ControlPlaneStack", () => {
       }
     });
 
-    it("reads and writes the Messaging table and reads the Conversations table", () => {
+    it("reads and writes the Messaging table and reaches neither the Conversations table nor the Pi sessions bucket", () => {
       const statements = frontDoorStatements(development);
       const writes = statements.filter((statement) => [].concat(statement.Action).includes("dynamodb:PutItem"));
       assert.ok(JSON.stringify(writes).includes("Messaging"), "FrontDoor writes the Messaging table");
-      const conversations = statements.filter((statement) => JSON.stringify(statement.Resource).includes("Conversations"));
-      assert.ok(conversations.length > 0, "FrontDoor reads the Conversations table");
-      assert.ok(
-        conversations.every((statement) => ![].concat(statement.Action).includes("dynamodb:PutItem")),
-        "FrontDoor does not write the Conversations table",
-      );
+      const document = JSON.stringify(statements);
+      assert.ok(!document.includes("Conversations"), "FrontDoor does not reach the Conversations table");
+      assert.ok(!document.includes("PiSessions"), "FrontDoor does not reach the Pi sessions bucket");
     });
 
     it("reads the Cognito parameters and, outside production, the integration test parameters", () => {

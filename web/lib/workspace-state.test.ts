@@ -38,6 +38,11 @@ describe("getSendBlockReason", () => {
     assert.equal(getSendBlockReason(false, null, ""), "no-bot-selected");
   });
 
+  it("allows sending in a channel that has no bot, where nobody is addressed", () => {
+    assert.equal(getSendBlockReason(false, null, "", false), null);
+    assert.equal(getSendBlockReason(true, null, "", false), "sending");
+  });
+
   it("blocks when sending is already in progress", () => {
     assert.equal(getSendBlockReason(true, null, "bot-123"), "sending");
   });

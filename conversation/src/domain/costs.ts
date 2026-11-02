@@ -16,7 +16,8 @@ import {
 } from "@chatticus/host-protocol/costs";
 import { Decimal } from "../budget/decimal.ts";
 import { COST_SOURCE_GATEWAY, } from "../ledger/gateway-observation.ts";
-import { type ModelCallCost, readCallCostRecords } from "../ledger/call-cost.ts";
+import { type ModelCallCost } from "../ledger/call-cost.ts";
+import { readCopiedCallCosts } from "../ledger/call-cost-copy.ts";
 import { costIndexPartitionOf } from "../ledger/turn-cost.ts";
 import type { ChannelListingDependencies } from "../pi/channel-listing.ts";
 import { IndexedStorage } from "../storage/indexed-storage.ts";
@@ -581,32 +582,18 @@ export function costCallOf(record: ModelCallCost): CostCall {
 }
 
 /**
- * The call records of one turn, read from the bot's session for the channel without owning or creating it.
+ * The call records of one turn, read from the copy the turn wrote to the messaging table when its cost was recorded (and
+ * that an erasure writes before it drops a session). The copy outlives the Pi session.
  *
- * @returns The calls oldest first, or null when the session does not exist.
+ * @returns The calls oldest first, or null when no record was ever copied for the turn.
  */
 export async function readTurnCalls(
 	listing: ChannelListingDependencies,
 	tenantId: string,
-	botId: string,
-	channelId: string,
 	turnId: string,
 ): Promise<CostCall[] | null> {
-	const storage = await IndexedStorage.openExisting({
-		client: listing.client,
-		s3: listing.s3,
-		tableName: listing.conversationsTableName,
-		bucket: listing.bucket,
-		storageId: storageIdFor(tenantId, botId, channelId),
-		commitCache: listing.commitCache,
-	});
-	if (storage === undefined) return null;
-	try {
-		const records = await readCallCostRecords(createSession(storage), storage, ROOT_CONVERSATION_ID, BACKGROUND_CONTEXT);
-		return records.filter((record) => record.turnId === turnId).map(costCallOf);
-	} finally {
-		await storage.close(BACKGROUND_CONTEXT);
-	}
+	const records = await readCopiedCallCosts(listing.client, listing.messagingTableName, tenantId, turnId);
+	return records.length === 0 ? null : records.map(costCallOf);
 }
 
 const csvField = (value: string | number | boolean | null): string => {

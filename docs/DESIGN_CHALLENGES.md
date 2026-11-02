@@ -527,6 +527,13 @@ rather than discovering it.
 **Working model stands: non-destructive compaction on an immutable
 stream.** A compact is another append, never a rewrite.
 
+**What the code does today (2026-11-02):** none of the channel-level summary
+below is built. The channel record holds the messages (`docs/MESSAGING.md`); each
+bot's Pi session is a rebuildable copy of it, and compaction is pi-durable's, per
+session, so each bot summarizes the same channel on its own. A summary stored with
+the record is the intended next step; `docs/MESSAGE_ERASURE.md` says what it must
+carry so a deleted message can invalidate it.
+
 1. Messages are an **immutable stream**. Once written, a message is not
    edited or deleted. The store only appends.
 2. Compaction **appends a summary message** to that stream. The summary
@@ -585,8 +592,9 @@ start:
 > **A bot's model input is its own memory plus the channel's compacted
 > view.**
 
-- A **channel** is a shared append-only stream. Compacted once, per
-  channel, serving every participant.
+- A **channel** is a shared append-only stream. The intent is that it is
+  compacted once, per channel, serving every participant; today each bot
+  session compacts on its own (see the note under challenge 3).
 - **Bot memory** is per-bot and cross-channel: durable facts and
   preferences, not a conversation.
 

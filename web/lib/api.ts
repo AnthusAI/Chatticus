@@ -170,7 +170,7 @@ export async function postMessage(
   org: ActiveOrg,
   channelId: string,
   body: string,
-  addressedToBotId: string,
+  addressedToBotId: string | null,
   idempotencyKey: string = crypto.randomUUID(),
 ): Promise<PostMessageResponse> {
   return postChatMessage({

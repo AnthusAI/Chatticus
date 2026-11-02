@@ -34,6 +34,8 @@ export interface MessagePayload {
 	origin?: OriginPayload;
 	/** The tool calls of the turn a bot message ends; omitted when the turn used no tool. */
 	activity?: ToolActivityItem[];
+	/** When the message was deleted; omitted for a message that stands. A deleted message has an empty body. */
+	deleted_at?: string;
 }
 
 /** The origin of an external message as the HTTP API renders it. */
@@ -71,6 +73,7 @@ export function messagePayload(message: Message): MessagePayload {
 		created_at: message.createdAt.toISOString(),
 		...(message.origin === undefined ? {} : { origin: originPayload(message.origin) }),
 		...(message.activity === undefined ? {} : { activity: message.activity }),
+		...(message.deletedAt === undefined ? {} : { deleted_at: message.deletedAt.toISOString() }),
 	};
 }
 

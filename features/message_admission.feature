@@ -119,32 +119,42 @@ Feature: Message admission and listing
       | 1 |
       | 2 |
 
-  Scenario: Listing the messages of a channel that has no session yet returns an empty list and writes nothing
+  Scenario: Listing the messages of a channel with none returns an empty list from the record and touches no session
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"
     And tenant "anthus" user "ryan" has opened a channel with bots:
       | Researcher |
     When the human opens the message list of the channel
     Then the message list answers with 0 messages
-    And the message list sent at least one read request
+    And the message list sent no request to the session store or its bucket
     And the message list wrote nothing to the session store or its bucket
 
-  Scenario: Listing the messages of a channel whose bot holds a session reads it without writing
+  Scenario: Listing the messages of a channel reads the channel record
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+    And the channel record holds message 1 from human "ryan" saying "hello team"
+    When the human opens the message list of the channel
+    Then the message list answers with 1 messages
+    And the message list includes the body "hello team"
+    And the message list sent no request to the session store or its bucket
+
+  Scenario: Listing ignores a message that only a bot's session holds
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"
     And tenant "anthus" user "ryan" has opened a channel with bots:
       | Researcher |
     And bot "Researcher" already holds a session on the channel with message 1 from human "ryan" saying "hello team"
     When the human opens the message list of the channel
-    Then the message list answers with 1 messages
-    And the message list includes the body "hello team"
-    And the message list wrote nothing to the session store or its bucket
+    Then the message list answers with 0 messages
 
-  Scenario: A real storage error while listing a channel's messages is a failure, not an empty list
+  Scenario: A refused session store does not stop the listing, which never asks it
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"
     And tenant "anthus" user "ryan" has opened a channel with bots:
       | Researcher |
+    And the channel record holds message 1 from human "ryan" saying "hello team"
     And every session store request of the Front Door's message listing is refused as unauthorized
     When the human opens the message list of the channel
-    Then the message list fails with "AccessDeniedException"
+    Then the message list answers with 1 messages

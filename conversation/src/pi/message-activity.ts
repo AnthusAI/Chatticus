@@ -29,7 +29,7 @@ export type ToolActivityItem = {
 
 type RecordedCall = { id: string; item: ToolActivityItem; writtenBytes: number | null };
 
-const countingItem = (omitted: number): ToolActivityItem => ({
+export const countingItem = (omitted: number): ToolActivityItem => ({
 	call_id: "more",
 	tool: "more",
 	summary: `${omitted} more tool calls`,
@@ -54,6 +54,25 @@ export function capActivity(items: readonly ToolActivityItem[], totalCalls: numb
 	if (totalCalls <= ACTIVITY_ITEM_LIMIT) return [...items];
 	const kept = ACTIVITY_ITEM_LIMIT - 1;
 	return [...items.slice(0, kept), countingItem(totalCalls - kept)];
+}
+
+/** The most serialized UTF-8 bytes of activity one channel record row carries, so the row stays inside the 400 KB item limit beside a body of up to 250,000 bytes. */
+export const ACTIVITY_RECORD_BYTE_LIMIT = 100_000;
+
+const serializedBytes = (items: readonly ToolActivityItem[]): number => Buffer.byteLength(JSON.stringify(items), "utf8");
+
+/**
+ * Keep the first tool calls of a turn that fit one channel record row; when some are left out the list ends with an item
+ * that counts them.
+ *
+ * @param items The turn's activity, already bounded by {@link capActivity}.
+ * @returns The activity to store.
+ */
+export function fitActivityToRecord(items: readonly ToolActivityItem[]): ToolActivityItem[] {
+	if (serializedBytes(items) <= ACTIVITY_RECORD_BYTE_LIMIT) return [...items];
+	let kept = items.length;
+	while (kept > 0 && serializedBytes([...items.slice(0, kept), countingItem(items.length - kept + 1)]) > ACTIVITY_RECORD_BYTE_LIMIT) kept -= 1;
+	return [...items.slice(0, kept), countingItem(items.length - kept)];
 }
 
 /**

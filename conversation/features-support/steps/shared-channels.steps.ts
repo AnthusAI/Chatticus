@@ -266,7 +266,7 @@ async function openChannelAs(
 	email: string,
 	kind: "direct" | "named",
 	channelName: string,
-	botName: string,
+	botName: string | null,
 ): Promise<RecordedResponse> {
 	assert.ok(world.api, "The scenario has no HTTP front door.");
 	const organization = onlyOrganization(world);
@@ -277,7 +277,7 @@ async function openChannelAs(
 				user_id: userIdOf(world, email),
 				kind,
 				name: kind === "named" ? channelName : null,
-				bot_ids: [botNamed(world, botName).botId],
+				bot_ids: botName === null ? [] : [botNamed(world, botName).botId],
 			},
 		}),
 	);
@@ -338,21 +338,22 @@ When(
 );
 
 When(
-	"{string} tries to open a named channel {string} with no bot",
+	"{string} opens named channel {string} with no bot",
 	async function (this: ChatticusWorld, email: string, channelName: string) {
-		assert.ok(this.api, "The scenario has no HTTP front door.");
-		const organization = onlyOrganization(this);
-		lastResponses.set(
-			this,
-			await recordResponse(
-				await this.api.post(`/orgs/${organization.tenantId}/channels`, {
-					headers: await bearerFor(this, email),
-					body: { user_id: userIdOf(this, email), kind: "named", name: channelName, bot_ids: [] },
-				}),
-			),
-		);
+		assert.equal((await openChannelAs(this, email, "named", channelName, null)).status, 200);
 	},
 );
+
+When(
+	"{string} tries to open a direct channel {string} with no bot",
+	async function (this: ChatticusWorld, email: string, channelName: string) {
+		await openChannelAs(this, email, "direct", channelName, null);
+	},
+);
+
+When("{string} tries to open a named channel with no name", async function (this: ChatticusWorld, email: string) {
+	await openChannelAs(this, email, "named", "   ", null);
+});
 
 When(
 	"{string} adds {string} to shared channel {string}",

@@ -2,6 +2,8 @@ import { KanbusApi } from "@kanbus/cdk";
 import * as cdk from "aws-cdk-lib";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as events from "aws-cdk-lib/aws-events";
+import * as eventsTargets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
@@ -132,6 +134,8 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly turnRunsQueue: sqs.Queue;
   readonly turnProbesQueue: sqs.Queue;
   readonly computerStartJobsQueue: sqs.Queue;
+  /** Where a request to erase one message, or to finish the erasures that waited on a turn, is sent. */
+  readonly messageErasureQueue: sqs.Queue;
   /** The topic every alarm of this environment notifies. */
   readonly alarmTopic: sns.Topic;
   readonly frontDoorFunction: lambdaNodejs.NodejsFunction;
@@ -139,6 +143,7 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly turnExecutorFunction: lambdaNodejs.NodejsFunction;
   readonly turnProbeFunction: lambdaNodejs.NodejsFunction;
   readonly computerStarterFunction: lambdaNodejs.NodejsFunction;
+  readonly messageErasureFunction: lambdaNodejs.NodejsFunction;
   /** Where mail is enabled (development): keys the plus-tag hash. Read by the FrontDoor only. */
   readonly channelsCorrelatorSecret?: GeneratedSecureString;
   /** Development only: signs the per-turn model gateway tokens. */
@@ -210,6 +215,8 @@ export class ControlPlaneStack extends cdk.Stack {
     this.turnRunsQueue = turnRunsQueue;
     this.turnProbesQueue = turnProbesQueue;
     this.computerStartJobsQueue = computerStartJobsQueue;
+    const messageErasureQueue = queueWithDeadLetter("MessageErasureJobs", 300);
+    this.messageErasureQueue = messageErasureQueue;
 
     const openAiParameterName = openAiApiKeyParameterName(environmentName);
     const openAiParameter = ssm.StringParameter.fromSecureStringParameterAttributes(
@@ -238,6 +245,7 @@ export class ControlPlaneStack extends cdk.Stack {
       CHATTICUS_TURN_RUNS_QUEUE_URL: turnRunsQueue.queueUrl,
       CHATTICUS_TURN_PROBES_QUEUE_URL: turnProbesQueue.queueUrl,
       CHATTICUS_COMPUTER_STARTS_QUEUE_URL: computerStartJobsQueue.queueUrl,
+      CHATTICUS_MESSAGE_ERASURE_QUEUE_URL: messageErasureQueue.queueUrl,
     };
 
     const lambdasRoot = path.join(__dirname, "../../conversation/src/lambdas");
@@ -345,8 +353,6 @@ export class ControlPlaneStack extends cdk.Stack {
       }),
     );
     messagingTable.grantReadWriteData(frontDoorFunction);
-    conversationsTable.grantReadData(frontDoorFunction);
-    piSessionsBucket.grantRead(frontDoorFunction);
     turnRunsQueue.grantSendMessages(frontDoorFunction);
     turnProbesQueue.grantSendMessages(frontDoorFunction);
     computerStartJobsQueue.grantSendMessages(frontDoorFunction);
@@ -371,6 +377,7 @@ export class ControlPlaneStack extends cdk.Stack {
     turnRunsQueue.grantSendMessages(turnExecutorFunction);
     turnProbesQueue.grantSendMessages(turnExecutorFunction);
     computerStartJobsQueue.grantSendMessages(turnExecutorFunction);
+    messageErasureQueue.grantSendMessages(turnExecutorFunction);
     turnExecutorFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(turnRunsQueue, { batchSize: 1 }),
     );
@@ -394,6 +401,54 @@ export class ControlPlaneStack extends cdk.Stack {
       new lambdaEventSources.SqsEventSource(turnProbesQueue, { batchSize: 1 }),
     );
     this.turnProbeFunction = turnProbeFunction;
+
+
+    const messageErasureFunction = nodeFunction(
+      "MessageErasure",
+      "message-erasure.ts",
+      512,
+      300,
+      "Erases a deleted message: tombstones its record row, empties mailboxes, drops the bot sessions that held its text, and sweeps what its answers left in turn events and computer actions.",
+      sharedEnvironment,
+    );
+    const onlyLeadingKeys = (...patterns: string[]) => ({ "ForAllValues:StringLike": { "dynamodb:LeadingKeys": patterns } });
+    const messagingStatement = (actions: string[], ...leadingKeys: string[]) =>
+      new iam.PolicyStatement({
+        actions: actions.map((action) => `dynamodb:${action}`),
+        resources: [messagingTable.tableArn],
+        conditions: onlyLeadingKeys(...leadingKeys),
+      });
+    messageErasureFunction.addToRolePolicy(messagingStatement(["GetItem", "Query", "UpdateItem", "DeleteItem"], "*#channel#*"));
+    messageErasureFunction.addToRolePolicy(messagingStatement(["DeleteItem"], "MB#*"));
+    messageErasureFunction.addToRolePolicy(messagingStatement(["GetItem", "Query", "PutItem", "DeleteItem"], "*#turn#*"));
+    messageErasureFunction.addToRolePolicy(messagingStatement(["Query", "PutItem", "DeleteItem"], "ERASURE#pending"));
+    messageErasureFunction.addToRolePolicy(messagingStatement(["UpdateItem"], "*#computer#actions"));
+    messageErasureFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:GetItem", "dynamodb:BatchGetItem", "dynamodb:Query", "dynamodb:BatchWriteItem"],
+        resources: [conversationsTable.tableArn, `${conversationsTable.tableArn}/index/*`],
+        conditions: onlyLeadingKeys("PI#*"),
+      }),
+    );
+    messageErasureFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject", "s3:DeleteObject", "s3:DeleteObjectVersion"],
+        resources: [piSessionsBucket.arnForObjects("conversations/*")],
+      }),
+    );
+    messageErasureFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:ListBucket", "s3:ListBucketVersions"],
+        resources: [piSessionsBucket.bucketArn],
+      }),
+    );
+    messageErasureFunction.addEventSource(new lambdaEventSources.SqsEventSource(messageErasureQueue, { batchSize: 1 }));
+    new events.Rule(this, "MessageErasureSweep", {
+      description: "Finishes the erasures that waited for a turn to end.",
+      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+      targets: [new eventsTargets.LambdaFunction(messageErasureFunction)],
+    });
+    this.messageErasureFunction = messageErasureFunction;
 
     const computerStarterFunction = nodeFunction(
       "ComputerStarter",
@@ -575,6 +630,7 @@ export class ControlPlaneStack extends cdk.Stack {
       ["TurnExecutor", "turnexecutor", turnExecutorFunction],
       ["TurnProbe", "turnprobe", turnProbeFunction],
       ["ComputerStarter", "computerstarter", computerStarterFunction],
+      ["MessageErasure", "messageerasure", messageErasureFunction],
       ...(this.ownerCredentialBrokerFunction
         ? ([["OwnerCredentialBroker", "ownercredentialbroker", this.ownerCredentialBrokerFunction]] as const)
         : []),
@@ -655,6 +711,7 @@ export class ControlPlaneStack extends cdk.Stack {
       ["TurnRuns", "turnruns", this.turnRunsQueue],
       ["TurnProbes", "turnprobes", this.turnProbesQueue],
       ["ComputerStartJobs", "computerstartjobs", this.computerStartJobsQueue],
+      ["MessageErasureJobs", "messageerasurejobs", this.messageErasureQueue],
     ];
     for (const [queueId, suffix, queue] of queues) {
       const deadLetterQueue = queue.deadLetterQueue?.queue;

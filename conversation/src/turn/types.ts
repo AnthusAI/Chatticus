@@ -15,6 +15,7 @@ import type { ComputerToolHandoff } from "../pi/computer-tools.ts";
 import type { OwnerSessionDependencies, OwnerSessionFactory } from "../pi/session.ts";
 import type { ComputerHandoffDependencies } from "./park.ts";
 import type { FaultPlan } from "./fault-plan.ts";
+import type { ErasureQueue } from "./sqs-queues.ts";
 
 /** The queue message that asks an executor to run a turn. */
 export type TurnExecutionJob = {
@@ -110,6 +111,8 @@ export type ExecutorDeps = {
 	readonly boards?: BotBoardService;
 	/** Records the replies owed to external transports. Absent where external channels are not rolled out, and then no turn records a delivery. */
 	readonly channelDelivery?: ReplyDeliveryRecorder;
+	/** Asked when a turn ends to finish the erasures that waited for it. Absent where the owner cannot send to the erasure queue; the erasure function's own sweep covers those. */
+	readonly erasureQueue?: ErasureQueue;
 	/** The computer handoff: actions, start jobs and the spend ceiling pause. */
 	readonly computer: ComputerHandoffDependencies;
 	/**

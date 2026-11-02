@@ -73,6 +73,24 @@ Given(
 	},
 );
 
+Given(
+	"the channel record holds message {int} from human {string} saying {string}",
+	async function (this: ChatticusWorld, seq: number, authorId: string, body: string) {
+		const channel = openChannelOf(this);
+		await this.messagingStore().putMessage({
+			messageId: `m-${seq}`,
+			channelId: channel.channelId,
+			tenantId: channel.tenantId,
+			seq,
+			authorKind: "human",
+			authorId,
+			body,
+			addressedToBotId: null,
+			createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, seq)),
+		});
+	},
+);
+
 Given("every session store request of the Front Door's message listing is refused as unauthorized", function (this: ChatticusWorld) {
 	denyListingRequests(this);
 });
@@ -104,8 +122,11 @@ Then("the message list includes the body {string}", function (this: ChatticusWor
 	);
 });
 
-Then("the message list sent at least one read request", function (this: ChatticusWorld) {
-	assert.ok(listingRequests(this).length > 0, "The listing sent no request at all, so a missing write proves nothing");
+Then("the message list sent no request to the session store or its bucket", function (this: ChatticusWorld) {
+	assert.deepEqual(
+		listingRequests(this).map((request) => `${request.action} ${request.store}`),
+		[],
+	);
 });
 
 Then("the message list wrote nothing to the session store or its bucket", function (this: ChatticusWorld) {

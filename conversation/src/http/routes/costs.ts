@@ -233,7 +233,7 @@ export async function getTurnCostHandler(c: Context, deps: CostRouteDependencies
 		const tenantId = pathParameter(c, "tenant_id");
 		const turn = await getTurn(deps.turns, tenantId, pathParameter(c, "turn_id"));
 		const row = await readTurnRow(deps.costs, tenantId, turn.turnId, deps.clock.now());
-		const calls = await readTurnCalls(deps.listing, tenantId, turn.botId, turn.channelId, turn.turnId);
+		const calls = await readTurnCalls(deps.listing, tenantId, turn.turnId);
 		const body: TurnCostResponse = {
 			tenant_id: tenantId,
 			turn_id: turn.turnId,
@@ -416,10 +416,7 @@ export async function exportCostsHandler(c: Context, deps: CostRouteDependencies
 					records.push(indexCallExportRecord(row));
 					continue;
 				}
-				const calls =
-					row.botId === null || row.channelId === null || row.turnId === null
-						? null
-						: await readTurnCalls(deps.listing, tenantId, row.botId, row.channelId, row.turnId);
+				const calls = row.turnId === null ? null : await readTurnCalls(deps.listing, tenantId, row.turnId);
 				for (const call of calls ?? []) records.push(callExportRecord(row, call));
 			}
 		}

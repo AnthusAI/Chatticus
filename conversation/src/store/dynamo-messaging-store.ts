@@ -35,7 +35,6 @@ import * as computerCodec from "./codecs/computer.ts";
 import type { Computer } from "./codecs/computer.ts";
 import * as fileAuditCodec from "./codecs/file-audit.ts";
 import type { FileAuditRecord } from "./codecs/file-audit.ts";
-import * as idempotencyCodec from "./codecs/idempotency.ts";
 import * as identityCodec from "./codecs/identity.ts";
 import * as invitationCodec from "./codecs/invitation.ts";
 import * as liveFileOperationCodec from "./codecs/live-file-operation.ts";
@@ -447,51 +446,18 @@ export class DynamoMessagingStore implements MessagingStore {
 	): Promise<{ message: ChannelMessageRecord; turnId: string | null } | null> {
 		const key = postIdempotencyKey(tenantId, idempotencyKey);
 		const item = await this.get(key.pk, key.sk);
-		if (item === null) {
+		const channelId = item?.channel_id?.S;
+		const seq = item?.seq?.N;
+		if (item === null || channelId === undefined || seq === undefined) {
 			return null;
 		}
-		const decoded = idempotencyCodec.decode(item);
-		return {
-			message: {
-				messageId: decoded.messageId,
-				channelId: decoded.channelId,
-				tenantId: decoded.tenantId,
-				seq: decoded.seq,
-				authorKind: decoded.authorKind as ActorKind,
-				authorId: decoded.authorId,
-				body: decoded.body,
-				addressedToBotId: decoded.addressedToBotId ?? null,
-				createdAt: new Date(decoded.createdAt),
-				...(decoded.origin === undefined ? {} : { origin: JSON.parse(decoded.origin) as MessageOrigin }),
-			},
-			turnId: decoded.turnId ?? null,
-		};
-	}
-
-	async putPostIdempotency(
-		tenantId: string,
-		idempotencyKey: string,
-		message: ChannelMessageRecord,
-		turnId: string | null,
-	): Promise<void> {
-		const key = postIdempotencyKey(tenantId, idempotencyKey);
-		await this.put(
-			idempotencyCodec.encode({
-				pk: key.pk,
-				sk: key.sk,
-				tenantId,
-				channelId: message.channelId,
-				messageId: message.messageId,
-				seq: message.seq,
-				authorKind: message.authorKind,
-				authorId: message.authorId,
-				body: message.body,
-				addressedToBotId: message.addressedToBotId ?? undefined,
-				createdAt: message.createdAt.toISOString(),
-				turnId: turnId ?? undefined,
-				origin: message.origin === undefined ? undefined : JSON.stringify(message.origin),
-			}),
-		);
+		const partition = channelPartition(tenantId, channelId);
+		const row = await this.get(partition, channelCodec.messageSortKey(Number(seq)));
+		if (row === null) {
+			return null;
+		}
+		const parts = row.body_parts === undefined ? [] : await this.queryPrefix(partition, `${channelCodec.messageSortKey(Number(seq))}#p`);
+		return { message: channelCodec.decodeMessage(row, parts), turnId: item.turn_id?.S ?? null };
 	}
 
 	async reservePostIdempotency(
@@ -593,13 +559,12 @@ export class DynamoMessagingStore implements MessagingStore {
 			await this.client.send(new UpdateItemCommand({
 				TableName: this.tableName,
 				Key: { pk: { S: key.pk }, sk: { S: key.sk } },
-				UpdateExpression: "SET reservation_state = :complete, channel_id = :channel, message_id = :message, seq = :seq, author_kind = :author_kind, author_id = :author_id, body = :body, addressed_to_bot_id = :addressed, created_at = :created" + (turnId === null ? " REMOVE turn_id" : ", turn_id = :turn"),
+				UpdateExpression: "SET reservation_state = :complete, channel_id = :channel, message_id = :message, seq = :seq, created_at = :created" + (turnId === null ? " REMOVE turn_id" : ", turn_id = :turn"),
 				ConditionExpression: "reservation_state = :pending AND reservation_owner = :owner AND lease_expires_at > :now",
 				ExpressionAttributeValues: {
 					":complete": { S: "complete" }, ":pending": { S: "pending" }, ":owner": { S: ownerId }, ":now": { N: String(now.getTime()) },
 					":channel": { S: message.channelId }, ":message": { S: message.messageId }, ":seq": { N: String(message.seq) },
-					":author_kind": { S: message.authorKind }, ":author_id": { S: message.authorId }, ":body": { S: message.body },
-					":addressed": { S: message.addressedToBotId ?? "" }, ":created": { S: message.createdAt.toISOString() },
+					":created": { S: message.createdAt.toISOString() },
 					...(turnId === null ? {} : { ":turn": { S: turnId } }),
 				},
 			}));
@@ -634,20 +599,65 @@ export class DynamoMessagingStore implements MessagingStore {
 	}
 
 	async putMessage(message: ChannelMessageRecord): Promise<void> {
-		await this.put(channelCodec.encodeMessage(message));
+		const { row, parts } = channelCodec.encodeMessageItems(message);
+		if (parts.length > 0) {
+			const taken = await this.get(channelPartition(message.tenantId, message.channelId), channelCodec.messageSortKey(message.seq));
+			if (taken !== null && taken.message_id?.S !== message.messageId) {
+				throw new Error(`channel record seq ${message.seq} already holds a different message`);
+			}
+			for (const part of parts) await this.put(part);
+		}
+		try {
+			await this.client.send(
+				new PutItemCommand({
+					TableName: this.tableName,
+					Item: row,
+					ConditionExpression: "attribute_not_exists(sk) OR message_id = :messageId",
+					ExpressionAttributeValues: { ":messageId": { S: message.messageId } },
+				}),
+			);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				throw new Error(`channel record seq ${message.seq} already holds a different message`, { cause: error });
+			}
+			throw error;
+		}
+	}
+
+	async tombstoneMessage(tenantId: string, channelId: string, seq: number, deletedAt: Date): Promise<boolean> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: channelPartition(tenantId, channelId) }, sk: { S: channelCodec.messageSortKey(seq) } },
+					UpdateExpression: "SET deleted_at = :deletedAt, body = :empty REMOVE activity, origin, body_parts",
+					ConditionExpression: "attribute_exists(sk)",
+					ExpressionAttributeValues: { ":deletedAt": { S: formatIsoDateTime(deletedAt) }, ":empty": { S: "" } },
+				}),
+			);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return false;
+			throw error;
+		}
+		for (const part of await this.queryPrefix(channelPartition(tenantId, channelId), `${channelCodec.messageSortKey(seq)}#p`)) {
+			await this.client.send(new DeleteItemCommand({ TableName: this.tableName, Key: { pk: part.pk!, sk: part.sk! } }));
+		}
+		return true;
 	}
 
 	async listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]> {
-		const messages: ChannelMessageRecord[] = [];
+		const rows: Item[] = [];
+		const parts = new Map<number, Item[]>();
 		let exclusiveStartKey: Item | undefined;
 		do {
 			const response = await this.client.send(
 				new QueryCommand({
 					TableName: this.tableName,
-					KeyConditionExpression: "pk = :pk AND sk > :sk",
+					KeyConditionExpression: "pk = :pk AND sk BETWEEN :low AND :high",
 					ExpressionAttributeValues: {
 						":pk": { S: channelPartition(tenantId, channelId) },
-						":sk": { S: channelCodec.messageSortKey(afterSeq) },
+						":low": { S: channelCodec.messageSortKey(afterSeq + 1) },
+						":high": { S: "msg#~" },
 					},
 					ConsistentRead: true,
 					Limit: this.queryPageLimit,
@@ -655,13 +665,20 @@ export class DynamoMessagingStore implements MessagingStore {
 				}),
 			);
 			for (const item of response.Items ?? []) {
-				if (item.sk?.S?.startsWith("msg#")) {
-					messages.push(channelCodec.decodeMessage(item));
+				const sortKey = item.sk?.S ?? "";
+				if (!sortKey.startsWith("msg#")) continue;
+				if (sortKey.includes("#p")) {
+					const seq = Number(sortKey.slice(4, 14));
+					parts.set(seq, [...(parts.get(seq) ?? []), item]);
+				} else {
+					rows.push(item);
 				}
 			}
 			exclusiveStartKey = response.LastEvaluatedKey;
 		} while (exclusiveStartKey !== undefined);
-		return messages.sort((left, right) => left.seq - right.seq);
+		return rows
+			.map((row) => channelCodec.decodeMessage(row, parts.get(Number(row.seq?.N)) ?? []))
+			.sort((left, right) => left.seq - right.seq);
 	}
 
 	async putWorker(worker: Worker): Promise<void> {

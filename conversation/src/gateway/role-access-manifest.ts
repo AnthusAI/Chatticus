@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { ownerSessionTags, supervisorSessionTags } from "./session-tags.ts";
 
 /** The roles whose store access the manifest lists: each is one AWS identity the code runs as. */
-export const ACCESS_ROLES = ["frontDoor", "ownerTurn", "supervisor", "turnExecutor", "mailIngress", "mailDelivery", "mailStatus"] as const;
+export const ACCESS_ROLES = ["frontDoor", "ownerTurn", "supervisor", "turnExecutor", "erasure", "mailIngress", "mailDelivery", "mailStatus"] as const;
 
 /** One of the roles whose store access the manifest lists. */
 export type AccessRole = (typeof ACCESS_ROLES)[number];
@@ -154,7 +154,7 @@ export function exampleRequestOf(row: AccessRow, arns: StoreArns): ManifestReque
 	const key = exampleKeyOf(row);
 	const storeArn = arns[row.store];
 	if (isBucketStore(row.store)) {
-		if (row.action === "s3:ListBucket") return { action: row.action, resourceArn: storeArn, contextKeys: { "s3:prefix": [key] } };
+		if (row.action === "s3:ListBucket" || row.action === "s3:ListBucketVersions") return { action: row.action, resourceArn: storeArn, contextKeys: { "s3:prefix": [key] } };
 		return { action: row.action, resourceArn: `${storeArn}/${key}`, contextKeys: {} };
 	}
 	return {
@@ -166,7 +166,7 @@ export function exampleRequestOf(row: AccessRow, arns: StoreArns): ManifestReque
 
 /** The session tags a role is assumed with in the examples; the Front Door, the turn executor and the mail functions are not assumed and carry none. */
 export function exampleTagsOf(role: AccessRole): Record<string, string> {
-	if (role === "frontDoor" || role === "turnExecutor" || role === "mailIngress" || role === "mailDelivery" || role === "mailStatus") return {};
+	if (role === "frontDoor" || role === "turnExecutor" || role === "erasure" || role === "mailIngress" || role === "mailDelivery" || role === "mailStatus") return {};
 	const tags = role === "ownerTurn" ? ownerSessionTags(EXAMPLE_SCOPE) : supervisorSessionTags(EXAMPLE_SCOPE);
 	return Object.fromEntries(tags.map((tag) => [tag.Key, tag.Value]));
 }

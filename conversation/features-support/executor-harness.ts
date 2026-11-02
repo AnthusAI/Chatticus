@@ -14,6 +14,7 @@ import { ScriptedProvider, type ScriptedHold } from "./fakes/scripted-provider.t
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { TURN_RUN_QUEUE } from "./front-door.ts";
 import { probeQueueOf, runQueueOf, runVisibilityOf } from "./turn-queues.ts";
+import { erasureQueueOf } from "./erasure-queue.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
 import type { TurnWatcher } from "./turn-watcher.ts";
 import { executorBoardServiceFor } from "./bot-board-support.ts";
@@ -214,6 +215,7 @@ export async function executorDepsFor(
 		tuning: { ...TEST_TUNING, ...scenario.tuningOverrides, ...options.tuning },
 		turnRuns: runQueueOf(world),
 		turnProbes: probeQueueOf(world),
+		erasureQueue: erasureQueueOf(world),
 		runVisibility: runVisibilityOf(world),
 		computer: computerHandoffDependenciesFor(world),
 		...(executorBoardServiceFor(world) === undefined ? {} : { boards: executorBoardServiceFor(world)! }),

@@ -69,12 +69,12 @@ export async function resolveSelectionChannel(
 
 export type OutgoingMessage = {
   channelId: string;
-  addressedToBotId: string;
+  addressedToBotId: string | null;
   body: string;
 };
 
 /**
- * Builds the message the composer posts: it stays in the selected channel and is addressed to one bot.
+ * Builds the message the composer posts: it stays in the selected channel and is addressed to one bot, or to none when the channel has no bot.
  *
  * @param item - The selected roster row
  * @param addressedBotId - The bot the member addressed
@@ -89,10 +89,10 @@ export function prepareOutgoingMessage(
   state: { sending: boolean; turn: unknown | null },
 ): OutgoingMessage | null {
   const channelId = item?.channel?.channel_id ?? null;
-  if (!item || !channelId || getSendBlockReason(state.sending, state.turn, addressedBotId) !== null) {
+  if (!item || !channelId || getSendBlockReason(state.sending, state.turn, addressedBotId, item.bots.length > 0) !== null) {
     return null;
   }
-  return { channelId, addressedToBotId: addressedBotId, body };
+  return { channelId, addressedToBotId: addressedBotId === "" ? null : addressedBotId, body };
 }
 
 /**

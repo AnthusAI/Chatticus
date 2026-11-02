@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { ChannelListingDependencies } from "../pi/channel-listing.ts";
-import type { ToolActivityItem } from "../pi/message-activity.ts";
-import { listChannelMessages as listChannelSessionMessages } from "../pi/channel-listing.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxItem, type MailboxStore } from "../pi/mailbox.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import { ActorNotInChannelError, IdempotencyKeyReuseError, IdempotencyReservationBusyError } from "../http/errors.ts";
@@ -16,7 +14,7 @@ import type { AdmissionReservationFence } from "./turn-admission.ts";
 import { TURN_DEADLINE_SECONDS } from "./turns.ts";
 
 /** One committed channel message. */
-export type Message = ChannelMessageRecord & { activity?: ToolActivityItem[] };
+export type Message = ChannelMessageRecord;
 
 /** What the message functions read and write. */
 export type MessageDependencies = {
@@ -157,7 +155,8 @@ async function admitAddressedMessage(
  * Admit one message into a channel.
  *
  * Replays an earlier post with the same Idempotency-Key. Otherwise allocates the next sequence with one atomic
- * counter update, writes one mailbox item per participating bot, and for an addressed message either steers the
+ * counter update, writes the message to the channel record, writes one mailbox item per participating bot (delivery
+ * only: a mailbox item is the bot's unread copy and is drained into its session), and for an addressed message either steers the
  * addressed bot's active turn (same turn id, no new turn) or starts that bot's own turn and publishes its run job.
  * A message addressed to a different bot than the one running never steers the running turn.
  *
@@ -232,6 +231,7 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 		createdAt: reservation?.createdAt ?? deps.clock.now(),
 		...(request.origin === undefined ? {} : { origin: request.origin }),
 	};
+	await deps.store.putMessage(message);
 	const itemFor = (botId: string): MailboxItem => ({
 		tenantId: channel.tenantId,
 		botId,
@@ -311,37 +311,14 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 }
 
 /**
- * List a channel's committed messages in sequence order.
- *
- * Merges every participating bot session's channel log and mailbox, so a message appears once however many sessions
- * hold it and whether or not it has been drained into a session yet.
+ * List a channel's committed messages in sequence order, from the channel record. Nothing is read from a bot's session or
+ * mailbox, so a channel with no bot, or a bot that joined late, lists the same messages as any other. A deleted message
+ * is listed as a tombstone: its sequence and author remain, its body is empty and `deletedAt` is set.
  *
  * @throws ChannelNotFoundError If the channel is unknown.
  * @throws ChannelTenantMismatchError If the tenant does not own the channel.
  */
 export async function listMessages(deps: MessageDependencies, request: ListMessagesRequest): Promise<Message[]> {
 	const channel = await requireChannelTenant(request.channelId, request.tenantId, deps);
-	const botIds = channel.participants
-		.filter((participant) => participant.kind === "bot")
-		.map((participant) => participant.actorId);
-	const listed = await listChannelSessionMessages(
-		deps.listing,
-		channel.tenantId,
-		channel.channelId,
-		botIds,
-		request.afterSeq ?? 0,
-	);
-	return listed.map((entry) => ({
-		messageId: entry.message_id,
-		channelId: entry.channel_id,
-		tenantId: entry.tenant_id,
-		seq: entry.seq,
-		authorKind: entry.author_kind as ActorKind,
-		authorId: entry.author_id,
-		body: entry.body,
-		addressedToBotId: entry.addressed_to_bot_id,
-		createdAt: new Date(entry.created_at),
-		...(entry.origin === undefined ? {} : { origin: entry.origin }),
-		...(entry.activity === undefined ? {} : { activity: entry.activity }),
-	}));
+	return deps.store.listMessages(channel.tenantId, channel.channelId, request.afterSeq ?? 0);
 }

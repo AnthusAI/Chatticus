@@ -111,8 +111,9 @@ export function getSendBlockReason(
   sending: boolean,
   turn: unknown | null,
   addressedBotId: string,
+  channelHasBots = true,
 ): SendBlockReason {
-  if (!addressedBotId) {
+  if (!addressedBotId && channelHasBots) {
     return "no-bot-selected";
   }
   if (sending) {

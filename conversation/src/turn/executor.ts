@@ -40,9 +40,13 @@ import { formatLogLine } from "../observability/log-line.ts";
 import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoalescer } from "./coalescer.ts";
 import { AgentEventDelivery, createAgentEventListener, TurnEventWriter, writeToolCallOnce } from "./event-stream.ts";
 import { redactSecrets } from "./tool-event-fields.ts";
+import type { MessagingStore } from "../store/messaging-store.ts";
+import { MESSAGE_BODY_INLINE_BYTES } from "../store/codecs/channel.ts";
+import { requestPendingErasureCompletion } from "./after-turn-erasure.ts";
 import { commitFinalAnswer, type FinalizeInputs, recordTurnCost } from "./finalize.ts";
 import { ModelCallWatch } from "./model-call-watch.ts";
 import { describePiEvents, describePiState } from "./pi-diagnostics.ts";
+import { rebuildDroppedSession } from "./rebuild-dropped-session.ts";
 import { armProbe } from "./probes.ts";
 import { computerToolUnavailableText, computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
 import { buildSystemPrompt } from "./prompt.ts";
@@ -64,6 +68,15 @@ export const DEFAULT_EXECUTOR_TUNING: ExecutorTuning = {
 
 /** The longest the executor waits for Pi to deliver the events of the batch that settled the turn's last input. */
 const EVENT_DELIVERY_WAIT_MILLISECONDS = 2000;
+
+/** The text of a message whose mailbox item holds only a pointer, read from the channel record. */
+async function recordBodyOf(messaging: Pick<MessagingStore, "listMessages">, item: MailboxItem): Promise<string> {
+	const row = (await messaging.listMessages(item.tenantId, item.channelId, item.seq - 1)).find((message) => message.seq === item.seq);
+	return row === undefined || row.deletedAt !== undefined ? "" : row.body;
+}
+
+/** The body the completion event of a turn carries: the reply, unless it is longer than a row holds, when listeners read the message instead. */
+const completedEventBody = (body: string): string => (Buffer.byteLength(body, "utf8") > MESSAGE_BODY_INLINE_BYTES ? "" : body);
 
 /** The reason shown when a turn's prompt message cannot be found in the mailbox or the session. */
 export const MISSING_PROMPT_REASON = "The message this turn was meant to answer is missing.";
@@ -260,6 +273,7 @@ class TurnAttempt {
 		const root = await session.harness.root(this.context, { agent });
 		this.root = root;
 		await root.configure(agent, this.context);
+		await rebuildDroppedSession(this.deps, session, this.job.tenantId, this.job.botId, this.turn.channelId, this.context);
 		this.stream = await watchEvents(session.harness, root.id, this.context);
 		const forwardEvents = createAgentEventListener(this.writer, this.coalescer, this.thinkingCoalescer, this.attemptId, this.delivery);
 		this.stream.start(async (events) => {
@@ -337,7 +351,8 @@ class TurnAttempt {
 		const reply = await commitFinalAnswer(inputs, last.answer);
 		await recordTurnCost(inputs, "completed", reply.messageSeq);
 		this.deps.faults?.maybeCrash("completion_append", "after");
-		await completeTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, reply.messageSeq, reply.body);
+		await completeTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, reply.messageSeq, completedEventBody(reply.body));
+		await requestPendingErasureCompletion(this.deps, this.job.tenantId, this.turn.channelId);
 		return "done";
 	}
 
@@ -523,6 +538,7 @@ class TurnAttempt {
 			await recordTurnCost(this.finalizeInputs(this.session, this.root), "failed");
 		}
 		await failTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, reason);
+		await requestPendingErasureCompletion(this.deps, this.job.tenantId, this.turn.channelId);
 		return "failed";
 	}
 
@@ -654,18 +670,19 @@ class TurnAttempt {
 		for (const item of items) {
 			if (tracked.has(item.messageId)) continue;
 			const isPrompt = item.seq === this.turn.promptMessageSeq;
+			const body = item.bodyInRecord === true ? await recordBodyOf(this.deps.messaging, item) : item.body;
 			if (isPrompt || item.addressedToBotId === this.job.botId) {
 				const requestId = isPrompt ? `turn:${this.job.turnId}` : `msg:${item.messageId}`;
 				const submission = await root.submit(
 					isPrompt
-						? { type: "input", content: item.body, requestId }
-						: { type: "input", content: item.body, requestId, whenBusy: "steer" },
+						? { type: "input", content: body, requestId }
+						: { type: "input", content: body, requestId, whenBusy: "steer" },
 					this.context,
 				);
 				this.track(requestId, isPrompt, item, submission);
 				tracked.add(item.messageId);
 			} else if (this.inputs.every((input) => input.settled !== null)) {
-				await writeAttributedMessage(session.harness, { ...draftOf(item), body: item.body }, this.context);
+				await writeAttributedMessage(session.harness, { ...draftOf(item), body }, this.context);
 				await removeMailboxItem(this.mailbox, item);
 			}
 		}

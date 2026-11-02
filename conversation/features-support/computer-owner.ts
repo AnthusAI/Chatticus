@@ -60,7 +60,7 @@ export const secretValueOf = (name: string): string => `secret-of-${name.toLower
 /** The executor's dependencies for a computer owner: the scenario's stores and model, with no queue pieces and no time limit. */
 export async function computerOwnerDepsFor(world: ChatticusWorld, renewalGate?: Promise<void>): Promise<ExecutorDeps> {
 	const shared = await executorDepsFor(world, modelScenarioOf(world), renewalGate === undefined ? {} : { renewalGate });
-	const { remainingMilliseconds: _lambdaOnly, ...rest } = shared;
+	const { remainingMilliseconds: _lambdaOnly, erasureQueue: _noErasureQueue, ...rest } = shared;
 	const owner = { ...rest, ownerKind: "computer" as const, turnRuns: NO_OP_TURN_RUNS, turnProbes: NO_OP_TURN_PROBES, runVisibility: NO_OP_RUN_VISIBILITY };
 	return isRecordingOwnerRequests(world) ? withRecordedOwnerRequests(world, owner, renewalGate) : owner;
 }

@@ -84,7 +84,7 @@ Feature: The old transcripts move into per-bot Pi sessions without changing what
     When the operator runs "delta"
     Then the command fails with exit code 2
     And the command error includes "delta needs the write gate closed"
-    And the message list of channel "chan-general" shows 6 messages
+    And the message list of channel "chan-general" shows 8 messages
 
   Scenario: Verify passes when the new read paths agree with the old items
     Given the operator has run the copy

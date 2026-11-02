@@ -1,4 +1,5 @@
 import type { MessageOrigin } from "../domain/channels.ts";
+import { MESSAGE_BODY_INLINE_BYTES } from "../store/codecs/channel.ts";
 import {
 	type AttributeValue,
 	ConditionalCheckFailedException,
@@ -22,6 +23,8 @@ export type MailboxItem = {
 	createdAt: string;
 	/** Where the message came from when it arrived over an external transport; absent means the web app. */
 	origin?: MessageOrigin;
+	/** Set on a stored item whose message body is too long to copy: `body` is empty and the text is in the channel record. */
+	bodyInRecord?: boolean;
 };
 
 export type MailboxStore = { client: DynamoDBClient; tableName: string };
@@ -77,6 +80,7 @@ export async function allocateSeq(store: MailboxStore, tenantId: string, channel
  */
 export const mailboxItemAttributes = (item: MailboxItem): Record<string, AttributeValue> => ({
 	...(item.origin === undefined ? {} : { origin: { S: JSON.stringify(item.origin) } }),
+	...(Buffer.byteLength(item.body, "utf8") > MESSAGE_BODY_INLINE_BYTES ? { body_in_record: { BOOL: true } } : {}),
 	pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) },
 	sk: { S: mailboxSortKey(item.seq) },
 	tenant_id: { S: item.tenantId },
@@ -87,7 +91,7 @@ export const mailboxItemAttributes = (item: MailboxItem): Record<string, Attribu
 	author_kind: { S: item.authorKind },
 	author_id: { S: item.authorId },
 	addressed_to_bot_id: { S: item.addressedToBotId ?? "" },
-	body: { S: item.body },
+	body: { S: Buffer.byteLength(item.body, "utf8") > MESSAGE_BODY_INLINE_BYTES ? "" : item.body },
 	created_at: { S: item.createdAt },
 });
 
@@ -165,6 +169,7 @@ export async function list(
 				body: raw.body?.S ?? "",
 				createdAt: raw.created_at?.S ?? "",
 				...(raw.origin?.S === undefined ? {} : { origin: JSON.parse(raw.origin.S) as MessageOrigin }),
+				...(raw.body_in_record?.BOOL === true ? { bodyInRecord: true } : {}),
 			});
 		}
 		startKey = page.LastEvaluatedKey;
@@ -179,10 +184,23 @@ export async function list(
  * @param item The item, which names its mailbox partition and sequence.
  */
 export async function remove(store: MailboxStore, item: MailboxItem): Promise<void> {
+	await removeAt(store, item.tenantId, item.botId, item.channelId, item.seq);
+}
+
+/**
+ * Delete the mailbox item of one sequence. Deleting an item that is already gone is not an error.
+ *
+ * @param store Table.
+ * @param tenantId Organization.
+ * @param botId Bot.
+ * @param channelId Channel.
+ * @param seq Channel message sequence.
+ */
+export async function removeAt(store: MailboxStore, tenantId: string, botId: string, channelId: string, seq: number): Promise<void> {
 	await store.client.send(
 		new DeleteItemCommand({
 			TableName: store.tableName,
-			Key: { pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) }, sk: { S: mailboxSortKey(item.seq) } },
+			Key: { pk: { S: mailboxPartitionKey(tenantId, botId, channelId) }, sk: { S: mailboxSortKey(seq) } },
 		}),
 	);
 }

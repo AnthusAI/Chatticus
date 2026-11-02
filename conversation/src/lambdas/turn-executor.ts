@@ -12,7 +12,7 @@ import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../store/turn-store.ts";
 import { consumeRunJob } from "../turn/executor.ts";
 import { createOpenAiModels, DEFAULT_TURN_MODEL } from "../turn/openai-models.ts";
-import { SqsComputerStartQueue, SqsRunVisibility, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
+import { SqsComputerStartQueue, SqsErasureQueue, SqsRunVisibility, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 import type { ExecutorDeps, TurnExecutionJob } from "../turn/types.ts";
 import { replyDeliveryRecorderOrNothing } from "./channels-composition.ts";
 import { resolveOpenAiApiKey } from "./openai-key.ts";
@@ -66,6 +66,9 @@ async function executorDeps(): Promise<SharedDeps> {
 		ledger: { client, tableName: messagingTableName, prices: defaultVendorPriceBook(), now: () => new Date() },
 		ownerKind: "lambda",
 		workerLabel: "turn-executor-lambda",
+		...(process.env.CHATTICUS_MESSAGE_ERASURE_QUEUE_URL === undefined || process.env.CHATTICUS_MESSAGE_ERASURE_QUEUE_URL === ""
+			? {}
+			: { erasureQueue: new SqsErasureQueue(sqs, process.env.CHATTICUS_MESSAGE_ERASURE_QUEUE_URL) }),
 		turnRuns: new SqsTurnRunQueue(sqs, cachedRunsQueueUrl),
 		turnProbes: new SqsTurnProbeQueue(sqs, requiredEnvironment("CHATTICUS_TURN_PROBES_QUEUE_URL")),
 		computer: {

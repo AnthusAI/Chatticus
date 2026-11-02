@@ -3,43 +3,10 @@
 		{
 			"role": "frontDoor",
 			"action": "dynamodb:Query",
-			"store": "conversationsTable",
-			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
-			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
-			"index": true,
-			"note": "The message listing queries the Pi session items of a channel through the local secondary index."
-		},
-		{
-			"role": "frontDoor",
-			"action": "dynamodb:GetItem",
-			"store": "conversationsTable",
-			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
-			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
-			"note": "The message listing reads the Pi session items of a channel."
-		},
-		{
-			"role": "frontDoor",
-			"action": "dynamodb:Query",
-			"store": "conversationsTable",
-			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
-			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
-			"note": "The message listing reads the Pi session items of a channel."
-		},
-		{
-			"role": "frontDoor",
-			"action": "dynamodb:Query",
 			"store": "messagingTable",
-			"keyPattern": "^MB#[^#]+#[^#]+#[^#]+$",
-			"exampleKey": "MB#{tenantId}#{botId}#{channelId}",
-			"note": "The message listing reads the mailbox of a channel."
-		},
-		{
-			"role": "frontDoor",
-			"action": "s3:GetObject",
-			"store": "piSessionsBucket",
-			"keyPattern": "^conversations/[^/]+/commits/[0-9]+-[0-9]+\\.json$",
-			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/commits/000000000001-00000001.json",
-			"note": "The message listing reads commit objects of a channel."
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "The cost drill-down reads the per-call cost copies in the partition of a turn."
 		},
 		{
 			"role": "frontDoor",
@@ -153,6 +120,22 @@
 			"keyPattern": "^[^#]+#channel#[^#]+$",
 			"exampleKey": "{tenantId}#channel#{channelId}",
 			"note": "The channel record."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record row of the bot answer a turn commits, with the turn's tool activity."
+		},
+		{
+			"role": "ownerTurn",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record, read to build a session that holds no history and, for a long message, to read its text."
 		},
 		{
 			"role": "ownerTurn",
@@ -378,6 +361,183 @@
 			"keyPattern": "^[^#]+#channels$",
 			"exampleKey": "{tenantId}#channels",
 			"note": "The status callback reads the delivery by its provider message id and writes the suppression."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel, to check the tenant owns it."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record rows of a channel, to find the message and the answers to its turn."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "Turn a record row into a tombstone."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:DeleteItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "Delete the continuation items of a long body."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:DeleteItem",
+			"store": "messagingTable",
+			"keyPattern": "^MB#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "MB#{tenantId}#{botId}#{channelId}",
+			"note": "Delete the erased message from a bot's mailbox."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:GetItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "Whether a turn is open on the channel."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "The events and the computer action index of an erased answer's turn."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "Copy the per-call cost records of a session out before it is dropped."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:DeleteItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#turn#[^#]+$",
+			"exampleKey": "{tenantId}#turn#{turnId}",
+			"note": "Delete the events of an erased answer's turn."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^ERASURE#pending$",
+			"exampleKey": "ERASURE#pending",
+			"note": "Find the erasures that waited for a turn to end."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^ERASURE#pending$",
+			"exampleKey": "ERASURE#pending",
+			"note": "Write that an erasure is waiting for a turn to end."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:DeleteItem",
+			"store": "messagingTable",
+			"keyPattern": "^ERASURE#pending$",
+			"exampleKey": "ERASURE#pending",
+			"note": "Clear a pending erasure that is complete."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:UpdateItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#computer#actions$",
+			"exampleKey": "{tenantId}#computer#actions",
+			"note": "Remove the arguments and result of a computer action of an erased answer's turn."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:Query",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"note": "The Pi session items to delete."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:Query",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"index": true,
+			"note": "The session's documents, to copy its cost records out."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:GetItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"note": "Whether the session exists, and its records, to copy its cost records out."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:BatchWriteItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"note": "Delete the Pi session items."
+		},
+		{
+			"role": "erasure",
+			"action": "dynamodb:BatchGetItem",
+			"store": "conversationsTable",
+			"keyPattern": "^PI#[^#]+#[^#]+#[^#]+$",
+			"exampleKey": "PI#{tenantId}#{botId}#{channelId}",
+			"note": "Read the session's records in batches, to copy the cost records out."
+		},
+		{
+			"role": "erasure",
+			"action": "s3:GetObject",
+			"store": "piSessionsBucket",
+			"keyPattern": "^conversations/[^/]+/(commits|snapshots)/[0-9]+-[0-9]+\\.json$",
+			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/commits/000000000001-00000001.json",
+			"note": "Read commit and snapshot objects, to copy the cost records out."
+		},
+		{
+			"role": "erasure",
+			"action": "s3:ListBucketVersions",
+			"store": "piSessionsBucket",
+			"keyPattern": "^conversations/[^/]+/$",
+			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/",
+			"note": "List every version and delete marker of a session."
+		},
+		{
+			"role": "erasure",
+			"action": "s3:DeleteObject",
+			"store": "piSessionsBucket",
+			"keyPattern": "^conversations/[^/]+/(commits|snapshots)/[0-9]+-[0-9]+\\.json$",
+			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/commits/000000000001-00000001.json",
+			"note": "Delete commit and snapshot objects."
+		},
+		{
+			"role": "erasure",
+			"action": "s3:DeleteObjectVersion",
+			"store": "piSessionsBucket",
+			"keyPattern": "^conversations/[^/]+/(commits|snapshots)/[0-9]+-[0-9]+\\.json$",
+			"exampleKey": "conversations/{tenantId}%23{botId}%23{channelId}/commits/000000000001-00000001.json",
+			"note": "Delete every version of them, which is what erases the text."
 		}
 	],
 	"deniedRows": [
@@ -650,6 +810,60 @@
 			"action": "ssm:GetParameterHistory",
 			"parameter": "signingKeyParameter",
 			"note": "A mail function that read this key could act as the operator or mint model gateway tokens."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameter",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameters",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "operatorKeyParameter",
+			"note": "A per-turn role that read the operator key could act as the operator on the Front Door."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameter",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameters",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "signingKeyParameter",
+			"note": "A per-turn role that read the signing key could mint any gateway or owner token."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameter",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameters",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
+		},
+		{
+			"role": "erasure",
+			"action": "ssm:GetParameterHistory",
+			"parameter": "correlatorSecretParameter",
+			"note": "A per-turn role that read the correlator secret could forge the plus-tag hash that routes a mail reply into a channel."
 		}
 	]
 }

@@ -41,6 +41,7 @@ const ROLE_LOGICAL_ID_PATTERNS: Record<AccessRole, RegExp> = {
   ownerTurn: /^ComputerOwnerScopedRole/,
   supervisor: /^ComputerSupervisorRole/,
   turnExecutor: /^TurnExecutorServiceRole/,
+  erasure: /^MessageErasureServiceRole/,
   mailIngress: /^LambdasMailIngressServiceRole/,
   mailDelivery: /^LambdasMailDeliveryServiceRole/,
   mailStatus: /^LambdasMailStatusServiceRole/,
@@ -178,8 +179,8 @@ describe("the secret parameters against the policies the ControlPlane stack synt
   const denials = loadRoleAccessDenials();
   const parameterArns = secretParameterArnsOf(ENV.region, ENV.account, "development");
 
-  it("lists a denial for every action and secret parameter of the owner, supervisor, turn executor and mail roles", () => {
-    assert.equal(denials.length, 3 * 3 * 3 + 3 * 3 * 2);
+  it("lists a denial for every action and secret parameter of the owner, supervisor, turn executor, erasure and mail roles", () => {
+    assert.equal(denials.length, 4 * 3 * 3 + 3 * 3 * 2);
   });
 
   for (const denial of denials) {

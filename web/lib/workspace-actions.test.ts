@@ -6,10 +6,12 @@ import { describe, it } from "node:test";
 import {
   ICON_ONLY_CONTROL_NAMES,
   orderedMessages,
+  prepareOutgoingMessage,
   regionsOpenedAsSheets,
 } from "./workspace-actions";
 import { resolveRosterViewState } from "./workspace-state";
-import type { Message } from "./api";
+import type { Channel, Message } from "./api";
+import type { RosterItem } from "./workspace-state";
 
 const messageAt = (seq: number) => ({ seq }) as Message;
 
@@ -18,6 +20,16 @@ describe("workspace actions", () => {
     const input = [messageAt(3), messageAt(1), messageAt(2)];
     assert.deepEqual(orderedMessages(input).map((message) => message.seq), [1, 2, 3]);
     assert.deepEqual(input.map((message) => message.seq), [3, 1, 2]);
+  });
+
+  it("posts to a channel that has no bot addressed to nobody", () => {
+    const channel = { channel_id: "c-1", kind: "named", name: "notes", participants: [] } as unknown as Channel;
+    const item: RosterItem = { kind: "channel", id: "channel:c-1", label: "notes", channel, bots: [] };
+    assert.deepEqual(prepareOutgoingMessage(item, "", "hello", { sending: false, turn: null }), {
+      channelId: "c-1",
+      addressedToBotId: null,
+      body: "hello",
+    });
   });
 
   it("opens both regions as sheets only below their desktop widths", () => {
