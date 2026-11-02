@@ -10,9 +10,17 @@
   "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "ff31c213-29da-4153-84e4-a3df5082724e",
+      "author": "home",
+      "text": "Ryan 11-02: approved. People's conversations, forum threads included, move onto channels, so this task is on. Unaddressed messages must not start a turn. A channel with no bot stores nothing today (mailbox items are written per bot, and listing reads per bot), so forums carry a silent bot unless this changes.",
+      "created_at": "2026-11-02T16:03:25.642199Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-11-02T15:33:53.470083Z",
-  "updated_at": "2026-11-02T15:33:53.470104Z",
+  "updated_at": "2026-11-02T16:03:25.642577Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
