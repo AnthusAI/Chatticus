@@ -10,9 +10,17 @@
   "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3c676946-22f9-4003-9ea1-d84fefdd964e",
+      "author": "home",
+      "text": "Joining every channel must not fill a mailbox per channel for a bot that only watches. Add an observing participant that reads from the record (chatticus-e4f1f2) and gets no inbox items. Bot memory goes into the prompt of every channel, so Ryan's desk design relies on memory staying per bot: desk memory for the desk, newsroom memory for newsroom-wide facts.",
+      "created_at": "2026-11-02T16:32:15.150905Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-11-02T15:33:53.390252Z",
-  "updated_at": "2026-11-02T15:33:53.390315Z",
+  "updated_at": "2026-11-02T16:32:15.151149Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

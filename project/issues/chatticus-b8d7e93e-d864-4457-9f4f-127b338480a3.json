@@ -17,10 +17,17 @@
       "text": "Ryan 11-02: approved. People's conversations, forum threads included, move onto channels, so this task is on. Unaddressed messages must not start a turn. A channel with no bot stores nothing today (mailbox items are written per bot, and listing reads per bot), so forums carry a silent bot unless this changes.",
       "created_at": "2026-11-02T16:03:25.642199Z",
       "comment_type": "default"
+    },
+    {
+      "id": "1634f31f-b2f6-4355-8f9b-6bd6a17dfc15",
+      "author": "home",
+      "text": "After the consultation: edits, moderation and replies amend the channel record (chatticus-e4f1f2); the silent-bot note above is withdrawn. Deletion is split out into chatticus-c02220. Do this alongside the record.",
+      "created_at": "2026-11-02T16:32:14.975294Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-11-02T15:33:53.470083Z",
-  "updated_at": "2026-11-02T16:03:25.642577Z",
+  "updated_at": "2026-11-02T16:32:14.975524Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

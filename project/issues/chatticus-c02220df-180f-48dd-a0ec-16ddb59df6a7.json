@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-c02220df-180f-48dd-a0ec-16ddb59df6a7",
+  "title": "Real erasure of a deleted message",
+  "description": "Ryan 11-02: deletion must be real, so there are no privacy or retention issues later. Deleting a message removes its text from every place it can live: the channel record, mailbox items, Pi entries (which are immutable), compaction summaries that absorbed it, sub-agent conversations, bot memory and cost or activity records, S3 object versions (control-plane-stack.ts sets versioned: true on a bucket; confirm which), and DynamoDB backups. Design first: state what is erased at once, what expires and when, and what cannot be reached, such as a model provider's own retention. Spike with the channel record, because this is the riskiest unproven part of the plan and may change how bodies are stored in Pi logs. Done: design in docs, then Gherkin scenarios proving the text is gone from each store and that the bot no longer sees it.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T16:32:14.747734Z",
+  "updated_at": "2026-11-02T16:32:14.747771Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

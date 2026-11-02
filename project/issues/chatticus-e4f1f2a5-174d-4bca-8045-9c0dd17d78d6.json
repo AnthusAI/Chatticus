@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-e4f1f2a5-174d-4bca-8045-9c0dd17d78d6",
+  "title": "Channel message record: the store for every channel message",
+  "description": "Ryan 11-02 approved. postMessage writes a channel-level message record; mailboxes become delivery only. listMessages reads the record, and bot replies reach it at turn end. MessagingStore.putMessage and listMessages exist with no callers. A channel with no bot becomes valid. A bot that joins late can read history from the record. Measure read latency against today's merge of per-bot sessions and report it. Done: Gherkin scenarios for a bot-less channel posting and listing, bot replies listed in order, a late-joining bot, and existing channels still readable (say how they are migrated). Follows fbc0d9 because both change the store.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T16:32:14.652957Z",
+  "updated_at": "2026-11-02T16:32:14.653025Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

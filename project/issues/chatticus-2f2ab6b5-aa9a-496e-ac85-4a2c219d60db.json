@@ -10,9 +10,17 @@
   "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7700e2d2-11cb-4b87-bd8f-ca5fa24141b6",
+      "author": "home",
+      "text": "Do not start until chatticus-e4f1f2 settles. Also carry display identity: Chatticus holds only a hashed editor id, and Papyrus needs names and public handles.",
+      "created_at": "2026-11-02T16:32:15.037495Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-11-02T15:33:53.156873Z",
-  "updated_at": "2026-11-02T15:33:53.156896Z",
+  "updated_at": "2026-11-02T16:32:15.037734Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

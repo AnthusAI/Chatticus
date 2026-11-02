@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-2b298cf4-5038-4766-9f8a-d841f2298e25",
+  "title": "Bots coordinate with one another",
+  "description": "Ryan 11-02: the newsroom editor bot coordinates with section desk bots and Story conversations. I found no bot-to-bot path in the domain code; confirm. Decide how one bot asks another for work and receives the result, with a limit on loops and on spend, and with the cost attributed. Consider whether this is the sub-agent tool (378eed) reaching another bot. Done: design, then Gherkin scenarios for a request and answer between bots, a refused loop, and cost attribution.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T16:32:14.911874Z",
+  "updated_at": "2026-11-02T16:32:14.911902Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

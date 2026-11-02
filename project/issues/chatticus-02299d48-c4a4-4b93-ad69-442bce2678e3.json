@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-02299d48-c4a4-4b93-ad69-442bce2678e3",
+  "title": "Live channel updates in the chat UI",
+  "description": "Ryan 11-02: when someone has the Chatticus chat UI open and is engaged in a conversation, it updates in real time, including messages from other people. Today the only stream is per turn (/turns/:id/stream). Other readers, such as forum lists, may be slower and poll. Done: Gherkin scenarios for a second person's message appearing in an open chat, reconnect, and removal from the channel ending the stream. Depends on the channel record.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T16:32:14.830204Z",
+  "updated_at": "2026-11-02T16:32:14.830228Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
