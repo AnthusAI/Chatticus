@@ -156,6 +156,14 @@
 		},
 		{
 			"role": "ownerTurn",
+			"action": "dynamodb:PutItem",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record row of the bot answer a turn commits, with the turn's tool activity."
+		},
+		{
+			"role": "ownerTurn",
 			"action": "dynamodb:DeleteItem",
 			"store": "messagingTable",
 			"keyPattern": "^[^#]+#channel#[^#]+$",

@@ -220,15 +220,6 @@ export class InMemoryMessagingStore implements MessagingStore {
 		return this.postIdempotency.get(`${tenantId}\u0000${idempotencyKey}`) ?? null;
 	}
 
-	async putPostIdempotency(
-		tenantId: string,
-		idempotencyKey: string,
-		message: ChannelMessageRecord,
-		turnId: string | null,
-	): Promise<void> {
-		this.postIdempotency.set(`${tenantId}\u0000${idempotencyKey}`, { message, turnId });
-	}
-
 	async reservePostIdempotency(
 		tenantId: string,
 		idempotencyKey: string,
@@ -298,9 +289,23 @@ export class InMemoryMessagingStore implements MessagingStore {
 
 	async putMessage(message: ChannelMessageRecord): Promise<void> {
 		const key = `${message.tenantId}\u0000${message.channelId}`;
+		const taken = (this.messages.get(key) ?? []).find((existing) => existing.seq === message.seq);
+		if (taken !== undefined && taken.messageId !== message.messageId) {
+			throw new Error(`channel record seq ${message.seq} already holds a different message`);
+		}
 		const kept = (this.messages.get(key) ?? []).filter((existing) => existing.seq !== message.seq);
 		kept.push(structuredClone(message));
 		this.messages.set(key, kept);
+	}
+
+	async tombstoneMessage(tenantId: string, channelId: string, seq: number, deletedAt: Date): Promise<boolean> {
+		const found = (this.messages.get(`${tenantId}\u0000${channelId}`) ?? []).find((existing) => existing.seq === seq);
+		if (found === undefined) return false;
+		found.body = "";
+		delete found.activity;
+		delete found.origin;
+		found.deletedAt = new Date(deletedAt);
+		return true;
 	}
 
 	async listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]> {

@@ -6,6 +6,7 @@ import {
 	ChannelTenantMismatchError,
 	InvalidChannelIdentityError,
 } from "../http/errors.ts";
+import type { ToolActivityItem } from "../pi/message-activity.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { botById, pythonRepr } from "./bots.ts";
 
@@ -65,6 +66,12 @@ export interface ChannelMessageRecord {
 	createdAt: Date;
 	/** Present only when the message arrived over an external transport. */
 	origin?: MessageOrigin;
+	/** The tool calls of the turn a bot answer ends, as the record keeps them; absent when the turn used no tool or the message is not a bot answer. */
+	activity?: ToolActivityItem[];
+	/** For a bot answer, the sequence of the message that started its turn. */
+	inReplyToSeq?: number;
+	/** Set when the message was deleted; the body, activity and origin are gone and this row only holds the place in the sequence. */
+	deletedAt?: Date;
 }
 
 /** What the channel functions read and write. */
@@ -106,7 +113,7 @@ export function directChannelId(tenantId: string, userId: string, botId: string)
  * Open a canonical direct or named channel.
  *
  * Ported from python/src/chatticus/control_plane.py lines 2956-3030. A direct channel is deterministically
- * identified by tenant, human, and bot. A named channel has a stored name and at least one bot.
+ * identified by tenant, human, and bot. A named channel has a stored name and any number of bots, none included.
  *
  * @throws BotNotFoundError If a bot id is unknown.
  * @throws ActorNotInChannelError If a bot belongs to another tenant.
@@ -127,8 +134,8 @@ export async function createChannel(
 			throw new InvalidChannelIdentityError("A direct channel requires exactly one bot and no name.");
 		}
 	} else if (kind === "named") {
-		if (uniqueBotIds.length < 1 || !normalizedName) {
-			throw new InvalidChannelIdentityError("A named channel requires a name and at least one bot.");
+		if (!normalizedName) {
+			throw new InvalidChannelIdentityError("A named channel requires a name.");
 		}
 	} else {
 		throw new InvalidChannelIdentityError(`Unknown channel kind ${pythonRepr(String(kind))}.`);

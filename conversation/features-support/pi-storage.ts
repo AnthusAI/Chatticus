@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Agent } from "node:http";
 import { DeleteTableCommand } from "@aws-sdk/client-dynamodb";
-import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectVersionsCommand, type ListObjectVersionsCommandOutput, S3Client } from "@aws-sdk/client-s3";
 import { createPiSessionBucket, createPiSessionTable } from "../src/storage/table-definition.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -53,13 +53,17 @@ export async function dropPiStorage(world: ChatticusWorld): Promise<void> {
 	world.piStorage = null;
 	creations.delete(world);
 	await world.messagingTable.client.send(new DeleteTableCommand({ TableName: storage.tableName }));
-	let continuation: string | undefined;
+	let keyMarker: string | undefined;
+	let versionMarker: string | undefined;
 	do {
-		const page = await storage.s3.send(new ListObjectsV2Command({ Bucket: storage.bucket, ContinuationToken: continuation }));
-		const keys = (page.Contents ?? []).map((object) => ({ Key: object.Key! }));
-		if (keys.length > 0) await storage.s3.send(new DeleteObjectsCommand({ Bucket: storage.bucket, Delete: { Objects: keys } }));
-		continuation = page.NextContinuationToken;
-	} while (continuation !== undefined);
+		const page: ListObjectVersionsCommandOutput = await storage.s3.send(
+			new ListObjectVersionsCommand({ Bucket: storage.bucket, KeyMarker: keyMarker, VersionIdMarker: versionMarker }),
+		);
+		const versions = [...(page.Versions ?? []), ...(page.DeleteMarkers ?? [])].map((version) => ({ Key: version.Key!, VersionId: version.VersionId }));
+		if (versions.length > 0) await storage.s3.send(new DeleteObjectsCommand({ Bucket: storage.bucket, Delete: { Objects: versions } }));
+		keyMarker = page.IsTruncated === true ? page.NextKeyMarker : undefined;
+		versionMarker = page.IsTruncated === true ? page.NextVersionIdMarker : undefined;
+	} while (keyMarker !== undefined);
 	await storage.s3.send(new DeleteBucketCommand({ Bucket: storage.bucket }));
 	storage.s3.destroy();
 }

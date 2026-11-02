@@ -195,3 +195,6 @@ features/email_delivery_status.feature
 features/email_ses_ingress.feature
 features/email_ses_delivery.feature
 features/email_ses_events.feature
+features/channel_message_record.feature
+features/message_erasure.feature
+features/session_rebuild.feature

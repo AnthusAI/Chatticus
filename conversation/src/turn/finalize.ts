@@ -6,6 +6,7 @@ import type { Turn } from "../domain/turns.ts";
 import { deriveCostRecords, readCallCostRecords } from "../ledger/call-cost.ts";
 import { projectTurnCost, summarizeTurnCost, type TurnCostStatus } from "../ledger/turn-cost.ts";
 import { appendLine, ChannelLogDoc, readEntryBody } from "../pi/channel-log.ts";
+import { fitActivityToRecord, readTurnActivity } from "../pi/message-activity.ts";
 import { allocateSeq, put as putMailboxItem, type MailboxStore } from "../pi/mailbox.ts";
 import type { OwnerSession } from "../pi/session.ts";
 import type { Bot } from "../store/codecs/bot.ts";
@@ -83,9 +84,9 @@ export async function recordTurnCost(inputs: FinalizeInputs, point: CostRecordin
 }
 
 /**
- * Commit the turn's reply to the channel: only the final assistant text. The text already exists once, as the final
- * assistant entry of the Pi session; this allocates the next channel sequence, adds the channel log line that points
- * at that entry, and mirrors the reply into the mailbox of every other bot on the channel. It is idempotent: a re-run
+ * Commit the turn's reply to the channel: only the final assistant text. This allocates the next channel sequence, adds
+ * the channel log line that points at the final assistant entry of the Pi session, writes the reply and the turn's tool
+ * activity to the channel record, and mirrors the reply into the mailbox of every other bot on the channel. It is idempotent: a re-run
  * after a crash finds the line it already wrote and reuses its sequence.
  *
  * @param inputs The running attempt.
@@ -114,6 +115,23 @@ export async function commitFinalAnswer(inputs: FinalizeInputs, answerEntryId: n
 		},
 		context,
 	);
+	const previousAnswerEntryId = (log?.lines ?? [])
+		.filter((line) => line.authorKind === "bot" && line.authorId === turn.botId && line.entryId < answerEntryId)
+		.reduce((newest, line) => Math.max(newest, line.entryId), 0);
+	const activity = fitActivityToRecord(await readTurnActivity(session.storage, previousAnswerEntryId, answerEntryId, context));
+	await deps.messaging.putMessage({
+		messageId,
+		channelId: turn.channelId,
+		tenantId: turn.tenantId,
+		seq: messageSeq,
+		authorKind: "bot",
+		authorId: turn.botId,
+		body,
+		addressedToBotId: null,
+		createdAt: new Date(createdAt),
+		...(turn.promptMessageSeq === null ? {} : { inReplyToSeq: turn.promptMessageSeq }),
+		...(activity.length === 0 ? {} : { activity }),
+	});
 	for (const participant of inputs.channel.participants) {
 		if (participant.kind !== "bot" || participant.actorId === turn.botId) continue;
 		await putMailboxItem(mailbox, {

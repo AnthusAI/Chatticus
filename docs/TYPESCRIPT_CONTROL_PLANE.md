@@ -379,8 +379,7 @@ taking `--environment {development,staging,production}` and optional `--tenant` 
   Exit code 1 on any difference.
 
 Rollback: no old item is deleted or rewritten destructively. Reverting the flip commit serves the old system again;
-the `MIGRATED#` markers, mailbox items and new pointers are inert to it. The purge follow-up removes the old items after
-day 14.
+the `MIGRATED#` markers, mailbox items and new pointers are inert to it. The old `msg#` message items are never purged: they are rows of the channel record.
 
 Pre-flight (a scripted check in the flip PR): no active turns, `TurnJobs`
 and `ComputerTurnJobs` empty, no host start in flight.
@@ -956,7 +955,7 @@ Rule: **step text does not change unless the behavior changed.** A diff in a
    `CONTRIBUTING_AGENT.md`. Run order: development, then staging and
    production together on the normal `develop` to `main` promotion (the CI/CD
    in AGENTS.md), with the migration phases in 2.7.
-5. **Purge** (follow-up of ticket 40, `bin/purge-legacy-items.ts`, kind M), 14 days later.
+5. **Purge** (withdrawn: the old `msg#` items are the channel record's rows, see `docs/MESSAGING.md`; nothing deletes them).
 
 ### 7.2 The risky window and how it is bounded
 

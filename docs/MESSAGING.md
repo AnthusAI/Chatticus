@@ -18,14 +18,24 @@ request is one turn.
 DynamoDB is the source of truth for conversations. S3 holds blobs
 (screenshots, attachments). The computer snapshot is not the chat log.
 
-A **channel** is one conversation. It belongs to one `tenant_id` and one
-user. Participants are that human and one or more of that user's bots.
+A **channel** is one conversation. It belongs to one `tenant_id`. Participants are
+people of that organization and any number of its bots, none included.
+
+**The channel record is the one place a channel's messages are listed from.**
+Each message is a `msg#<seq>` row in the channel's partition, written by the control
+plane when it is posted, and, for a bot's answer, when the turn ends, with the tool
+calls the turn made. A bot's mailbox is delivery only: it holds the messages the bot
+has not read and is emptied as it reads them. A bot's Pi session is a copy of the
+record plus what the model did; it can be dropped and rebuilt, losing the tool
+results of earlier turns (see [Message erasure](MESSAGE_ERASURE.md)).
 
 **Messages are append-only.** Each channel has a monotonically increasing
 `seq`, assigned by the control plane at commit, which makes order within
 a channel total. Clients reconnect with
-`GET /channels/{channel_id}/messages?after=seq`. Edits and deletes are out
-of scope for v1.
+`GET /channels/{channel_id}/messages?after=seq`. Edits are out of scope for v1.
+A deleted message becomes a tombstone (its sequence and author, no text) and its
+text is erased from every store the control plane controls; see
+[Message erasure](MESSAGE_ERASURE.md) for what is erased at once and what expires.
 
 | Field | Role |
 | --- | --- |
@@ -47,8 +57,10 @@ A channel is shared; bot memory is not. They compose at turn start:
 > view.**
 
 Every bot on a channel reads the whole channel. Only the addressed bot
-acts. Bot memory is per-bot and spans channels; the channel is compacted
-once and serves every participant. See challenge 4 in
+acts. Bot memory is per-bot and spans channels. Compaction today is per bot
+session (pi-durable's), not once per channel; a channel-level summary stored
+with the record is the intended next step and is described in
+[Message erasure](MESSAGE_ERASURE.md). See challenge 4 in
 [Design challenges](DESIGN_CHALLENGES.md).
 
 ### In-flight chunks live in the same store, with a TTL

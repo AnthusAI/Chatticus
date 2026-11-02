@@ -3,6 +3,7 @@ import {
 	CreateTableCommand,
 	DeleteTableCommand,
 	DynamoDBClient,
+	ScanCommand,
 	UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { afterAll, describe, expect, it } from "vitest";
@@ -211,8 +212,9 @@ describe("postMessage while a turn is closing", () => {
 });
 
 describe("post idempotency in the messaging store", () => {
-	it("round trips a message and its turn and scopes the key to the tenant", async () => {
-		const store = new DynamoMessagingStore(client, await freshTable());
+	it("replays the message from the channel record, keeps no text of its own, and scopes the key to the tenant", async () => {
+		const tableName = await freshTable();
+		const store = new DynamoMessagingStore(client, tableName);
 		const message: ChannelMessageRecord = {
 			messageId: "m-1",
 			channelId: "channel-1",
@@ -224,12 +226,17 @@ describe("post idempotency in the messaging store", () => {
 			addressedToBotId: "bot-1",
 			createdAt: NOW,
 		};
+		const candidate = { ownerId: "owner-1", messageId: "m-1", createdAt: NOW, leaseExpiresAt: new Date(NOW.getTime() + 30_000), reservedTurnId: null, startedEventId: null };
 		expect(await store.getPostIdempotency("anthus", "key-1")).toBeNull();
-		await store.putPostIdempotency("anthus", "key-1", message, "turn-a");
+		expect((await store.reservePostIdempotency("anthus", "key-1", "fingerprint", candidate, NOW)).state).toBe("owner");
+		await store.putMessage(message);
+		expect(await store.completePostIdempotency("anthus", "key-1", "owner-1", message, "turn-a", NOW)).toBe(true);
 		expect(await store.getPostIdempotency("anthus", "key-1")).toEqual({ message, turnId: "turn-a" });
 		expect(await store.getPostIdempotency("other", "key-1")).toBeNull();
-		await store.putPostIdempotency("anthus", "key-2", { ...message, addressedToBotId: null }, null);
-		expect((await store.getPostIdempotency("anthus", "key-2"))?.turnId).toBeNull();
+		const scanned = await client.send(new ScanCommand({ TableName: tableName }));
+		const completed = (scanned.Items ?? []).filter((item) => item.reservation_state?.S === "complete");
+		expect(completed).toHaveLength(1);
+		expect(JSON.stringify(completed)).not.toContain("hello");
 	});
 });
 

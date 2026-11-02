@@ -15,7 +15,7 @@ import type { ChannelsRuntime } from "../channels/runtime.ts";
 import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoRecipientSuppressionList } from "../store/recipient-suppression-store.ts";
 import { composeChannelsRuntime, type ChannelsAwsClients } from "./channels-composition.ts";
-import { composeChannelListing, composeMessageDependencies, requiredVariable } from "./message-dependencies.ts";
+import { composeMessageDependencies, requiredVariable } from "./message-dependencies.ts";
 
 /** Names the raw mail bucket the ingress function reads. */
 export const CHANNELS_RAW_MAIL_BUCKET_VARIABLE = "CHATTICUS_CHANNELS_RAW_MAIL_BUCKET";
@@ -98,8 +98,7 @@ export async function composeMailDeliveryHandler(
 ): Promise<(event: ChannelMessageCreatedBusEvent) => Promise<DeliveryInvocationResult>> {
 	const { runtime, table } = await requiredRuntime(environment, clients);
 	const messaging = new DynamoMessagingStore(clients.dynamo, table);
-	const listing = composeChannelListing(environment, clients, table);
-	const deps = { runtime, clock, messaging, loadMessage: (tenantId: string, channelId: string, seq: number) => loadCommittedMessage({ messaging, listing }, tenantId, channelId, seq) };
+	const deps = { runtime, clock, messaging, loadMessage: (tenantId: string, channelId: string, seq: number) => loadCommittedMessage({ messaging }, tenantId, channelId, seq) };
 	return (event) => handleChannelMessageCreated(deps, event);
 }
 

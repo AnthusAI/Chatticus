@@ -87,13 +87,6 @@ export interface MessagingStore {
 		tenantId: string,
 		idempotencyKey: string,
 	): Promise<{ message: ChannelMessageRecord; turnId: string | null } | null>;
-	/** Remember the message and turn one post created, so a retry with the same key replays them. */
-	putPostIdempotency(
-		tenantId: string,
-		idempotencyKey: string,
-		message: ChannelMessageRecord,
-		turnId: string | null,
-	): Promise<void>;
 	/** Atomically claim or inspect one durable message admission reservation. */
 	reservePostIdempotency(
 		tenantId: string,
@@ -113,10 +106,12 @@ export interface MessagingStore {
 		turnId: string | null,
 		now: Date,
 	): Promise<boolean>;
-	/** Committed messages of one channel with a sequence greater than afterSeq. */
+	/** The channel record: committed messages of one channel with a sequence greater than afterSeq, tombstones included. */
 	listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]>;
-	/** Persist one committed channel message. */
+	/** Persist one committed channel message; writing the same message again is a no-op, and a different message at a taken sequence throws. */
 	putMessage(message: ChannelMessageRecord): Promise<void>;
+	/** Turn one committed message into a tombstone: its body, activity and origin are removed and `deletedAt` is set. Returns false when the sequence holds no message. */
+	tombstoneMessage(tenantId: string, channelId: string, seq: number, deletedAt: Date): Promise<boolean>;
 	putWorker(worker: Worker): Promise<void>;
 	getWorker(tenantId: string, workerId: string): Promise<Worker | null>;
 	listWorkers(tenantId: string): Promise<Worker[]>;

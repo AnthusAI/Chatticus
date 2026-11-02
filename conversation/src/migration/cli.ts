@@ -1,7 +1,9 @@
 import { parseArgs } from "node:util";
+import { backfillChannelRecord } from "./backfill-record.ts";
 import { type CopyPhase, type MigrationDependencies, copyAllChannels } from "./copy.ts";
 import { convertLatestTurns } from "./latest-turns.ts";
-import type { MigrationScope } from "./legacy-layout.ts";
+import { type MigrationScope, listLegacyChannels } from "./legacy-layout.ts";
+import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoWriteGate } from "./migration-state.ts";
 import { verifyAll } from "./verify.ts";
 
@@ -27,7 +29,7 @@ export type MigrationCliResult = { exitCode: number; stdout: string; stderr: str
 
 /** What the operator is told after every writing pass: nothing old was changed that the old system needs. */
 export const ROLLBACK_NOTE =
-	"rollback: the old message, turn, event and pointer items were not deleted; reverting the flip commit serves the old system again. The purge follow-up removes them after day 14.";
+	"rollback: the old message, turn, event and pointer items were not deleted; reverting the flip commit serves the old system again. The old message items are rows of the channel record and are never purged.";
 
 const USAGE = `usage: migrate-transcripts <command> --environment {development,staging,production} [options]
 
@@ -36,6 +38,8 @@ commands:
   latest-turns  Rewrite turn records into the new shape and write the latest-turn pointers.
   delta         With the write gate closed: copy what was posted since the last copy, convert the turns (failing any
                 still active), then verify. Needs the write gate closed.
+  backfill-record  Fill each channel's message record from its bot sessions and mailboxes. Repeatable and idempotent;
+                run it before deploying the record code and again after.
   verify        Compare the old items with the new read paths. Exit 1 on any difference.
   gate          gate close | gate open | gate status: the write gate the front door honors.
 
@@ -103,6 +107,21 @@ async function runLatestTurns(
 	}
 }
 
+async function runBackfillRecord(deps: MigrationDependencies, scope: MigrationScope, dryRun: boolean, out: string[]): Promise<boolean> {
+	const store = new DynamoMessagingStore(deps.client, deps.messagingTableName);
+	let ok = true;
+	for (const channel of await listLegacyChannels({ client: deps.client, tableName: deps.messagingTableName }, scope)) {
+		const report = await backfillChannelRecord({ ...deps, store }, channel, { dryRun });
+		out.push(
+			`${dryRun ? "dry-run" : "backfill-record"} tenant=${report.tenantId} channel=${report.channelId} held=${report.held}` +
+				` already=${report.alreadyRecorded} ${dryRun ? "would_write" : "written"}=${dryRun ? report.held - report.alreadyRecorded : report.written}` +
+				`${report.tooLarge.length === 0 ? "" : ` TOO_LARGE=${report.tooLarge.join(",")}`}`,
+		);
+		if (report.tooLarge.length > 0) ok = false;
+	}
+	return ok;
+}
+
 async function runVerify(deps: MigrationDependencies, scope: MigrationScope, out: string[]): Promise<boolean> {
 	let ok = true;
 	for (const result of await verifyAll(deps, scope)) {
@@ -138,7 +157,7 @@ export async function runMigrationCli(argv: string[], dependencies: MigrationCli
 		});
 		const [command, subcommand] = positionals;
 		if (values.help || command === undefined) return { exitCode: values.help ? 0 : 2, stdout: values.help ? USAGE : "", stderr: values.help ? "" : USAGE };
-		if (!["copy", "latest-turns", "delta", "verify", "gate"].includes(command)) throw new CliUsageError(`unknown command ${command}`);
+		if (!["copy", "latest-turns", "delta", "verify", "gate", "backfill-record"].includes(command)) throw new CliUsageError(`unknown command ${command}`);
 		const environment = values.environment;
 		if (environment === undefined || !(MIGRATION_ENVIRONMENTS as readonly string[]).includes(environment)) {
 			throw new CliUsageError(`--environment must be one of ${MIGRATION_ENVIRONMENTS.join(", ")}`);
@@ -158,6 +177,8 @@ export async function runMigrationCli(argv: string[], dependencies: MigrationCli
 		} else if (command === "copy") {
 			ok = await runCopyPhase(deps, scope, "copy", dryRun, out);
 			if (!dryRun) out.push(ROLLBACK_NOTE);
+		} else if (command === "backfill-record") {
+			ok = await runBackfillRecord(deps, scope, dryRun, out);
 		} else if (command === "latest-turns") {
 			await runLatestTurns(deps, scope, (await gate.state()) === "MIGRATING", dryRun, out);
 			if (!dryRun) out.push(ROLLBACK_NOTE);

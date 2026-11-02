@@ -53,10 +53,6 @@ function dynamoHarness() {
 				item.channel_id = values[":channel"];
 				item.message_id = values[":message"];
 				item.seq = values[":seq"];
-				item.author_kind = values[":author_kind"];
-				item.author_id = values[":author_id"];
-				item.body = values[":body"];
-				item.addressed_to_bot_id = values[":addressed"];
 				item.created_at = values[":created"];
 				if (values[":turn"] === undefined) delete item.turn_id;
 				else item.turn_id = values[":turn"];
@@ -70,7 +66,7 @@ function dynamoHarness() {
 
 describe("DynamoMessagingStore post idempotency reservations", () => {
 	it("conditionally reserves once, completes, and replays the durable result", async () => {
-		const { client } = dynamoHarness();
+		const { client, items } = dynamoHarness();
 		const store = new DynamoMessagingStore(client as never, "test-table");
 		const now = new Date("2026-01-01T00:00:00.000Z");
 		const candidate = (ownerId: string) => ({ ownerId, messageId: "message-1", createdAt: now, leaseExpiresAt: new Date(now.getTime() + 30_000), reservedTurnId: null, startedEventId: null });
@@ -83,16 +79,19 @@ describe("DynamoMessagingStore post idempotency reservations", () => {
 		expect(owner).not.toBeNull();
 		const seq = await store.setPostIdempotencySequence("tenant", "request", owner!.ownerId, 7, now);
 		expect(seq).toBe(7);
-		const completed = await store.completePostIdempotency("tenant", "request", owner!.ownerId, {
+		const message = {
 			messageId: "message-1", channelId: "channel", tenantId: "tenant", seq: 7,
-			authorKind: "human", authorId: "editor", body: "Hello", addressedToBotId: null, createdAt: now,
-		}, null, now);
+			authorKind: "human" as const, authorId: "editor", body: "Hello", addressedToBotId: null, createdAt: now,
+		};
+		await store.putMessage(message);
+		const completed = await store.completePostIdempotency("tenant", "request", owner!.ownerId, message, null, now);
 		expect(completed).toBe(true);
 		const replay = await store.reservePostIdempotency("tenant", "request", "fingerprint", candidate("owner-c"), now);
 		expect(replay.state).toBe("completed");
 		if (replay.state === "completed") expect(replay.result.message).toMatchObject({ messageId: "message-1", seq: 7, body: "Hello" });
 		const conflict = await store.reservePostIdempotency("tenant", "request", "other-fingerprint", candidate("owner-d"), now);
 		expect(conflict.state).toBe("conflict");
+		expect(JSON.stringify([...items.values()].filter((item) => item.reservation_state?.S === "complete"))).not.toContain("Hello");
 	});
 
 	it("reclaims an expired reservation and preserves its recorded sequence", async () => {

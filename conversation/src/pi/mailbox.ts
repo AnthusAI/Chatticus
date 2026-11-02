@@ -179,10 +179,23 @@ export async function list(
  * @param item The item, which names its mailbox partition and sequence.
  */
 export async function remove(store: MailboxStore, item: MailboxItem): Promise<void> {
+	await removeAt(store, item.tenantId, item.botId, item.channelId, item.seq);
+}
+
+/**
+ * Delete the mailbox item of one sequence. Deleting an item that is already gone is not an error.
+ *
+ * @param store Table.
+ * @param tenantId Organization.
+ * @param botId Bot.
+ * @param channelId Channel.
+ * @param seq Channel message sequence.
+ */
+export async function removeAt(store: MailboxStore, tenantId: string, botId: string, channelId: string, seq: number): Promise<void> {
 	await store.client.send(
 		new DeleteItemCommand({
 			TableName: store.tableName,
-			Key: { pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) }, sk: { S: mailboxSortKey(item.seq) } },
+			Key: { pk: { S: mailboxPartitionKey(tenantId, botId, channelId) }, sk: { S: mailboxSortKey(seq) } },
 		}),
 	);
 }

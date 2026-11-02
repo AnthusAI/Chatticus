@@ -1,7 +1,7 @@
-Feature: Several people share one channel with one bot or more
+Feature: Several people share one channel with any number of bots
   As a member of an organization
   I want to add colleagues to a channel and remove them again
-  So that a team can talk among themselves while a bot reads along and acts only when it is named
+  So that a team can talk among themselves, with a bot reading along that acts only when it is named, or with no bot at all
 
   Background:
     Given an empty control plane
@@ -13,10 +13,14 @@ Feature: Several people share one channel with one bot or more
     And organization "Anthus Labs" has organization bots:
       | Researcher |
 
-  Scenario: A named channel needs only one bot, and the bot is not optional
+  Scenario: A named channel needs a name, and may have no bot
     When "ryan@example.com" opens named channel "story" with organization bot "Researcher"
     Then "ryan@example.com" lists shared channel "story" among their channels
-    When "ryan@example.com" tries to open a named channel "empty" with no bot
+    When "ryan@example.com" opens named channel "forum" with no bot
+    Then "ryan@example.com" lists shared channel "forum" among their channels
+    When "ryan@example.com" tries to open a named channel with no name
+    Then the request is refused with status 400
+    When "ryan@example.com" tries to open a direct channel "alone" with no bot
     Then the request is refused with status 400
 
   Scenario: People added to a channel read and post in it
