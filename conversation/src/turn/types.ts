@@ -52,6 +52,17 @@ export type ExecutorTuning = {
 	readonly tokenFlushMilliseconds: number;
 	/** Remaining function milliseconds under which an owner hands its turn on. */
 	readonly yieldBelowMilliseconds: number;
+	/**
+	 * Milliseconds an unanswered model request may stay silent, with no Pi event of any kind and no tool running, before
+	 * the turn is failed with a readable reason. The function window bounds it in practice; this makes it end the turn
+	 * instead of ending the function.
+	 */
+	readonly modelCallDeadlineMilliseconds: number;
+	/**
+	 * Consecutive hand-offs of a turn whose attempts produced no output at all that are allowed; the next one fails the
+	 * turn, because a turn that hands on without ever progressing is not going to.
+	 */
+	readonly maximumFruitlessYields: number;
 	/** Pi's retry policy for a failed model call. */
 	readonly retry: { readonly maxRetries: number; readonly baseDelayMilliseconds: number };
 	/** How much of the newest conversation compaction keeps whole; Pi summarizes what is older than this. */

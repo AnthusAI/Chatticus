@@ -54,3 +54,49 @@ Feature: Deadline probes watch every turn
     Then the first owner ended by handing the turn on
     When bot "Assistant" completes one turn
     Then the channel has exactly one bot answer with body "Finished by the next owner."
+
+  @owner-log
+  Scenario: A model request that is never answered fails the turn and says what it waited on
+    Given the model holds its first request
+    And the model may stay silent for 300 milliseconds before the turn is failed
+    When user "ryan" of tenant "anthus" posts "please finish the report" addressed to bot "Assistant" on the channel
+    And user "ryan" of tenant "anthus" is watching that turn through server-sent events
+    And bot "Assistant" starts a turn
+    And the model is waiting on its first request
+    And the started turn finishes
+    Then the turn has failed with reason "The model provider did not answer in time, so the turn was stopped."
+    And user "ryan" receives a failed server-sent event with reason "The model provider did not answer in time, so the turn was stopped."
+    And the console logged "model_call_deadline_exceeded" with "model_request_outstanding" as "true"
+    And the console logged "model_call_deadline_exceeded" with "made_progress" as "false"
+    And no job for bot "Assistant" is left to retry
+
+  @owner-log
+  Scenario: A turn that is handed on names what it was waiting on
+    Given the model answers "Finished by the next owner."
+    And the model holds its first request
+    When user "ryan" of tenant "anthus" posts "please finish the report" addressed to bot "Assistant" on the channel
+    And bot "Assistant" starts a turn
+    And the model is waiting on its first request
+    And the function has 20 seconds of time left
+    Then the turn is handed on to a later owner
+    And the console logged "turn_yielded" with "model_request_outstanding" as "true"
+    And the console logged "turn_yielded" with "unsettled_inputs" as "1"
+    And the console logged "turn_yielded" with "made_progress" as "false"
+
+  @owner-log
+  Scenario: A turn that hands itself on again without producing anything is failed
+    Given the model holds its first request
+    And a turn may hand itself on 1 times without producing anything
+    When user "ryan" of tenant "anthus" posts "please finish the report" addressed to bot "Assistant" on the channel
+    And bot "Assistant" starts a turn
+    And the model is waiting on its first request
+    And the function has 20 seconds of time left
+    Then the turn is handed on to a later owner
+    When the model holds its next request
+    And bot "Assistant" starts a turn
+    And the model is waiting on its first request
+    And the function has 20 seconds of time left
+    And the started turn finishes
+    Then the turn has failed with reason "The turn handed itself on without making progress, so it was stopped."
+    And the console logged "turn_yield_refused" with "maximum_fruitless_yields" as "1"
+    And no job for bot "Assistant" is left to retry
