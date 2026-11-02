@@ -412,6 +412,15 @@ export class DynamoMessagingStore implements MessagingStore {
 		return channels.sort((left, right) => compareStrings(left.channelId, right.channelId));
 	}
 
+	async deleteChannelUserIndex(tenantId: string, channelId: string, userId: string): Promise<void> {
+		await this.client.send(
+			new DeleteItemCommand({
+				TableName: this.tableName,
+				Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: `channel#${userId}#${channelId}` } },
+			}),
+		);
+	}
+
 	async resolveChannelTenant(channelId: string): Promise<string | null> {
 		const item = await this.get(`channel_lookup#${channelId}`, "meta");
 		return item?.tenant_id?.S ?? null;

@@ -43,3 +43,17 @@ export async function assertCallerParticipatesInChannel(
 	}
 	assertHumanParticipantOfChannel(principal, channel);
 }
+
+/** Refuse a person who is neither an organization owner nor a human participant of the channel to add someone to it. */
+export function assertMayAddChannelPerson(principal: Principal, channel: Channel): void {
+	if (principal.role !== "owner") {
+		assertHumanParticipantOfChannel(principal, channel);
+	}
+}
+
+/** Refuse anyone but an organization owner, or the person themselves leaving, to remove a person from a channel. */
+export function assertMayRemoveChannelPerson(principal: Principal, removedUserId: string): void {
+	if (principal.role !== "owner" && principal.userId !== removedUserId) {
+		throw new PrincipalHttpError(403, "only the person themselves or an organization owner may remove someone from a channel");
+	}
+}
