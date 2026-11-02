@@ -17,10 +17,17 @@
       "text": "Joining every channel must not fill a mailbox per channel for a bot that only watches. Add an observing participant that reads from the record (chatticus-e4f1f2) and gets no inbox items. Bot memory goes into the prompt of every channel, so Ryan's desk design relies on memory staying per bot: desk memory for the desk, newsroom memory for newsroom-wide facts.",
       "created_at": "2026-11-02T16:32:15.150905Z",
       "comment_type": "default"
+    },
+    {
+      "id": "639de5a7-99c5-48fe-9495-1a561c062a00",
+      "author": "home",
+      "text": "Ryan 11-02 decided: the top bot reads without joining, through an oversight read grant over the record. To act in a channel it posts an addressed message.",
+      "created_at": "2026-11-02T18:08:04.676887Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-11-02T15:33:53.390252Z",
-  "updated_at": "2026-11-02T16:32:15.151149Z",
+  "updated_at": "2026-11-02T18:08:04.677103Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
