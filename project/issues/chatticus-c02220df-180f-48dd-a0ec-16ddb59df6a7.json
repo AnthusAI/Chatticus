@@ -10,9 +10,17 @@
   "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "05886fee-100a-4519-9002-9c5ae948b11f",
+      "author": "home",
+      "text": "Ryan 11-02 accepted the scope in docs/MESSAGE_ERASURE.md: everything live at once, backups age out within 35 days, stated limits for provider retention, external mail and copied text. The product must state those limits.",
+      "created_at": "2026-11-02T18:08:04.612729Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-11-02T16:32:14.747734Z",
-  "updated_at": "2026-11-02T16:32:14.747771Z",
+  "updated_at": "2026-11-02T18:08:04.612929Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

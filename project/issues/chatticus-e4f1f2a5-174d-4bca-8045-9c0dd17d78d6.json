@@ -10,9 +10,24 @@
   "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0b4d48e6-a3db-401c-a381-81e905bf9a90",
+      "author": "home",
+      "text": "Second review recommends: the record is the only truth, Pi sessions are rebuildable caches. Spike told to design for rebuild and to prove it, including what is lost. Awaiting Ryan.",
+      "created_at": "2026-11-02T17:05:13.170917Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2017d5dc-6429-44d7-8e55-cab1d16aa2e5",
+      "author": "home",
+      "text": "Ryan 11-02 decided: the record is the only truth and sessions are disposable. PR 653. Finish before merge: S3 overflow, lazy rebuild, open-turn completion, erasure role, backfill, idempotency scrub, cost detail.",
+      "created_at": "2026-11-02T18:08:04.541484Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-11-02T16:32:14.652957Z",
-  "updated_at": "2026-11-02T16:32:14.653025Z",
+  "updated_at": "2026-11-02T18:08:04.541770Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

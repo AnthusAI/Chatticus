@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-578c69c3-77b5-4967-9381-98a3b0ef856d",
+  "title": "See inside a turn: stage events, alarm, smoke test as merge gate",
+  "description": "Ryan 11-02 approved doing this before sub-agents and host tools. Attempts ran 270s against a 120s TURN_DEADLINE_SECONDS with nothing logged. Add per-stage turn events (session open, mailbox pump, model request, first token, finalize), a CloudWatch alarm on turns not finishing, and make the deployed smoke test gate merges. Builds on PR 652. Gherkin specs.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T18:08:04.465724Z",
+  "updated_at": "2026-11-02T18:08:04.465801Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
