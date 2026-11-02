@@ -5,6 +5,7 @@ import { createSession, InboxDoc, ROOT_CONVERSATION_ID } from "@earendil-works/p
 import { IndexedStorage } from "../../src/storage/indexed-storage.ts";
 import { storageIdFor } from "../../src/storage/storage-support.ts";
 import { modelScenarioOf, startBotTurn } from "../executor-harness.ts";
+import { capturedConsoleLines, parsedLogLines } from "../log-capture-support.ts";
 import { ensurePiStorage } from "../pi-storage.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { currentTurnOf, readChannelMessages, readTurn, readTurnEvents } from "./model.steps.ts";
@@ -57,8 +58,32 @@ Given("the model answers with a reply of {int} characters", function (this: Chat
 	modelScenarioOf(this).scripted.reply(wordsOfLength(characters));
 });
 
+When("the model holds its next request", function (this: ChatticusWorld) {
+	modelScenarioOf(this).hold = modelScenarioOf(this).scripted.slow();
+});
+
 Given("the model holds its first request", function (this: ChatticusWorld) {
 	modelScenarioOf(this).hold = modelScenarioOf(this).scripted.slow();
+});
+
+Given("the model may stay silent for {int} milliseconds before the turn is failed", function (this: ChatticusWorld, milliseconds: number) {
+	const scenario = modelScenarioOf(this);
+	scenario.tuningOverrides = { ...scenario.tuningOverrides, modelCallDeadlineMilliseconds: milliseconds };
+});
+
+Given("a turn may hand itself on {int} times without producing anything", function (this: ChatticusWorld, times: number) {
+	const scenario = modelScenarioOf(this);
+	scenario.tuningOverrides = { ...scenario.tuningOverrides, maximumFruitlessYields: times };
+});
+
+Then("the console logged {string} with {string} as {string}", function (this: ChatticusWorld, event: string, field: string, value: string) {
+	const lines = parsedLogLines(capturedConsoleLines(this)).filter((line) => line.event === event);
+	assert.ok(lines.length >= 1, `No ${event} line was logged:\n${capturedConsoleLines(this).join("\n")}`);
+	assert.equal(lines[lines.length - 1]!.fields.get(field), value, lines[lines.length - 1]!.text);
+});
+
+Then("the console logged no {string} line", function (this: ChatticusWorld, event: string) {
+	assert.deepEqual(parsedLogLines(capturedConsoleLines(this)).filter((line) => line.event === event), []);
 });
 
 When("bot {string} starts a turn", function (this: ChatticusWorld, name: string) {
