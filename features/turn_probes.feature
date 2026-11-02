@@ -58,7 +58,7 @@ Feature: Deadline probes watch every turn
   @owner-log
   Scenario: A model request that is never answered fails the turn and says what it waited on
     Given the model holds its first request
-    And the model may stay silent for 300 milliseconds before the turn is failed
+    And the model may stay silent for 5000 milliseconds before the turn is failed
     When user "ryan" of tenant "anthus" posts "please finish the report" addressed to bot "Assistant" on the channel
     And user "ryan" of tenant "anthus" is watching that turn through server-sent events
     And bot "Assistant" starts a turn
@@ -102,4 +102,20 @@ Feature: Deadline probes watch every turn
     And the started turn finishes
     Then the turn has failed with reason "The turn handed itself on without making progress, so it was stopped."
     And the console logged "turn_yield_refused" with "maximum_fruitless_yields" as "1"
+    And no job for bot "Assistant" is left to retry
+
+  Scenario: A rejected key fails the turn with its reason even while a steering message is queued
+    Given the model holds its first request
+    And the model provider answers every request with status 401 and error code "invalid_api_key"
+    When user "ryan" of tenant "anthus" posts "start the report" addressed to bot "Assistant" on the channel
+    And user "ryan" of tenant "anthus" is watching that turn through server-sent events
+    And bot "Assistant" starts a turn
+    And the model is waiting on its first request
+    And user "ryan" of tenant "anthus" posts "and include totals" addressed to bot "Assistant" on the channel
+    And the steered message has been taken into the conversation
+    And the model is released
+    And the started turn finishes
+    Then the turn has failed with reason "The model provider rejected the API key."
+    And user "ryan" receives a failed server-sent event with reason "The model provider rejected the API key."
+    And the channel has 2 messages
     And no job for bot "Assistant" is left to retry

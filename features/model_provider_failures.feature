@@ -34,6 +34,13 @@ Feature: A failed model call ends the turn honestly
       | 400    | unsupported_value   | The model provider rejected the request as invalid.                                      |
       | 403    | model_spend_ceiling_reached | The organization has reached its monthly model spend ceiling, so no more model calls are made until next month. |
 
+  Scenario: An expired key is reported as a rejected key whatever status carries it
+    Given the model provider answers every request with status 400, error code "api_key_expired" and message "Your API key has expired. Create a new API key to continue."
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    And bot "Assistant" runs one computerless worker turn against that provider
+    Then the turn has failed with reason "The model provider rejected the API key."
+    And no job for bot "Assistant" is left to retry
+
   Scenario Outline: A temporary provider error is retried inside the turn and then fails it
     Given the model provider answers every request with status <status> and error code "<code>"
     When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
