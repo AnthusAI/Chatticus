@@ -68,6 +68,9 @@ Feature: Deadline probes watch every turn
     And user "ryan" receives a failed server-sent event with reason "The model provider did not answer in time, so the turn was stopped."
     And the console logged "model_call_deadline_exceeded" with "model_request_outstanding" as "true"
     And the console logged "model_call_deadline_exceeded" with "made_progress" as "false"
+    And the console logged "pi_events" with "events" containing "turn_start"
+    And the console logged "pi_state" with "scheduling" as "running"
+    And the console logged "pi_state" with "submissions" containing "placed"
     And no job for bot "Assistant" is left to retry
 
   @owner-log
