@@ -41,6 +41,7 @@ import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoale
 import { AgentEventDelivery, createAgentEventListener, TurnEventWriter, writeToolCallOnce } from "./event-stream.ts";
 import { redactSecrets } from "./tool-event-fields.ts";
 import { commitFinalAnswer, type FinalizeInputs, recordTurnCost } from "./finalize.ts";
+import { ModelCallWatch } from "./model-call-watch.ts";
 import { armProbe } from "./probes.ts";
 import { computerToolUnavailableText, computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
 import { buildSystemPrompt } from "./prompt.ts";
@@ -52,6 +53,8 @@ export const DEFAULT_EXECUTOR_TUNING: ExecutorTuning = {
 	renewIntervalMilliseconds: 20_000,
 	mailboxPollMilliseconds: 500,
 	yieldBelowMilliseconds: DEFAULT_YIELD_BELOW_MILLISECONDS,
+	modelCallDeadlineMilliseconds: 120_000,
+	maximumFruitlessYields: 1,
 	tokenFlushBytes: DEFAULT_TOKEN_FLUSH_BYTES,
 	tokenFlushMilliseconds: DEFAULT_TOKEN_FLUSH_MILLISECONDS,
 	retry: { maxRetries: 2, baseDelayMilliseconds: 1000 },
@@ -66,6 +69,15 @@ export const MISSING_PROMPT_REASON = "The message this turn was meant to answer 
 
 /** The reason shown when the bot or channel of a turn no longer exists. */
 export const MISSING_SUBJECT_REASON = "The bot or the channel of this turn no longer exists.";
+
+/** The reason shown when the model provider accepted a request and then went silent past the deadline. */
+export const MODEL_CALL_DEADLINE_REASON = "The model provider did not answer in time, so the turn was stopped.";
+
+/** The reason shown when a turn handed itself on repeatedly without producing anything. */
+export const NO_PROGRESS_REASON = "The turn handed itself on without making progress, so it was stopped.";
+
+/** Milliseconds the executor gives Pi to withdraw an unanswered input and to close, so a model call that never returns cannot hold the function. */
+const ABORT_WAIT_MILLISECONDS = 2000;
 
 /** The reason on turn.reconciling when a Pi commit's outcome is unknown. */
 export const UNCERTAIN_COMMIT_REASON = "The conversation could not confirm its last write; the turn is being reconciled.";
@@ -135,6 +147,7 @@ class TurnAttempt {
 	private stream: AgentEventStream | null = null;
 	private bot: Bot | null = null;
 	private channel: Channel | null = null;
+	private readonly modelWatch: ModelCallWatch;
 
 	constructor(job: TurnExecutionJob, deps: ExecutorDeps, tuning: ExecutorTuning, attemptId: string, turn: Turn) {
 		this.job = job;
@@ -143,6 +156,7 @@ class TurnAttempt {
 		this.attemptId = attemptId;
 		this.turn = turn;
 		this.context = deps.context ?? BACKGROUND_CONTEXT;
+		this.modelWatch = new ModelCallWatch(Date.now());
 		this.mailbox = { client: deps.client, tableName: deps.messagingTableName };
 		this.writer = new TurnEventWriter(deps.turns, job.tenantId, job.turnId, attemptId);
 		this.coalescer = new TokenCoalescer({
@@ -246,7 +260,11 @@ class TurnAttempt {
 		this.root = root;
 		await root.configure(agent, this.context);
 		this.stream = await watchEvents(session.harness, root.id, this.context);
-		this.stream.start(createAgentEventListener(this.writer, this.coalescer, this.thinkingCoalescer, this.attemptId, this.delivery));
+		const forwardEvents = createAgentEventListener(this.writer, this.coalescer, this.thinkingCoalescer, this.attemptId, this.delivery);
+		this.stream.start(async (events) => {
+			this.modelWatch.observe(events, Date.now());
+			await forwardEvents(events);
+		});
 		this.renewTimer = setInterval(() => void this.renew(), this.tuning.renewIntervalMilliseconds);
 		return this.drive(session, root);
 	}
@@ -264,6 +282,7 @@ class TurnAttempt {
 			await this.waitForProgress();
 			await this.guard(session);
 			if (this.parkCall !== null) return this.parkOnComputer(this.parkCall);
+			if (this.modelCallExpired()) return this.failExpiredModelCall(root);
 			if (this.mustYield()) return this.yieldTurn();
 			await this.pumpMailbox(session, root);
 			if (this.inputs.some((input) => input.settled === null)) continue;
@@ -409,7 +428,59 @@ class TurnAttempt {
 		return this.inputs.some((input) => input.settled === null);
 	}
 
+	private modelCallExpired(): boolean {
+		if (!this.inputs.some((input) => input.settled === null)) return false;
+		const waiting = this.modelWatch.snapshot(Date.now());
+		return !waiting.toolRunning && waiting.silentMilliseconds >= this.tuning.modelCallDeadlineMilliseconds;
+	}
+
+	private waitFields(): Record<string, string | number | boolean | null> {
+		const waiting = this.modelWatch.snapshot(Date.now());
+		return {
+			turn_id: this.job.turnId,
+			attempt: this.turn.attempt,
+			unsettled_inputs: this.inputs.filter((input) => input.settled === null).length,
+			model_request_outstanding: waiting.modelRequestOutstanding,
+			model_requests: waiting.modelRequests,
+			tool_running: waiting.toolRunning,
+			last_event: waiting.lastEventType,
+			silent_ms: waiting.silentMilliseconds,
+			made_progress: waiting.madeProgress,
+		};
+	}
+
+	private async failExpiredModelCall(root: Conversation): Promise<TurnExecutionOutcome> {
+		console.info(formatLogLine("model_call_deadline_exceeded", { ...this.waitFields(), deadline_ms: this.tuning.modelCallDeadlineMilliseconds }));
+		const withdrawn = delay(ABORT_WAIT_MILLISECONDS);
+		await Promise.race([root.abort(this.context).catch(() => undefined), withdrawn.promise]);
+		withdrawn.cancel();
+		await this.flushStreams();
+		this.writer.throwIfFailed();
+		const cost = recordTurnCost(this.finalizeInputs(this.session!, root), "failed").catch(() => undefined);
+		const costWait = delay(ABORT_WAIT_MILLISECONDS);
+		await Promise.race([cost, costWait.promise]);
+		costWait.cancel();
+		await failTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, MODEL_CALL_DEADLINE_REASON);
+		return "failed";
+	}
+
+	private async fruitlessYieldsSoFar(): Promise<number> {
+		let count = 0;
+		for (const event of await this.deps.turns.store.listEvents(this.job.tenantId, this.job.turnId, 0)) {
+			if (event.kind === "attempt.relinquished") count += 1;
+			else if (["turn.token", "turn.thinking", "tool.call", "tool.result"].includes(event.kind)) count = 0;
+		}
+		return count;
+	}
+
 	private async yieldTurn(): Promise<TurnExecutionOutcome> {
+		const waiting = this.modelWatch.snapshot(Date.now());
+		const fields = { ...this.waitFields(), remaining_ms: this.deps.remainingMilliseconds?.() };
+		if (!waiting.madeProgress && (await this.fruitlessYieldsSoFar()) >= this.tuning.maximumFruitlessYields) {
+			console.info(formatLogLine("turn_yield_refused", { ...fields, maximum_fruitless_yields: this.tuning.maximumFruitlessYields }));
+			return this.fail(NO_PROGRESS_REASON);
+		}
+		console.info(formatLogLine("turn_yielded", fields));
 		await this.flushStreams();
 		this.writer.throwIfFailed();
 		await recordTurnCost(this.finalizeInputs(this.session!, this.root!), "yielded");
@@ -468,8 +539,15 @@ class TurnAttempt {
 
 	private async cleanup(): Promise<void> {
 		if (this.renewTimer !== null) clearInterval(this.renewTimer);
-		await this.stream?.stop().catch(() => undefined);
-		await this.session?.close().catch(() => undefined);
+		const closing = delay(ABORT_WAIT_MILLISECONDS);
+		await Promise.race([
+			(async () => {
+				await this.stream?.stop().catch(() => undefined);
+				await this.session?.close().catch(() => undefined);
+			})(),
+			closing.promise,
+		]);
+		closing.cancel();
 	}
 
 	private async guard(session: OwnerSession): Promise<void> {

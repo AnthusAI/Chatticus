@@ -47,6 +47,8 @@ export type ModelScenario = {
 	openRenewals?: () => void;
 	/** Milliseconds the function is said to have left; unlimited until a step sets it. */
 	functionMillisecondsLeft?: number;
+	/** Timing knobs a scenario step set for every execution it starts. */
+	tuningOverrides?: Partial<ExecutorTuning>;
 	/** The execution that was superseded by a newer attempt. */
 	firstAttempt?: Promise<TurnExecutionOutcome>;
 };
@@ -209,7 +211,7 @@ export async function executorDepsFor(
 		model: { provider: "openai", modelId: scenario.scripted.modelId, thinkingLevel: "minimal" },
 		ledger: ledgerDependenciesFor(world),
 		ownerKind: "lambda",
-		tuning: { ...TEST_TUNING, ...options.tuning },
+		tuning: { ...TEST_TUNING, ...scenario.tuningOverrides, ...options.tuning },
 		turnRuns: runQueueOf(world),
 		turnProbes: probeQueueOf(world),
 		runVisibility: runVisibilityOf(world),
