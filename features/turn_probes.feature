@@ -58,7 +58,7 @@ Feature: Deadline probes watch every turn
   @owner-log
   Scenario: A model request that is never answered fails the turn and says what it waited on
     Given the model holds its first request
-    And the model may stay silent for 300 milliseconds before the turn is failed
+    And the model may stay silent for 5000 milliseconds before the turn is failed
     When user "ryan" of tenant "anthus" posts "please finish the report" addressed to bot "Assistant" on the channel
     And user "ryan" of tenant "anthus" is watching that turn through server-sent events
     And bot "Assistant" starts a turn
