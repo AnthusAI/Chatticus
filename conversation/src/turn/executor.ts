@@ -45,6 +45,7 @@ import { MESSAGE_BODY_INLINE_BYTES } from "../store/codecs/channel.ts";
 import { requestPendingErasureCompletion } from "./after-turn-erasure.ts";
 import { commitFinalAnswer, type FinalizeInputs, recordTurnCost } from "./finalize.ts";
 import { ModelCallWatch } from "./model-call-watch.ts";
+import { describePiEvents, describePiState } from "./pi-diagnostics.ts";
 import { rebuildDroppedSession } from "./rebuild-dropped-session.ts";
 import { armProbe } from "./probes.ts";
 import { computerToolUnavailableText, computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
@@ -277,6 +278,8 @@ class TurnAttempt {
 		const forwardEvents = createAgentEventListener(this.writer, this.coalescer, this.thinkingCoalescer, this.attemptId, this.delivery);
 		this.stream.start(async (events) => {
 			this.modelWatch.observe(events, Date.now());
+			const batch = describePiEvents(events);
+			if (batch !== null) console.info(formatLogLine("pi_events", { turn_id: this.job.turnId, attempt: this.turn.attempt, ...batch }));
 			await forwardEvents(events);
 		});
 		this.renewTimer = setInterval(() => void this.renew(), this.tuning.renewIntervalMilliseconds);
@@ -464,7 +467,16 @@ class TurnAttempt {
 		};
 	}
 
+	private async logPiState(): Promise<void> {
+		try {
+			console.info(formatLogLine("pi_state", { turn_id: this.job.turnId, attempt: this.turn.attempt, ...(await describePiState(this.session!.harness, this.context)) }));
+		} catch (error) {
+			console.info(formatLogLine("pi_state_unreadable", { turn_id: this.job.turnId, error: error instanceof Error ? error.name : "unknown" }));
+		}
+	}
+
 	private async failExpiredModelCall(root: Conversation): Promise<TurnExecutionOutcome> {
+		await this.logPiState();
 		console.info(formatLogLine("model_call_deadline_exceeded", { ...this.waitFields(), deadline_ms: this.tuning.modelCallDeadlineMilliseconds }));
 		const withdrawn = delay(ABORT_WAIT_MILLISECONDS);
 		await Promise.race([root.abort(this.context).catch(() => undefined), withdrawn.promise]);
@@ -496,6 +508,7 @@ class TurnAttempt {
 			return this.fail(NO_PROGRESS_REASON);
 		}
 		console.info(formatLogLine("turn_yielded", fields));
+		await this.logPiState();
 		await this.flushStreams();
 		this.writer.throwIfFailed();
 		await recordTurnCost(this.finalizeInputs(this.session!, this.root!), "yielded");

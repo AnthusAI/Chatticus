@@ -82,6 +82,11 @@ Then("the console logged {string} with {string} as {string}", function (this: Ch
 	assert.equal(lines[lines.length - 1]!.fields.get(field), value, lines[lines.length - 1]!.text);
 });
 
+Then("the console logged {string} with {string} containing {string}", function (this: ChatticusWorld, event: string, field: string, text: string) {
+	const lines = parsedLogLines(capturedConsoleLines(this)).filter((line) => line.event === event);
+	assert.ok(lines.some((line) => (line.fields.get(field) ?? "").includes(text)), `No ${event} line has ${field} containing ${text}:\n${capturedConsoleLines(this).join("\n")}`);
+});
+
 Then("the console logged no {string} line", function (this: ChatticusWorld, event: string) {
 	assert.deepEqual(parsedLogLines(capturedConsoleLines(this)).filter((line) => line.event === event), []);
 });
