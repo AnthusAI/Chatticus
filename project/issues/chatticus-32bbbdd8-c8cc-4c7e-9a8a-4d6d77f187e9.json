@@ -3,7 +3,7 @@
   "title": "M1.6: Email outbound rendering",
   "description": "Render a committed message to email: Message-ID on our mail domain, In-Reply-To and References chain (capped), Subject reuse with a single Re prefix, plain-text body plus minimal sanitized HTML, From as the bot address with the bot name as display name, Reply-To the same, Auto-Submitted auto-replied, X-Chatticus-Origin and X-Chatticus-Hops, plus-tag correlator. Record every sent Message-ID in the emsg index. Never include internal ids, tool output or workspace paths beyond what the bot wrote.\n\nAcceptance criteria:\n- Rendered mail threads correctly in the fake mail client scenario (reply chain preserved across three exchanges)\n- Headers present exactly as specified; hop counter increments from the inbound value\n- Subject and display name are injection safe (no header injection through bot names or subjects)\n- Body over the limit is truncated with a link to the web channel\n\nGherkin: features/email_message_rendering.feature\n\nDepends on: M1.4, M1.5\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -45,11 +45,18 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-m1-6"
       }
+    },
+    {
+      "id": "2e27ed47-fa6e-4e0e-8443-5e77013a3f07",
+      "author": "home",
+      "text": "Done in PR 646 (outbound email rendering and SES delivery); features/email_message_rendering.feature and email_delivery_status.feature cover the acceptance items.",
+      "created_at": "2026-11-02T20:32:25.823735Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-22T03:57:50.167193Z",
-  "updated_at": "2026-10-26T15:09:20.023074Z",
-  "closed_at": null,
+  "updated_at": "2026-11-02T20:32:25.870467Z",
+  "closed_at": "2026-11-02T20:32:25.870444Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

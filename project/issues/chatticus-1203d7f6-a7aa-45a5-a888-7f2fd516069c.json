@@ -3,7 +3,7 @@
   "title": "M1.7a: Wire ChannelsRuntime, the EventBridge publisher and PutEvents grant into the deployed front door",
   "description": "Gap found in the M1 infra plan (owner approved adding this ticket ahead of M1.8). Merged code is dark in a deployed environment: lambdas/front-door-composition.ts builds no ChannelsRuntime, there is no EventBridge publisher implementation, and the turn executor role has no events:PutEvents grant. Build the ChannelsRuntime in the front door composition (DynamoChannelStore, mail domain from environments.ts, kill switch from an environment variable defaulting to engaged, transport selection), add the EventBridge publisher for channel.message.created, and grant the turn executor events:PutEvents plus write on the tenant channels deliveries partition. Acceptance: a Gherkin scenario drives the composed runtime through the in-process composition root; infra test asserts the PutEvents grant is scoped to the bus; no behavior fork. Blocks M1.8 (SES ingress Lambda, event Lambda and adapter). Contract: docs/EXTERNAL_CHANNELS.md section 17.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -48,11 +48,18 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-m1-8"
       }
+    },
+    {
+      "id": "9743388d-7eca-4810-bd32-6cf8db2c9a25",
+      "author": "home",
+      "text": "Done in PR 645 (runtime wiring, publisher, PutEvents grant); the transport registration it deferred landed in PR 648.",
+      "created_at": "2026-11-02T20:32:25.925929Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-26T12:08:29.492621Z",
-  "updated_at": "2026-10-26T18:24:43.619217Z",
-  "closed_at": null,
+  "updated_at": "2026-11-02T20:32:25.971098Z",
+  "closed_at": "2026-11-02T20:32:25.971074Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

@@ -22,10 +22,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-m1-5"
       }
+    },
+    {
+      "id": "528c879a-8378-4e4f-a911-0dc7e3b983f0",
+      "author": "home",
+      "text": "M1.0 to M1.8 merged (PRs 641 to 648); dev mail stacks and Lambdas deployed 2026-10-27. Only M1.9 (chatticus-528400, email end-to-end demo) remains; it waits on Ryan signing in at develop.chattic.us and refreshing AWS login.",
+      "created_at": "2026-11-02T20:32:59.421765Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-sync"
+      }
     }
   ],
   "created_at": "2026-10-22T03:55:31.668190Z",
-  "updated_at": "2026-10-26T12:08:44.308892Z",
+  "updated_at": "2026-11-02T20:32:59.421993Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

@@ -3,7 +3,7 @@
   "title": "Harden inbound email parsing: ambiguous From forms, attribute text, bidi filenames",
   "description": "Non-blocking findings from the focused re-review of the inbound email parsing PR, to fix before the ingress Lambda is wired (M1.8) or in M2 at the latest. (1) Sender ambiguity: a From with an unquoted address followed by an angle-bracket address, a display name that contains an at sign, or two address-like tokens is accepted as the angle-bracket address; the receiver DMARC verdict could refer to the other one. Refuse when the display name contains an at sign or more than one address-like token appears in the raw From; also refuse obsolete route syntax and multi-at forms outright instead of relying on identity lookup. (2) html-to-text ends a tag at the first closing angle bracket, so a closing angle bracket inside a quoted attribute leaks the rest of the attribute as body text; make the tag scanner quote-aware. (3) sanitizedAttachmentFileName does not strip bidirectional override characters such as U+202E. (4) When a reply is dropped as sender_not_in_conversation the sender's own conversation-key index entry has already been written; write it only after admission. Gherkin first, red then green. Origin: review of PR 644.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -34,11 +34,18 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-hardening"
       }
+    },
+    {
+      "id": "7a0ff3bd-647a-4903-b31d-d15c8a5248c9",
+      "author": "home",
+      "text": "Done in PR 647 (inbound email parsing hardening), merged 2026-10-26.",
+      "created_at": "2026-11-02T20:32:25.722181Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-26T13:45:28.077401Z",
-  "updated_at": "2026-10-26T19:17:32.388087Z",
-  "closed_at": null,
+  "updated_at": "2026-11-02T20:32:25.768412Z",
+  "closed_at": "2026-11-02T20:32:25.768389Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

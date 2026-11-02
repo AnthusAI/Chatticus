@@ -11,12 +11,7 @@
   "labels": [
     "channels"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-5cbab606-fe83-407e-bf6b-3f97791cab78",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "8eaef529-9baf-4be8-bb41-b255a06a280f",
@@ -32,7 +27,7 @@
     }
   ],
   "created_at": "2026-10-22T03:57:51.892461Z",
-  "updated_at": "2026-10-25T17:21:00.403899Z",
+  "updated_at": "2026-11-02T20:32:51.932908Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

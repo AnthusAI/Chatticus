@@ -3,7 +3,7 @@
   "title": "M1.1: Channel binding records, owner routes and rollout switch",
   "description": "Add the ChannelBinding item (tenant_id, binding_id, provider, route key, default bot, enabled, limits, created_by, created_at), the global route lookup item (route#provider#routeKey to tenant and binding, no content), the per-organization external_channels rollout switch plus per-environment kill switch, and owner-only HTTP routes under /orgs/{tenant}/channel-bindings (create, list, get, update, disable). Mirror the bot board access model: owners change, members read, strangers get 404, role read at every request. Add the organization mail_handle (lowercase DNS label, unique per environment, reserved words refused).\n\nAcceptance criteria:\n- An owner creates an email binding and gets the derived address bot AT mail_handle.mail-domain\n- A member can list but not change; a member of another organization gets 404; a removed owner loses access at the next request\n- Two organizations cannot claim the same route key or mail_handle\n- With the rollout switch off the routes answer as if the feature does not exist for members\n- Disabling a binding keeps its data and stops admission and delivery (asserted in later features)\n- No schema migration; items use tenant_id keys\n\nGherkin: features/external_channel_binding.feature\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,18 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-channels-m1"
       }
+    },
+    {
+      "id": "98b859c7-6b13-4d5c-a049-a2a89854a89e",
+      "author": "home",
+      "text": "Verified before closing: features/external_channel_binding.feature (in features/cucumber-features.txt) covers each acceptance item: derived address, member read-only, other org sees nothing, removed owner loses access, duplicate route key and mail handle refused, rollout and kill switches, disabling keeps data. Merged with PR 641 (binding records, owner routes, rollout switch).",
+      "created_at": "2026-11-02T20:32:25.196141Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-22T03:57:48.605377Z",
-  "updated_at": "2026-10-25T16:46:10.533541Z",
-  "closed_at": null,
+  "updated_at": "2026-11-02T20:32:25.249250Z",
+  "closed_at": "2026-11-02T20:32:25.249226Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
