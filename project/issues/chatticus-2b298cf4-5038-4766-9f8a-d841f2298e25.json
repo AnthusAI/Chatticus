@@ -10,9 +10,17 @@
   "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0bc04d0a-5e0b-4548-a581-363ad965cbbf",
+      "author": "home",
+      "text": "Correction: bot-to-bot messaging already exists (docs/MESSAGING.md 'Bot to bot'; features/message_admission.feature:17): a bot posts addressed to another bot on the same channel and a turn is enqueued. This task is narrower: reaching a bot in another channel, loop and spend limits, and cost attribution.",
+      "created_at": "2026-11-02T16:54:50.041581Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-11-02T16:32:14.911874Z",
-  "updated_at": "2026-11-02T16:32:14.911902Z",
+  "updated_at": "2026-11-02T16:54:50.041968Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

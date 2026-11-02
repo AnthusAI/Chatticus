@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-3e944403-ebc3-439c-bc9b-2a8567e4f8e9",
+  "title": "Bots with their own instructions and tools, joining a channel over time",
+  "description": "Ryan 11-02: the bot answering a Story's channel changes as the Story moves between sections, and each bot has a different context and different capabilities. Already there: one Pi session per bot per channel, per-bot memory, bots seeing each other's answers as attributed lines, a bot addressing another bot. Missing: (1) adding or removing a bot on an existing channel (fbc0d9 covers only people); (2) a bot joining late reads history from the channel record, chatticus-e4f1f2, and only its context from joining on is compacted into its session, say how; (3) per-bot instructions, since the Bot record holds only name and memory and buildSystemPrompt is fixed; (4) per-bot tools, since extensions come from the execution profile not the bot, tied to 4f6eda; (5) a channel's current responder, set by the host, so an address to 'the bot' goes to the right one. Unaddressed messages still start no turn. Done: Gherkin scenarios for a bot taking over a channel, the new bot answering with history, the earlier bot no longer answering, a bot returning, and two bots with different instructions and tools on one channel.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T16:54:49.914965Z",
+  "updated_at": "2026-11-02T16:54:49.915063Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
