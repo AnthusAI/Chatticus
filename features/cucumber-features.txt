@@ -115,6 +115,7 @@ features/computer_snapshots.feature
 features/computer_snapshot_dynamo.feature
 features/customer_snapshot_bucket.feature
 features/shared_channels.feature
+features/shared_channel_people.feature
 features/member_ceiling_sinks.feature
 features/per_task_run_terminal_grant.feature
 features/demo_cli.feature

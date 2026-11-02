@@ -314,6 +314,8 @@ The owner routes for external channel bindings (`/orgs/{tenant_id}/channel-bindi
 | `POST /bots/{id}/memory` | Persist one bot memory item |
 | `POST /channels` | Open a channel. Retry with the same `Idempotency-Key` header returns the original channel |
 | `GET /channels/{id}` | Read a channel record after recycle |
+| `POST /channels/{id}/participants` | Add a member of the organization to a named channel (`user_id` in the body). An organization owner or a person already on the channel may add; a direct or external channel takes no one |
+| `DELETE /channels/{id}/participants/{user_id}` | Remove a person from a named channel, ending their reads and posts. An organization owner may remove anyone; a person may remove themself; the last person cannot be removed |
 | `GET /channels/{id}/turn` | Read the active turn on a channel after recycle, including `waiting_for` when gated; **404** when none is active |
 | `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if a turn starts. Retry with the same `Idempotency-Key` header does not duplicate the message or enqueue a second turn |
 | `GET /channels/{id}/messages?after=<seq>` | History and reconnect |

@@ -1,13 +1,21 @@
 import type { Context } from "hono";
 import {
+	addChannelHuman,
 	ChannelNotFoundError,
 	createChannel,
 	getChannel,
 	listChannels,
 	primaryHumanParticipant,
+	removeChannelHuman,
 } from "../../domain/channels.ts";
 import type { Channel, ChannelKind } from "../../domain/channels.ts";
-import { assertActingUserId, assertCallerParticipatesInChannel, assertMayReadUserRecords } from "../acting-user.ts";
+import {
+	assertActingUserId,
+	assertCallerParticipatesInChannel,
+	assertMayAddChannelPerson,
+	assertMayReadUserRecords,
+	assertMayRemoveChannelPerson,
+} from "../acting-user.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import type { IdSource } from "../app.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
@@ -113,4 +121,35 @@ export async function getChannelHandler(c: Context, deps: ChannelRouteDependenci
 		}
 		throw error;
 	}
+}
+
+/** POST /orgs/{tenant_id}/channels/{channel_id}/participants: add a member of the organization to a named channel. */
+export async function addChannelParticipantHandler(c: Context, deps: ChannelRouteDependencies): Promise<Response> {
+	const principal = await resolveUserPrincipal(c, deps);
+	if (isRefusal(principal)) {
+		return principal;
+	}
+	const raw = await c.req.json().catch(() => null);
+	const userId = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).user_id : undefined;
+	if (typeof userId !== "string" || !userId.trim()) {
+		return c.json({ detail: "user_id is required" }, 422);
+	}
+	const tenantId = pathParameter(c, "tenant_id");
+	const channelId = pathParameter(c, "channel_id");
+	assertMayAddChannelPerson(principal, await getChannel(tenantId, channelId, deps));
+	return c.json(channelPayload(await addChannelHuman(tenantId, channelId, userId, deps)), 200);
+}
+
+/** DELETE /orgs/{tenant_id}/channels/{channel_id}/participants/{user_id}: remove a person from a named channel. */
+export async function removeChannelParticipantHandler(c: Context, deps: ChannelRouteDependencies): Promise<Response> {
+	const principal = await resolveUserPrincipal(c, deps);
+	if (isRefusal(principal)) {
+		return principal;
+	}
+	const userId = pathParameter(c, "user_id");
+	assertMayRemoveChannelPerson(principal, userId);
+	return c.json(
+		channelPayload(await removeChannelHuman(pathParameter(c, "tenant_id"), pathParameter(c, "channel_id"), userId, deps)),
+		200,
+	);
 }

@@ -106,7 +106,7 @@ export function directChannelId(tenantId: string, userId: string, botId: string)
  * Open a canonical direct or named channel.
  *
  * Ported from python/src/chatticus/control_plane.py lines 2956-3030. A direct channel is deterministically
- * identified by tenant, human, and bot. A named channel has a stored name and at least two bots.
+ * identified by tenant, human, and bot. A named channel has a stored name and at least one bot.
  *
  * @throws BotNotFoundError If a bot id is unknown.
  * @throws ActorNotInChannelError If a bot belongs to another tenant.
@@ -127,8 +127,8 @@ export async function createChannel(
 			throw new InvalidChannelIdentityError("A direct channel requires exactly one bot and no name.");
 		}
 	} else if (kind === "named") {
-		if (uniqueBotIds.length < 2 || !normalizedName) {
-			throw new InvalidChannelIdentityError("A named channel requires a name and at least two bots.");
+		if (uniqueBotIds.length < 1 || !normalizedName) {
+			throw new InvalidChannelIdentityError("A named channel requires a name and at least one bot.");
 		}
 	} else {
 		throw new InvalidChannelIdentityError(`Unknown channel kind ${pythonRepr(String(kind))}.`);
@@ -180,6 +180,70 @@ export async function createChannel(
 	}
 	if (idempotencyKey !== null) {
 		await deps.store.putChannelIdempotency(tenantId, idempotencyKey, channel);
+	}
+	return channel;
+}
+
+/**
+ * Add a member of the organization to a named channel as a human participant. Adding someone already on the channel
+ * changes nothing. A direct channel is identified by its one human and one bot, and an external channel by its
+ * transport, so neither takes another person.
+ *
+ * @throws ChannelNotFoundError If the channel is unknown.
+ * @throws InvalidChannelIdentityError If the channel is not named, or the person is not a member of the organization.
+ */
+export async function addChannelHuman(
+	tenantId: string,
+	channelId: string,
+	userId: string,
+	deps: { store: MessagingStore },
+): Promise<Channel> {
+	const channel = await requireNamedChannel(tenantId, channelId, deps);
+	if (channel.participants.some((participant) => participant.kind === "human" && participant.actorId === userId)) {
+		return channel;
+	}
+	if ((await deps.store.getMembership(tenantId, userId)) === null) {
+		throw new InvalidChannelIdentityError(`User ${pythonRepr(userId)} is not a member of organization ${pythonRepr(tenantId)}.`);
+	}
+	const updated: Channel = { ...channel, participants: [...channel.participants, { kind: "human", actorId: userId }] };
+	await deps.store.putChannel(updated);
+	return updated;
+}
+
+/**
+ * Remove a human participant from a named channel, which ends their reads and posts there. The messages they wrote stay.
+ *
+ * @throws ChannelNotFoundError If the channel is unknown.
+ * @throws InvalidChannelIdentityError If the channel is not named, or the person is its last human.
+ * @throws ActorNotInChannelError If the person is not on the channel.
+ */
+export async function removeChannelHuman(
+	tenantId: string,
+	channelId: string,
+	userId: string,
+	deps: { store: MessagingStore },
+): Promise<Channel> {
+	const channel = await requireNamedChannel(tenantId, channelId, deps);
+	const humans = channel.participants.filter((participant) => participant.kind === "human");
+	if (!humans.some((participant) => participant.actorId === userId)) {
+		throw new ActorNotInChannelError(`User ${pythonRepr(userId)} is not a participant of channel ${pythonRepr(channelId)}.`);
+	}
+	if (humans.length === 1) {
+		throw new InvalidChannelIdentityError("A channel cannot lose its last person.");
+	}
+	const updated: Channel = {
+		...channel,
+		participants: channel.participants.filter((participant) => !(participant.kind === "human" && participant.actorId === userId)),
+	};
+	await deps.store.putChannel(updated);
+	await deps.store.deleteChannelUserIndex(tenantId, channelId, userId);
+	return updated;
+}
+
+async function requireNamedChannel(tenantId: string, channelId: string, deps: { store: MessagingStore }): Promise<Channel> {
+	const channel = await getChannel(tenantId, channelId, deps);
+	if (channel.kind !== "named") {
+		throw new InvalidChannelIdentityError("Only a named channel takes or loses people.");
 	}
 	return channel;
 }

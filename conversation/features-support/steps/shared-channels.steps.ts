@@ -3,7 +3,8 @@ import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
 import { createBot } from "../../src/domain/bots.ts";
 import { createChannel, type Channel } from "../../src/domain/channels.ts";
 import type { Organization } from "../../src/domain/organizations.ts";
-import { recordResponse } from "../api.ts";
+import { recordResponse, type RecordedResponse } from "../api.ts";
+import { list as listMailbox } from "../../src/pi/mailbox.ts";
 import { postMessage } from "../../src/domain/messages.ts";
 import { bearerFor, executorMessageDependencies } from "../front-door.ts";
 import { useComputer } from "./shared-computer.steps.ts";
@@ -249,5 +250,231 @@ When(
 		await asMemberOnFirstBot(this, email, (botName) =>
 			useComputer(this, botName, `write workspace file /workspace/${file} containing ${content}`),
 		);
+	},
+);
+
+const lastResponses = new WeakMap<ChatticusWorld, RecordedResponse>();
+
+function lastResponseOf(world: ChatticusWorld): RecordedResponse {
+	const response = lastResponses.get(world);
+	assert.ok(response, "The scenario has not made a request yet.");
+	return response;
+}
+
+async function openChannelAs(
+	world: ChatticusWorld,
+	email: string,
+	kind: "direct" | "named",
+	channelName: string,
+	botName: string,
+): Promise<RecordedResponse> {
+	assert.ok(world.api, "The scenario has no HTTP front door.");
+	const organization = onlyOrganization(world);
+	const response = await recordResponse(
+		await world.api.post(`/orgs/${organization.tenantId}/channels`, {
+			headers: await bearerFor(world, email),
+			body: {
+				user_id: userIdOf(world, email),
+				kind,
+				name: kind === "named" ? channelName : null,
+				bot_ids: [botNamed(world, botName).botId],
+			},
+		}),
+	);
+	lastResponses.set(world, response);
+	if (response.status === 200) {
+		world.sharedChannelsByName.set(channelName, { channelId: response.json.channel_id, tenantId: response.json.tenant_id, name: channelName });
+	}
+	return response;
+}
+
+async function addPersonAs(world: ChatticusWorld, email: string, personUserId: string, channelName: string): Promise<void> {
+	assert.ok(world.api, "The scenario has no HTTP front door.");
+	const channel = sharedChannelNamed(world, channelName);
+	lastResponses.set(
+		world,
+		await recordResponse(
+			await world.api.post(`/orgs/${channel.tenantId}/channels/${channel.channelId}/participants`, {
+				headers: await bearerFor(world, email),
+				body: { user_id: personUserId },
+			}),
+		),
+	);
+}
+
+async function removePersonAs(world: ChatticusWorld, email: string, personUserId: string, channelName: string): Promise<void> {
+	assert.ok(world.api, "The scenario has no HTTP front door.");
+	const channel = sharedChannelNamed(world, channelName);
+	lastResponses.set(
+		world,
+		await recordResponse(
+			await world.api.delete(`/orgs/${channel.tenantId}/channels/${channel.channelId}/participants/${personUserId}`, {
+				headers: await bearerFor(world, email),
+			}),
+		),
+	);
+}
+
+async function readAs(world: ChatticusWorld, email: string, channelName: string): Promise<RecordedResponse> {
+	assert.ok(world.api, "The scenario has no HTTP front door.");
+	const channel = sharedChannelNamed(world, channelName);
+	return recordResponse(
+		await world.api.get(`/orgs/${channel.tenantId}/channels/${channel.channelId}/messages`, { headers: await bearerFor(world, email) }),
+	);
+}
+
+Given(
+	"{string} opens named channel {string} with organization bot {string}",
+	async function (this: ChatticusWorld, email: string, channelName: string, botName: string) {
+		assert.equal((await openChannelAs(this, email, "named", channelName, botName)).status, 200);
+	},
+);
+
+When(
+	"{string} opens direct channel {string} with organization bot {string}",
+	async function (this: ChatticusWorld, email: string, channelName: string, botName: string) {
+		assert.equal((await openChannelAs(this, email, "direct", channelName, botName)).status, 200);
+	},
+);
+
+When(
+	"{string} tries to open a named channel {string} with no bot",
+	async function (this: ChatticusWorld, email: string, channelName: string) {
+		assert.ok(this.api, "The scenario has no HTTP front door.");
+		const organization = onlyOrganization(this);
+		lastResponses.set(
+			this,
+			await recordResponse(
+				await this.api.post(`/orgs/${organization.tenantId}/channels`, {
+					headers: await bearerFor(this, email),
+					body: { user_id: userIdOf(this, email), kind: "named", name: channelName, bot_ids: [] },
+				}),
+			),
+		);
+	},
+);
+
+When(
+	"{string} adds {string} to shared channel {string}",
+	async function (this: ChatticusWorld, email: string, person: string, channelName: string) {
+		await addPersonAs(this, email, userIdOf(this, person), channelName);
+		assert.equal(lastResponseOf(this).status, 200, lastResponseOf(this).text);
+	},
+);
+
+When(
+	"{string} tries to add {string} to shared channel {string}",
+	async function (this: ChatticusWorld, email: string, person: string, channelName: string) {
+		await addPersonAs(this, email, userIdOf(this, person), channelName);
+	},
+);
+
+When(
+	"{string} tries to add someone outside the organization to shared channel {string}",
+	async function (this: ChatticusWorld, email: string, channelName: string) {
+		await addPersonAs(this, email, "user-outside-the-organization", channelName);
+	},
+);
+
+When(
+	"{string} removes {string} from shared channel {string}",
+	async function (this: ChatticusWorld, email: string, person: string, channelName: string) {
+		await removePersonAs(this, email, userIdOf(this, person), channelName);
+		assert.equal(lastResponseOf(this).status, 200, lastResponseOf(this).text);
+	},
+);
+
+When(
+	"{string} tries to remove {string} from shared channel {string}",
+	async function (this: ChatticusWorld, email: string, person: string, channelName: string) {
+		await removePersonAs(this, email, userIdOf(this, person), channelName);
+	},
+);
+
+When(
+	"{string} posts {string} naming no bot in shared channel {string}",
+	async function (this: ChatticusWorld, email: string, body: string, channelName: string) {
+		assert.ok(this.api, "The scenario has no HTTP front door.");
+		const channel = sharedChannelNamed(this, channelName);
+		const response = await recordResponse(
+			await this.api.post(`/orgs/${channel.tenantId}/channels/${channel.channelId}/messages`, {
+				headers: await bearerFor(this, email),
+				body: { author_kind: "human", author_id: userIdOf(this, email), body },
+			}),
+		);
+		lastResponses.set(this, response);
+		assert.equal(response.status, 200, response.text);
+	},
+);
+
+When(
+	"{string} tries to post {string} in shared channel {string}",
+	async function (this: ChatticusWorld, email: string, body: string, channelName: string) {
+		assert.ok(this.api, "The scenario has no HTTP front door.");
+		const channel = sharedChannelNamed(this, channelName);
+		lastResponses.set(
+			this,
+			await recordResponse(
+				await this.api.post(`/orgs/${channel.tenantId}/channels/${channel.channelId}/messages`, {
+					headers: await bearerFor(this, email),
+					body: { author_kind: "human", author_id: userIdOf(this, email), body },
+				}),
+			),
+		);
+	},
+);
+
+Then("the request is refused with status {int}", function (this: ChatticusWorld, status: number) {
+	assert.equal(lastResponseOf(this).status, status, lastResponseOf(this).text);
+});
+
+Then("the shared channel post started no turn", function (this: ChatticusWorld) {
+	assert.equal(lastResponseOf(this).json.turn_id, null);
+});
+
+Then(
+	"organization bot {string} has a message from {string} saying {string} waiting in shared channel {string}",
+	async function (this: ChatticusWorld, botName: string, email: string, body: string, channelName: string) {
+		const channel = sharedChannelNamed(this, channelName);
+		const bot = botNamed(this, botName);
+		const dependencies = await executorMessageDependencies(this);
+		const waiting = await listMailbox(dependencies.mailbox, channel.tenantId, bot.botId, channel.channelId);
+		assert.deepEqual(
+			waiting.map((item) => ({ authorId: item.authorId, body: item.body, addressedToBotId: item.addressedToBotId })),
+			[{ authorId: userIdOf(this, email), body, addressedToBotId: null }],
+		);
+	},
+);
+
+Then(
+	"{string} cannot read shared channel {string}",
+	async function (this: ChatticusWorld, email: string, channelName: string) {
+		assert.equal((await readAs(this, email, channelName)).status, 403);
+	},
+);
+
+Then(
+	"{string} lists shared channel {string} among their channels",
+	async function (this: ChatticusWorld, email: string, channelName: string) {
+		assert.ok(this.api, "The scenario has no HTTP front door.");
+		const channel = sharedChannelNamed(this, channelName);
+		const response = await recordResponse(
+			await this.api.get(`/orgs/${channel.tenantId}/users/${userIdOf(this, email)}/channels`, { headers: await bearerFor(this, email) }),
+		);
+		assert.equal(response.status, 200, response.text);
+		assert.ok((response.json.channels as Array<{ channel_id: string }>).some((listed) => listed.channel_id === channel.channelId));
+	},
+);
+
+Then(
+	"{string} does not list shared channel {string} among their channels",
+	async function (this: ChatticusWorld, email: string, channelName: string) {
+		assert.ok(this.api, "The scenario has no HTTP front door.");
+		const channel = sharedChannelNamed(this, channelName);
+		const response = await recordResponse(
+			await this.api.get(`/orgs/${channel.tenantId}/users/${userIdOf(this, email)}/channels`, { headers: await bearerFor(this, email) }),
+		);
+		assert.equal(response.status, 200, response.text);
+		assert.ok(!(response.json.channels as Array<{ channel_id: string }>).some((listed) => listed.channel_id === channel.channelId));
 	},
 );

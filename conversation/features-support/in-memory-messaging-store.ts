@@ -200,6 +200,8 @@ export class InMemoryMessagingStore implements MessagingStore {
 			.sort((left, right) => compareStrings(left.channelId, right.channelId));
 	}
 
+	async deleteChannelUserIndex(): Promise<void> {}
+
 	async resolveChannelTenant(channelId: string): Promise<string | null> {
 		for (const channel of this.channels.values()) {
 			if (channel.channelId === channelId) {

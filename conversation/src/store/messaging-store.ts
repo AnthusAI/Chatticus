@@ -76,6 +76,8 @@ export interface MessagingStore {
 	putChannelIfAbsent(channel: Channel): Promise<Channel>;
 	getChannel(tenantId: string, channelId: string): Promise<Channel | null>;
 	listChannels(tenantId: string, userId: string): Promise<Channel[]>;
+	/** Stop listing a channel for one user; the channel record itself is unchanged. */
+	deleteChannelUserIndex(tenantId: string, channelId: string, userId: string): Promise<void>;
 	/** The tenant that owns a channel identifier, or null when no tenant does. */
 	resolveChannelTenant(channelId: string): Promise<string | null>;
 	getChannelIdempotency(tenantId: string, idempotencyKey: string): Promise<Channel | null>;

@@ -27,7 +27,13 @@ import type { ChannelsRuntimeSource } from "../channels/runtime.ts";
 import { registerChannelBindingRoutes } from "./routes/channel-bindings.ts";
 import { operatorExternalChannelsHandler } from "./routes/operator.ts";
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
-import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
+import {
+	addChannelParticipantHandler,
+	createChannelHandler,
+	getChannelHandler,
+	listUserChannelsHandler,
+	removeChannelParticipantHandler,
+} from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
 import { createUserTaskHandler, getTaskHandler, listUserTasksHandler, patchTaskHandler } from "./routes/tasks.ts";
 import { postVoiceMessageHandler } from "./routes/voice-messages.ts";
@@ -356,6 +362,14 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id", audience: "user" }, (c) =>
 		getChannelHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/participants", audience: "user" }, (c) =>
+		addChannelParticipantHandler(c, userRoutes),
+	);
+	declareRoute(
+		app,
+		{ method: "DELETE", path: "/orgs/:tenant_id/channels/:channel_id/participants/:user_id", audience: "user" },
+		(c) => removeChannelParticipantHandler(c, userRoutes),
 	);
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
 		postChannelMessageHandler(c, messageRoutes),
