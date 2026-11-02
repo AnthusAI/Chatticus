@@ -131,6 +131,14 @@
 		},
 		{
 			"role": "ownerTurn",
+			"action": "dynamodb:Query",
+			"store": "messagingTable",
+			"keyPattern": "^[^#]+#channel#[^#]+$",
+			"exampleKey": "{tenantId}#channel#{channelId}",
+			"note": "The channel record, read to build a session that holds no history and, for a long message, to read its text."
+		},
+		{
+			"role": "ownerTurn",
 			"action": "dynamodb:DeleteItem",
 			"store": "messagingTable",
 			"keyPattern": "^[^#]+#channel#[^#]+$",
