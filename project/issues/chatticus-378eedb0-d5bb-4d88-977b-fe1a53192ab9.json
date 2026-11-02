@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-378eedb0-d5bb-4d88-977b-fe1a53192ab9",
+  "title": "Sub-agent tool on pi-durable",
+  "description": "Give bots a tool that starts child conversations using pi-durable task ownership (ownership kind task), waits for them, and can abort them. Must ship with cost ticket 24308d, because measureTurnUsage reads only the root conversation and child spend would go uncounted. Done: Gherkin scenarios for a child result reaching the parent, abort, crash recovery, and child cost counted in the turn.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T15:33:53.234610Z",
+  "updated_at": "2026-11-02T15:33:53.234634Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

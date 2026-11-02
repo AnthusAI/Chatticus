@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-a21d2b19-6f23-4623-8cb1-b16d57fa616f",
+  "title": "A bot can read the other channels it belongs to",
+  "description": "Tools for a bot to list, read and search the channels it participates in, and nothing else. This is how the newsroom bot sees every Story conversation while each stays a separate session. Settle the open question in docs/ORGANIZATIONS.md: a newsroom has no restricted channels, so reading across is intended, but the rule must hold where a bot is in both a restricted channel and an open one. Done: Gherkin scenarios for reading a joined channel, refusal on a channel it has not joined, and search across channels; ORGANIZATIONS.md updated. Depends on the shared channel task.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T15:33:53.390252Z",
+  "updated_at": "2026-11-02T15:33:53.390315Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

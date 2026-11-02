@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "title": "Shared conversations anchored to a host object, with a newsroom bot",
+  "description": "Papyrus needs this for its Story agent (Papyrus epic PPY-4b070c). Ryan, 2026-11-02: do it properly in Chatticus; Papyrus does not work around the gaps.\n\nThe shape: one organization per newsroom. One newsroom bot. One channel per Story by default, more allowed, each with its own separate Pi session. Several editors share each channel. The newsroom bot can see every Story conversation, and has a channel of its own for newsroom-level talk. It works through sub-agents.\n\nVerified on develop 8c4be08a: a channel stores participants, but createChannel takes one human and nothing adds another; named channels need at least two bots; embedded hosts can only open a private direct channel; there is no sub-agent tool; a bot's tools are fixed by the executor; no tool reads another channel.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T15:33:30.742960Z",
+  "updated_at": "2026-11-02T15:33:30.743517Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

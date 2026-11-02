@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-b8d7e93e-d864-4457-9f4f-127b338480a3",
+  "title": "Edits, deletion, moderation and replies on channel messages",
+  "description": "Needed only if Papyrus moves its people's conversations onto channels (waiting on Ryan). Papyrus messages can be edited, deleted by their author, moderated and replied to. Chatticus messages are append-only log entries in Pi sessions, so these would be new entries that change what is shown. A bot must see the correction. Done: Gherkin scenarios for each action, and for what the bot sees afterwards.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T15:33:53.470083Z",
+  "updated_at": "2026-11-02T15:33:53.470104Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

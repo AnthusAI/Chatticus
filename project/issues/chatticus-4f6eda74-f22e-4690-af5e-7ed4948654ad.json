@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-4f6eda74-f22e-4690-af5e-7ed4948654ad",
+  "title": "Host-supplied tools for a bot",
+  "description": "Let an embedding host give its bot tools at turn time, so Papyrus can offer read Story, list variations, search knowledge and offer variation. The tool runs on the host with the verified principal of the turn, and goes through existing capability policy. Done: Gherkin scenarios for a host tool call, a host failure, a refused tool, and the activity shown on the reply. Depends on the embedded channel task.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T15:33:53.312458Z",
+  "updated_at": "2026-11-02T15:33:53.312481Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

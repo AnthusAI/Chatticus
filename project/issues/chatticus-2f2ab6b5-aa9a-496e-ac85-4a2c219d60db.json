@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-2f2ab6b5-aa9a-496e-ac85-4a2c219d60db",
+  "title": "A stable channel for a host object, opened by embedded hosts",
+  "description": "A host opens or finds a channel by a stable key such as story#<lineage>, more than one allowed per object by giving each a name. Repeating the call returns the same channel. Embedded hosts get a tenant for the newsroom and editor ids as participants, alongside the existing private channel, which stays private. Done: Gherkin scenarios for idempotent open, a second named channel, two editors in one channel, and another tenant refused. Check external conversation mapping for reuse first, and epic d2699a so paths do not conflict. Depends on the shared channel task.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T15:33:53.156873Z",
+  "updated_at": "2026-11-02T15:33:53.156896Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
