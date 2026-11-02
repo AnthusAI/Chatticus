@@ -89,6 +89,12 @@ export class ActorNotInChannelError extends DomainError {
 	}
 }
 
+export class MessageBodyTooLargeError extends DomainError {
+	constructor(message: string) {
+		super("message_body_too_large", message);
+	}
+}
+
 export class IdempotencyKeyReuseError extends DomainError {
 	constructor(message: string) {
 		super("idempotency_key_reused", message);
@@ -411,6 +417,9 @@ export function statusFor(error: unknown): number {
 	}
 	if (error instanceof IdempotencyKeyReuseError) {
 		return 409;
+	}
+	if (error instanceof MessageBodyTooLargeError) {
+		return 413;
 	}
 	if (error instanceof IdempotencyReservationBusyError) {
 		return 409;

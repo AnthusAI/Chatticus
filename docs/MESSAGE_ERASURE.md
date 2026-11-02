@@ -1,11 +1,11 @@
 # Erasing a deleted message
 
-Status: design, with a proving spike. Nothing here is reachable from a route yet. Tickets: chatticus-c02220 (this),
-chatticus-e4f1f2 (the channel record). Ryan's decision (2026-11-02): deletion is real, so no privacy or retention problem is
-waiting later.
+Status: decided and built, with no route calling it yet. Tickets: chatticus-c02220 (this), chatticus-e4f1f2 (the channel
+record). Ryan's decisions (2026-11-02): deletion is real, so no privacy or retention problem is waiting later; the channel
+record is the only truth and a bot's Pi session is a disposable copy of it; everything is erased at once except what ages
+out within 35 days, with the limits below stated plainly to users.
 
-The design below is not yet decided by Ryan. It is built so that choosing it, or not, is cheap to change: the channel record
-is useful on its own, and the erasure code is five small modules that no route calls.
+What users are told is in "What the product says". The design is in the rest.
 
 ## What is built
 
@@ -14,9 +14,13 @@ is useful on its own, and the erasure code is five small modules that no route c
 | The channel record: one DynamoDB row per message, `msg#<seq>` in the channel's partition, written by `postMessage` and, at turn end, by `commitFinalAnswer` | `domain/messages.ts`, `turn/finalize.ts`, `store/codecs/channel.ts` |
 | Tombstone: `tombstoneMessage` empties the body, activity and origin and sets `deleted_at` | `store/dynamo-messaging-store.ts` |
 | Drop a session: every DynamoDB item of `PI#<tenant>#<bot>#<channel>` except `OWNER`, every S3 object version under `conversations/<storage>/` | `pi/session-drop.ts` |
-| Rebuild a session from the record | `pi/session-rebuild.ts` |
-| Erase one message, and finish an erasure that waited on an open turn | `domain/message-erasure.ts` |
-| Backfill existing channels into the record | `migration/backfill-record.ts`, `migrate-transcripts backfill-record` |
+| Rebuild a session from the record, by the turn owner at the start of the bot's next turn | `turn/rebuild-dropped-session.ts`, `pi/session-rebuild.ts` |
+| Erase one message (tombstone, mailboxes, drop sessions, copy cost detail out, sweep the answer's turn), and finish an erasure that waited on an open turn | `domain/message-erasure.ts` |
+| The erasure function: an SQS queue, a one-minute sweep of pending erasures, and its own role | `lambdas/message-erasure.ts`, `infra/lib/control-plane-stack.ts`, role `erasure` of the role access manifest |
+| A turn that ends asks for the erasures that waited on it to be finished | `turn/after-turn-erasure.ts`, called from `turn/executor.ts` |
+| Per-call cost detail copied out of the session into the messaging table | `ledger/call-cost-copy.ts` |
+| Backfill existing channels into the record, and copy their cost detail | `migration/backfill-record.ts`, `migrate-transcripts backfill-record` |
+| Scrub old idempotency items | `migration/scrub-idempotency.ts`, `migrate-transcripts scrub-idempotency` (reports only, `--execute` writes) |
 | Proof | `features/channel_message_record.feature`, `features/message_erasure.feature`, `features/session_rebuild.feature` |
 
 ## Where a message's text can live
@@ -28,17 +32,17 @@ Each row says how it was established. "Verified" means a scenario scans the stor
 | --- | --- | --- | --- |
 | Channel record row (`msg#`) | body, origin assertion; tool arguments and outputs in `activity` of bot answers | verified | tombstoned at once |
 | Bot answers to the turn the message started (`in_reply_to_seq`) | the answer, and its activity, are derived from the message | verified | tombstoned at once with it |
-| Mailbox items (`MB#<tenant>#<bot>#<channel>`) | body, until the bot reads it | verified | deleted at once |
+| Mailbox items (`MB#<tenant>#<bot>#<channel>`) | body, until the bot reads it; a body over 250,000 bytes is not copied, the item holds a pointer to the record | verified | deleted at once |
 | Pi session, S3 commit objects | every entry (user and assistant text, tool calls and results, compaction summaries, submissions, documents) | verified: the text is in the commit objects and in no DynamoDB item of the session | dropped at once, every version |
 | Pi session snapshots (`conversations/<storage>/snapshots/`) | packs of commit objects | read from `storage/snapshot-object.ts`; same prefix as the commits | dropped at once with the prefix |
 | Pi session, DynamoDB items (`PI#...`) | index items (ids, positions, pointers) | verified: no item holds the text | dropped at once; `OWNER` kept, it holds only the fence |
 | Sub-agent conversations | pi-durable keeps a task's child conversations in the same storage (README, "Abort and Subagents"), so they live in the session partition and objects. There is no sub-agent tool yet (chatticus-378eed) | read from the README | gone with the session |
 | Compaction summaries | entries of the session (`pi.compaction`), so in the commit objects | README, "Compaction": older entries stay in storage | gone with the session. A summary is never kept across a drop; the rebuilt session is summarized again from the remaining text |
-| Post idempotency item (`idem#` in the messaging table) | **the whole message, forever.** It stored the body, and has no expiry. The embedded chat client sends an `Idempotency-Key` on every post (`chat/client/admission.ts:26`) | verified by a scenario before the fix | **fixed in this change**: the item keeps only the channel, sequence, message id and turn id, and a replay reads the message from the record. Items written before this change still hold bodies and must be scrubbed once (see "Before this ships") |
+| Post idempotency item (`idem#` in the messaging table) | **the whole message, forever.** It stored the body, and has no expiry. The embedded chat client sends an `Idempotency-Key` on every post (`chat/client/admission.ts:26`) | verified by a scenario before the fix | **fixed in this change**: the item keeps only the channel, sequence, message id and turn id, and a replay reads the message from the record. Items written before this change still hold bodies; `migrate-transcripts scrub-idempotency --execute` removes them (it reports only, by default) |
 | Message cache (`MessageBodyCache`) | parsed commit objects, in the memory of each front door instance | `pi/message-cache.ts` | the dropping process evicts its own entries; other instances keep theirs until they recycle. Nothing asks for those keys again, because new commit objects carry a higher fence. Expires with the instance; cannot be reached |
-| Turn events (`evt#` rows; streamed tokens, tool arguments and outputs, the completed body) | the reply, and tool text | `store/turn-events.ts`; `TURN_EVENT_TTL_SECONDS` is 24 hours | **expires**: 24 hours, plus DynamoDB's TTL lag (AWS documents deletion within about 48 hours of expiry). Explicit deletion needs a turn lookup by channel and prompt, which does not exist |
-| Turn record, ledger rows, per-call cost records | ids and counters only; no text | `ledger/`, `domain/turns.ts`: no body field | nothing to erase |
-| Computer action items (`action-store`) | tool `arguments` and `result` (for example the body of a `send`), with `turn_id` and `channel_id`, and no expiry | `store/codecs/action.ts` | not reached. Linked to a turn, not to a message. Needs a sweep by turn, which is not built |
+| Turn events (`evt#` rows; streamed tokens, tool arguments and outputs, the completed body) | the reply, and tool text | `store/turn-events.ts`; `TURN_EVENT_TTL_SECONDS` is 24 hours | **erased at once for an erased answer's turn** (the turn id is in the answer's message id, `reply-<turn>`); a turn the erasure cannot name expires in 24 hours plus DynamoDB's TTL lag (AWS documents about 48 hours). The completion event carries no body for a reply over 250,000 bytes |
+| Turn record, ledger rows, per-call cost records | ids and counters only; no text | `ledger/`, `domain/turns.ts`: no body field | nothing to erase. The per-call cost detail is copied from the session into the messaging table (`call#` rows of the turn) when the turn's cost is recorded and again before a drop, so the cost API still answers |
+| Computer action items (`action-store`) | tool `arguments` and `result` (for example the body of a `send`), with `turn_id` and `channel_id`, and no expiry | `store/codecs/action.ts`; the turn's `act#` index names them | **arguments and result removed at once for an erased answer's turn** (the record stays, for what ran). An action of a turn whose answer is not erased, but that copied the text into a command, is not found |
 | Bot memory (`Bot.memory`) | free-form strings, put into every prompt (`turn/prompt.ts:24`) | the only writer is `rememberBotMemory`, which no tool calls today | **rule**: memory holds facts and instructions, never quoted message text. Nothing enforces it, and a paraphrase cannot be found. A future tool that writes memory must say so in its description and must not copy a message |
 | CloudWatch logs | `provider_failed` logs the provider's error message (secrets redacted, length-limited), which can echo request text | `turn/executor.ts:293`, `turn/classify-errors.ts` | **expires**: 30 days (`CHATTICUS_LOG_RETENTION`). Not reachable sooner |
 | CloudTrail audit bucket | management events only; no data events, so no DynamoDB item or S3 object content | `infra/lib/audit-trail-stack.ts` header | nothing to erase |
@@ -113,16 +117,26 @@ session holds no summary, and the next one is made from remaining text.
 - the record row, and the rows of bot answers to the turn the message started, as tombstones (sequence, author and
   `deleted_at` remain; body, activity and origin are removed)
 - the message's mailbox items for every bot on the channel
-- every bot session on the channel that has no open turn: its DynamoDB items except `OWNER`, and every S3 object version and
-  delete marker under its prefix, snapshots included; and then the session is rebuilt from the record without the text
+- every bot session on the channel that has no open turn: its per-call cost detail is copied out, then its DynamoDB items
+  except `OWNER` and every S3 object version and delete marker under its prefix, snapshots included, are deleted. The turn
+  owner rebuilds the session from the record, without the text, at the start of the bot's next turn
 - the post idempotency copy (new items hold no text)
+- the events of the erased answers' turns, and the arguments and results of their computer actions
+- the continuation items of a long body
 
-**Waits for an open turn** (the tombstone and the mailbox deletion happen at once; the session stays until the turn ends):
-a pending marker `ERASURE#<tenant>#<channel>` is written. `completePendingErasures` repeats the erasure, which also
-tombstones the answer the finished turn committed. Until then the bot's session still holds the text and the running turn
-may use it. Nothing calls `completePendingErasures` yet; it belongs where a turn closes (`finalize.ts`) and in a sweeper.
-If the open turn's prompt was the erased message, the executor finds its mailbox item gone and may fail the turn; I did not
-look into what the user sees then.
+**Waits for an open turn** (the tombstone and the mailbox deletion happen at once; that bot's session stays until its turn ends):
+a pending marker is written in one partition, `ERASURE#pending`. When the turn ends, the owner (`turn/after-turn-erasure.ts`)
+looks for a marker on the channel and, if there is one, sends `complete` to the erasure queue; the erasure function then
+repeats the erasure, which also tombstones the answer the finished turn committed and sweeps its turn. A computer owner has no
+erasure queue, and a lost message is possible, so the erasure function also runs once a minute over every pending marker.
+Either way the text is gone from the session within about a minute of the turn ending. Until then the running turn may use it.
+
+**When the erased message is the running turn's prompt.** Two cases, both with scenarios:
+- The turn is already running, with the prompt in its session: it finishes and commits its answer; the answer is tombstoned
+  by the completion, with its events and computer action arguments, and the session is dropped.
+- The turn has not started yet (the erasure came before the executor claimed it): the executor finds no prompt in the
+  mailbox and fails the turn with "The message this turn was meant to answer is missing." No answer is committed. The failed
+  turn also asks for the pending erasure to be completed.
 
 **Expires** (named so nobody claims otherwise):
 - turn events: 24 hours plus TTL lag, up to about 48 hours more
@@ -158,10 +172,11 @@ Stated plainly, from `features/session_rebuild.feature`:
   what it said, not what it did or saw. A bot that relied on a past tool result must be able to call the tool again.
 - **Compaction summaries and the system prompt entries.** The next turn regenerates the prompt; a long channel is summarized
   again by the model when the history no longer fits (a model call; measured only in count, not in cost).
-- **Per-call cost documents and usage totals**, which live in the session (`ledger/call-cost.ts`). The cost API's per-call
-  detail (`readTurnCalls`, `domain/costs.ts:595`) reads them from the session, so after a drop it returns nothing for old
-  turns (a scenario shows this). The ledger rows in the messaging table are unaffected. To keep the detail, copy the call
-  records to the ledger table before any drop. Not built.
+- **Per-call cost documents and usage totals** live in the session (`ledger/call-cost.ts`). They are copied into the
+  messaging table (`call#` rows in the turn's partition, counters and prices only, no expiry) when each turn's cost is
+  recorded, before any erasure drops a session, and once over every existing session by `backfill-record`. The cost API's
+  drill-down (`readTurnCalls`) reads the copy, so it still answers after a drop (a scenario shows it). What is lost is the
+  session's own usage totals, which nothing reads once the turn's ledger row is written.
 - **The provider session identity** (prompt-cache affinity), so the next turn pays a cold cache.
 - **The exact shape of the bot's earlier assistant messages** (usage, stop reason, response ids).
 
@@ -198,42 +213,61 @@ write is conditional (`attribute_not_exists(sk) OR message_id = :id`), so a retr
 same row and a different message at a taken sequence is refused. A bot answer is written at turn end, after its channel log
 line and before its mailbox mirrors; a crash and re-run reuses the sequence and writes the same row.
 
-**Size rule.** A body over 250,000 bytes is refused (`MessageBodyTooLargeError`); activity is cut to 100,000 bytes. The
-item limit is 400 KB. The recommended overflow, not built, is an S3 object under the PiSessions bucket keyed by message id,
-referenced from the row, deleted with the row on erasure (the same drop-by-version code). I stopped at the guard because it
-changes where a bot reply is stored and I did not want to decide that alone. **A bot reply over 250,000 bytes now fails
-`commitFinalAnswer`.** That is possible with a long model output, and an inbound email is cut at 100,000 *characters*, which is up to
-400,000 bytes of emoji. A scenario (`email_inbound_parsing.feature`, "A long body is cut at 100 KB") hit the first limit I
-chose at 100,000 bytes, which is why it is 250,000 now. Do not ship without the overflow or a decision to truncate by bytes.
+**Size rule.** A body up to 250,000 bytes sits in its row. A longer one, up to 2,000,000 bytes, is cut into continuation items
+of up to 300,000 bytes in the same partition (`msg#<seq>#p0001`, `#p0002`, ...). They sort right after their row, so one
+query reads a message with its parts, and they are written before the row, so nobody sees half a message. Erasing deletes them
+with the row. A body over 2,000,000 bytes is refused with status 413 and nothing is written. Activity is cut to 100,000 bytes.
+A mailbox item for a body over 250,000 bytes holds a pointer (`body_in_record`) and the executor reads the text from the
+record. The completion event of a turn carries no body for such a reply, because listeners read the message.
+
+**The overflow is not S3, which is what was asked.** Continuation items are in the same table and partition, so no role needs
+a new grant (the owner role already may write `<tenant>#channel#*`), they are erased by the same call, and they are covered by
+the same backup window. S3 would have needed a bucket client in six composition roots and new rows for five roles. If bodies
+near the cap become common, move them to S3 then; the cap and the item layout are in one codec. A scenario posts 700,000
+characters to a channel with no bot and reads it back whole; another sends 400,000 to a bot and checks the model received
+it. A bot reply over the row size takes the same path through `putMessage`, but I could not run that end to end: a 300,000
+character streamed reply makes the test harness exceed its timeout. The path is covered by the human post and the codec tests.
 
 **Existing channels.** Backfill, not a fallback: `migrate-transcripts backfill-record` merges each channel's sessions and
-mailboxes once, with the same merge the list used before, and writes the missing rows, activity included. Rows that already
-exist (old Python `msg#` items, rows written since the record began) are left alone. It is idempotent. Order for a deploy:
-run it, deploy, run it again; the second pass writes only what the old code committed between the two. There is a window
-between deploy and the first pass in which an unbackfilled channel lists empty, so the first pass must precede the deploy.
-Bodies over the limit are reported (`TOO_LARGE=`) and not written. I did not run it against any environment.
+mailboxes once, with the same merge the list used before, writes the missing rows (activity included), and copies each bot
+session's per-call cost records into the messaging table. Rows that already exist (old Python `msg#` items, rows written since
+the record began) are left alone. It is idempotent. Order for a deploy: run it, deploy, run it again; the second pass writes
+only what the old code committed between the two. Between the deploy and the first pass an unbackfilled channel would list
+empty, so the first pass must precede the deploy. A body over the cap is reported (`TOO_LARGE=`) and not written. I did not
+run it against any environment.
 
 Backfilled rows have no `in_reply_to_seq`, so an erase cannot find the answers to old messages; it tombstones only the
 message itself.
 
-## Roles and infrastructure this needs
+## Roles and infrastructure
 
-The scenarios run the erasure with clients outside the front door's recorded role, because the role access manifest rejected
-the first attempt: no role may today delete Pi session objects, list their versions, or batch-delete session items. A new
-role, assumed by one function that reads an erasure queue, needs: `dynamodb:Query` and `BatchWriteItem` on the Conversations
-table for `PI#` partitions; `s3:ListBucketVersions` and `s3:DeleteObjectVersion` on the PiSessions bucket; the Messaging
-table (`UpdateItem` on `msg#`, `DeleteItem` on `MB#`, put and delete on `ERASURE#`). The front door only enqueues.
+A new function, `MessageErasure`, holds the role `erasure` (`infra/lib/control-plane-stack.ts`). It reads a queue
+(`MessageErasureJobs`, with a dead-letter queue and an alarm) and an EventBridge rule that runs it once a minute. Its policy
+is only what the role access manifest lists for `erasure`, with the table access narrowed by leading key:
+- Messaging table: `GetItem Query UpdateItem DeleteItem` on `*#channel#*`; `DeleteItem` on `MB#*`; `GetItem Query PutItem
+  DeleteItem` on `*#turn#*`; `Query PutItem DeleteItem` on `ERASURE#pending`; `UpdateItem` on `*#computer#actions`.
+- Conversations table: `GetItem BatchGetItem Query BatchWriteItem` on `PI#*`.
+- PiSessions bucket: `GetObject DeleteObject DeleteObjectVersion` on `conversations/*`; `ListBucket ListBucketVersions`.
+- No access to any secret parameter (nine denial rows in the manifest, as for the other roles).
 
-The rebuild needs the owner's session write rights (commit objects, fenced transactions). Cleaner: the erasure role drops, and
-the **turn owner rebuilds lazily** when it opens a session that is missing or empty and the record has history. That is a
-change in `turn/executor.ts`, which another change is editing; I did not touch it. The spike rebuilds eagerly, in the erasure
-call, which is simpler to prove and wrong to ship: it needs the owner rights in the erasure role.
+It cannot write a session, so it cannot rebuild one, and it holds no model key. The front door no longer reads Pi sessions at
+all (the listing and the cost drill-down read the messaging table), so its grants on the Conversations table and the bucket
+are removed. The turn executor may send to the erasure queue. The manifest's `erasure` rows are checked against what the
+scenarios' erasure worker really sends, and against the synthesized policy.
+
+No route sends to the queue yet. The route that lets a person delete a message is the work that remains, and it needs the
+front door to be allowed `sqs:SendMessage` on the queue and nothing else.
+
+The hosted runtime that Papyrus deploys (`runtime/site-hosted-chat.ts`) has its own stack and is not covered: Papyrus needs
+the same function, queue and role in its chat stack, and a lifecycle rule on its session bucket.
 
 ## What makes "the session is a cache" unsound, or at least costly
 
-1. **Cost detail is session-resident** (above). Either copy it out first or accept the loss.
-2. **A turn that starts between the drop and the rebuild** runs against an empty session. The spike does not gate this. Needs
-   an `erasing` flag on the channel that admission respects, or the lazy rebuild above, which closes the gap by construction.
+1. **Cost detail was session-resident.** Fixed by the copy (above).
+2. **A turn that starts between the drop and the rebuild** cannot run on an empty session: the owner rebuilds before it takes
+   in the mailbox, so the window is closed by construction. The rebuild also gives a bot that joins a channel late the
+   history of the record (a scenario shows the first request holds both earlier messages), which settles part of
+   chatticus-3e9444.
 3. **Departed bots.** There is no remove-bot operation yet (chatticus-3e9444). When one exists it must drop that bot's
    session, or erasure will not know the partition exists.
 4. **Recovery of an open turn** reads the session (`PiSubmissionInspector.turnAnswered`). After a drop, an old turn reads as
@@ -247,14 +281,34 @@ call, which is simpler to prove and wrong to ship: it needs the owner rights in 
 
 ## Before this ships
 
-1. Decide the overflow for bodies over 250,000 bytes.
-2. Scrub the old post idempotency items (they still hold bodies): a one-off scan that removes `body` and `origin` from
-   completed items. Keys are hashed, so only a scan finds them.
-3. Run `backfill-record` on every environment, before the deploy.
-4. The erasure role and queue; the lazy rebuild in the executor; the `erasing` gate.
-5. Add the lifecycle rule to Papyrus's session bucket.
-6. Decide the PITR window. 35 days is the default; a shorter one needs `recoveryPeriodInDays` on the tables.
-7. Turn events and computer actions: a lookup by channel so they can be deleted instead of expiring.
+1. The route that lets a person delete a message, and the front door's right to send to the erasure queue.
+2. Run `migrate-transcripts backfill-record` on every environment before the deploy, and `scrub-idempotency --execute` once
+   after reading its dry run. Nothing here ran either against any environment.
+3. The same function, queue and role in Papyrus's chat stack, and a lifecycle rule on its session bucket.
+4. Decide the point-in-time recovery window. 35 days is the default; a shorter one needs `recoveryPeriodInDays` on the tables.
+5. A computer action whose command copied the text from an unerased turn, and a turn the erasure cannot name, are not found.
+
+## What the product says
+
+Wording for Chatticus and for Papyrus to show where a person deletes a message. It states only what the design does.
+
+> **Delete message.** The message is removed from the conversation for everyone, right away. Its text is deleted from
+> the conversation, from every teammate's working memory of it, and from the records the product keeps of what the
+> assistant did while answering it. The assistant's answer to that message is deleted with it.
+>
+> **What takes longer.** Operational backups and logs age out on their own: backups within 35 days, logs within 30 days, and
+> an email that arrived by email within 30 days. Until then they are not readable in the product, only by an operator.
+>
+> **What deleting cannot undo.**
+> - Anything the assistant already sent to people outside this workspace, such as an email.
+> - Anything copied elsewhere by a person, or saved by the assistant as a file or a note of its own, or quoted in its answer
+>   to a different message.
+> - What the AI model provider keeps. Messages the assistant read are sent to the provider to be answered, and the provider
+>   keeps requests for a time under its own policy, which this product does not control.
+> - A screenshot or a copy on someone's device.
+
+Papyrus can reuse these sentences. Where Papyrus stores its own copy of a person's conversation outside Chatticus, its copy
+is its own to delete, and its wording must say so.
 
 ## Not verified
 
@@ -264,4 +318,7 @@ call, which is simpler to prove and wrong to ship: it needs the owner rights in 
 - That DynamoDB TTL lag is "about 48 hours": that is AWS's published figure, not something I measured.
 - Behaviour against real S3 versioning: the scenarios use an emulator (moto), whose `DeleteObjects` with `VersionId` I
   rely on.
-- What the user sees when an erased message was the prompt of a running turn.
+- The erasure function and its queue were never deployed. Their policy is judged against the manifest by the synthesized
+  CDK template and the policy evaluator, not by AWS.
+- A reply over 250,000 bytes end to end (see the size rule).
+- What a person sees in the app after the message turns into a tombstone: only the field `deleted_at` was added to the API.

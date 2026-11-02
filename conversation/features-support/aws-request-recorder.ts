@@ -39,7 +39,7 @@ type DynamoInput = {
 	Item?: KeyMap;
 	KeyConditionExpression?: string;
 	ExpressionAttributeValues?: KeyMap;
-	RequestItems?: Record<string, { Keys?: KeyMap[] }>;
+	RequestItems?: Record<string, { Keys?: KeyMap[] } & Array<{ DeleteRequest?: { Key: KeyMap }; PutRequest?: { Item: KeyMap } }>>;
 	TransactItems?: Array<{
 		Put?: { TableName: string; Item: KeyMap };
 		Update?: { TableName: string; Key: KeyMap };
@@ -87,6 +87,14 @@ function dynamoRequestsOf(commandName: string, input: DynamoInput): RecordedAwsR
 			return Object.entries(input.RequestItems ?? {}).map(([name, request]) =>
 				dynamoRequest("BatchGetItem", name, (request.Keys ?? []).flatMap((key) => partitionKeyOf(key))),
 			);
+		case "BatchWriteItemCommand":
+			return Object.entries(input.RequestItems ?? {}).map(([name, requests]) =>
+				dynamoRequest(
+					"BatchWriteItem",
+					name,
+					requests.flatMap((request) => partitionKeyOf(request.DeleteRequest?.Key ?? request.PutRequest?.Item)),
+				),
+			);
 		case "TransactWriteItemsCommand":
 			return (input.TransactItems ?? []).flatMap((item) => {
 				if (item.Put !== undefined) return [dynamoRequest("PutItem", item.Put.TableName, partitionKeyOf(item.Put.Item))];
@@ -113,7 +121,7 @@ function s3Request(action: string, bucket: string, key: string, listing: boolean
 	};
 }
 
-type S3Input = { Bucket?: string; Key?: string; Prefix?: string; Delete?: { Objects?: Array<{ Key?: string }> } };
+type S3Input = { Bucket?: string; Key?: string; Prefix?: string; Delete?: { Objects?: Array<{ Key?: string; VersionId?: string }> } };
 
 function s3RequestsOf(commandName: string, input: S3Input): RecordedAwsRequest[] {
 	const bucket = input.Bucket ?? "";
@@ -129,7 +137,11 @@ function s3RequestsOf(commandName: string, input: S3Input): RecordedAwsRequest[]
 		case "DeleteObjectCommand":
 			return [s3Request("DeleteObject", bucket, input.Key ?? "", false)];
 		case "DeleteObjectsCommand":
-			return (input.Delete?.Objects ?? []).map((object) => s3Request("DeleteObject", bucket, object.Key ?? "", false));
+			return (input.Delete?.Objects ?? []).map((object) =>
+				s3Request(object.VersionId === undefined ? "DeleteObject" : "DeleteObjectVersion", bucket, object.Key ?? "", false),
+			);
+		case "ListObjectVersionsCommand":
+			return [s3Request("ListBucketVersions", bucket, input.Prefix ?? "", true)];
 		case "ListObjectsV2Command":
 			return [s3Request("ListBucket", bucket, input.Prefix ?? "", true)];
 		default:

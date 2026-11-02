@@ -38,13 +38,13 @@ Feature: A bot's Pi session can be dropped and rebuilt from the channel record
       | please file the vault code |
       | Filed it.                  |
 
-  Scenario: The per-call cost records of a turn live in the session and are lost with it
+  Scenario: The per-call cost records of a turn outlive the session that ran it
     Given the model answers "Filed it."
     And user "ryan" of tenant "anthus" posts "please file the vault code" addressed to bot "Assistant" on the channel
     And bot "Assistant" completes one turn
     Then the per-call cost records of the last turn of bot "Assistant" can be read
     When the session of bot "Assistant" is dropped and rebuilt from the record, counting requests
-    Then the per-call cost records of the last turn of bot "Assistant" can no longer be read
+    Then the per-call cost records of the last turn of bot "Assistant" can be read
 
   Scenario: A channel of 200 messages is rebuilt
     Given the model answers "All read."

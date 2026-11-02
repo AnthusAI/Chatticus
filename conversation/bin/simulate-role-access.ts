@@ -62,6 +62,7 @@ const ROLE_LOGICAL_ID_PATTERNS: Record<AccessRole, RegExp> = {
 	ownerTurn: /^ComputerOwnerScopedRole[0-9A-F]+$/,
 	supervisor: /^ComputerSupervisorRole[0-9A-F]+$/,
 	turnExecutor: /^TurnExecutorServiceRole[0-9A-F]+$/,
+	erasure: /^MessageErasureServiceRole[0-9A-F]+$/,
 	mailIngress: /^LambdasMailIngressServiceRole[0-9A-F]+$/,
 	mailDelivery: /^LambdasMailDeliveryServiceRole[0-9A-F]+$/,
 	mailStatus: /^LambdasMailStatusServiceRole[0-9A-F]+$/,

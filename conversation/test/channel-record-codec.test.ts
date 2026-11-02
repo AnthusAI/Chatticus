@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { ChannelMessageRecord } from "../src/domain/channels.ts";
 import { ACTIVITY_RECORD_BYTE_LIMIT, fitActivityToRecord, type ToolActivityItem } from "../src/pi/message-activity.ts";
-import { decodeMessage, encodeMessage, MESSAGE_BODY_LIMIT_BYTES, MessageBodyTooLargeError } from "../src/store/codecs/channel.ts";
+import {
+	decodeMessage,
+	encodeMessage,
+	encodeMessageItems,
+	MESSAGE_BODY_INLINE_BYTES,
+	MESSAGE_BODY_MAX_BYTES,
+	MESSAGE_BODY_PART_BYTES,
+	MessageBodyTooLargeError,
+	splitBody,
+} from "../src/store/codecs/channel.ts";
 
 const record: ChannelMessageRecord = {
 	messageId: "m-1",
@@ -48,9 +57,31 @@ describe("channel record codec", () => {
 		expect(decodeMessage(encodeMessage({ ...record, origin })).origin).toEqual(origin);
 	});
 
-	it("refuses a body that would not fit its row", () => {
-		expect(() => encodeMessage({ ...record, body: "x".repeat(MESSAGE_BODY_LIMIT_BYTES + 1) })).toThrow(MessageBodyTooLargeError);
-		expect(() => encodeMessage({ ...record, body: "x".repeat(MESSAGE_BODY_LIMIT_BYTES) })).not.toThrow();
+	it("keeps a body up to the inline limit in its row", () => {
+		const { row, parts } = encodeMessageItems({ ...record, body: "x".repeat(MESSAGE_BODY_INLINE_BYTES) });
+		expect(parts).toEqual([]);
+		expect(row.body_parts).toBeUndefined();
+	});
+
+	it("carries a longer body in continuation items that decode back to the whole text", () => {
+		const body = "é".repeat(400_000);
+		const { row, parts } = encodeMessageItems({ ...record, body });
+		expect(row.body).toEqual({ S: "" });
+		expect(parts.length).toBe(Math.ceil(Buffer.byteLength(body, "utf8") / MESSAGE_BODY_PART_BYTES));
+		expect(decodeMessage(row, parts).body).toBe(body);
+	});
+
+	it("refuses a body longer than the record keeps", () => {
+		expect(() => encodeMessageItems({ ...record, body: "x".repeat(MESSAGE_BODY_MAX_BYTES + 1) })).toThrow(MessageBodyTooLargeError);
+		expect(() => encodeMessageItems({ ...record, body: "x".repeat(MESSAGE_BODY_MAX_BYTES) })).not.toThrow();
+	});
+});
+
+describe("splitBody", () => {
+	it("never cuts inside a character", () => {
+		const pieces = splitBody("😀".repeat(10), 10);
+		expect(pieces.every((piece) => Buffer.byteLength(piece, "utf8") <= 10)).toBe(true);
+		expect(pieces.join("")).toBe("😀".repeat(10));
 	});
 });
 

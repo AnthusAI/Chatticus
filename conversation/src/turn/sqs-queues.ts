@@ -80,3 +80,28 @@ export class SqsComputerStartQueue implements ComputerStartQueue {
 		await this.client.send(new SendMessageCommand({ QueueUrl: this.queueUrl, MessageBody: JSON.stringify(job) }));
 	}
 }
+
+/** A request for the erasure function, as it reads it from its queue. */
+export type ErasureQueueMessage =
+	| { readonly type: "erase"; readonly tenantId: string; readonly channelId: string; readonly seq: number }
+	| { readonly type: "complete"; readonly tenantId: string; readonly channelId: string };
+
+/** Where requests to erase a message, or to finish the erasures that waited on a turn, are sent. */
+export interface ErasureQueue {
+	send(message: ErasureQueueMessage): Promise<void>;
+}
+
+/** MessageErasure over SQS. */
+export class SqsErasureQueue implements ErasureQueue {
+	private readonly client: SQSClient;
+	private readonly queueUrl: string;
+
+	constructor(client: SQSClient, queueUrl: string) {
+		this.client = client;
+		this.queueUrl = queueUrl;
+	}
+
+	async send(message: ErasureQueueMessage): Promise<void> {
+		await this.client.send(new SendMessageCommand({ QueueUrl: this.queueUrl, MessageBody: JSON.stringify(message) }));
+	}
+}

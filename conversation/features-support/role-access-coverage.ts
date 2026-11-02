@@ -1,4 +1,5 @@
 import type { RecordedAwsRequest } from "./aws-request-recorder.ts";
+import { erasureRequestsOf } from "./erasure-request-recording.ts";
 import { frontDoorRequestsOf } from "./front-door-request-recording.ts";
 import { recordedOwnerRequestsOf, recordedSupervisorRequestsOf } from "./owner-request-recording.ts";
 import { ACCESS_ROLES, loadRoleAccessManifest, type AccessRole, type AccessRow, type AccessStore } from "../src/gateway/role-access-manifest.ts";
@@ -29,6 +30,7 @@ export function recordedRequestsByRole(world: ChatticusWorld): Readonly<Record<A
 		ownerTurn: recordedOwnerRequestsOf(world),
 		supervisor: recordedSupervisorRequestsOf(world),
 		turnExecutor: [],
+		erasure: erasureRequestsOf(world),
 		mailIngress: [],
 		mailDelivery: [],
 		mailStatus: [],

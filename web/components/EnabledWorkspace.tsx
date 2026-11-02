@@ -289,7 +289,7 @@ export function EnabledWorkspace({
     query,
   });
   const visibleTurnState = resolveVisibleTurnState(turnStatus, turn, progress);
-  const sendBlockReason = getSendBlockReason(sending, turn, addressedBotId);
+  const sendBlockReason = getSendBlockReason(sending, turn, addressedBotId, (selectedItem?.bots.length ?? 1) > 0);
   const sendBlockMessage = getSendBlockMessage(sendBlockReason);
 
   const loadWorkspace = useCallback(async () => {
@@ -601,8 +601,8 @@ export function EnabledWorkspace({
   );
 
   const postToChannel = useCallback(
-    async (channelId: string, botId: string, body: string): Promise<boolean> =>
-      (await deliverPost(channelId, botId, () => postMessage(activeOrg, channelId, body, botId))) !==
+    async (channelId: string, botId: string | null, body: string): Promise<boolean> =>
+      (await deliverPost(channelId, botId ?? "", () => postMessage(activeOrg, channelId, body, botId))) !==
       null,
     [activeOrg, deliverPost],
   );
@@ -962,7 +962,7 @@ export function EnabledWorkspace({
           <Button variant="ghost" size="icon" className={panelFillsWorkspace ? "md:hidden xl:inline-flex" : "md:hidden"} aria-label={ICON_ONLY_CONTROL_NAMES.openRoster} onClick={() => setRosterOpen(true)}><Menu size={19} aria-hidden="true" /></Button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-extrabold">{selectedItem?.label ?? "Conversations"}</h1>
-            {selectedItem ? <p className="truncate font-mono text-[0.62rem] text-surface-foreground/45">{selectedItem.kind === "channel" ? `${selectedItem.bots.length} bot channel` : "Direct conversation"}</p> : null}
+            {selectedItem ? <p className="truncate font-mono text-[0.62rem] text-surface-foreground/45">{selectedItem.kind === "channel" ? (selectedItem.bots.length === 0 ? "People only" : `${selectedItem.bots.length} bot channel`) : "Direct conversation"}</p> : null}
             {visibleTurnState ? <p className="mt-0.5 inline-flex rounded-full bg-surface-raised px-2 py-0.5 font-mono text-[0.62rem] text-surface-foreground/70" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
           </div>
           <ChannelCostChip
@@ -1027,7 +1027,7 @@ export function EnabledWorkspace({
                 />
               ),
               composerAccessory:
-                selectedItem.kind === "channel"
+                selectedItem.kind === "channel" && selectedItem.bots.length > 0
                   ? (
                     <label className="mb-2 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-semibold">
                       <span className="text-surface-foreground/55">To</span>

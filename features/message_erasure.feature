@@ -42,6 +42,13 @@ Feature: Deleting a message erases its text, and the bot no longer sees it
     Then the erasure tombstoned the messages with seq "2, 3"
     And the channel lists the message with seq 3 as deleted with an empty body
     And the text "picnic is on friday" is held by:
+      | channel record |
+    When the model answers "Friday."
+    And user "ryan" of tenant "anthus" posts "when is the picnic?" addressed to bot "Assistant" on the channel
+    And bot "Assistant" completes one turn
+    Then the Pi session of bot "Assistant" was rebuilt before it answered
+    And the model's request 2 included "the picnic is on friday"
+    And the text "picnic is on friday" is held by:
       | channel record               |
       | Pi session objects (current) |
 
@@ -72,9 +79,28 @@ Feature: Deleting a message erases its text, and the bot no longer sees it
       | Pi session objects (current) |
     When the model is released
     And the started turn finishes
-    And the pending erasures of the channel are completed
+    Then the finished turn asked for the pending erasure of the channel to be completed
+    When the erasure worker takes the requests queued for it
     Then the text "kestrel-7" is held nowhere
     And the channel lists the message with seq 2 as deleted with an empty body
+
+  Scenario: A message erased before its turn starts fails that turn, and the finished turn completes the erasure
+    Given the model answers "Understood."
+    And user "ryan" of tenant "anthus" posts "the launch code is kestrel-7" addressed to bot "Assistant" on the channel
+    When user "ryan" of tenant "anthus" erases the message with seq 1
+    Then the erasure left the session of bot "Assistant" for later because its turn is open
+    When bot "Assistant" runs one computerless worker turn against that provider
+    Then the turn has failed with reason "The message this turn was meant to answer is missing."
+    And the channel has no bot answer
+    And the finished turn asked for the pending erasure of the channel to be completed
+    When the erasure worker takes the requests queued for it
+    Then the text "kestrel-7" is held nowhere
+
+  Scenario: A turn that ends with no erasure waiting asks for nothing
+    Given the model answers "Understood."
+    And user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    And bot "Assistant" completes one turn
+    Then the finished turn asked for no erasure to be completed
 
   Scenario: A post made with an Idempotency-Key leaves no second copy of the text
     Given the model answers "Understood."
@@ -85,3 +111,36 @@ Feature: Deleting a message erases its text, and the bot no longer sees it
       | Pi session objects (current) |
     When user "ryan" of tenant "anthus" erases the message with seq 1
     Then the text "kestrel-7" is held nowhere
+
+  Scenario: Erasing a message longer than one row removes every continuation item
+    Given user "ryan" of tenant "anthus" posts a message of 700000 characters ending in "the code is zebra-9" on the channel without addressing a bot
+    Then the text "zebra-9" is held by:
+      | channel record |
+    When user "ryan" of tenant "anthus" erases the message with seq 1
+    Then the text "zebra-9" is held nowhere
+    And the channel lists the message with seq 1 as deleted with an empty body
+
+  Scenario: The scrub command reports old idempotency items by default and cleans them only when told to
+    Given tenant "anthus" user "ryan" opens a named channel "notes" with no bot
+    And an old post idempotency item holds the text "the old launch code is kestrel-7"
+    When the operator tool runs "scrub-idempotency" on the scenario's stores
+    Then the operator tool printed "dry-run holding_text=1 scrubbed=0"
+    And the text "kestrel-7" is held by:
+      | messaging table anthus/idem |
+    When the operator tool runs "scrub-idempotency --execute" on the scenario's stores
+    Then the operator tool printed "scrub-idempotency holding_text=1 scrubbed=1"
+    And the text "kestrel-7" is held nowhere
+
+  Scenario: What the erased answer's turn left in its events and its computer actions is swept too
+    Given the model answers "The code word is osprey-3."
+    And user "ryan" of tenant "anthus" posts "tell me the code word" addressed to bot "Assistant" on the channel
+    And bot "Assistant" completes one turn
+    And a computer action of the last turn of bot "Assistant" has the argument "echo osprey-3" and the result "osprey-3"
+    Then the text "osprey-3" is held by:
+      | channel record               |
+      | Pi session objects (current) |
+      | messaging table anthus/act   |
+      | turn events                  |
+    When user "ryan" of tenant "anthus" erases the message with seq 1
+    Then the text "osprey-3" is held nowhere
+    And the erasure swept the events and computer actions of 1 turn

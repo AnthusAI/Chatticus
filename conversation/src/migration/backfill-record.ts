@@ -2,6 +2,7 @@ import type { ActorKind, Channel, ChannelMessageRecord } from "../domain/channel
 import { type ListedMessage, listChannelMessages } from "../pi/channel-listing.ts";
 import { MessageBodyTooLargeError } from "../store/codecs/channel.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
+import { copySessionCallCosts } from "../ledger/call-cost-copy.ts";
 import type { MigrationDependencies } from "./copy.ts";
 
 /** What the channel record backfill needs: the migration clients and the messaging store that holds the record. */
@@ -17,8 +18,10 @@ export type ChannelBackfillReport = {
 	alreadyRecorded: number;
 	/** Messages this pass wrote; zero in a dry run. */
 	written: number;
-	/** Sequences whose body was too large for a record row; they are not written and need the S3 overflow path. */
+	/** Sequences whose body is longer than the record keeps; they are not written. */
 	tooLarge: number[];
+	/** Per-call cost records copied out of the bot sessions into the messaging table. */
+	costRecordsCopied: number;
 	dryRun: boolean;
 };
 
@@ -37,7 +40,7 @@ const recordOf = (listed: ListedMessage): ChannelMessageRecord => ({
 });
 
 /**
- * Fill a channel's record from what its bot sessions and mailboxes hold: the same merge the message list used before the
+ * Fill a channel's record from what its bot sessions and mailboxes hold, and copy the sessions' per-call cost records into the messaging table: the same merge the message list used before the
  * record existed, run once. Idempotent and resumable: a sequence the record already holds is left alone, so a second pass
  * after the new code is deployed writes only what the old code committed in between. A channel with no bot has nothing
  * to merge and nothing to write.
@@ -62,6 +65,7 @@ export async function backfillChannelRecord(
 		alreadyRecorded: held.filter((message) => recorded.has(message.seq)).length,
 		written: 0,
 		tooLarge: [],
+		costRecordsCopied: 0,
 		dryRun: options.dryRun,
 	};
 	for (const message of held) {
@@ -73,6 +77,11 @@ export async function backfillChannelRecord(
 		} catch (error) {
 			if (!(error instanceof MessageBodyTooLargeError)) throw error;
 			report.tooLarge.push(message.seq);
+		}
+	}
+	if (!options.dryRun) {
+		for (const botId of botIds) {
+			report.costRecordsCopied += await copySessionCallCosts(deps, channel.tenantId, botId, channel.channelId);
 		}
 	}
 	return report;

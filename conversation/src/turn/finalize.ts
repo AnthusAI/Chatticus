@@ -4,6 +4,7 @@ import { recordReplyDelivery, replyOriginOf } from "../channels/delivery.ts";
 import type { Channel } from "../domain/channels.ts";
 import type { Turn } from "../domain/turns.ts";
 import { deriveCostRecords, readCallCostRecords } from "../ledger/call-cost.ts";
+import { copyCallCostsOut } from "../ledger/call-cost-copy.ts";
 import { projectTurnCost, summarizeTurnCost, type TurnCostStatus } from "../ledger/turn-cost.ts";
 import { appendLine, ChannelLogDoc, readEntryBody } from "../pi/channel-log.ts";
 import { fitActivityToRecord, readTurnActivity } from "../pi/message-activity.ts";
@@ -63,6 +64,7 @@ export async function recordTurnCost(inputs: FinalizeInputs, point: CostRecordin
 	const records = (await readCallCostRecords(session.harness, session.storage, root.id, context)).filter(
 		(record) => record.turnId === turn.turnId,
 	);
+	await copyCallCostsOut(deps.client, deps.messagingTableName, turn.tenantId, records);
 	const summary = summarizeTurnCost(records);
 	if (summary === null) return;
 	await projectTurnCost(
