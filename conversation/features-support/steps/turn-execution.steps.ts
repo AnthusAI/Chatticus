@@ -65,6 +65,10 @@ When("bot {string} starts a turn", function (this: ChatticusWorld, name: string)
 	modelScenarioOf(this).started = startBotTurn(this, name);
 });
 
+When("bot {string} completes one computerless turn with in-memory session storage", async function (this: ChatticusWorld, name: string) {
+	assert.equal(await startBotTurn(this, name, undefined, { computerlessMemorySession: true, throughRunConsumer: true }), "done");
+});
+
 When("the model is waiting on its first request", async function (this: ChatticusWorld) {
 	const hold = modelScenarioOf(this).hold;
 	assert.ok(hold, "The model holds no request");

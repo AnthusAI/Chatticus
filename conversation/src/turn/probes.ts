@@ -7,6 +7,7 @@ import {
 	type TurnDependencies,
 } from "../domain/turns.ts";
 import type { TurnProbeMessage, TurnProbeQueue, TurnRunJob, TurnRunQueue } from "../domain/turn-admission.ts";
+import type { AdmissionReservationFence } from "../domain/turn-admission.ts";
 import type { FaultPlan } from "./fault-plan.ts";
 import { type ComputerHandoffDependencies, settleParkedTurn } from "./park.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
@@ -46,7 +47,7 @@ export const yieldEnqueueId = (turnId: string, attempt: number): string => `${tu
 
 /** Where a logical enqueue is remembered, so a retry can tell it was already delivered. */
 export interface LogicalEnqueueRecorder {
-	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean>;
+	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string, fence?: AdmissionReservationFence): Promise<boolean>;
 }
 
 /** What a logical enqueue needs. */
@@ -58,6 +59,9 @@ export type LogicalEnqueueDependencies = {
 
 /**
  * Publish a run job at most once per `enqueueId`: the identifier is recorded on the turn first, then the job is sent.
+ * If the process fails after recording but before a queue delivery is known, the preinstalled deadline probe starts a
+ * recovery attempt with a distinct recovery enqueue ID. Initial turn admission installs that probe before committing
+ * the turn so the recorded-but-unpublished initial ID cannot leave an active turn without a recovery wake-up.
  *
  * @returns false when the identifier was already recorded and nothing was sent.
  */
@@ -65,9 +69,10 @@ export async function requestLogicalEnqueue(
 	deps: LogicalEnqueueDependencies,
 	job: TurnRunJob,
 	enqueueId: string,
+	fence?: AdmissionReservationFence,
 ): Promise<boolean> {
 	deps.faults?.maybeCrash("logical_enqueue", "before");
-	if (!(await deps.recorder.recordLogicalEnqueue(job.tenantId, job.turnId, enqueueId))) return false;
+	if (!(await deps.recorder.recordLogicalEnqueue(job.tenantId, job.turnId, enqueueId, fence))) return false;
 	deps.faults?.maybeCrash("logical_enqueue", "after");
 	await deps.turnRuns.enqueue(job);
 	return true;
@@ -112,7 +117,7 @@ export type ProbeDependencies = {
 	readonly submissions: SubmissionInspector;
 	/** The stores that route computer work, read when a probe finds a turn parked on a computer action. */
 	readonly messaging: MessagingStore;
-	readonly computer: ComputerHandoffDependencies;
+	readonly computer?: ComputerHandoffDependencies;
 	readonly maximumRecoveryAttempts?: number;
 	readonly faults?: FaultPlan;
 };
@@ -180,7 +185,11 @@ export async function handleProbe(deps: ProbeDependencies, message: TurnProbeMes
 	const now = deps.turns.clock.now();
 	if (turn.waitingFor !== null) {
 		if (superseded) return;
-		if (await settleParkedTurn(deps, turn)) return;
+		if (deps.computer === undefined) {
+			await failStaleTurn(deps.turns, turn, "waiting", "computer capability is unavailable for this conversation");
+			return;
+		}
+		if (await settleParkedTurn({ ...deps, computer: deps.computer }, turn)) return;
 		const since = turn.waitingSince ?? turn.deadlineAt ?? now;
 		const remaining = WAITING_LIMIT_SECONDS - secondsBetween(now, since);
 		if (remaining <= 0) {

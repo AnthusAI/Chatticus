@@ -13,8 +13,8 @@ import {
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { safeLinkTarget } from "@/lib/markdown-safety";
-import { cn } from "@/lib/utils";
+import { safeLinkTarget } from "./markdown-safety";
+import { cn } from "./utils";
 
 const COPIED_RESET_MS = 1800;
 

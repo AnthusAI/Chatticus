@@ -2,18 +2,22 @@ import {
 	type AttributeValue,
 	type DynamoDBClient,
 	GetItemCommand,
+	UpdateItemCommand,
 	TransactionCanceledException,
 	type TransactWriteItem,
 	TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { encodeGrant } from "./codecs/grant.ts";
 import type { OpenTurnState, StartTurnRequest, TurnAdmission } from "../domain/turn-admission.ts";
+import type { AdmissionReservationFence } from "../domain/turn-admission.ts";
 import { MAILBOX_PUT_CONDITION, type MailboxItem, mailboxItemAttributes } from "../pi/mailbox.ts";
 import { TURN_EVENT_TTL_SECONDS } from "../domain/turns.ts";
 import { formatIsoDateTime } from "./codecs/util.ts";
 import { turnEventItem, turnItemPartitionKey } from "./turn-events.ts";
 import { retryTransient } from "./transient-retry.ts";
 import { recordLogicalEnqueueOnTurn, turnPointerKey } from "./turn-store.ts";
+import { postIdempotencyKey } from "./keys.ts";
+import { IdempotencyReservationBusyError } from "../http/errors.ts";
 
 /**
  * Partition key of a turn control record.
@@ -61,6 +65,44 @@ export class DynamoTurnAdmission implements TurnAdmission {
 	constructor(client: DynamoDBClient, tableName: string) {
 		this.client = client;
 		this.tableName = tableName;
+	}
+
+	private reservationAdmissionUpdate(fence: AdmissionReservationFence, turnId: string, kind: "started" | "steered"): TransactWriteItem {
+		const key = postIdempotencyKey(fence.tenantId, fence.idempotencyKey);
+		return { Update: {
+			TableName: this.tableName,
+			Key: { pk: { S: key.pk }, sk: { S: key.sk } },
+			UpdateExpression: "SET admitted_turn_id = :turn, admission_kind = :kind",
+			ConditionExpression: "reservation_state = :pending AND reservation_owner = :owner AND lease_expires_at > :now",
+			ExpressionAttributeValues: {
+				":turn": { S: turnId }, ":kind": { S: kind }, ":pending": { S: "pending" },
+				":owner": { S: fence.ownerId }, ":now": { N: String(fence.now.getTime()) },
+			},
+		} };
+	}
+
+	private async reservationFenceIsCurrent(fence: AdmissionReservationFence): Promise<boolean> {
+		const key = postIdempotencyKey(fence.tenantId, fence.idempotencyKey);
+		const result = await this.client.send(new GetItemCommand({
+			TableName: this.tableName,
+			Key: { pk: { S: key.pk }, sk: { S: key.sk } }, ConsistentRead: true,
+		}));
+		return result.Item?.reservation_state?.S === "pending" &&
+			result.Item.reservation_owner?.S === fence.ownerId &&
+			Number(result.Item.lease_expires_at?.N ?? "0") > fence.now.getTime();
+	}
+
+	private async reservationAdmissionMatches(
+		fence: AdmissionReservationFence,
+		turnId: string,
+		kind: "started" | "steered",
+	): Promise<boolean> {
+		const key = postIdempotencyKey(fence.tenantId, fence.idempotencyKey);
+		const result = await this.client.send(new GetItemCommand({
+			TableName: this.tableName,
+			Key: { pk: { S: key.pk }, sk: { S: key.sk } }, ConsistentRead: true,
+		}));
+		return result.Item?.admitted_turn_id?.S === turnId && result.Item?.admission_kind?.S === kind;
 	}
 
 	async openTurn(tenantId: string, channelId: string, botId: string): Promise<OpenTurnState | null> {
@@ -129,6 +171,14 @@ export class DynamoTurnAdmission implements TurnAdmission {
 								ConditionExpression: "attribute_not_exists(pk)",
 							},
 						},
+						...(request.initialItem === undefined ? [] : [{
+							Put: {
+								TableName: this.tableName,
+								Item: mailboxItemAttributes(request.initialItem),
+								ConditionExpression: MAILBOX_PUT_CONDITION,
+								ExpressionAttributeValues: { ":messageId": { S: request.initialItem.messageId } },
+							},
+						} satisfies TransactWriteItem]),
 						{
 							Put: {
 								TableName: this.tableName,
@@ -171,23 +221,31 @@ export class DynamoTurnAdmission implements TurnAdmission {
 								ConditionExpression: "attribute_not_exists(pk)",
 							},
 						},
+						...(request.reservationFence === undefined ? [] : [this.reservationAdmissionUpdate(request.reservationFence, request.turnId, "started")]),
 					],
 				}),
 			));
 			return true;
 		} catch (error) {
+			if (request.reservationFence !== undefined && await this.reservationAdmissionMatches(request.reservationFence, request.turnId, "started")) {
+				return true;
+			}
 			if (error instanceof TransactionCanceledException) {
+				if (request.reservationFence !== undefined && !(await this.reservationFenceIsCurrent(request.reservationFence))) {
+					throw new IdempotencyReservationBusyError("The message reservation is no longer owned by this admission attempt.");
+				}
 				return false;
 			}
 			throw error;
 		}
 	}
 
-	async recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean> {
-		return recordLogicalEnqueueOnTurn(this.client, this.tableName, tenantId, turnId, enqueueId);
+	async recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string, fence?: AdmissionReservationFence): Promise<boolean> {
+		if (fence === undefined) return recordLogicalEnqueueOnTurn(this.client, this.tableName, tenantId, turnId, enqueueId);
+		return recordLogicalEnqueueOnTurn(this.client, this.tableName, tenantId, turnId, enqueueId, fence);
 	}
 
-	async steerTurn(turnId: string, item: MailboxItem): Promise<boolean> {
+	async steerTurn(turnId: string, item: MailboxItem, fence?: AdmissionReservationFence): Promise<boolean> {
 		try {
 			await retryTransient(() => this.client.send(
 				new TransactWriteItemsCommand({
@@ -209,12 +267,19 @@ export class DynamoTurnAdmission implements TurnAdmission {
 								ExpressionAttributeValues: { ":messageId": { S: item.messageId } },
 							},
 						},
+						...(fence === undefined ? [] : [this.reservationAdmissionUpdate(fence, turnId, "steered")]),
 					],
 				}),
 			));
 			return true;
 		} catch (error) {
+			if (fence !== undefined && await this.reservationAdmissionMatches(fence, turnId, "steered")) {
+				return true;
+			}
 			if (error instanceof TransactionCanceledException) {
+				if (fence !== undefined && !(await this.reservationFenceIsCurrent(fence))) {
+					throw new IdempotencyReservationBusyError("The message reservation is no longer owned by this admission attempt.");
+				}
 				const reasons = error.CancellationReasons ?? [];
 				if (reasons[0]?.Code !== "ConditionalCheckFailed" && reasons[1]?.Code === "ConditionalCheckFailed") {
 					throw new Error(`mailbox seq ${item.seq} already holds a different message`, { cause: error });

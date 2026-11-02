@@ -7,11 +7,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { safeLinkTarget } from "./markdown-safety";
 
 (globalThis as { React?: typeof React }).React = React;
-type MarkdownModule = typeof import("../components/assistant-ui/MarkdownText");
+type MarkdownModule = typeof import("../../chat/react/MarkdownText");
 let MarkdownText: MarkdownModule["MarkdownText"];
 
 before(async () => {
-  ({ MarkdownText } = await import("../components/assistant-ui/MarkdownText"));
+  ({ MarkdownText } = await import("../../chat/react/MarkdownText"));
 });
 
 function render(text: string): string {

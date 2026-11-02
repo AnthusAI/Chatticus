@@ -22,6 +22,13 @@ Feature: A bot turn runs on the conversation engine and commits one final answer
     And the turn events show a call to tool "note_to_channel" and its result before completion
     And the completed event names the sequence of the bot answer
 
+  Scenario: The computerless queue worker completes a reply with injected model and session storage
+    Given the model answers "The draft is ready."
+    When user "ryan" of tenant "anthus" posts "draft an update" addressed to bot "Assistant" on the channel
+    And bot "Assistant" completes one computerless turn with in-memory session storage
+    Then the channel has exactly one bot answer with body "The draft is ready."
+    And the completed event names the sequence of the bot answer
+
   Scenario: Streamed text reaches the watcher in order and the stream ends on the terminal event
     Given the model answers with a reply of 600 characters
     When user "ryan" of tenant "anthus" posts "tell me a long story" addressed to bot "Assistant" on the channel

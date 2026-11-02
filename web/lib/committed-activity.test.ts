@@ -11,11 +11,11 @@ import { reduceTurnActivity } from "./turn-activity";
 import { failedCallTurn, terminalCallTurn } from "./turn-activity-fixtures";
 
 (globalThis as { React?: typeof React }).React = React;
-type ActivityView = typeof import("../components/assistant-ui/TurnActivityView");
+type ActivityView = typeof import("../../chat/react/TurnActivityView");
 let TurnActivityBody: ActivityView["TurnActivityBody"];
 
 before(async () => {
-  ({ TurnActivityBody } = await import("../components/assistant-ui/TurnActivityView"));
+  ({ TurnActivityBody } = await import("../../chat/react/TurnActivityView"));
 });
 
 const item = (overrides: Partial<ToolActivityItem> = {}): ToolActivityItem => ({
