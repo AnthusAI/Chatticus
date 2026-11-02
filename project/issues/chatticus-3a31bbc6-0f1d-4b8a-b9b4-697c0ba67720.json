@@ -70,10 +70,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-board-triage"
       }
+    },
+    {
+      "id": "030cce67-3317-492a-9a04-6f66b2615a2b",
+      "author": "home",
+      "text": "Board review 2026-11-02: no activity in the Oct 25 to Nov 2 window. Status unchanged; the last triage (2026-10-20) found all children closed except the 2b-R revocation runbook second-reader pass. Needs an owner decision to close or name what remains.",
+      "created_at": "2026-11-02T20:32:59.598097Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-sync"
+      }
     }
   ],
   "created_at": "2026-10-12T13:18:55.826042Z",
-  "updated_at": "2026-10-20T13:37:17.594877Z",
+  "updated_at": "2026-11-02T20:32:59.598305Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

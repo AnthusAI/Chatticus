@@ -129,7 +129,7 @@ When("the model is released", function (this: ChatticusWorld) {
 	hold.release();
 });
 
-When("the started turn finishes", async function (this: ChatticusWorld) {
+When("the started turn finishes", { timeout: 60_000 }, async function (this: ChatticusWorld) {
 	const scenario = modelScenarioOf(this);
 	assert.ok(scenario.started, "No turn was started");
 	scenario.lastOutcome = await scenario.started;

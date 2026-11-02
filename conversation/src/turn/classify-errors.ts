@@ -24,6 +24,7 @@ const STATUS_AT_START = /^(\d{3})\b/;
 const ERROR_CODE = /"code"\s*:\s*"([^"]+)"/;
 const ERROR_TYPE = /"type"\s*:\s*"([^"]+)"/;
 const ERROR_MESSAGE = /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/;
+const KEY_EXPIRED_MARKER = /api key (?:has )?expired/i;
 const OUT_OF_QUOTA_MARKER = /insufficient_quota|credit_balance_exhausted|no credits remaining/i;
 const SECRET_TOKEN = /\b(?:sk|pk|rk)-[A-Za-z0-9_-]{8,}|\bBearer\s+[A-Za-z0-9._~+/-]{8,}/g;
 
@@ -60,7 +61,7 @@ export function classifyModelFailure(detail: unknown): string {
 	const { status, code } = parseProviderFailure(text);
 	if (OUT_OF_QUOTA_MARKER.test(text)) return OUT_OF_QUOTA_REASON;
 	if (code === "model_spend_ceiling_reached") return MODEL_SPEND_CEILING_REASON;
-	if (status === 401 || code === "invalid_api_key") return REJECTED_KEY_REASON;
+	if (status === 401 || code === "invalid_api_key" || KEY_EXPIRED_MARKER.test(text)) return REJECTED_KEY_REASON;
 	if (code === "model_access_denied" || (status === 403 && code !== null)) return ACCESS_DENIED_REASON;
 	if (code === "unsupported_value" || code === "invalid_request_error" || ((status === 400 || status === 404) && code !== null)) {
 		return INVALID_REQUEST_REASON;

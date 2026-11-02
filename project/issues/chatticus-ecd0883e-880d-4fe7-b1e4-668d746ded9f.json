@@ -37,10 +37,22 @@
         "model": "claude-sonnet-5-5",
         "name": "drift-fix"
       }
+    },
+    {
+      "id": "7bae48d6-6503-43f6-9ec2-45ef84c89b28",
+      "author": "home",
+      "text": "Board review 2026-11-02: no activity in the window. Status unchanged; needs a refresh of what shipped versus what remains now that hosted chat core landed on develop (PR 650, PR 636).",
+      "created_at": "2026-11-02T20:32:59.714486Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-sync"
+      }
     }
   ],
   "created_at": "2026-10-19T16:50:00Z",
-  "updated_at": "2026-10-20T13:17:43.838978Z",
+  "updated_at": "2026-11-02T20:32:59.714691Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

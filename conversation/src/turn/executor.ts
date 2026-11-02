@@ -302,7 +302,10 @@ class TurnAttempt {
 			if (this.modelCallExpired()) return this.failExpiredModelCall(root);
 			if (this.mustYield()) return this.yieldTurn();
 			await this.pumpMailbox(session, root);
-			if (this.inputs.some((input) => input.settled === null)) continue;
+			if (this.inputs.some((input) => input.settled === null)) {
+				if (this.endedRun() !== undefined) await this.withdrawQueuedInputs(root);
+				continue;
+			}
 			if (!closing) {
 				await beginClosing(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId);
 				closing = true;
@@ -314,15 +317,27 @@ class TurnAttempt {
 		return this.conclude(session, root);
 	}
 
+	/** The input whose run ended without an answer (model error, fault, no model): Pi starts nothing after it. */
+	private endedRun(): TrackedInput | undefined {
+		return this.inputs.find((input) => input.settled?.status === "unanswered" && input.settled.reason !== "aborted");
+	}
+
+	/** A run that ends unanswered does not place the inputs queued behind it, so withdraw them and let the turn report the failure. */
+	private async withdrawQueuedInputs(root: Conversation): Promise<void> {
+		console.info(formatLogLine("queued_inputs_withdrawn", { turn_id: this.job.turnId, attempt: this.turn.attempt, unsettled_inputs: this.inputs.filter((input) => input.settled === null).length }));
+		await root.abort(this.context);
+	}
+
 	private async conclude(session: OwnerSession, root: Conversation): Promise<TurnExecutionOutcome> {
-		await this.delivery.untilSettled(this.inputs[this.inputs.length - 1]!.submission.id as number, EVENT_DELIVERY_WAIT_MILLISECONDS);
+		const concluding = this.endedRun() ?? this.inputs[this.inputs.length - 1]!;
+		await this.delivery.untilSettled(concluding.submission.id as number, EVENT_DELIVERY_WAIT_MILLISECONDS);
 		this.deps.faults?.maybeCrash("model_acceptance", "after");
 		await this.flushStreams();
 		await this.guard(session);
 		if (!(await renewAttempt(this.deps, this.job.tenantId, this.job.turnId, this.attemptId))) {
 			throw new AttemptLost();
 		}
-		const last = this.inputs[this.inputs.length - 1]!.settled!;
+		const last = concluding.settled!;
 		if (last.type !== "input" || last.status !== "done") {
 			if (last.status === "unanswered" && last.reason === "model_error") {
 				const { status, code, message } = summarizeProviderFailure(last.detail);

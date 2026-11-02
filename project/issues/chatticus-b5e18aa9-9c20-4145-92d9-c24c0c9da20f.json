@@ -11,15 +11,10 @@
   "labels": [
     "channels"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-5cbab606-fe83-407e-bf6b-3f97791cab78",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-22T03:57:53.298010Z",
-  "updated_at": "2026-10-22T03:58:13.272608Z",
+  "updated_at": "2026-11-02T20:32:52.230108Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

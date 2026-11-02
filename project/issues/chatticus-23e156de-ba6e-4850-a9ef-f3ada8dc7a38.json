@@ -3,7 +3,7 @@
   "title": "M1.5: Email inbound parsing and threading",
   "description": "Pure email adapter functions: parse raw MIME (headers, text/plain, text/html converted to text, quoted-reply stripping with the original kept in S3, attachment extraction to S3 references), normalize addresses (case, plus tag split), derive the conversation key from References/In-Reply-To/Message-ID, and the plus-tag HMAC correlator as a lookup hint only. Cap body text at 100 KB with a reference to the raw object. Behavior is in Gherkin through the fake pipeline; parsers and normalizers are unit tests.\n\nAcceptance criteria:\n- A reply that quotes an earlier Message-ID lands in the same channel even when References is stripped\n- A changed subject does not split a thread; an unknown reference starts a new channel\n- HTML-only mail becomes readable text; tracking pixels and remote images are never fetched\n- A plus-tagged address with a bad HMAC still routes by headers or starts a new thread; the tag never authorizes anything\n- Non-UTF-8 charsets and malformed MIME do not crash the ingress; they produce a counted refusal\n\nGherkin: features/email_threading.feature and features/email_inbound_parsing.feature\n\nDepends on: M1.3\n\nContract: the External channels contract (initiative description; draft docs/EXTERNAL_CHANNELS.draft.md).\n\nProcess: Gherkin first (AGENTS.md outside-in). Write the named feature, add it to features/cucumber-features.txt, implement steps in conversation/features-support/steps/, then production code. Vitest only for pure helpers. Both cucumber-js and vitest must pass. No emojis, no compatibility forks, tenant_id on every item, strangers get 404. Product PR into develop with sub-agent review.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -41,11 +41,18 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-m1-5"
       }
+    },
+    {
+      "id": "f8b7a156-4a60-4613-a456-a90b126b5b27",
+      "author": "home",
+      "text": "Done in PR 644 (email inbound parsing and threading), hardened in PR 647. features/email_inbound_parsing.feature and features/email_threading.feature are in the cucumber list and cover the acceptance items.",
+      "created_at": "2026-11-02T20:32:25.620295Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-22T03:57:49.735092Z",
-  "updated_at": "2026-10-26T12:44:05.300405Z",
-  "closed_at": null,
+  "updated_at": "2026-11-02T20:32:25.666887Z",
+  "closed_at": "2026-11-02T20:32:25.666863Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

@@ -82,10 +82,22 @@
         "model": "claude-sonnet-5-5",
         "name": "sonnet-live-proof"
       }
+    },
+    {
+      "id": "cbcd3a66-6ce6-40da-80c6-b42e70a10a8c",
+      "author": "home",
+      "text": "Board review 2026-11-02: no activity in the window on this epic. PR 633 (bot boards picker, phase 4a) is still open. Status unchanged.",
+      "created_at": "2026-11-02T20:32:59.773766Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "board-sync"
+      }
     }
   ],
   "created_at": "2026-10-16T20:43:28.709933Z",
-  "updated_at": "2026-10-20T21:58:58.132446Z",
+  "updated_at": "2026-11-02T20:32:59.774032Z",
   "closed_at": null,
   "agent": {
     "platform": "codex",
