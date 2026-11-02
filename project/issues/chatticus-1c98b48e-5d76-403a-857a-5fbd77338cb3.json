@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-1c98b48e-5d76-403a-857a-5fbd77338cb3",
+  "title": "Erasure and record follow-ups from the code review of PR 653",
+  "description": "Fix before the delete route lands: (1) the one-minute sweep re-drops every idle bot session while any bot's turn is open; the pending marker should list the bots still owed and drop only those. (2) Steering messages are not cascaded: finalize.ts sets inReplyToSeq to turn.promptMessageSeq only, so erasing a steering message leaves its answer, activity and turn events; store every input seq on the answer row and cascade on any. Follow-ups: scenario for a turn admitted between the openTurn read and the drop; getMessage(seq) and a bounded rebuild tail with a summary (recordBodyOf and message-loader read the whole tail, rebuild sends everything uncompacted); ghost rows when postMessage crashes between record and mailbox with no idempotency key; unknown channel in the erasure Lambda hits AccessDenied rather than ChannelNotFoundError.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4b241792-37db-48aa-9350-b041ea3aeb02",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-11-02T20:32:28.693926Z",
+  "updated_at": "2026-11-02T20:32:28.693960Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
