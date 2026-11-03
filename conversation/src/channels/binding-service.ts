@@ -25,9 +25,12 @@ export type BindingRefusal =
 /** The outcome of a binding operation. */
 export type BindingOutcome<Value> = { readonly ok: true; readonly value: Value } | { readonly ok: false; readonly refusal: BindingRefusal };
 
+/** The part of the channel runtime that binding operations use; it needs no transports, secrets or event bus. */
+export type BindingRuntime = Pick<ChannelsRuntime, "store" | "mailDomain" | "allowedProviders">;
+
 /** What the binding operations read and write. */
 export interface BindingDependencies {
-	readonly runtime: ChannelsRuntime;
+	readonly runtime: BindingRuntime;
 	readonly store: MessagingStore;
 	readonly ids: IdSource;
 	readonly clock: Clock;

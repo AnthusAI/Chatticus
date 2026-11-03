@@ -5,6 +5,14 @@
 
 import { parseArgs } from "node:util";
 import { DomainError } from "../http/errors.ts";
+import {
+	chooseMailHandle,
+	createChannelBinding,
+	linkExternalIdentity,
+	type BindingDependencies,
+	type BindingOutcome,
+	type BindingRuntime,
+} from "../channels/binding-service.ts";
 import { validateOrganizationName } from "../domain/creation-limits.ts";
 import { OrganizationsKernelImpl } from "../domain/organizations.ts";
 import type { IdSource, MemberRole, Organization, OrganizationStatus } from "../domain/organizations.ts";
@@ -15,7 +23,7 @@ const ORGANIZATION_STATUSES: readonly OrganizationStatus[] = ["pending", "enable
 const MEMBER_ROLES: readonly MemberRole[] = ["owner", "member"];
 
 const PROGRAM_NAME = "members";
-const COMMAND_CHOICES = "{list,show,enable,suspend,reinstate,set-role,create,seed}";
+const COMMAND_CHOICES = "{list,show,enable,suspend,reinstate,set-role,create,seed,set-mail-handle,bind-channel,link-identity}";
 
 /** Raised when the process environment cannot support the command; exit code 2. */
 export class MembersCliConfigurationError extends Error {
@@ -43,6 +51,8 @@ export interface MembersCliDependencies {
 	stdinIsTerminal: boolean;
 	/** The AWS account id of the operator credentials running the command; seed, enable and reinstate record it as the home of an organization that chose no setup path. */
 	callerAwsAccountId: () => Promise<string>;
+	/** Builds the channel store and mail domain the mail commands use; throws MembersCliConfigurationError when the environment is incomplete. */
+	buildBindingRuntime: () => BindingRuntime;
 }
 
 /** Captured result of one CLI invocation. */
@@ -70,6 +80,9 @@ positional arguments:
     set-role            Set one member role on the admin path
     create              Create one pending organization for a cold bootstrap path
     seed                Seed one tenant enabled for one owner without provisioning a computer
+    set-mail-handle     Choose the mail handle of one organization
+    bind-channel        Bind one bot to its external email address
+    link-identity       Link one external email address to one member
 
 options:
   -h, --help            show this help message and exit
@@ -136,6 +149,39 @@ options:
   --name NAME           Organization display name (default: tenant id)
 ${CONFIRMATION_FLAG_HELP}
 `,
+	"set-mail-handle": `usage: ${PROGRAM_NAME} set-mail-handle [-h] [--yes] tenant_id handle
+
+positional arguments:
+  tenant_id   tenant_id
+  handle      mail handle, a lowercase DNS label
+
+options:
+  -h, --help  show this help message and exit
+${CONFIRMATION_FLAG_HELP}
+`,
+	"bind-channel": `usage: ${PROGRAM_NAME} bind-channel [-h] --provider {email} --bot-id BOT_ID [--yes] tenant_id
+
+positional arguments:
+  tenant_id          tenant_id
+
+options:
+  -h, --help         show this help message and exit
+  --provider {email} External channel provider
+  --bot-id BOT_ID    Bot that receives mail at its derived address
+${CONFIRMATION_FLAG_HELP}
+`,
+	"link-identity": `usage: ${PROGRAM_NAME} link-identity [-h] --provider {email} --external-id ADDRESS --user-id USER_ID [--yes] tenant_id
+
+positional arguments:
+  tenant_id             tenant_id
+
+options:
+  -h, --help            show this help message and exit
+  --provider {email}    External channel provider
+  --external-id ADDRESS External address of the sender
+  --user-id USER_ID     Member user_id the address belongs to
+${CONFIRMATION_FLAG_HELP}
+`,
 };
 
 interface ParsedCommand {
@@ -173,6 +219,22 @@ const COMMAND_SHAPES: Record<string, CommandShape> = {
 			...YES_OPTION,
 		},
 		required: ["tenant-id", "owner-email"],
+	},
+	"set-mail-handle": { positionalNames: ["tenant_id", "handle"], options: YES_OPTION, required: [] },
+	"bind-channel": {
+		positionalNames: ["tenant_id"],
+		options: { provider: { type: "string" }, "bot-id": { type: "string" }, ...YES_OPTION },
+		required: ["provider", "bot-id"],
+	},
+	"link-identity": {
+		positionalNames: ["tenant_id"],
+		options: {
+			provider: { type: "string" },
+			"external-id": { type: "string" },
+			"user-id": { type: "string" },
+			...YES_OPTION,
+		},
+		required: ["provider", "external-id", "user-id"],
 	},
 };
 
@@ -270,6 +332,70 @@ async function runLifecycleCommand(
 	return 0;
 }
 
+const ADMINISTRATOR_ACTOR = "administrator";
+
+function bindingResult<Value>(outcome: BindingOutcome<Value>): Value {
+	if (!outcome.ok) {
+		throw new DomainError(outcome.refusal, `refused: ${outcome.refusal}`);
+	}
+	return outcome.value;
+}
+
+async function runMailCommand(
+	parsed: ParsedCommand,
+	store: MessagingStore,
+	output: OutputBuffer,
+	dependencies: MembersCliDependencies,
+): Promise<number> {
+	const { command, positionals, flags } = parsed;
+	const yes = flags.yes === true;
+	const tenantId = positionals[0];
+	if (command !== "set-mail-handle" && flags.provider !== "email") {
+		throw new MembersCliUsageError(
+			`argument --provider: invalid choice: ${JSON.stringify(flags.provider)} (choose from email)`,
+		);
+	}
+	await kernel.getOrganization(tenantId, { store });
+	requireYes(yes, command, dependencies);
+	const bindingDependencies: BindingDependencies = {
+		runtime: dependencies.buildBindingRuntime(),
+		store,
+		ids: dependencies.ids,
+		clock: dependencies.clock,
+	};
+	if (command === "set-mail-handle") {
+		const handle = bindingResult(await chooseMailHandle(bindingDependencies, tenantId, positionals[1]));
+		output.printLine(`mail-handle-set tenant_id=${tenantId} mail_handle=${handle}`);
+		return 0;
+	}
+	if (command === "bind-channel") {
+		const binding = bindingResult(
+			await createChannelBinding(bindingDependencies, tenantId, {
+				provider: "email",
+				botId: flags["bot-id"] as string,
+				routeKey: null,
+				createdBy: ADMINISTRATOR_ACTOR,
+			}),
+		);
+		output.printLine(
+			`channel-bound tenant_id=${tenantId} binding_id=${binding.bindingId} provider=${binding.provider} bot_id=${binding.botId} route_key=${binding.routeKey}`,
+		);
+		return 0;
+	}
+	const link = bindingResult(
+		await linkExternalIdentity(bindingDependencies, tenantId, {
+			provider: "email",
+			externalId: flags["external-id"] as string,
+			userId: flags["user-id"] as string,
+			linkedBy: ADMINISTRATOR_ACTOR,
+		}),
+	);
+	output.printLine(
+		`identity-linked tenant_id=${tenantId} provider=${link.provider} external_id=${link.externalId} user_id=${link.userId}`,
+	);
+	return 0;
+}
+
 async function dispatch(
 	parsed: ParsedCommand,
 	store: MessagingStore,
@@ -297,6 +423,9 @@ async function dispatch(
 	}
 	if (command === "enable" || command === "suspend" || command === "reinstate") {
 		return runLifecycleCommand(command, positionals[0], yes, store, output, dependencies);
+	}
+	if (command === "set-mail-handle" || command === "bind-channel" || command === "link-identity") {
+		return runMailCommand(parsed, store, output, dependencies);
 	}
 	if (command === "create") {
 		requireYes(yes, "create", dependencies);
