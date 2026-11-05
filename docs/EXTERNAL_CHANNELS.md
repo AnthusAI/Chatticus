@@ -382,7 +382,7 @@ No relational store and no migration. New item types in the existing table, all 
 ### 10.1 Email through Amazon SES (recommended first)
 
 **Inbound.** MX for the bot-mail subdomain points at SES inbound in `us-east-1`. A receipt rule with recipient
-condition on the environment's mail domain (subdomains included) runs actions: S3 (raw MIME) then Lambda (event
+condition listing both the environment's mail domain and the same name with a leading period (SES matches a bare domain exactly, so the leading-period entry covers each organization's subdomain) runs actions: S3 (raw MIME) then Lambda (event
 invocation, carrying the SPF, DKIM, DMARC, spam and virus verdicts). Receiving is not limited by the sandbox. Message
 size limit for receiving is 40 MB. **Constraint that shapes the CDK:** SES allows one active receipt rule set per
 account and region. All three Chatticus environments share the one production account, so one shared stack owns the

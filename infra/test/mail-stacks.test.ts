@@ -206,7 +206,7 @@ describe("the development mail stack: inbound receiving", () => {
       Rule: Match.objectLike({
         Name: "chatticus-development-mail",
         Enabled: true,
-        Recipients: [mailDomain],
+        Recipients: [mailDomain, `.${mailDomain}`],
         ScanEnabled: true,
       }),
     });

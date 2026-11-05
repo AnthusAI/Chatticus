@@ -12,7 +12,7 @@ runtime into the deployed front door is M1.7a.
   delete it while a rule is still in the set.
 - `ChatticusMailDevelopment` (per environment): a retained public hosted zone for the mail domain, an SES domain identity with Easy DKIM and a
   custom MAIL FROM subdomain (`bounce.` below the mail domain), a DMARC record at `p=none` for the mail subdomain only, MX records for the bare
-  mail name and a wildcard below it pointing at the SES inbound endpoint, one private raw mail bucket, one receipt rule for this environment's
+  mail name and a wildcard below it pointing at the SES inbound endpoint, one private raw mail bucket, one receipt rule (recipients: the mail domain and its leading-period form, because SES matches a bare domain exactly) for this environment's
   domain with two actions in order (the S3 action under `raw/` first, then an asynchronous Lambda action that invokes the ingress function),
   and the outbound configuration set `chatticus-development-outbound` whose send, bounce, complaint, delivery and reject events go to one
   SNS topic that signs with signature version 2.
