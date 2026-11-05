@@ -194,7 +194,7 @@ export class MailStack extends cdk.Stack {
         enabled: true,
         scanEnabled: true,
         tlsPolicy: "Optional",
-        recipients: [mailDomain],
+        recipients: [mailDomain, `.${mailDomain}`],
         actions: [
           {
             s3Action: {
