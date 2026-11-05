@@ -3,7 +3,10 @@ Feature: Members pick between the project boards of the computer and the interna
   I want the Board tab to show what each bot is tracking for itself next to the Kanbus projects in the computer's workspace
   So that I can see a bot's commitments, in columns by status, without asking in chat and without turning the computer on
 
-  DRAFT. Implemented by Milestone 2 (Kanbus epic chatticus-c5f14c) once the Kanbus-side dependencies in
+  DRAFT. The read-only scenarios (the picker, the board drawn by Kanbus, states) moved to the registered
+  features/web_bot_board_picker.feature. What remains here is the owner editing, the card detail and the layout scenarios:
+  editing needs the owner write UI (a later phase), card detail needs card selection (the first slice passes no selection
+  handler), and the layout scenarios about columns and touch need a real browser (the review screenshot gallery covers them for now). Where the list of boards sits (beside the board, or a bottom sheet) moved to the registered feature, where the width of the panel decides. Implemented by Milestone 2 (Kanbus epic chatticus-c5f14c) once the Kanbus-side dependencies in
   docs/BOT_BOARDS.md section 9 have landed. This file is not in features/cucumber-features.txt and no step in
   conversation/features-support/steps/ implements it yet. The contract is docs/BOT_BOARDS.md. Related drafts:
   bot_board_tool.feature, bot_board_access.feature, bot_board_task_migration.feature. Tag: @web (the real Board
@@ -20,121 +23,6 @@ Feature: Members pick between the project boards of the computer and the interna
   not a priority; this file does not specify it. When a bot is deleted its board is archived and leaves the picker.
 
   # ---------------------------------------------------------------- the picker
-
-  @web
-  Scenario: The picker has a section for project boards and a section for bot boards
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the workspace folder "chatticus" holds a Kanbus project with these issues
-      | id   | title           | status | priority |
-      | cx-2 | Write the guide | open   | 2        |
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    And the bot "Researcher" has a board with the card "Read the vendor report"
-    When the member opens the board picker
-    Then the picker has the section "Project boards" listing "chatticus"
-    And the picker has the section "Bot boards" listing "Assistant" and "Researcher"
-
-  @web
-  Scenario: Each entry says which kind of board it is
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the workspace folder "chatticus" holds a Kanbus project with these issues
-      | id   | title           | status | priority |
-      | cx-2 | Write the guide | open   | 2        |
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member opens the Board tab
-    And the member picks the project board "chatticus"
-    Then the board is named "chatticus board"
-    And the board says it is a project board
-    When the member picks the bot board "Assistant"
-    Then the board is named "Assistant's board"
-    And the board says it is a bot board
-
-  @web
-  Scenario: Switching boards never mixes cards
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the workspace folder "chatticus" holds a Kanbus project with these issues
-      | id   | title           | status | priority |
-      | cx-2 | Write the guide | open   | 2        |
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member picks the bot board "Assistant"
-    Then the board shows the card "Pay the electric bill"
-    And the board does not show the card "Write the guide"
-    When the member picks the project board "chatticus"
-    Then the board shows the card "Write the guide"
-    And the board does not show the card "Pay the electric bill"
-
-  @web
-  Scenario: The picker starts where the member left off
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    And the member picked the bot board "Assistant" in an earlier visit
-    When the member opens the Board tab
-    Then the bot board "Assistant" is picked
-    And the board shows the card "Pay the electric bill"
-
-  @web
-  Scenario: A bot with an empty board is still listed, with an empty board
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has an empty board
-    When the member picks the bot board "Assistant"
-    Then the board says "Assistant has nothing on its board yet"
-    And the board has no cards
-
-  @web
-  Scenario: A new bot appears in the bot boards section
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    When the owner creates the bot "Scout"
-    And the member opens the board picker
-    Then the picker has the section "Bot boards" listing "Scout"
-
-  @web
-  Scenario: A bot board is listed in an organization with no computer workspace project
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the workspace holds the file "notes/plan.md" containing "no board here"
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member opens the board picker
-    Then the picker has the section "Project boards" saying "No Kanbus project in the workspace yet"
-    And the picker has the section "Bot boards" listing "Assistant"
-
-  # ---------------------------------------------------------------- a bot board, drawn by Kanbus
-
-  @web
-  Scenario: A bot board shows its cards in columns by status
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has a board with these cards
-      | id   | title                 | status      | priority | labels    | type | parent |
-      | as-1 | Pay the electric bill | in_progress | 1        | household | task | as-0   |
-      | as-2 | Renew insurance       | open        | 2        |           | task |        |
-      | as-3 | File the return       | closed      | 2        |           | task |        |
-      | as-4 | Wait for the vendor   | blocked     | 2        |           | task |        |
-    When the member picks the bot board "Assistant"
-    Then the board column "open" lists "as-2"
-    And the board column "in_progress" lists "as-1"
-    And the board column "blocked" lists "as-4"
-    And the board column "closed" lists "as-3"
-    And the board says "4 issues"
-
-  @web
-  Scenario: A bot board is drawn by the same component as a project board
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    And the workspace folder "chatticus" holds a Kanbus project with these issues
-      | id   | title           | status | priority |
-      | cx-2 | Write the guide | open   | 2        |
-    When the member picks the project board "chatticus"
-    And the member picks the bot board "Assistant"
-    Then both boards were drawn by IssueCollection from @kanbus/ui
-    And both boards use the same card and column markup
-
-  @web
-  Scenario: The card shows the title, the id, the priority and the type
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has a board with these cards
-      | id   | title                 | status | priority | type |
-      | as-1 | Pay the electric bill | open   | 1        | task |
-    When the member picks the bot board "Assistant"
-    Then the card "as-1" shows "Pay the electric bill"
-    And the card "as-1" shows "AS-1"
-    And the card "as-1" shows "High"
 
   @web
   Scenario: A card shows how it was closed and the evidence or the reason
@@ -156,40 +44,6 @@ Feature: Members pick between the project boards of the computer and the interna
     When the member picks the bot board "Assistant"
     And the member opens the card "Pay the electric bill"
     Then the card shows the comment "Waiting for the statement" by "Assistant"
-
-  @web
-  Scenario: The bot board works with the computer off
-    Given the board view for "ryan@example.com" in "Anthus Labs" with the computer switched off
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member picks the bot board "Assistant"
-    Then the board shows the card "Pay the electric bill"
-    And the board does not say "Computer is off"
-    And the computer was not started to show the board
-
-  @web
-  Scenario: A bot board says that it is saved in the cloud
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member picks the bot board "Assistant"
-    Then the board says "Saved to the cloud"
-
-  @web
-  Scenario: A new card that the bot saves appears on refresh
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member picks the bot board "Assistant"
-    And the bot "Assistant" saves the card "Renew insurance"
-    And the member refreshes the board
-    Then the board shows the card "Renew insurance"
-
-  @web
-  Scenario: A board larger than the limit shows the most recently changed cards and says so
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" has 230 cards on its board
-    When the member picks the bot board "Assistant"
-    Then the board says "Showing the 200 most recently changed of 230 issues"
-
-  # ---------------------------------------------------------------- saving, failing, lagging
 
   @web
   Scenario: Moving a card shows saving, then saved
@@ -236,27 +90,6 @@ Feature: Members pick between the project boards of the computer and the interna
     Then the card says "Changed by someone else"
     And the board column "blocked" lists "Pay the electric bill"
     And the card offers to show the current card
-
-  @web
-  Scenario: A board that is behind says so and does not show conflicting text
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the bot "Assistant" saved the card "Renew insurance" but the board's index has not caught up
-    When the member picks the bot board "Assistant"
-    Then the board says "Some recent changes may not be shown yet"
-    And the board offers to refresh
-    When the board's index catches up
-    And the member refreshes the board
-    Then the board shows the card "Renew insurance"
-    And the board does not say "Some recent changes may not be shown yet"
-
-  @web
-  Scenario: A board whose cloud store is unreachable says so in plain words
-    Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer
-    And the board store is unreachable
-    When the member picks the bot board "Assistant"
-    Then the board says "The bot boards are not available right now"
-    And the board offers to try again
-    And the project boards of the computer are still available in the picker
 
   @web
   Scenario: A bot board that is gone says so
@@ -351,11 +184,9 @@ Feature: Members pick between the project boards of the computer and the interna
   # ---------------------------------------------------------------- phone and iPad
 
   @web @phone
-  Scenario: On a phone the picker and one column at a time fit the screen
+  Scenario: On a phone one column at a time fits the screen
     Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on a phone-width screen
     And the bot "Assistant" has a board with the card "Pay the electric bill"
-    When the member opens the board picker
-    Then the picker fits the screen without sideways scrolling
     When the member picks the bot board "Assistant"
     Then the board shows one column at a time and offers the other columns
     And no part of the board needs sideways scrolling of the page
@@ -380,12 +211,11 @@ Feature: Members pick between the project boards of the computer and the interna
     Then the card says "Saved"
 
   @web @ipad
-  Scenario: On an iPad the picker sits beside the board and the columns are side by side
+  Scenario: On an iPad the columns are side by side
     Given the board view for "ryan@example.com" in "Anthus Labs" with a running computer on an iPad-width screen
     And the bot "Assistant" has a board with the card "Pay the electric bill"
     When the member picks the bot board "Assistant"
-    Then the picker is shown beside the board
-    And at least three columns are visible at once
+    Then at least three columns are visible at once
     And no part of the board needs sideways scrolling of the page
 
   @web @ipad

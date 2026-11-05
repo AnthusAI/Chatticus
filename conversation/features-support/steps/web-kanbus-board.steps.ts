@@ -2,15 +2,11 @@ import assert from "node:assert/strict";
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import type { DataTable } from "@cucumber/cucumber";
 import { KanbusBoardProcess, type KanbusBoardState } from "../web-kanbus-board-process.ts";
+import { kanbusBoardProcessOf, kanbusBoardScenarios } from "../web-kanbus-board-scenarios.ts";
 import type { ChatticusWorld } from "../world.ts";
 
-const scenarios = new WeakMap<ChatticusWorld, KanbusBoardProcess>();
-
-function processOf(world: ChatticusWorld): KanbusBoardProcess {
-	const found = scenarios.get(world);
-	assert.ok(found, "No board scenario is running.");
-	return found;
-}
+const scenarios = kanbusBoardScenarios;
+const processOf = kanbusBoardProcessOf;
 
 After(function (this: ChatticusWorld) {
 	scenarios.get(this)?.close();

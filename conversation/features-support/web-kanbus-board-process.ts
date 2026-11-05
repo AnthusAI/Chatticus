@@ -21,12 +21,22 @@ export type KanbusBoardRequest = {
 	query: Record<string, string>;
 };
 
+export type KanbusBoardDrawing = {
+	kind: string;
+	wrapperClass: string;
+	columnClass: string;
+	cardClass: string;
+};
+
 export type KanbusBoardState = {
 	html: string;
 	text: string;
 	elements: KanbusBoardTestElement[];
 	columns: KanbusBoardColumn[];
 	requests: KanbusBoardRequest[];
+	botBoardRequests: Array<{ method: string; path: string; query: Record<string, string> }>;
+	computerRequestsSincePick: string[];
+	drawings: KanbusBoardDrawing[];
 };
 
 /**
