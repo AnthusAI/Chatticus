@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { channelsScenarioOf } from "./channels-support.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 const MEMBERS_BIN_PATH = fileURLToPath(new URL("../bin/members.ts", import.meta.url));
@@ -21,6 +22,7 @@ export async function runMembersCliProcess(world: ChatticusWorld, argv: string[]
 		env: {
 			...process.env,
 			CHATTICUS_MESSAGING_TABLE: world.messagingTable.tableName,
+			CHATTICUS_CHANNELS_MAIL_DOMAIN: channelsScenarioOf(world).mailDomain,
 			AWS_ENDPOINT_URL: process.env.CHATTICUS_TEST_AWS_ENDPOINT ?? "http://127.0.0.1:5555",
 			AWS_REGION: "us-east-1",
 			AWS_ACCESS_KEY_ID: "test",
